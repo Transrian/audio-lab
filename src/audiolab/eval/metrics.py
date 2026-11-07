@@ -338,6 +338,7 @@ def _by_category(scored: list[UtteranceScore]) -> dict[str, dict]:
         invented = sum(1 for score in group if score.hypothesis_words)
         result[name] = {
             "items": len(group),
+            "hallucinated": invented,
             "hallucination_rate": _ratio(invented, len(group)),
             "mean_words": _mean([len(score.hypothesis_words) for score in group]),
         }

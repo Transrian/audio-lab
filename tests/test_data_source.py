@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive  # noqa: E402
-from audiolab.data.textfiles import read_records, read_table  # noqa: E402
+from audiolab.data.textfiles import read_fields, read_records  # noqa: E402
 
 
 def make_archive(path: Path, members: dict[str, Path]) -> Path:
@@ -49,21 +49,24 @@ def test_audio_from_archive_reads_a_wav_member(tmp_path):
     assert audio.duration_s == pytest.approx(0.5, abs=1e-3)
 
 
-def test_read_table_uses_the_header(tmp_path):
+def test_read_fields_reads_a_headerless_table_by_position(tmp_path):
+    """FLEURS tables have no header, so positions are the only thing to go by."""
     path = tmp_path / "test.tsv"
     path.write_text(
-        "id\tfilename\ttranscription\n1\ta\tBonjour.\n2\tb\tAu revoir.\n", encoding="utf-8"
+        "1\ta.wav\tBonjour, monde.\tnormalized\tx\t3.0\tFEMALE\n"
+        "2\tb.wav\tAu revoir.\tnormalized\tx\t2.0\tMALE\n",
+        encoding="utf-8",
     )
-    rows = read_table(path, ("id", "filename", "transcription"), key="filename")
-    assert rows["a"]["transcription"] == "Bonjour."
-    assert rows["b"]["id"] == "2"
+    rows = read_fields(path, {0: "id", 2: "transcription"}, key_index=1, min_fields=3)
+    assert rows["a.wav"]["transcription"] == "Bonjour, monde."
+    assert rows["b.wav"]["id"] == "2"
 
 
-def test_read_table_refuses_a_changed_header(tmp_path):
+def test_read_fields_stops_on_a_short_line(tmp_path):
     path = tmp_path / "test.tsv"
-    path.write_text("id\taudio\ttext\n1\ta\thi\n", encoding="utf-8")
-    with pytest.raises(DownloadError, match="no column"):
-        read_table(path, ("filename", "transcription"), key="filename")
+    path.write_text("1\ta.wav\n", encoding="utf-8")
+    with pytest.raises(DownloadError, match="unexpected line"):
+        read_fields(path, {0: "id", 2: "transcription"}, key_index=1, min_fields=3)
 
 
 def test_read_records_keeps_the_rest_of_the_line_as_value(tmp_path):

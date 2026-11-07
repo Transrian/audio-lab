@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from audiolab import __version__
 from audiolab.core.gpu import list_gpus
@@ -25,7 +26,13 @@ from audiolab.data.panels import (
     panel_path,
 )
 from audiolab.eval.client import ConfigError, ModelConfig
-from audiolab.eval.report import REPORT_NAME, compare_runs, render_comparison, score_run
+from audiolab.eval.report import (
+    REPORT_NAME,
+    SUMMARY_NAME,
+    compare_runs,
+    render_comparison,
+    score_run,
+)
 from audiolab.eval.runner import RunContext, RunError, load_suite, run_suite
 
 
@@ -71,19 +78,22 @@ def cmd_data_panels(args: argparse.Namespace) -> int:
     return 0
 
 
-def _check_panels(dataset: str, panels_dir) -> int:
-    """Verify existing panels against the prepared data; report and exit non-zero on problems."""
+def _check_panels(dataset: str, panels_dir: Path) -> int:
+    """Verify existing panels against the prepared data; report and exit 1 on problems."""
     clips = load_dataset_clips(dataset)
     failed = False
     for name in PANEL_NAMES:
         path = panel_path(f"{dataset}-{name}", panels_dir)
         if not path.is_file():
-            print(f"{path}: missing")
+            print(f"{path}: missing", file=sys.stderr)
             failed = True
             continue
         problems = check_panel(path, clips)
-        print(f"{path}: {'ok' if not problems else '; '.join(problems)}")
-        failed = failed or bool(problems)
+        if problems:
+            print(f"{path}: {'; '.join(problems)}", file=sys.stderr)
+            failed = True
+        else:
+            print(f"{path}: ok")
     return 1 if failed else 0
 
 
@@ -110,11 +120,12 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 def cmd_score(args: argparse.Namespace) -> int:
     """Score a finished run again, from its records; the same records give the same files."""
-    summary = score_run(args.run, args.panels_dir, args.data_dir)
+    run_dir = Path(args.run)
+    summary = score_run(run_dir, args.panels_dir, args.data_dir)
     total = sum(panel["items"] for panel in summary["panels"].values())
     print(f"scored {total} items over {len(summary['panels'])} panels")
-    print(f"summary: {args.run / 'summary.json'}")
-    print(f"report: {args.run / REPORT_NAME}")
+    print(f"summary: {run_dir / SUMMARY_NAME}")
+    print(f"report: {run_dir / REPORT_NAME}")
     return 0
 
 

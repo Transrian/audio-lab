@@ -63,17 +63,19 @@ class Panel:
         return header + "\n" + "\n".join(self.ids) + "\n"
 
 
-def panel_path(title: str, panels_dir: Path = DEFAULT_PANELS_DIR) -> Path:
-    return panels_dir / f"{title}.txt"
+def panel_path(title: str, panels_dir: str | Path = DEFAULT_PANELS_DIR) -> Path:
+    """Where one panel lives; the CLI passes the directory as a string."""
+    return Path(panels_dir) / f"{title}.txt"
 
 
 def build_panels(
     dataset: str,
     clips: list[Clip],
-    panels_dir: Path = DEFAULT_PANELS_DIR,
+    panels_dir: str | Path = DEFAULT_PANELS_DIR,
     built: str | None = None,
 ) -> list[Panel]:
     """Build the three panels of a dataset, refusing to replace existing files."""
+    panels_dir = Path(panels_dir)
     for name in PANEL_NAMES:
         path = panel_path(f"{dataset}-{name}", panels_dir)
         if path.is_file():

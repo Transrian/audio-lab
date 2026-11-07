@@ -152,6 +152,7 @@ def test_nonspeech_summary_counts_hallucinations_by_category():
         {"text": "oh", "count": 1},
         {"text": "thank you for watching this video", "count": 1},
     ]
+    assert summary["by_category"]["silence"]["hallucinated"] == 1
     assert summary["by_category"]["silence"]["hallucination_rate"]["value"] == 0.5
     assert summary["by_category"]["noise"]["mean_words"] == 1.0
 

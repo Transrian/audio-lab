@@ -96,11 +96,11 @@ def fetch_nonspeech(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: b
     for index in range(SILENCE_CLIPS):
         clip_id = f"{name}:silence-{index:03d}"
         silence = digital_silence(name, index)
-        builder.add(clip_id, silence, group=clip_id, **generated_fields())
+        builder.add(clip_id, silence, group=clip_id, category="silence", **generated_fields())
     for index in range(NOISE_CLIPS):
         clip_id = f"{name}:noise-{index:03d}"
         noise = low_level_noise(name, index)
-        builder.add(clip_id, noise, group=clip_id, **generated_fields())
+        builder.add(clip_id, noise, group=clip_id, category="noise", **generated_fields())
     add_esc50_clips(builder, name, cache, verbose)
     builder.write()
     return len(builder.clips)
@@ -170,7 +170,7 @@ def add_esc50_clips(builder: ManifestBuilder, name: str, cache: Path, verbose: b
 
 
 def esc50_group(category: str) -> str:
-    """Which family a class belongs to, for the report's category breakdown.
+    """Which family a class belongs to, the unit the report breaks the rate down by.
 
     A class that is not listed here stops preparation: a new upstream class
     must not be silently dropped from the breakdown.

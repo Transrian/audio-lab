@@ -45,15 +45,20 @@ def dirs(tmp_path, monkeypatch):
     return data, cache
 
 
-def fake_fleurs_cache(cache: Path, name: str, rows: int = 60) -> None:
-    """A cache that looks like a downloaded FLEURS language: a TSV and a tar archive."""
+def fake_fleurs_cache(cache: Path, name: str, rows: int = 60, readers: int = 3) -> None:
+    """A cache that looks like a downloaded FLEURS language: a TSV and a tar archive.
+
+    The real table has no header line, and one sentence is read by several
+    readers, so a sentence id repeats while a file name does not.
+    """
     directory = cache / name
     directory.mkdir(parents=True, exist_ok=True)
-    table = ["id\tfilename\ttranscription\tnum_samples\tgender"]
+    table = []
     members = {}
     for index in range(rows):
+        sentence = 900000 + index // readers
         filename = f"clip_{index}"
-        table.append(f"{900000 + index}\t{filename}\tBonjour numéro {index}.\t16000\tFEMALE")
+        table.append(f"{sentence}\t{filename}.wav\tBonjour numéro {index}.\t16000\tFEMALE")
         members[f"audio/{filename}.wav"] = write_tone(directory / f"{filename}.wav", seconds=0.4)
     (directory / "test.tsv").write_text("\n".join(table) + "\n", encoding="utf-8")
     make_archive(directory / "test.tar.gz", members)
@@ -66,7 +71,8 @@ def fake_mls_cache(cache: Path, name: str = "mls-fr") -> None:
     audio_name = "1234_5678_000"
     tone = write_tone(directory / "1.flac", seconds=0.3)
     make_archive(directory / f"{audio_name}.tar.gz", {f"{audio_name}/1.flac": tone})
-    (directory / "audio_filenames.txt").write_text(f"{audio_name}\n", encoding="utf-8")
+    # The real name list already carries the .tar.gz suffix.
+    (directory / "audio_filenames.txt").write_text(f"{audio_name}.tar.gz\n", encoding="utf-8")
     (directory / "segments.txt").write_text("1 1234 0.0 0.3\n", encoding="utf-8")
     (directory / "transcripts.txt").write_text("1 le petit chat dort\n", encoding="utf-8")
 
@@ -111,10 +117,15 @@ def test_fleurs_fetch_prepares_a_manifest_with_references(dirs):
     assert fetch_fleurs("fleurs-fr", cache, data / "fleurs-fr", verbose=False) == 60
 
     clips = read_manifest(data / "fleurs-fr")
-    assert clips[0].id == "fleurs-fr:900000"
-    assert clips[0].text == "Bonjour numéro 0."
-    assert clips[0].text_has_casing_punct is True
-    assert clips[0].group == "fleurs-fr:900000"
+    by_id = {clip.id: clip for clip in clips}
+    first = by_id["fleurs-fr:clip_0"]
+    assert first.audio == "audio/fleurs-fr_clip_0.wav"
+    assert first.text == "Bonjour numéro 0."
+    assert first.text_has_casing_punct is True
+    # Three recordings of one sentence are one group and three distinct ids.
+    assert first.group == "fleurs-fr:900000"
+    assert by_id["fleurs-fr:clip_2"].group == "fleurs-fr:900000"
+    assert len(by_id) == len(clips)
     assert clips[0].group_kind == "sentence"
     assert clips[0].language == "fr"
     assert clips[0].license == "CC-BY-4.0"
@@ -174,10 +185,14 @@ def test_nonspeech_fetch_builds_the_battery(dirs):
     assert len({clip.group for clip in clips}) == 300  # every clip is its own group
     assert sum(clip.id.startswith("nonspeech:silence") for clip in clips) == 50
     assert sum(clip.id.startswith("nonspeech:noise") for clip in clips) == 50
-    categories = [clip.category for clip in clips if clip.category]
-    assert len(categories) == 200
-    assert len({category.split("/")[1] for category in categories}) == 50
-    assert {category.split("/")[0] for category in categories} <= set(ESC50_GROUPS)
+    # Every clip carries a category so the report can break the rate down:
+    # the two generated kinds, then one group/class label per ESC-50 class.
+    assert sum(clip.category == "silence" for clip in clips) == 50
+    assert sum(clip.category == "noise" for clip in clips) == 50
+    sounds = [clip.category for clip in clips if "/" in clip.category]
+    assert len(sounds) == 200
+    assert len({category.split("/")[1] for category in sounds}) == 50
+    assert {category.split("/")[0] for category in sounds} <= set(ESC50_GROUPS)
     assert verify_clips(data / "nonspeech", clips) == []
 
 

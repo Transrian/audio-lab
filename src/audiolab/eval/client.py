@@ -46,8 +46,9 @@ class ModelConfig:
     request: dict = field(default_factory=dict)
 
     @classmethod
-    def from_file(cls, path: Path) -> ModelConfig:
+    def from_file(cls, path: str | Path) -> ModelConfig:
         """Read a model config, refusing anything that is clearly wrong."""
+        path = Path(path)
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError) as failure:

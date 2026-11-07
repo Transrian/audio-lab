@@ -64,8 +64,9 @@ class SuiteSpec:
     panels: list[str]
 
 
-def load_suite(path: Path) -> SuiteSpec:
+def load_suite(path: str | Path) -> SuiteSpec:
     """Read ``configs/suites/<name>.yaml``."""
+    path = Path(path)
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or not isinstance(raw.get("panels"), list) or not raw["panels"]:
         raise RunError(f"{path} must hold a non-empty 'panels' list")
@@ -79,15 +80,21 @@ class RunContext:
 
     model: ModelConfig
     suite: SuiteSpec
-    panels_dir: Path = DEFAULT_PANELS_DIR
-    data_dir: Path | None = None
-    runs_root: Path = field(default_factory=runs_dir)
+    panels_dir: str | Path = DEFAULT_PANELS_DIR
+    data_dir: str | Path | None = None
+    runs_root: str | Path = field(default_factory=runs_dir)
     base_url: str = ""
     api_key: str = ""
     concurrency: int = DEFAULT_CONCURRENCY
     sealed: bool = False
     fresh: bool = False
     verbose: bool = True
+
+    def __post_init__(self) -> None:
+        """The command line passes directories as strings; paths are used here."""
+        self.panels_dir = Path(self.panels_dir)
+        self.data_dir = Path(self.data_dir) if self.data_dir else None
+        self.runs_root = Path(self.runs_root)
 
 
 def run_suite(context: RunContext, *, client_factory=None) -> Path:

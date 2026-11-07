@@ -38,14 +38,19 @@ GAPS = (
 
 
 def score_run(
-    run_dir: Path,
-    panels_dir: Path,
-    data_dir: Path | None = None,
+    run_dir: str | Path,
+    panels_dir: str | Path,
+    data_dir: str | Path | None = None,
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
 ) -> dict:
-    """Score a run directory and write ``summary.json`` and ``report.md``; returns the summary."""
+    """Score a run directory and write ``summary.json`` and ``report.md``; returns the summary.
+
+    ``draws`` and ``seed`` are exposed so a test can bound its runtime; the
+    defaults are the frozen numbers, which is what a real report uses.
+    """
+    run_dir, panels_dir = Path(run_dir), Path(panels_dir)
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
     records = read_records(run_dir / RECORDS_NAME)
     panels = {
@@ -115,15 +120,16 @@ def _interval(scored: list[metrics.UtteranceScore], value, draws: int, seed: int
 
 
 def compare_runs(
-    run_a: Path,
-    run_b: Path,
-    panels_dir: Path,
-    data_dir: Path | None = None,
+    run_a: str | Path,
+    run_b: str | Path,
+    panels_dir: str | Path,
+    data_dir: str | Path | None = None,
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
 ) -> dict:
     """Paired comparison of two runs over the ids they have in common."""
+    run_a, run_b, panels_dir = Path(run_a), Path(run_b), Path(panels_dir)
     identity_a = json.loads((run_a / IDENTITY_NAME).read_text(encoding="utf-8"))
     identity_b = json.loads((run_b / IDENTITY_NAME).read_text(encoding="utf-8"))
     if identity_a["panels"] != identity_b["panels"]:
@@ -236,6 +242,14 @@ def render_markdown(summary: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _warm_calls(latency: dict) -> str:
+    """How many calls the latency covers, naming the cold ones only when there are some."""
+    warm = f"{latency['warm_items']} warm calls"
+    if not latency["cold_items"]:
+        return warm
+    return f"{warm}, {latency['cold_items']} cold excluded"
+
+
 def _panel_section(section: dict) -> list[str]:
     lines = [f"## {section['panel']}", ""]
     if section["kind"] == "speech":
@@ -245,9 +259,7 @@ def _panel_section(section: dict) -> list[str]:
     lines += [
         "",
         f"- latency: median {_number(section['latency']['median_s'])} s, "
-        f"p95 {_number(section['latency']['p95_s'])} s over "
-        f"{section['latency']['warm_items']} warm calls "
-        f"({section['latency']['cold_items']} cold excluded)",
+        f"p95 {_number(section['latency']['p95_s'])} s over {_warm_calls(section['latency'])}",
         f"- {section['latency']['label']}: median {_number(section['latency']['median_rtf'])}, "
         f"mean {_number(section['latency']['mean_rtf'])}",
         "",
@@ -284,7 +296,6 @@ def _speech_section(section: dict) -> list[str]:
         f"- loops: {_percent(section['loop_rate']['value'])}, "
         f"truncations: {_percent(section['truncation_rate']['value'])}, "
         f"empty outputs: {_percent(section['empty_output_rate']['value'])}",
-        "",
     ]
     return lines
 
@@ -309,11 +320,30 @@ def _nonspeech_section(section: dict) -> list[str]:
         lines += [""]
     else:
         lines += ["No hypothesis was produced on any clip.", ""]
-    lines += ["| category | clips | hallucination rate | mean words |", "| --- | --- | --- | --- |"]
+    lines += _family_table(section)
+    return lines
+
+
+def _family(category: str) -> str:
+    """The ESC-50 family of a class label, so the table has a handful of rows."""
+    return category.split("/")[0]
+
+
+def _family_table(section: dict) -> list[str]:
+    """The category breakdown merged by family; per class it would be 50 rows."""
+    items: dict[str, int] = {}
+    invented: dict[str, int] = {}
+    words: dict[str, float] = {}
+    for name, entry in section["by_category"].items():
+        family = _family(name)
+        items[family] = items.get(family, 0) + entry["items"]
+        invented[family] = invented.get(family, 0) + entry["hallucinated"]
+        words[family] = words.get(family, 0.0) + entry["mean_words"] * entry["items"]
+    lines = ["| category | clips | hallucination rate | mean words |", "| --- | --- | --- | --- |"]
     lines += [
-        f"| {name} | {entry['items']} | {_percent(entry['hallucination_rate']['value'])} | "
-        f"{_number(entry['mean_words'])} |"
-        for name, entry in section["by_category"].items()
+        f"| {family} | {items[family]} | {_percent(invented[family] / items[family])} | "
+        f"{_number(words[family] / items[family])} |"
+        for family in sorted(items)
     ]
     return lines
 

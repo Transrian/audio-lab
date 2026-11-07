@@ -312,5 +312,6 @@ def test_a_non_speech_panel_is_scored_for_hallucinations(tmp_path):
     assert section["hallucination_rate"]["ci"]["low"] == 1.0
     assert section["top_hypotheses"][0]["count"] == 4
     assert section["by_category"]["silence"]["items"] == 4
+    assert "| silence | 4 | 100.00 %" in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
     records = read_records(run_dir / RECORDS_NAME)
     assert all(record["language_sent"] is False for record in records)

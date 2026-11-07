@@ -11,6 +11,9 @@ dist/
 # Data, audio, weights and run outputs never live in the repository.
 /data/
 /runs/
+# Downloaded archives; the default cache path is inside the checkout, so it must
+# stay ignored even though the prepared data lives outside.
+/.cache/
 *.wav
 *.flac
 *.mp3

@@ -34,7 +34,8 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
     builder = ManifestBuilder(dataset_dir, verbose=verbose)
 
     for index, audio_name in enumerate(filenames, start=1):
-        archive = download(_source(f"audio/{audio_name}.tar.gz"), cache / f"{audio_name}.tar.gz")
+        # The name list already includes the .tar.gz suffix.
+        archive = download(_source(f"audio/{audio_name}"), cache / audio_name)
         with open_archive(archive) as handle:
             for member in handle:
                 text = _clip_text(name, member.name, segments, transcripts)

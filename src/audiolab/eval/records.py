@@ -42,11 +42,11 @@ def dataset_and_panel(panel_title: str) -> tuple[str, str]:
 
 
 def load_panel_items(
-    panel_title: str, panels_dir: Path, data_dir_: Path | None = None
+    panel_title: str, panels_dir: str | Path, data_dir_: str | Path | None = None
 ) -> list[Item]:
     """Every item of a panel, without any hypothesis yet."""
     dataset, _ = dataset_and_panel(panel_title)
-    panel = read_panel(panels_dir / f"{panel_title}.txt")
+    panel = read_panel(Path(panels_dir) / f"{panel_title}.txt")
     root = Path(data_dir_) if data_dir_ else data_dir()
     clips = {clip.id: clip for clip in read_manifest(root / dataset)}
     missing = [clip_id for clip_id in panel.ids if clip_id not in clips]
@@ -70,15 +70,16 @@ def load_panel_items(
     ]
 
 
-def clip_paths(panel_title: str, data_dir_: Path | None = None) -> dict[str, Path]:
+def clip_paths(panel_title: str, data_dir_: str | Path | None = None) -> dict[str, Path]:
     """Where the audio of each clip of a panel lives."""
     dataset, _ = dataset_and_panel(panel_title)
     root = Path(data_dir_) if data_dir_ else data_dir()
     return {clip.id: root / dataset / clip.audio for clip in read_manifest(root / dataset)}
 
 
-def panel_hashes(panel_titles: list[str], panels_dir: Path) -> dict[str, str]:
+def panel_hashes(panel_titles: list[str], panels_dir: str | Path) -> dict[str, str]:
     """sha256 of each panel file, so a resume can tell whether the ids changed."""
+    panels_dir = Path(panels_dir)
     return {
         title: hashlib.sha256((panels_dir / f"{title}.txt").read_bytes()).hexdigest()
         for title in panel_titles
