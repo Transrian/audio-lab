@@ -32,9 +32,13 @@ class Audio:
         return len(self.samples) / self.sample_rate
 
 
-def load_audio(path, sample_rate: int = SAMPLE_RATE) -> Audio:
-    """Read any soundfile-supported file as mono float32 at ``sample_rate``."""
-    samples, source_rate = sf.read(str(path), dtype="float32", always_2d=True)
+def load_audio(source, sample_rate: int = SAMPLE_RATE) -> Audio:
+    """Read any soundfile-supported file as mono float32 at ``sample_rate``.
+
+    ``source`` is a path or a file-like object (an archive member, an HTTP
+    response body), so a caller never has to unpack a dataset to disk.
+    """
+    samples, source_rate = sf.read(source, dtype="float32", always_2d=True)
     mono = samples.mean(axis=1)
     if source_rate != sample_rate:
         mono = soxr.resample(mono, source_rate, sample_rate, quality="HQ")
