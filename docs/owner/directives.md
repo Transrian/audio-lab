@@ -30,3 +30,5 @@ Scopes in use: `global` (the whole repository), `stt` (speech-to-text).
 | D-012 | global | 2026-11-07 | Directives are recorded faithful to the owner's meaning, in neutral wording validated by the owner. |
 | D-013 | global | 2026-11-07 | The repository never contains voice recordings, dictations, or personal audio or transcripts. |
 | D-014 | global | 2026-11-07 | Agents commit directly to `main`; no pull requests. |
+| D-015 | stt | 2026-11-07 | The evaluation can run against any model served through an OpenAI-compatible API, without installing that model's dependencies. |
+| D-016 | stt | 2026-11-07 | Local models are evaluated the same way: a small, temporary server exposes them through an OpenAI-compatible API, so that supporting a new model family (for example a fine-tuned Qwen ASR) requires few changes. |
