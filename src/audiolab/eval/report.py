@@ -303,11 +303,18 @@ def render_markdown(summary: dict) -> str:
 
 
 def _warm_calls(latency: dict) -> str:
-    """How many calls the latency covers, naming the cold ones only when there are some."""
+    """How many calls the latency covers, naming what is not obvious.
+
+    The cold calls and the retries are only named when there are some: a panel
+    with neither reads "100 warm calls" and one with 3 retries says how many
+    requests it cost, so a number that took three tries is not hidden.
+    """
     warm = f"{latency['warm_items']} warm calls"
-    if not latency["cold_items"]:
-        return warm
-    return f"{warm}, {latency['cold_items']} cold excluded"
+    if latency["cold_items"]:
+        warm = f"{warm}, {latency['cold_items']} cold excluded"
+    if latency["requests"] != latency["warm_items"] + latency["cold_items"]:
+        warm = f"{warm}, {latency['requests']} requests in total"
+    return warm
 
 
 def _panel_section(section: dict) -> list[str]:

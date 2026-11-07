@@ -135,6 +135,17 @@ def test_latency_excludes_cold_calls_and_reports_a_network_inclusive_rtf():
     assert latency["median_s"] == 1.5
     assert latency["mean_rtf"] == pytest.approx(0.15)
     assert latency["label"] == "API RTF (includes network)"
+    assert latency["requests"] == 3
+
+
+def test_latency_counts_the_requests_a_retried_item_cost():
+    """A panel of two clips answered in five requests says so."""
+    items = [
+        speech_item("a", "un deux", "un deux", latency_s=1.0, attempts=3),
+        speech_item("b", "un deux", "un deux", latency_s=1.0, attempts=2, group="s2"),
+    ]
+    latency = metrics.speech_summary(items)["latency"]
+    assert (latency["warm_items"], latency["requests"]) == (2, 5)
 
 
 def test_nonspeech_summary_counts_hallucinations_by_category():

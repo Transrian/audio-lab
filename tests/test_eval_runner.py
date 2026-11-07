@@ -392,6 +392,33 @@ def test_compare_refuses_a_run_with_no_shared_ids(workspace, tmp_path):
         compare_runs(first, empty, workspace["panels_dir"], workspace["data_dir"], draws=50)
 
 
+def test_the_report_says_when_a_panel_cost_more_requests_than_clips(workspace):
+    """One retry is invisible in a latency median; the request count is not."""
+    state = {"first": True}
+
+    def respond(request):
+        if state["first"]:
+            state["first"] = False
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(
+            context_.model,
+            base_url,
+            transport=httpx.MockTransport(respond),
+            sleep=lambda _: None,
+        )
+
+    run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+    items = panel_size(workspace)
+    # One retry, so one more request than the panel has clips. The retried clip
+    # is the first one of the run: cold, so out of the latency, in the count.
+    assert f"{items + 1} requests in total" in report
+    assert f"{items - 1} warm calls, 1 cold excluded" in report
+
+
 def test_a_panel_with_no_reference_text_reports_no_wer(tmp_path):
     """References are the only source of WER; without them the report says n/a."""
     data_dir = tmp_path / "datasets"
