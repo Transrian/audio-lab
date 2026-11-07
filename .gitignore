@@ -29,5 +29,5 @@ dist/
 .env
 .DS_Store
 
-# Drafts
-PLAN-draft.md
+# Local agent working notes (see AGENTS.md)
+/plans/

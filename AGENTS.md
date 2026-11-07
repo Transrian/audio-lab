@@ -57,6 +57,10 @@ Strong tasks:
 - Small commits; message format `area: what changed` (for example `eval: add WER`).
 - Before every push, run `./scripts/check.sh`. It must pass.
 - If CI on `main` is red, fixing it comes before any other work.
+- Keep working notes in `plans/` (git-ignored, local only; start with
+  `plans/README.md` if it exists). Write there anything a later session would
+  need: findings, open questions, plans in progress. Notes are never a source of
+  truth: what lasts moves to `docs/` and is committed.
 
 ## Code and docs
 
