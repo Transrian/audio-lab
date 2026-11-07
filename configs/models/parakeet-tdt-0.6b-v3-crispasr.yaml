@@ -6,4 +6,5 @@ base_url_env: STT_BASE_URL
 api_key_env: STT_API_KEY
 model: stt-c-parakeet-tdt-0.6B-v3
 send_language: true
+server_label: owner's home server
 request: {}

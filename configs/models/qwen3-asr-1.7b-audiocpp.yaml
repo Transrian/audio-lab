@@ -6,4 +6,5 @@ base_url_env: STT_BASE_URL
 api_key_env: STT_API_KEY
 model: stt-a-qwen3-asr-1.7B
 send_language: true
+server_label: owner's home server
 request: {}
