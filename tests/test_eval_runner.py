@@ -475,6 +475,9 @@ def test_compare_two_models_pairs_the_same_ids(workspace):
     assert section["kind"] == "speech"
     assert section["b"] > section["a"]
     assert section["verdict"] == "good-model better"
+    # The pairing uses the ids both runs answered, which is what the header says:
+    # a recorded id whose request failed is not in the comparison.
+    assert "Paired over the ids both runs answered" in render_comparison(comparison)
 
 
 def test_compare_refuses_runs_over_different_panels(workspace):
