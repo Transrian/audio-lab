@@ -29,7 +29,13 @@ RULES = {
     "fr-plural-kept": "number spelling with a plural s is not a number here",
     "enmore-1234": "a four digit number in the year range reads as a year pair",
     "fr-mister": '"m" is not expanded to "monsieur": it is also the metre symbol',
-    "strict-thousands-en": "in the strict view a comma between digits is a decimal mark",
+    "strict-thousands-en": "the strict view groups thousands with an English comma too",
+    "n1-en-decimal-not-thousands": "a comma that does not group three digits is the decimal mark",
+    "n1-fr-comma-is-decimal": "the same string in French is one and a half, not fifteen",
+    "n1-fr-cent-mille-plural-refused": "cent loses its plural s before mille",
+    "n1-en-year-measurement": "a quantity is not a year",
+    "n1-en-year-2000s-oh-not-folded": 'the spoken "twenty oh five" is not folded',
+    "n1-en-round-hundred-not-a-year": "a year ending in 00 keeps its cardinal reading",
     "m4-decimal-leading-zero": "3,05 and 3,5 are not the same number",
     "m4-en-and-between-numbers": 'an "and" between plain numbers is a real word',
     "m4-filler-ben-kept": '"ben" is a name as often as a hesitation, so it is kept',
@@ -89,17 +95,15 @@ def test_unknown_view_or_language_is_refused():
 
 
 def test_a_normalized_text_stays_as_it_is():
-    """Normalizing a normalized text changes nothing, with one documented exception.
+    """Normalizing a normalized text changes nothing.
 
-    "2.000" is ambiguous once the punctuation is gone: it is the strict form of
-    an English "2,000" *and* a dot-grouped 2000. Reading it again takes the
-    grouped reading, so that one string does not round-trip; nothing else does.
+    This used to have one exception, the English "2.000" that stands for both a
+    comma-grouped 2000 and a decimal with three digits. Since a mark that groups
+    three digits is read as a thousands separator in either language, the strict
+    view of "2,000" is "2000" and the exception is gone.
     """
     for pair in PAIRS:
         once = normalize(pair["ref"], pair["language"], pair["view"])
-        if once == "2.000":
-            assert normalize(once, pair["language"], "strict") == "2000"
-            continue
         assert normalize(once, pair["language"], pair["view"]) == once
 
 

@@ -203,7 +203,7 @@
 {"id": "strict-trailing-punctuation", "language": "fr", "ref": "chat.", "hyp": "chat", "view": "strict", "expect_equal": true}
 {"id": "strict-exclamation", "language": "fr", "ref": "Bonjour !", "hyp": "bonjour", "view": "strict", "expect_equal": true}
 {"id": "strict-decimal", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "strict", "expect_equal": true}
-{"id": "strict-thousands-en", "language": "en", "ref": "2,000", "hyp": "2000", "view": "strict", "expect_equal": false}
+{"id": "strict-thousands-en", "language": "en", "ref": "2,000", "hyp": "2000", "view": "strict", "expect_equal": true}
 {"id": "strict-thousands-fr", "language": "fr", "ref": "1.234", "hyp": "1234", "view": "strict", "expect_equal": true}
 {"id": "strict-case", "language": "fr", "ref": "Chat", "hyp": "chat", "view": "strict", "expect_equal": true}
 {"id": "strict-hyphen", "language": "fr", "ref": "vingt-deux", "hyp": "vingt deux", "view": "strict", "expect_equal": false}
@@ -261,3 +261,27 @@
 {"id": "m4-spelling-colour", "language": "en", "ref": "the colour is nice", "hyp": "the color is nice", "view": "normalized", "expect_equal": true}
 {"id": "m4-clock-h", "language": "fr", "ref": "14h30", "hyp": "quatorze heures trente", "view": "normalized", "expect_equal": true}
 {"id": "m4-money", "language": "fr", "ref": "$3.50", "hyp": "trois dollars cinquante", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-thousands-digits", "language": "en", "ref": "1,500", "hyp": "1500", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-thousands-written", "language": "en", "ref": "1,500", "hyp": "one thousand five hundred", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-thousands-point", "language": "en", "ref": "1.500", "hyp": "1,500", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-millions", "language": "en", "ref": "1,000,000", "hyp": "one million", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-decimal", "language": "en", "ref": "1.5", "hyp": "one point five", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-decimal-not-thousands", "language": "en", "ref": "1,5", "hyp": "15", "view": "normalized", "expect_equal": false}
+{"id": "n1-en-thousands-not-decimal", "language": "en", "ref": "2,000", "hyp": "two point zero zero zero", "view": "normalized", "expect_equal": false}
+{"id": "n1-strict-en-comma-groups", "language": "en", "ref": "1,500", "hyp": "1500", "view": "strict", "expect_equal": true}
+{"id": "n1-strict-en-point-groups", "language": "en", "ref": "1.500", "hyp": "1500", "view": "strict", "expect_equal": true}
+{"id": "n1-fr-comma-is-decimal", "language": "fr", "ref": "1,5", "hyp": "15", "view": "normalized", "expect_equal": false}
+{"id": "n1-fr-point-groups", "language": "fr", "ref": "1.500", "hyp": "1500", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-space-groups", "language": "fr", "ref": "1 500", "hyp": "1500", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-cent-mille", "language": "fr", "ref": "500 000", "hyp": "cinq cent mille", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-cent-mille-plural-refused", "language": "fr", "ref": "500 000", "hyp": "cinq cents mille", "view": "normalized", "expect_equal": false}
+{"id": "n1-fr-vingt-mille", "language": "fr", "ref": "80 000", "hyp": "quatre-vingt mille", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-vingt-alone", "language": "fr", "ref": "80", "hyp": "quatre-vingts", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-deux-cent-mille", "language": "fr", "ref": "200 000", "hyp": "deux cent mille", "view": "normalized", "expect_equal": true}
+{"id": "n1-fr-cent-millions-keeps-s", "language": "fr", "ref": "200 000 000", "hyp": "deux cents millions", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-year-2000s", "language": "en", "ref": "2005", "hyp": "two thousand five", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-year-2000s-oh-not-folded", "language": "en", "ref": "2005", "hyp": "twenty oh five", "view": "normalized", "expect_equal": false}
+{"id": "n1-en-year-measurement", "language": "en", "ref": "1999 dollars", "hyp": "one thousand nine hundred ninety nine dollars", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-year-measurement-symbol", "language": "en", "ref": "1999 %", "hyp": "one thousand nine hundred ninety nine percent", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-year-decade", "language": "en", "ref": "2021", "hyp": "twenty twenty one", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-round-hundred-not-a-year", "language": "en", "ref": "1500", "hyp": "fifteen hundred", "view": "normalized", "expect_equal": false}

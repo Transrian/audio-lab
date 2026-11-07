@@ -148,6 +148,75 @@ FR_UNITS_WORDS = {"%": "pour cent", "€": "euros", "$": "dollars", "£": "livre
 EN_UNITS_WORDS = {"%": "percent", "€": "euros", "$": "dollars", "£": "pounds", "°C": "degrees"}
 # Symbols carry no letters, so tokenizing keeps them only by looking them up here.
 UNIT_SYMBOLS = frozenset(FR_UNITS_WORDS) | frozenset(EN_UNITS_WORDS)
+# Words that make the number before them a quantity rather than a bare number:
+# "1999 dollars" is an amount and reads as a cardinal, while "1999" alone is a
+# year. Written out because a unit can be spelled instead of symbolised.
+UNIT_WORDS = frozenset(
+    list(FR_UNITS_WORDS.values())
+    + list(EN_UNITS_WORDS.values())
+    + [
+        "euro",
+        "euros",
+        "dollar",
+        "dollars",
+        "pound",
+        "pounds",
+        "cent",
+        "cents",
+        "percent",
+        "degree",
+        "degrees",
+        "hour",
+        "hours",
+        "heure",
+        "heures",
+        "minute",
+        "minutes",
+        "second",
+        "seconds",
+        "seconde",
+        "secondes",
+        "meter",
+        "meters",
+        "metre",
+        "metres",
+        "kilometer",
+        "kilometers",
+        "kilometre",
+        "kilometres",
+        "kilogram",
+        "kilograms",
+        "kilogramme",
+        "kilogrammes",
+        "kilo",
+        "kilos",
+        "gram",
+        "grams",
+        "gramme",
+        "grammes",
+        "liter",
+        "liters",
+        "litre",
+        "litres",
+        "mile",
+        "miles",
+        "foot",
+        "feet",
+        "tonne",
+        "tonnes",
+        "ton",
+        "tons",
+        "watt",
+        "watts",
+        "volt",
+        "volts",
+        "hertz",
+        "byte",
+        "bytes",
+        "gigabyte",
+        "gigabytes",
+    ]
+)
 # Symbols with no letters that still carry a word.
 SYMBOL_WORDS = frozenset({"&"})
 
@@ -159,7 +228,7 @@ def normalize(text: str, language: str, view: str = "normalized") -> str:
     prepared = _prepare(text)
     if view == "formatted":
         return _punctuation_view(prepared)
-    tokens = _strict_tokens(prepared)
+    tokens = _strict_tokens(prepared, language)
     if view == "strict":
         return " ".join(tokens)
     return " ".join(_normalized_tokens(tokens, language))
@@ -179,7 +248,7 @@ def _punctuation_view(text: str) -> str:
     return re.sub(r"\s+", " ", spaced).strip()
 
 
-def _strict_tokens(text: str) -> list[str]:
+def _strict_tokens(text: str, language: str) -> list[str]:
     """Case-folded tokens without punctuation; ``'`` and ``-`` stay inside words.
 
     Every punctuation or symbol character separates, whatever it is: quotes,
@@ -198,7 +267,7 @@ def _strict_tokens(text: str) -> list[str]:
     protected = re.sub(r"(?<![\w.,])[+](?=\d)", SIGN_PLUS, protected)
     tokens: list[str] = []
     for chunk in _split_on_separators(protected):
-        word = _restore_marks(_trim(chunk))
+        word = _restore_marks(_trim(chunk), language)
         spelled = word.upper() in UNIT_SYMBOLS or word in SYMBOL_WORDS
         if word and (any(character.isalnum() for character in word) or spelled):
             tokens.append(word)
@@ -236,32 +305,36 @@ def _trim(word: str) -> str:
     return trimmed.strip("'")
 
 
-def _restore_marks(word: str) -> str:
+def _restore_marks(word: str, language: str) -> str:
     """Put the protected marks back, canonicalizing a number on the way."""
     word = word.replace(SIGN_PLUS, "+")
     if CLOCK_COLON in word:
         return word.replace(CLOCK_COLON, ":")
     if DECIMAL_COMMA in word or DECIMAL_POINT in word:
-        return _canonical_number(word)
+        return _canonical_number(word, language)
     return word
 
 
-def _canonical_number(word: str) -> str:
+def _canonical_number(word: str, language: str) -> str:
     """One spelling for a number: no thousands separator, a point for the decimal.
 
-    A comma between digits is a decimal mark, never a thousands separator:
-    French writes 3,5 for three and a half and the corpora scored here are
-    French and English, so 3,500 is read as 3,500 and not as 3500. A dot with
-    exactly three digits behind it is a thousands group (2.000 is 2000), and
-    French space-separated groups are joined before this point, so a model
-    writing 3.5 and a reference writing 3,5 compare equal.
+    The language decides which mark means what, because the two cultures write
+    numbers the other way round. English groups thousands with either mark and
+    writes the decimal with a point: "1,500" and "1.500" are fifteen hundred and
+    "1.5" is one and a half. French writes the decimal with a comma and groups
+    thousands with a point: "1,5" is one and a half and "1.500" is fifteen
+    hundred. A mark that does not fit the three-digit grouping pattern is read
+    as the decimal mark, which is the reading that loses least: an English
+    "1,5" is one and a half rather than fifteen. French space-separated groups
+    are joined before this point, so both sides of a pair end up here as
+    digits.
     """
-    restored = word.replace(DECIMAL_POINT, ".").replace(DECIMAL_COMMA, ",")
-    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", restored):
-        return restored.replace(".", "")
-    if re.fullmatch(r"[+-]?\d+,\d+", restored):
-        return restored.replace(",", ".")
-    return restored
+    sign = word[0] if word[:1] in "+-" else ""
+    digits = word[len(sign) :].replace(DECIMAL_POINT, ".").replace(DECIMAL_COMMA, ",")
+    thousands = r"[.,]" if language == "en" else r"\."
+    if re.fullmatch(rf"\d{{1,3}}(?:{thousands}\d{{3}})+", digits):
+        return sign + re.sub(r"[.,]", "", digits)
+    return sign + digits.replace(",", ".")
 
 
 def _normalized_tokens(tokens: list[str], language: str) -> list[str]:
@@ -280,11 +353,21 @@ def _normalized_tokens(tokens: list[str], language: str) -> list[str]:
             result += _words(_measure_words(number, symbol, language))
             index += 2
             continue
-        result += _spoken_words(number, language)
+        result += _spoken_words(number, language, year=not _followed_by_a_unit(merged, index))
         index += 1
     if language == "en":
         result = _drop_number_connectors(result)
     return _apply_spelling(result)
+
+
+def _followed_by_a_unit(tokens: list[str], index: int) -> bool:
+    """True when the number at ``index`` is followed by a unit, so it is not a year."""
+    if index + 1 >= len(tokens):
+        return False
+    following = tokens[index + 1]
+    if following.upper() in UNIT_SYMBOLS:
+        return True
+    return following in UNIT_WORDS or following.rstrip("s") in UNIT_WORDS
 
 
 def _words(text: str) -> list[str]:
@@ -292,11 +375,11 @@ def _words(text: str) -> list[str]:
     return [word for word in text.replace("-", " ").split() if word]
 
 
-def _spoken_words(token: str, language: str) -> list[str]:
+def _spoken_words(token: str, language: str, *, year: bool = True) -> list[str]:
     """The spoken words of one token, without filler words."""
     return [
         spelled
-        for word in _normalize_token(token, language)
+        for word in _normalize_token(token, language, year=year)
         if word and word not in FILLERS[language]
         for spelled in _words(word)
     ]
@@ -354,7 +437,7 @@ def _merge_number_groups(tokens: list[str]) -> list[str]:
     return merged
 
 
-def _normalize_token(token: str, language: str) -> list[str]:
+def _normalize_token(token: str, language: str, *, year: bool = True) -> list[str]:
     """The words one token contributes, in order."""
     word = _trim(token)
     sign = _sign_words(word, language)
@@ -362,12 +445,12 @@ def _normalize_token(token: str, language: str) -> list[str]:
     if re.fullmatch(r"(\d{1,3})( \d{3})+", body):
         # Grouped digits are one number however many groups there are: "1 000 000"
         # is a million, not a thousand and a zero.
-        return (sign + _verbalize_number(int(_without_spaces(body)), language)).split()
+        return (sign + _verbalize_number(int(_without_spaces(body)), language, year=year)).split()
     if re.fullmatch(r"\d+", body):
-        return (sign + _verbalize_number(int(body), language)).split()
+        return (sign + _verbalize_number(int(body), language, year=year)).split()
     decimal = re.fullmatch(r"\d+[.,]\d+", body)
     if decimal:
-        return (sign + _number_words(body, language)).split()
+        return (sign + _number_words(body, language, year=False)).split()
     if re.fullmatch(r"1(?:er|re|ère|e)", word):
         return [{"fr": "premier", "en": "first"}[language]]
     ordinal = re.fullmatch(r"(\d+)(?:e|er|re|ème|eme|th|st|nd|rd)", word)
@@ -383,7 +466,10 @@ def _normalize_token(token: str, language: str) -> list[str]:
         return ABBREVIATIONS[language][word].split()
     if "-" in word:
         return [
-            part for piece in word.split("-") if piece for part in _normalize_token(piece, language)
+            part
+            for piece in word.split("-")
+            if piece
+            for part in _normalize_token(piece, language, year=year)
         ]
     return [word]
 
@@ -406,17 +492,17 @@ def _measure_words(number: str, symbol: str, language: str) -> str:
     money = re.fullmatch(r"([+-]?)(\d+)[.,](\d{2})", number)
     if money and symbol in "€$£":
         sign = _sign_words(number, language)
-        whole = _verbalize_number(int(money.group(2)), language)
-        cents = _verbalize_number(int(money.group(3)), language)
+        whole = _verbalize_number(int(money.group(2)), language, year=False)
+        cents = _verbalize_number(int(money.group(3)), language, year=False)
         return f"{sign}{whole} {unit} {cents}"
-    return f"{_number_words(number, language)} {unit}"
+    return f"{_number_words(number, language, year=False)} {unit}"
 
 
 def _without_spaces(word: str) -> str:
     return word.replace(" ", "")
 
 
-def _number_words(text: str, language: str) -> str:
+def _number_words(text: str, language: str, *, year: bool = True) -> str:
     """Read a number: ``3.5`` is "trois virgule cinq" in French, "three point five" in English.
 
     The digits after the decimal mark are read one by one, which is how a
@@ -430,9 +516,9 @@ def _number_words(text: str, language: str) -> str:
     separator = "virgule" if language == "fr" else "point"
     if re.fullmatch(r"\d+[.,]\d+", body):
         whole, fraction = re.split(r"[.,]", body, maxsplit=1)
-        whole_words = _verbalize_number(int(whole), language)
+        whole_words = _verbalize_number(int(whole), language, year=year)
         return f"{sign}{whole_words} {separator} {_digit_words(fraction, language)}"
-    return sign + _verbalize_number(int(body), language)
+    return sign + _verbalize_number(int(body), language, year=year)
 
 
 def _digit_words(digits: str, language: str) -> str:
@@ -441,9 +527,9 @@ def _digit_words(digits: str, language: str) -> str:
     return " ".join(units[int(digit)] for digit in digits)
 
 
-def _verbalize_number(value: int, language: str) -> str:
-    """The cardinal in words for the language of the text."""
-    return _french_number(value) if language == "fr" else _english_number(value)
+def _verbalize_number(value: int, language: str, *, year: bool = True) -> str:
+    """The cardinal in words; ``year`` allows the English year reading."""
+    return _french_number(value) if language == "fr" else _english_number(value, year=year)
 
 
 def _french_number(value: int) -> str:
@@ -477,24 +563,39 @@ def _french_number(value: int) -> str:
             words = f"{_french_number(count)} {singular if count == 1 else plural}"
             return words if rest == 0 else f"{words} {_french_number(rest)}"
     thousands, rest = divmod(value, 1000)
-    prefix = "mille" if thousands == 1 else f"{_french_number(thousands)} mille"
+    if thousands == 1:
+        prefix = "mille"
+    else:
+        # "cent" and "quatre-vingt" lose their plural s before "mille": 500 000 is
+        # "cinq cent mille" and 80 000 "quatre-vingt mille", because mille is a
+        # numeral and not a noun. Before million and milliard, which are nouns,
+        # the s stays ("deux cents millions").
+        counted = _french_number(thousands)
+        if counted.endswith("cents") or counted.endswith("quatre-vingts"):
+            counted = counted[:-1]
+        prefix = f"{counted} mille"
     return prefix if rest == 0 else f"{prefix} {_french_number(rest)}"
 
 
-def _english_number(value: int) -> str:
+def _english_number(value: int, *, year: bool = True) -> str:
     """Cardinal in words, hyphens replaced by spaces so both spellings match.
 
-    A year is read as two pairs ("nineteen ninety nine", "twenty oh five"),
-    which is how references write a year and how a model says it. Only the
-    years people actually quote are read that way: outside that range a four
-    digit number is a quantity and keeps its cardinal reading.
+    A **bare** four digit number that looks like a year is read as two pairs
+    ("nineteen ninety nine", "twenty ten"), which is how references write a year
+    and how a model says it. The reading is switched off as soon as the number
+    is part of a quantity: "1999 dollars" is an amount, read as a cardinal.
+    Inside the decade 2000-2009 the cardinal wins even on its own ("two thousand
+    five"), because that is what the panels write; the spoken "twenty oh five"
+    is a form this normalizer does not fold into it.
     """
     if value < 0:
-        return "minus " + _english_number(-value)
-    if YEAR_RANGE[0] <= value <= YEAR_RANGE[1] and value % 100:
+        return "minus " + _english_number(-value, year=year)
+    if year and 2000 <= value <= 2009:
+        return _english_number(value, year=False)
+    if year and YEAR_RANGE[0] <= value <= YEAR_RANGE[1] and value % 100:
         hundreds, rest = divmod(value, 100)
-        pair = _english_number(rest) if rest >= 10 else f"oh {EN_UNITS[rest]}"
-        return f"{_english_number(hundreds)} {pair}"
+        pair = _english_number(rest, year=False) if rest >= 10 else f"oh {EN_UNITS[rest]}"
+        return f"{_english_number(hundreds, year=False)} {pair}"
     if value < 20:
         return EN_UNITS[value]
     if value < 100:
@@ -507,8 +608,8 @@ def _english_number(value: int) -> str:
     for scale, word in ((10**9, "billion"), (10**6, "million"), (1000, "thousand")):
         if value >= scale:
             count, rest = divmod(value, scale)
-            prefix = f"{_english_number(count)} {word}"
-            return prefix if rest == 0 else f"{prefix} {_english_number(rest)}"
+            prefix = f"{_english_number(count, year=False)} {word}"
+            return prefix if rest == 0 else f"{prefix} {_english_number(rest, year=False)}"
     return EN_UNITS[value]
 
 

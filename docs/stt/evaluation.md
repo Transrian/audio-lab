@@ -152,29 +152,45 @@ The battery has no language of its own, so its words go through the English
 rules; what it asks is only whether the model said anything, and one view
 everywhere keeps a word count comparable between panels.
 
+Which mark is the decimal and which groups thousands depends on the language,
+because the two conventions are the other way round:
+
+- **English** groups thousands with a comma or a dot and writes the decimal with
+  a dot: `1,500` and `1.500` are both `one thousand five hundred`, `1,000,000` is
+  `one million`, and `1.5` is `one point five`. `1,5` is read as a decimal too,
+  since a mark that does not group exactly three digits cannot be a thousands
+  separator: reading it as fifteen would be the worse mistake;
+- **French** writes the decimal with a comma and groups thousands with a dot:
+  `1,5` is `un virgule cinq` and `1.500` is `mille cinq cents`. Both languages
+  also write grouped thousands with spaces (`1 500`, `12 000`), which are joined
+  into one number;
+- `cent` and `quatre-vingt` lose their plural `s` before `mille` (`500 000` →
+  `cinq cent mille`, `80 000` → `quatre-vingt mille`), because `mille` is a
+  numeral and not a noun. Before `million` and `milliard`, which are nouns, the
+  `s` stays (`200 000 000` → `deux cents millions`).
+
 The rules have limits, and they are deliberate:
 
-- a comma is always a **decimal mark**: English `1,000` reads as
-  `one point zero zero zero`, not as one thousand, because `1,000` and `1,5` are
-  indistinguishable without knowing the convention of the text;
-- a dot followed by exactly three digits is a **thousands separator**
-  (`12.345` → `twelve thousand three hundred forty five`), which is what the
-  panels need but leaves one string that does not survive a round trip: the
-  strict form of an English `2,000` is `2.000`, and reading that again gives
-  `two thousand` rather than the decimal it came from;
 - four-digit English numbers from 1100 to 2099 read as a **year pair**
-  (`1999` → `nineteen ninety nine`), which is how those are spoken in this
-  panel; a number ending in `00` keeps its cardinal form (`1900` → `one thousand
-  nine hundred`), and the rule is English only: French `1999` stays a cardinal;
+  (`1999` → `nineteen ninety nine`) only when the number stands **bare**: a
+  number followed by a unit or a currency is a quantity, so `1999 dollars` is
+  `one thousand nine hundred ninety nine dollars`. A number ending in `00` keeps
+  its cardinal form (`1900` → `one thousand nine hundred`), which is why `1,500`
+  reads as `one thousand five hundred` and not as `fifteen hundred`; the rule is
+  English only, and French `1999` stays a cardinal;
+- the decade 2000–2009 is read as a **cardinal** even on its own: `2005` is
+  `two thousand five`. The spoken `twenty oh five` is a form this normalizer does
+  not fold into it, so a hypothesis that says it scores a substitution; from 2010
+  the pair reading applies again (`2010` → `twenty ten`);
 - `M.` is **not** expanded: the dot is stripped by the strict rules, and the one
   letter left is not enough to tell an abbreviation from a word;
 - `m` and `mm` are **not** expanded to metres and millimetres, although `5 km`
   is: in these panels a lone `m` is as likely to be a time unit or a filler as a
   length.
 
-The behaviour is pinned by a trap set of 262 pairs in
+The behaviour is pinned by a trap set of 286 pairs in
 `tests/data/normalizer_traps.jsonl` (`ref`, `hyp`, `language`, `view`,
-`expect_equal`), 214 of which must compare equal: a pair that must compare
+`expect_equal`), 233 of which must compare equal: a pair that must compare
 *different* is as important as one that must match, and the file records both.
 It is agent-written and has not been reviewed by the owner; every pair is
 asserted by `tests/test_eval_normalize.py`.
