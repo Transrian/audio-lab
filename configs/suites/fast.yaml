@@ -1,0 +1,9 @@
+# A short pass: about 100 utterances per language plus the 60-clip battery.
+# Use it while iterating; use full.yaml before believing a difference.
+name: fast
+panels:
+  - fleurs-fr-fast
+  - mls-fr-fast
+  - fleurs-en-fast
+  - librispeech-en-fast
+  - nonspeech-fast

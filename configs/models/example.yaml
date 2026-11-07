@@ -1,0 +1,10 @@
+# Template for a new model. Copy it, set `name` and `model`, point the two
+# environment variables at the server, then run:
+#   audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.yaml
+name: example
+api: transcriptions
+base_url_env: STT_BASE_URL
+api_key_env: STT_API_KEY
+model: served-model-id
+send_language: true
+request: {}

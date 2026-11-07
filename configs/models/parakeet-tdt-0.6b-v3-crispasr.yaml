@@ -1,0 +1,9 @@
+# CrispASR server on the owner's home server. The URL and the key are read from
+# the environment, never written here (D-015).
+name: parakeet-tdt-0.6b-v3-crispasr
+api: transcriptions
+base_url_env: STT_BASE_URL
+api_key_env: STT_API_KEY
+model: stt-c-parakeet-tdt-0.6B-v3
+send_language: true
+request: {}

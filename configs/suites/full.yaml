@@ -1,0 +1,9 @@
+# The panels a report is judged on. Slower, and the only place a small
+# difference can become visible.
+name: full
+panels:
+  - fleurs-fr-full
+  - mls-fr-full
+  - fleurs-en-full
+  - librispeech-en-full
+  - nonspeech-full
