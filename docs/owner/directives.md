@@ -32,3 +32,4 @@ Scopes in use: `global` (the whole repository), `stt` (speech-to-text).
 | D-014 | global | 2026-11-07 | Agents commit directly to `main`; no pull requests. |
 | D-015 | stt | 2026-11-07 | The evaluation can run against any model served through an OpenAI-compatible API, without installing that model's dependencies. |
 | D-016 | stt | 2026-11-07 | Local models are evaluated the same way: a small, temporary server exposes them through an OpenAI-compatible API, so that supporting a new model family (for example a fine-tuned Qwen ASR) requires few changes. |
+| D-017 | global | 2026-11-08 | Expensive results are cached and reused as long as what produced them has not changed, so that adding data or changing code recomputes only what is affected. |

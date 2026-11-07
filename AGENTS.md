@@ -68,6 +68,8 @@ Strong tasks:
   experiment ([decision 0007](docs/decisions/accepted/0007-single-package-single-command.md)).
   Reuse `audiolab.core` instead of writing new helpers.
 - New behavior comes with a CPU test in `tests/`.
+- Cache expensive results (D-017). The cache key holds everything that can
+  change the result and nothing else; a wrong reuse is a bug, a test proves it.
 - Write documentation for a human who has no access to your session: no
   references to conversations, no "as discussed", no history of how you got
   there. Every claim must be checkable from the repository.
