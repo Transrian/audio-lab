@@ -41,10 +41,9 @@ Only what the repository settles is used here as a criterion.
 - **French first, English kept** ([D-009](../owner/directives.md)): French is the
   priority, English is kept, other languages are out of scope. Every source
   below is French, English, or supplies noise and room acoustics.
-- **No personal audio in the repository** ([D-013](../owner/directives.md)): it
-  never contains recordings, dictations or personal transcripts, so a source
-  whose audio may not be redistributed can still be prepared by a script into
-  `$AUDIOLAB_DATA` like the others.
+- **No audio in the repository** ([D-013](../owner/directives.md)): a dataset is
+  prepared by a script into `$AUDIOLAB_DATA` and never committed. That avoids
+  redistributing it, not the need for the right to use it.
 - **Non-commercial data may be used for testing only**
   ([decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md)):
   a dataset restricted to non-commercial use may be used to evaluate models and
@@ -113,7 +112,7 @@ The owner's private recordings: never published, never in this repository
 | # | Source | Language | License | Reason / note |
 | --- | --- | --- | --- | --- |
 | 1 | [Emilia-YODAS](https://github.com/open-mmlab/Amphion/blob/main/preprocessors/Emilia/README.md) FR | fr | CC-BY-4.0 (2026-11-05) | Talk shows, interviews, debates and sport: the closest legal audio to "film" speech. Pseudo-labelled with Whisper; same YODAS2 origin as Granary, so deduplicate by video. Hugging Face access has conditions the owner must accept. |
-| 1 bis | French **CC-BY** YouTube videos published after the 2023 YODAS collection | fr | CC-BY chosen by the uploader (2026-11-05) | Same recipe as Granary on recent content, but downloading is legally contested: YouTube's terms forbid automated access unless the law allows it, and a German court treated the rolling cipher as an effective technical measure in 2024. Check the licence video by video; label with open ASR models only. |
+| 1 bis | French **CC-BY** YouTube videos published after the 2023 YODAS collection | fr | CC-BY chosen by the uploader (2026-11-05) | Same recipe as Granary on recent content, but downloading is legally contested: YouTube's terms forbid automated access unless the law allows it, and getting the audio may mean circumventing a technical measure. Check the licence video by video; label with open ASR models only. |
 | 2 | [Conférences Pierre Mendès France](https://www.data.gouv.fr/fr/datasets/transcriptionsxml-audiomp3-mefr-ccpmf-2012-2020-zip/) (2012–2020) | fr | Licence Ouverte 2.0, publishable (2026-11-05) | Conferences and round tables on economy, digital and administration: a register close to dictation. The data.gouv.fr exports point at a download site that no longer serves the set, so the archive must be found again, and the XML must be checked to be faithful, alignable transcripts. |
 | 3 | [« Libre à vous ! »](https://libreavous.org) (April, radio Cause Commune) | fr | audio **SA** (CC-BY-SA 2.0+ / Art Libre 1.3+ / GFDL 1.3+); transcripts on [librealire.org](https://www.librealire.org) under the "Verbatim" licence (2026-11-05) | Free-software radio: English loanwords and IT vocabulary in conversational French, with human transcripts. Music has its own licences and must be cut; the transcripts may be copied but not republished modified. |
 | 3 bis | French **PeerTube** via [SepiaSearch](https://sepiasearch.org) | fr | per video, declared by the uploader (BY, BY-SA or public domain) (2026-11-05) | Conference recordings from the free-software world, so technical French, plus public-sector instances. A declared licence is not a real one: the sample checked contained a badly labelled anime dump, so instances and channels need a whitelist, and the language too. Pseudo-labels as in 1 bis. |
@@ -163,9 +162,9 @@ a campaign ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sea
 ### Synthetic audio and text to speech
 
 A replacement path for the abandoned Voxtral plan, for anything that could be
-published. Cloning the owner's voice is agreed but would make the audio as
-personal as the private recordings, so a publishable model may only use CC0 or
-CC-BY voices. The recordings above stay out of the repository
+published: the model, the voices and the texts must all allow it, so a
+publishable model may only use voices whose licence permits it (CC0 or CC-BY).
+A voice cloned from a person is personal audio and stays out of the repository
 ([D-013](../owner/directives.md)).
 
 | Source | Language | License | Reason / note |
@@ -177,7 +176,7 @@ CC-BY voices. The recordings above stay out of the repository
 | [Kyutai TTS 1.6B en_fr](https://huggingface.co/kyutai/tts-1.6b-en_fr) | fr, en | **CC-BY-4.0**; voices under their own licences | Native English and French. Voice licences must be checked one by one: some voice sets are CC-BY-NC. |
 | Piper `fr_FR` | fr | per voice: some CC-BY-4.0, one CC0, one CC-BY-SA, one AGPL (2026-11-05) | French-only volume, runs on CPU, and handles English badly. |
 | Kokoro-82M | fr | Apache-2.0 (2026-11-05) | A single mediocre French voice: filler only. |
-| Texts for synthetic sentences | fr, en | mixed: package-name glossaries, [CommitPackFT](https://huggingface.co/datasets/bigcode/commitpackft) (MIT), Wiktionary and French Wikipedia (CC-BY-SA-4.0), MDN FR (CC-BY-SA-2.5), Python documentation FR (PSF-2.0), linuxfr.org (CC-BY-SA-4.0) | Package and project names are not protected, and generated sentences record model, revision and prompt. The majority position is that training on BY-SA text does not impose SA on the weights, while republishing the sentence set would. |
+| Texts for synthetic sentences | fr, en | mixed: package-name glossaries, [CommitPackFT](https://huggingface.co/datasets/bigcode/commitpackft) (MIT), Wiktionary and French Wikipedia (CC-BY-SA-4.0), MDN FR (CC-BY-SA-2.5), Python documentation FR (PSF-2.0), linuxfr.org (CC-BY-SA-4.0) | Package and project names are not protected, and generated sentences record model, revision and prompt. Whether training on BY-SA text imposes SA on the weights is not settled; republishing the sentence set would. |
 
 No FR/EN code-switched set with a permissive licence existed when checked
 (2026-11-05), so such data has to be generated.
@@ -207,7 +206,7 @@ published, so such a source could come back as an evaluation candidate.
 | Source | Language | License | Reason for the decision |
 | --- | --- | --- | --- |
 | Audio and subtitles of films and series (including subtitle archives and rips) | fr | owners' copyright | No lawful access, so the text-and-data-mining exception does not apply, and circumventing a technical measure is forbidden; the subtitles are protected in their own right. Decided in the earlier project, 2026-11-05. |
-| Old films the owner owns | fr | audiovisual work: copyright runs to 70 years after the last surviving author, plus 30 years in special cases; producers' and performers' rights (50 years) are expired for old films | Almost no French sound film is in the public domain yet, so each film would need its four authors checked before it could even be a candidate. Recent restorations, subtitles and disc extras stay protected, and 1930s–1950s theatrical diction, narrow-band mono sound and the absence of transcripts make it poor ASR material. |
+| Old films on purchased discs | fr | authors' copyright: 70 years after the death of the last of its authors | Almost no French sound film is in the public domain yet, so each film would need its authors checked before it could even be a candidate. Recent restorations, subtitles and disc extras stay protected, and 1930s–1950s theatrical diction, narrow-band mono sound and the absence of transcripts make it poor ASR material. |
 | YouTube videos that are not CC-BY | fr | creators' copyright | The mining exception does not apply: the terms reserve the rights, and a machine-readable per-video training setting defaults to refusing. Pseudo-labelling with another ASR model changes nothing about the rights on the audio. |
 | [Archime french_tv_media_dataset_2026](https://huggingface.co/datasets/Archime/french_tv_media_dataset_2026) | fr | card says CC-BY-4.0, but the audio is France Télévisions property, academic use only | Conditions incompatible with personal use or publication, and the labels are pseudo-labels. |
 | [mTEDx](https://openslr.org/100) FR | fr | CC-BY-NC-ND-4.0 | Non-commercial **and** no derivatives. |
@@ -224,7 +223,7 @@ published, so such a source could come back as an evaluation candidate.
 | CS-FLEURS training set | fr, en | CC-BY-NC-4.0 | Non-commercial, so no training; its test part stays an evaluation candidate above. |
 | AMI, TED-LIUM 3, linux.conf.au | en | NC-SA, NC-ND, NC-SA | Non-commercial. |
 | PyCon US | en | speaker agreement: "non-commercial, private" use | Non-commercial; contrary to a widespread belief, it is not CC-BY. |
-| [GigaSpeech](https://huggingface.co/datasets/speechcolab/gigaspeech) | en | metadata Apache-2.0, but the access conditions say the organisers do not own the audio, and allow non-commercial research only, behind a named form (2026-11-05) | Non-commercial, English only, and every day dictation is not research; Granary EN and FOSDEM cover the same content lawfully. |
+| [GigaSpeech](https://huggingface.co/datasets/speechcolab/gigaspeech) | en | metadata Apache-2.0, but the access conditions say the organisers do not own the audio, and allow non-commercial research only, behind a named form (2026-11-05) | Non-commercial, English only, and personal use is not research; Granary EN and FOSDEM cover the same content lawfully. |
 | Earnings-21/22, ConEC | en | no licence declared ("free-to-use benchmark") | No licence means all rights reserved. |
 | Silencio english-accents, westbrook English_Accent_DataSet, Speech Accent Archive | en | NC ("the weights inherit the restriction"), no licence with a research-only mix, and NC-SA | Non-commercial or unknown. |
 | Parliament of Canada (Hansard and audio), Swiss Federal Assembly | en, fr | Crown copyright, permission required, "no rights transferred" | No licence to reuse the audio. |

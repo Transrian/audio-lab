@@ -73,6 +73,8 @@ Strong tasks:
 - New behavior comes with a CPU test in `tests/`.
 - Cache expensive results (D-017). The cache key holds everything that can
   change the result and nothing else; a wrong reuse is a bug, a test proves it.
+- Before acquiring, dropping or rejecting a data source, update
+  [`docs/stt/sources.md`](docs/stt/sources.md) with its status and the reason (D-018).
 - Write documentation for a human who has no access to your session: no
   references to conversations, no "as discussed", no history of how you got
   there. Every claim must be checkable from the repository.
