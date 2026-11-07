@@ -133,24 +133,35 @@ Three kinds of clip that must stay silent, 300 in total:
 ## Known overlap with what models were trained on
 
 These splits are test sets, but a test set is not automatically data the model
-has never seen. Nothing here is a measured property of any model, and no number
-in a report is corrected for it: it is the list of things a reader has to check
-in a model card before trusting a difference of a few points.
+has never seen. **This project has not measured that for any model, and no number
+in a report is corrected for it.** What follows is the list of questions to ask a
+model card before trusting a difference of a few points, not a finding:
 
-- `fleurs-fr`, `fleurs-en`: FLEURS is a common benchmark and its test split
-  appears in public training mixtures. A model trained on the mixture may have
-  seen these sentences, and its numbers here are then not held-out numbers.
-- `librispeech-en`: LibriSpeech `test-clean` is the standard English test split
-  and is also used inside many training setups. A suspiciously low WER on this
-  panel is a reason to check the model card, not evidence of quality.
-- `mls-fr`: MLS French test utterances come from audiobooks of the archive.org
-  collections that other pipelines also train on, and the split has been
-  reported to overlap training data of models trained on MLS itself. Treat
-  `mls-fr` as the panel most likely to be memorised.
-- `nonspeech`: ESC-50 clips are widely used in audio training and can be
-  memorised just as speech can be; the generated silence and noise cannot.
-- No panel is a defence against data contamination, and these points do not
-  change any number: they say which differences are worth being careful about.
+- **Was the model trained on the test split?** All four corpora are public and
+  widely reused, so a model trained on "LibriSpeech" or "MLS" may have seen the
+  very utterances scored here. Our panels come from the same public splits as
+  every other evaluation of these models, so the question is not avoidable, only
+  answerable: [FLEURS `test`][fleurs], [MLS `test`][mls] and
+  [LibriSpeech `test-clean`][librispeech] say where the data comes from, and
+  [arXiv:2505.22251][contamination] studies this overlap for the LibriSpeech
+  test sets in a large language-model training corpus.
+- **Is the number too good?** `librispeech-en` is the standard English test
+  split, and a WER far below the published range of the same model family is a
+  reason to check the model card rather than a result to report.
+- **`mls-fr` is the likeliest to be memorised.** Its test utterances are
+  audiobook French, and audiobooks are the most common source of read-speech
+  training material, so a model is more likely to have met this text than the
+  Wikipedia sentences of FLEURS.
+- **`nonspeech` too.** ESC-50 is a standard audio-classification corpus and can
+  be part of an audio model's training data like any other public set; the
+  generated silence and noise cannot be.
+- **No panel is a defence against contamination.** These points change no
+  number: they say which differences are worth being careful about.
+
+[fleurs]: https://huggingface.co/datasets/google/fleurs
+[mls]: https://huggingface.co/datasets/facebook/multilingual_librispeech
+[librispeech]: https://www.openslr.org/12
+[contamination]: https://arxiv.org/abs/2505.22251
 
 ### Known gaps
 

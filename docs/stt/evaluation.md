@@ -138,8 +138,15 @@ says so.
 
 Model output and reference text never match character for character. Both sides
 go through the same function, so a difference in a score always comes from the
-text, never from the processing. `NORMALIZER_VERSION` is recorded in every
-summary because changing a rule changes scores.
+text, never from the processing.
+
+`NORMALIZER_VERSION` is recorded in every summary because changing a rule
+changes scores, and the rules are not frozen while the project moves: **version 1
+is the first version any score was published with, and every later change to a
+normalization rule bumps it, however small**, so two summaries that carry
+different versions were not produced by the same measuring instrument and do not
+compare. Bumping the version is the point at which a comparison across versions
+becomes a new experiment rather than a diff.
 
 | view | rule | example: reference vs hypothesis | equal? |
 | --- | --- | --- | --- |
@@ -232,6 +239,15 @@ Speech panels:
 Zero-reference panels have no WER, so `n/a` is reported rather than 0: an error
 rate over zero reference words does not exist, and a model that talks over
 silence has not scored 0 %. The errors it made are still counted in the battery.
+
+An utterance whose reference normalizes to nothing is the same problem one level
+down, and it is answered the other way round, because the tail quantiles are
+built on per-utterance rates: insertions over an empty reference count one error
+per invented word, so such an utterance reads as far above 50 % WER — which is
+what the sentence error rate already says about it. An empty reference answered
+with nothing stays 0 %. At panel level the invented words stay in the numerator
+and no words are added to the denominator, so a panel whose references all
+normalize away still reports `n/a` rather than a rate invented from nothing.
 
 Latency is the time of the request that answered, and nothing else. A backoff
 sleep after a 503, or the second call a server forces after refusing the
