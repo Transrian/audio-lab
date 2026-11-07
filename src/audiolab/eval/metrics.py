@@ -46,6 +46,7 @@ class Item:
     duration_s: float = 0.0
     cold: bool = False
     text_has_casing_punct: bool = False
+    attempts: int = 1  # requests sent for this item, retries included
 
     @property
     def failed(self) -> bool:
@@ -353,6 +354,8 @@ def _latency(items: list[Item]) -> dict:
     return {
         "warm_items": len(warm),
         "cold_items": sum(1 for item in items if item.cold),
+        # A retried item costs more requests than the panel has items.
+        "requests": sum(item.attempts for item in items),
         "median_s": _percentile(latencies, 50),
         "p95_s": _percentile(latencies, 95),
         "median_rtf": _percentile(ratios, 50),

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,7 +28,6 @@ from audiolab.eval.client import (
     TranscriptionError,
     api_key_from_env,
     base_url_from_env,
-    host_hash,
 )
 from audiolab.eval.metrics import Item
 from audiolab.eval.normalize import NORMALIZER_VERSION
@@ -38,10 +38,10 @@ from audiolab.eval.records import (
     clip_paths,
     dataset_and_panel,
     git_commit,
+    latest_records,
     load_panel_items,
     panel_hashes,
     read_records,
-    with_records,
 )
 from audiolab.eval.report import score_run
 
@@ -105,7 +105,7 @@ def run_suite(context: RunContext, *, client_factory=None) -> Path:
         panel: load_panel_items(panel, context.panels_dir, context.data_dir)
         for panel in context.suite.panels
     }
-    identity = _identity(context, base_url, list(items_by_panel))
+    identity = _identity(context, list(items_by_panel))
     run_dir = _prepare_run_dir(context, identity)
     records_path = run_dir / RECORDS_NAME
     pending = _pending_items(items_by_panel, read_records(records_path))
@@ -144,11 +144,15 @@ def _refuse_sealed_without_flag(context: RunContext) -> None:
         print(f"warning: {SEALED_WARNING}")
 
 
-def _identity(context: RunContext, base_url: str, panels: list[str]) -> dict:
-    """What a resumable run is: the model, the endpoint host, the panels, the code."""
+def _identity(context: RunContext, panels: list[str]) -> dict:
+    """What a resumable run is: the model, the panels, the code.
+
+    The endpoint is part of it only through the ``server_label`` of the model
+    config: a run record is committed or shared, and a host name or a URL must
+    not travel with it.
+    """
     return {
         "model": context.model.identity(),
-        "base_url_hash": host_hash(base_url),
         "panels": panel_hashes(panels, context.panels_dir),
         "suite": context.suite.name,
         "audiolab_version": __version__,
@@ -162,10 +166,11 @@ def _prepare_run_dir(context: RunContext, identity: dict) -> Path:
     root = Path(context.runs_root) / "eval" / context.model.name / context.suite.name
     identity_path = root / IDENTITY_NAME
     if not context.fresh and identity_path.is_file():
-        if json.loads(identity_path.read_text(encoding="utf-8")) == identity:
+        recorded = json.loads(identity_path.read_text(encoding="utf-8"))
+        if recorded == identity:
             return root
         raise RunError(
-            f"{root} holds a different run (model, endpoint host, panels or code changed). "
+            f"{root} holds a different run: {_identity_differences(recorded, identity)}. "
             "Pass --fresh to start a new directory, or use a different --runs dir."
         )
     run_dir = _timestamped(root) if context.fresh and root.exists() else root
@@ -176,40 +181,83 @@ def _prepare_run_dir(context: RunContext, identity: dict) -> Path:
     return run_dir
 
 
+def _identity_differences(recorded: dict, current: dict) -> str:
+    """Which parts of the identity changed, so the message says what to fix.
+
+    Saying only that "something changed" leaves the reader to diff two JSON
+    files; the field names (and, for the panels, the hashes) are the answer.
+    """
+    changed = []
+    for key in sorted(set(recorded) | set(current)):
+        before, after = recorded.get(key), current.get(key)
+        if before != after:
+            changed.append(f"{key} changed ({_short_value(before)} -> {_short_value(after)})")
+    return "; ".join(changed) if changed else "the recorded identity is not the same one"
+
+
+def _short_value(value, limit: int = 40) -> str:
+    """A value as the error message shows it: short, and never a long JSON blob."""
+    text = json.dumps(value, sort_keys=True, ensure_ascii=False)
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
 def _timestamped(root: Path) -> Path:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return root.parent / f"{root.name}-{stamp}"
 
 
 def _pending_items(items_by_panel: dict[str, list[Item]], records: list[dict]) -> list[Item]:
-    """The items that have no record yet, in panel order."""
-    done = {record["id"] for record in records}
-    return [item for items in items_by_panel.values() for item in items if item.id not in done]
+    """The items to send: those with no record yet, plus those that failed.
+
+    A failed request is not a measurement: its record keeps the failure visible
+    (the summary counts failed requests separately) and the item is sent again
+    on the next run, the newest record winning.
+    """
+    last = latest_records(records)
+    return [
+        item
+        for items in items_by_panel.values()
+        for item in items
+        if item.id not in last or last[item.id].get("error")
+    ]
 
 
 def _transcribe_pending(
     context: RunContext, pending: list[Item], records_path: Path, base_url: str, factory
 ) -> None:
-    """Send every pending item, appending each answer as soon as it arrives."""
+    """Send every pending item, appending each answer as soon as it arrives.
+
+    One client serves the whole run: it holds the connection pool, and creating
+    one per item would open a connection per request and never close it.
+    """
     lock = threading.Lock()
     paths = {item.panel: clip_paths(item.panel, context.data_dir) for item in pending}
+    refused = False
 
     def work(index_and_item: tuple[int, Item]) -> None:
+        nonlocal refused
         index, item = index_and_item
-        client = factory(context, base_url)
         record = _transcribe_one(client, item, paths[item.panel][item.id], cold=index == 0)
         with lock:
             append_record(records_path, record)
+            if client.language_refused and not refused:
+                refused = True
+                if context.verbose:
+                    print(
+                        "warning: the server refused the language field; "
+                        "it is not sent again for the rest of this run"
+                    )
             if context.verbose:
                 _report_progress(index + 1, len(pending), record)
 
     work_items = list(enumerate(pending))
-    if context.concurrency > 1:
-        with ThreadPoolExecutor(max_workers=context.concurrency) as pool:
-            list(pool.map(work, work_items))
-    else:
-        for entry in work_items:
-            work(entry)
+    with closing(factory(context, base_url)) as client:
+        if context.concurrency > 1:
+            with ThreadPoolExecutor(max_workers=context.concurrency) as pool:
+                list(pool.map(work, work_items))
+        else:
+            for entry in work_items:
+                work(entry)
 
 
 def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict:
@@ -224,6 +272,7 @@ def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict
             "hypothesis": "",
             "error": str(failure),
             "latency_s": 0.0,
+            "attempts": getattr(failure, "attempts", 0),
             "cold": cold,
             "language_sent": False,
             "timestamp": _now(),
@@ -234,6 +283,7 @@ def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict
         "hypothesis": result.text,
         "error": "",
         "latency_s": round(result.latency_s, 6),
+        "attempts": result.attempts,
         "cold": cold,
         "language_sent": result.language_sent,
         "timestamp": _now(),
@@ -252,17 +302,12 @@ def _report_progress(done: int, total: int, record: dict) -> None:
 def _announce(context: RunContext, records_path: Path) -> int:
     """Say where the run lives and how it went; returns how many requests failed."""
     records = read_records(records_path)
-    failed = [record for record in records if record["error"]]
+    latest = latest_records(records)
+    failed = [record for record in latest.values() if record["error"]]
     if context.verbose:
-        print(f"records: {records_path} ({len(records)} items, {len(failed)} failed)")
+        retried = len(records) - len(latest)
+        extra = f", {retried} earlier records kept from retries" if retried else ""
+        print(f"records: {records_path} ({len(latest)} items, {len(failed)} failed{extra})")
         if failed:
             print(f"first failure: {failed[0]['id']}: {failed[0]['error']}")
     return len(failed)
-
-
-def merge_panel_item_ids(
-    run_dir: Path, panel_title: str, panels_dir: Path, data_dir_: Path | None
-) -> list[Item]:
-    """The items of one panel with whatever that run recorded, for scoring a single panel."""
-    items = load_panel_items(panel_title, panels_dir, data_dir_)
-    return with_records(items, read_records(run_dir / RECORDS_NAME))

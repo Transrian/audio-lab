@@ -8,13 +8,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import httpx  # noqa: E402
 import pytest  # noqa: E402
 from helpers import make_clip, start_transcription_server, write_tone  # noqa: E402
 
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
-from audiolab.eval.client import ModelConfig  # noqa: E402
-from audiolab.eval.records import IDENTITY_NAME, RECORDS_NAME, read_records  # noqa: E402
+from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
+from audiolab.eval.records import (  # noqa: E402
+    IDENTITY_NAME,
+    RECORDS_NAME,
+    latest_records,
+    read_records,
+)
 from audiolab.eval.report import REPORT_NAME, SUMMARY_NAME, compare_runs, score_run  # noqa: E402
 from audiolab.eval.runner import RunContext, RunError, SuiteSpec, load_suite, run_suite  # noqa: E402
 
@@ -96,8 +102,8 @@ def test_a_run_records_every_item_and_writes_a_summary(workspace):
     assert sum(record["cold"] for record in records) == 1
     assert all(record["language_sent"] for record in records)
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
-    assert url not in json.dumps(identity)
-    assert identity["base_url_hash"]
+    assert url not in json.dumps(identity)  # a run record never names the endpoint
+    assert identity["model"]["server_label"] == ""
     assert identity["normalizer_version"] == 1
     summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
     assert summary["panels"][PANEL]["wer"]["normalized"]["value"] == 0.0
@@ -186,6 +192,114 @@ def test_a_missing_url_variable_is_refused(workspace, monkeypatch):
     monkeypatch.delenv("FAKE_URL", raising=False)
     with pytest.raises(Exception, match="FAKE_URL"):
         run_suite(context(workspace, base_url=""))
+
+
+def test_one_client_serves_the_whole_run_and_is_closed(workspace):
+    """A run opens one connection pool and closes it, however many items it sends."""
+    server, url = server_answering()
+    made: list = []
+
+    def factory(context_, base_url):
+        client = TranscriptionClient(context_.model, base_url)
+        made.append(client)
+        return client
+
+    try:
+        run_suite(context(workspace, base_url=url), client_factory=factory)
+    finally:
+        server.shutdown()
+    assert len(made) == 1
+    assert made[0].client.is_closed
+
+
+def test_a_refused_language_field_is_not_sent_again(workspace):
+    """A server that refuses the language once is asked for it once, not per item."""
+    sent_language: list[bool] = []
+
+    def respond(request):
+        asked = b'name="language"' in request.content
+        sent_language.append(asked)
+        if asked:
+            return httpx.Response(400, json={"detail": "unknown field: language"})
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(context_.model, base_url, transport=httpx.MockTransport(respond))
+
+    run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    assert sent_language.count(True) == 1
+    assert sent_language.count(False) == panel_size(workspace)
+    records = read_records(run_dir / RECORDS_NAME)
+    assert not any(record["language_sent"] for record in records)
+
+
+def test_a_retry_is_recorded_with_the_attempt_count(workspace):
+    """Latency is the successful request only, and the attempts are visible."""
+    attempts: list = []
+
+    def respond(headers):
+        attempts.append(1)
+        if len(attempts) == 1:
+            return (500, "boom", "text/plain")
+        return (200, json.dumps({"text": "bonjour tout le monde"}), "application/json")
+
+    server, url = start_transcription_server(respond)
+    client = TranscriptionClient(workspace["model"], url, sleep=lambda _: None, transport=None)
+    try:
+        result = client.transcribe(b"wav", "fr")
+    finally:
+        client.close()
+        server.shutdown()
+    assert result.text == "bonjour tout le monde"
+    assert result.attempts == 2
+    assert result.latency_s < 1.0  # the backoff sleep is not part of the answer
+
+
+def test_a_failed_item_is_sent_again_on_the_next_run(workspace):
+    """An error record is not a measurement, so the item gets another chance."""
+    state = {"fail": True}
+
+    def respond(request):
+        if state["fail"]:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(
+            context_.model,
+            base_url,
+            transport=httpx.MockTransport(respond),
+            sleep=lambda _: None,
+        )
+
+    with pytest.raises(RunError, match="failed"):
+        run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    state["fail"] = False
+    run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    records = read_records(run_dir / RECORDS_NAME)
+    assert len(records) > panel_size(workspace)  # the failures stay visible
+    latest = latest_records(records)
+    assert len(latest) == panel_size(workspace)
+    assert not [record for record in latest.values() if record["error"]]
+
+
+def test_a_changed_identity_names_the_field_that_changed(workspace):
+    server, url = server_answering()
+    try:
+        run_suite(context(workspace, base_url=url))
+        changed = context(workspace, base_url=url)
+        changed.model = ModelConfig(name="fake-model", model="another-id")
+        with pytest.raises(RunError, match="panels|model"):
+            run_suite(changed)
+    finally:
+        server.shutdown()
+    message = None
+    try:
+        run_suite(changed)
+    except RunError as failure:
+        message = str(failure)
+    assert message is not None
+    assert "model" in message
 
 
 def test_scoring_twice_writes_the_same_bytes(workspace):

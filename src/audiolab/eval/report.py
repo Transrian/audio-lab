@@ -17,6 +17,7 @@ from audiolab.eval.records import (
     IDENTITY_NAME,
     RECORDS_NAME,
     dataset_and_panel,
+    latest_records,
     load_panel_items,
     read_records,
     with_records,
@@ -77,11 +78,13 @@ def _panel_items(
 
 def _run_identity(identity: dict, records: list[dict]) -> dict:
     """The run's identity plus what the records themselves say."""
+    latest = latest_records(records)
     timestamps = [record["timestamp"] for record in records if record.get("timestamp")]
     return {
         **identity,
         "records": len(records),
-        "failed_requests": sum(1 for record in records if record.get("error")),
+        "items": len(latest),
+        "failed_requests": sum(1 for record in latest.values() if record.get("error")),
         "first_record": min(timestamps) if timestamps else "",
         "last_record": max(timestamps) if timestamps else "",
     }
@@ -228,10 +231,11 @@ def render_markdown(summary: dict) -> str:
         f"# Evaluation report: {run['model']['name']} on suite {run['suite']}",
         "",
         f"- model id: `{run['model']['model']}`",
-        f"- endpoint host fingerprint: `{run['base_url_hash']}` (the URL itself is never written)",
+        f"- served by: {run['model']['server_label'] or 'not recorded'}",
         f"- audiolab {run['audiolab_version']}, normalizer version {run['normalizer_version']}",
         f"- git commit: `{run['git_commit'] or 'unknown'}`",
-        f"- records: {run['records']} items, {run['failed_requests']} failed requests",
+        f"- records: {run['records']} lines for {run['items']} items, "
+        f"{run['failed_requests']} failed requests",
         f"- recorded from {run['first_record'] or 'n/a'} to {run['last_record'] or 'n/a'}",
         "",
     ]

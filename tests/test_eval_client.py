@@ -16,7 +16,7 @@ from audiolab.eval.client import (  # noqa: E402
     ModelConfig,
     TranscriptionClient,
     TranscriptionError,
-    host_hash,
+    server_root,
 )
 
 
@@ -197,8 +197,39 @@ def test_model_config_refuses_another_api(tmp_path):
         ModelConfig.from_file(path)
 
 
-def test_host_hash_hides_the_url():
-    digest = host_hash("http://localhost:9000")
-    assert len(digest) == 12
-    assert "localhost" not in digest
-    assert digest == host_hash("http://localhost:9000/")
+def test_the_server_label_is_free_text_and_carries_no_url():
+    """A run identity records what serves the model, in the config author's words."""
+    config = ModelConfig(name="fake-model", model="served-id")
+    assert config.identity()["server_label"] == ""
+    labelled = ModelConfig(name="fake-model", model="served-id", server_label="local llama.cpp")
+    assert labelled.identity()["server_label"] == "local llama.cpp"
+
+
+def test_a_base_url_may_be_the_server_root_or_its_v1():
+    """Servers are handed out as "https://server" and as "https://server/v1"."""
+    config = ModelConfig(name="fake-model", model="served-id")
+    paths: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, json={"text": "bonjour"})
+
+    for url in (
+        "https://server.example",
+        "https://server.example/",
+        "https://server.example/v1",
+        "https://server.example/v1/",
+    ):
+        with TranscriptionClient(config, url, transport=httpx.MockTransport(respond)) as client:
+            assert client.transcribe(b"wav").text == "bonjour"
+    assert paths == ["/v1/audio/transcriptions"] * 4
+
+
+def test_a_base_url_of_only_v1_is_refused():
+    """ "/v1" alone names no server, and the message says so."""
+    config = ModelConfig(name="fake-model", model="served-id")
+    with pytest.raises(ConfigError, match="not a server URL"):
+        TranscriptionClient(config, "/v1")
+    with pytest.raises(ConfigError, match="not a server URL"):
+        server_root("/v1/")
+    assert server_root("https://server.example/v1/") == "https://server.example"

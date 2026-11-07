@@ -27,6 +27,7 @@ RECORD_FIELDS = (
     "hypothesis",
     "error",
     "latency_s",
+    "attempts",
     "cold",
     "language_sent",
     "timestamp",
@@ -105,9 +106,22 @@ def read_records(path: Path) -> list[dict]:
     ]
 
 
+def latest_records(records: list[dict]) -> dict[str, dict]:
+    """The newest record of each item.
+
+    An item can have several: a failed request is retried on the next run and
+    the new record is appended, so the error stays visible in the file while the
+    item itself is measured. Everything that reports on items uses this view.
+    """
+    latest: dict[str, dict] = {}
+    for record in records:
+        latest[record["id"]] = record
+    return latest
+
+
 def with_records(items: list[Item], records: list[dict]) -> list[Item]:
     """Put the recorded results back onto the items, in panel order."""
-    by_id = {record["id"]: record for record in records}
+    by_id = latest_records(records)
     merged = []
     for item in items:
         record = by_id.get(item.id)
@@ -125,6 +139,7 @@ def with_records(items: list[Item], records: list[dict]) -> list[Item]:
                 hypothesis=record.get("hypothesis", ""),
                 error=record.get("error", ""),
                 latency_s=float(record.get("latency_s", 0.0)),
+                attempts=int(record.get("attempts", 1)),
                 duration_s=item.duration_s,
                 cold=bool(record.get("cold", False)),
                 text_has_casing_punct=item.text_has_casing_punct,
