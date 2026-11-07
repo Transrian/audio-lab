@@ -110,8 +110,9 @@ def panel_summary(panel: str, items: list[metrics.Item], *, draws: int, seed: in
     summary["dataset"] = dataset
     summary["panel_name"] = name
     # Intervals of an empty panel are (0, 0): the report still renders, it just
-    # has nothing to say about accuracy.
-    scored = metrics.score_items(items)
+    # has nothing to say about accuracy. A hypothesis that failed to score is
+    # counted in the summary and left out of the numbers.
+    scored = metrics.scorable(metrics.score_items(items))
     if speech:
         # The interval resamples groups, so it is only as good as their number.
         if summary["groups"] < stats.MINIMUM_GROUPS_FOR_INTERVALS:
@@ -232,7 +233,8 @@ def _compare_panel(
     seed: int,
 ) -> dict:
     """Paired difference of the headline number, with a verdict."""
-    scored_a, scored_b = metrics.score_items(items_a), metrics.score_items(items_b)
+    scored_a = metrics.scorable(metrics.score_items(items_a))
+    scored_b = metrics.scorable(metrics.score_items(items_b))
     speech = any(item.language != "none" for item in items_a)
     value = metrics.wer_value("normalized") if speech else metrics.hallucination_value
     totals_a = metrics.totals_by_group(scored_a, value)
@@ -240,6 +242,7 @@ def _compare_panel(
     low, high = stats.difference_interval(totals_a, totals_b, draws=draws, seed=seed)
     result = {
         "items": len(items_a),
+        "scoring_errors": metrics.scoring_errors(metrics.score_items(items_a)),
         "groups": len(metrics.totals_by_group(scored_a, value)),
         "interval_caution": (
             FEW_GROUPS_CAUTION
@@ -282,6 +285,7 @@ def render_comparison(comparison: dict) -> str:
     for panel, section in comparison["panels"].items():
         if section.get("interval_caution"):
             lines.append(f"- **{panel}: {section['interval_caution']}**")
+        lines += [f"- {panel}: {line.lstrip('- ')}" for line in _scoring_error_lines(section)]
     lines += [""]
     for panel, section in comparison["panels"].items():
         if not section["excluded"]["ids"]:
@@ -353,6 +357,22 @@ def _panel_section(section: dict) -> list[str]:
     return lines
 
 
+def _scoring_error_lines(section: dict) -> list[str]:
+    """A line naming the hypotheses scoring could not read, when there are any.
+
+    Silence would be worse than the error: the panel's numbers would then look
+    complete while covering fewer utterances than it claims.
+    """
+    errors = section.get("scoring_errors") or {"count": 0, "items": []}
+    if not errors["count"]:
+        return []
+    named = ", ".join(f"`{item['id']}` ({item['error']})" for item in errors["items"])
+    more = "" if errors["count"] == len(errors["items"]) else " and more"
+    count = errors["count"]
+    noun = "hypothesis" if count == 1 else "hypotheses"
+    return [f"- **{count} {noun} could not be scored**: {named}{more}"]
+
+
 def _speech_section(section: dict) -> list[str]:
     lines = [
         f"- utterances: {section['items']} scored {section['scored_items']}, "
@@ -360,6 +380,7 @@ def _speech_section(section: dict) -> list[str]:
     ]
     if section.get("interval_caution"):
         lines.append(f"- **{section['interval_caution']}**")
+    lines += _scoring_error_lines(section)
     lines += [
         "",
         "| view | WER | 95 % CI | errors | reference words |",
@@ -398,6 +419,7 @@ def _nonspeech_section(section: dict) -> list[str]:
     lines = [
         f"- clips: {section['items']} scored {section['scored_items']}, "
         f"{section['failed_requests']} failed requests",
+        *_scoring_error_lines(section),
         f"- hallucination rate: {_percent(section['hallucination_rate']['value'])} "
         f"(CI [{_percent(section['hallucination_rate']['ci']['low'])}, "
         f"{_percent(section['hallucination_rate']['ci']['high'])}])",

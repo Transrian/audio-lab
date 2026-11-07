@@ -16,7 +16,7 @@ from helpers import make_clip, start_transcription_server, write_tone  # noqa: E
 
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
-from audiolab.eval import stats  # noqa: E402
+from audiolab.eval import metrics, stats  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
 from audiolab.eval.records import (  # noqa: E402
     IDENTITY_NAME,
@@ -426,6 +426,48 @@ def test_a_panel_with_few_groups_says_its_interval_is_approximate(workspace):
         monkey.undo()
     assert "interval_caution" not in again["panels"][PANEL]
     assert "interval approximate" not in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+
+
+def test_a_hypothesis_that_cannot_be_scored_is_counted_in_the_report(workspace):
+    """A scoring error costs one utterance, not the panel.
+
+    The reader is total (tests/test_eval_normalize.py fuzzes it), so this breaks
+    it on purpose: the run has to finish, the panel has to keep the utterances
+    that scored, and the report has to say how many it lost and which.
+    """
+    server, url = server_answering()
+    try:
+        run_dir = run_suite(context(workspace, base_url=url))
+    finally:
+        server.shutdown()
+
+    original = metrics._counts_for
+    broken_id = "fake:000-000"
+
+    def counts_or_fails(item):
+        if item.id == broken_id:
+            raise KeyError("'°'")
+        return original(item)
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(metrics, "_counts_for", counts_or_fails)
+    try:
+        summary = score_run(run_dir, workspace["panels_dir"], workspace["data_dir"], draws=50)
+    finally:
+        monkey.undo()
+    section = summary["panels"][PANEL]
+    assert section["scoring_errors"]["count"] == 1
+    assert section["scoring_errors"]["items"][0]["id"] == broken_id
+    assert "KeyError" in section["scoring_errors"]["items"][0]["error"]
+    assert section["scored_items"] == section["items"] - 1
+    assert section["wer"]["normalized"]["utterances"] == section["items"] - 1
+    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+    assert f"**1 hypothesis could not be scored**: `{broken_id}`" in report
+
+    # Nothing is broken when every hypothesis scores.
+    clean = score_run(run_dir, workspace["panels_dir"], workspace["data_dir"], draws=50)
+    assert clean["panels"][PANEL]["scoring_errors"] == {"count": 0, "items": []}
+    assert "could not be scored" not in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
 
 
 def test_scoring_twice_writes_the_same_bytes(workspace):

@@ -146,10 +146,16 @@ def edit_counts(reference: list[str], hypothesis: list[str]) -> Counts:
 
 @dataclass(frozen=True)
 class UtteranceScore:
-    """One item scored in every view it supports."""
+    """One item scored in every view it supports.
+
+    ``error`` is what scoring this hypothesis failed with, and is empty when it
+    scored. It is not the same thing as ``Item.error``, which is a request that
+    never came back: this one came back and could not be read.
+    """
 
     item: Item
     counts: dict[str, Counts]
+    error: str = ""
 
     def words(self, text: str) -> list[str]:
         """Tokenize the reference or the hypothesis for their language."""
@@ -165,9 +171,13 @@ class UtteranceScore:
 
 
 def totals_by_group(scored: list[UtteranceScore], value) -> dict[str, tuple[float, float]]:
-    """Per group sums of ``value(score)``, which the bootstrap resamples."""
+    """Per group sums of ``value(score)``, which the bootstrap resamples.
+
+    Scores that failed to score carry no numbers and are left out, so a group
+    with nothing scorable in it does not turn into a group of zeros.
+    """
     totals: dict[str, list[float]] = {}
-    for score in scored:
+    for score in scorable(scored):
         numerator, denominator = value(score)
         running = totals.setdefault(score.item.group, [0.0, 0.0])
         running[0] += numerator
@@ -191,13 +201,27 @@ def hallucination_value(score: UtteranceScore) -> tuple[float, float]:
 
 
 def score_items(items: list[Item]) -> list[UtteranceScore]:
-    """Score every item in the views it supports; failed requests are skipped."""
+    """Score every item in the views it supports; failed requests are skipped.
+
+    A hypothesis that cannot be read becomes a score carrying the error, and the
+    run goes on: scoring runs on whatever a model answered, and one answer no
+    rule expected must not take the numbers of every other panel with it. The
+    summaries count these separately, so a run never hides one.
+    """
     scored: list[UtteranceScore] = []
     for item in items:
         if item.failed:
             continue
-        scored.append(UtteranceScore(item, _counts_for(item)))
+        try:
+            scored.append(UtteranceScore(item, _counts_for(item)))
+        except Exception as failure:
+            scored.append(UtteranceScore(item, {}, f"{type(failure).__name__}: {failure}"))
     return scored
+
+
+def scorable(scored: list[UtteranceScore]) -> list[UtteranceScore]:
+    """The scores that carry numbers: everything but the scoring errors."""
+    return [score for score in scored if not score.error]
 
 
 def _counts_for(item: Item) -> dict[str, Counts]:
@@ -210,7 +234,8 @@ def _counts_for(item: Item) -> dict[str, Counts]:
 
 def speech_summary(items: list[Item]) -> dict:
     """Every speech number for one panel."""
-    scored = score_items(items)
+    all_scores = score_items(items)
+    scored = scorable(all_scores)
     failed = [item for item in items if item.failed]
     summary: dict = {
         "kind": "speech",
@@ -218,6 +243,7 @@ def speech_summary(items: list[Item]) -> dict:
         "scored_items": len(scored),
         "groups": len({item.group for item in items}),
         "failed_requests": len(failed),
+        "scoring_errors": scoring_errors(all_scores),
         "wer": {view: _view_wer(scored, view) for view in ("normalized", "strict", "formatted")},
         "sentence_error_rate": _share(scored, _is_wrong_sentence),
         "tail": _tail(scored),
@@ -231,7 +257,8 @@ def speech_summary(items: list[Item]) -> dict:
 
 def nonspeech_summary(items: list[Item]) -> dict:
     """Hallucination numbers for one non-speech panel."""
-    scored = score_items(items)
+    all_scores = score_items(items)
+    scored = scorable(all_scores)
     failed = [item for item in items if item.failed]
     word_counts = [len(score.hypothesis_words) for score in scored]
     hypotheses = Counter(
@@ -242,6 +269,7 @@ def nonspeech_summary(items: list[Item]) -> dict:
         "items": len(items),
         "scored_items": len(scored),
         "failed_requests": len(failed),
+        "scoring_errors": scoring_errors(all_scores),
         "hallucination_rate": _share(scored, lambda score: bool(score.hypothesis_words)),
         "words": {
             "mean": _mean(word_counts),
@@ -258,6 +286,19 @@ def nonspeech_summary(items: list[Item]) -> dict:
         ],
         "by_category": _by_category(scored),
         "latency": _latency(items),
+    }
+
+
+def scoring_errors(scored: list[UtteranceScore]) -> dict:
+    """The hypotheses that could not be scored, with what stopped each one.
+
+    They are named rather than only counted: a scoring error is a bug in the
+    reader, and the report has to make it findable.
+    """
+    failed = [score for score in scored if score.error]
+    return {
+        "count": len(failed),
+        "items": [{"id": score.item.id, "error": score.error} for score in failed[:TOP_HYPOTHESES]],
     }
 
 

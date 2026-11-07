@@ -230,3 +230,68 @@ def test_totals_by_group_add_up_per_group():
     scored = metrics.score_items(items)
     totals = metrics.totals_by_group(scored, metrics.wer_value("normalized"))
     assert totals == {"s1": (1.0, 4.0)}
+
+
+def test_a_hypothesis_that_cannot_be_scored_is_recorded_and_the_rest_still_score():
+    """One unreadable answer must not cost the panel its numbers.
+
+    Scoring runs on model output, so the reader has to be total. This pins the
+    second half of that: if a reader ever does raise again, the run records a
+    scoring error for that utterance, counts it, and keeps the other utterances.
+    """
+    items = [
+        speech_item("s1", "un deux trois", "un deux trois"),
+        speech_item("s2", "un deux trois", "un deux trois"),
+        speech_item("s3", "un deux trois", "un deux trois"),
+    ]
+    original = metrics._counts_for
+
+    def counts_or_fails(item):
+        if item.id == "s2":
+            raise ValueError("int() could not read the number in this hypothesis")
+        return original(item)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(metrics, "_counts_for", counts_or_fails)
+    try:
+        scored = metrics.score_items(items)
+        assert [score.error for score in scored] == ["", scored[1].error, ""]
+        assert "int() could not read the number" in scored[1].error
+        assert [score.item.id for score in metrics.scorable(scored)] == ["s1", "s3"]
+        summary = metrics.speech_summary(items)
+    finally:
+        monkeypatch.undo()
+    assert summary["items"] == 3
+    assert summary["scored_items"] == 2
+    assert summary["scoring_errors"] == {
+        "count": 1,
+        "items": [{"id": "s2", "error": scored[1].error}],
+    }
+    # The numbers cover the two utterances that scored, not three.
+    assert summary["wer"]["normalized"]["utterances"] == 2
+    assert summary["wer"]["normalized"]["reference_words"] == 6
+    assert summary["sentence_error_rate"]["total"] == 2
+
+
+def test_a_scoring_error_leaves_no_group_of_zeros_behind():
+    """A group whose only utterance failed to score carries no numbers at all."""
+    items = [
+        speech_item("a", "un deux", "un deux", group="s1"),
+        speech_item("b", "un deux", "un deux", group="s2"),
+    ]
+    original = metrics._counts_for
+
+    def counts_or_fails(item):
+        if item.group == "s2":
+            raise KeyError("'°'")
+        return original(item)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(metrics, "_counts_for", counts_or_fails)
+    try:
+        totals = metrics.totals_by_group(
+            metrics.score_items(items), metrics.wer_value("normalized")
+        )
+    finally:
+        monkeypatch.undo()
+    assert totals == {"s1": (0.0, 2.0)}
