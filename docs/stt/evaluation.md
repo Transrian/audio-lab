@@ -175,15 +175,27 @@ everywhere keeps a word count comparable between panels.
 Which mark is the decimal and which groups thousands depends on the language,
 because the two conventions are the other way round:
 
-- **English** groups thousands with a comma or a dot and writes the decimal with
-  a dot: `1,500` and `1.500` are both `one thousand five hundred`, `1,000,000` is
-  `one million`, and `1.5` is `one point five`. `1,5` is read as a decimal too,
-  since a mark that does not group exactly three digits cannot be a thousands
-  separator: reading it as fifteen would be the worse mistake;
+- **English** groups thousands with a **comma only** and writes the decimal with
+  a dot: `1,500` is `one thousand five hundred`, `1,000,000` is `one million`, and
+  `1.5` and `1.500` are decimals (`one point five`, `one point five zero zero`).
+  A comma is read as a decimal when it does not group exactly three digits —
+  `1,5` is `one point five`, because reading it as fifteen would be the worse
+  mistake — so in English thousands are grouped in one way only;
 - **French** writes the decimal with a comma and groups thousands with a dot:
-  `1,5` is `un virgule cinq` and `1.500` is `mille cinq cents`. Both languages
-  also write grouped thousands with spaces (`1 500`, `12 000`), which are joined
-  into one number;
+  `1,5` is `un virgule cinq` and `1.500` is `mille cinq cents`;
+- a mark can only group three digits if it sits between a leading group of one to
+  three digits and a group of exactly three, and that leading group cannot start
+  with `0`: no number is written `0 125`. `0.125` is therefore a decimal in both
+  languages (`zero point one two five` in English, `zéro virgule un deux cinq` in
+  French) and `3.141` is pi, not three thousand one hundred forty one;
+- both languages also write grouped thousands with spaces (`1 500`,
+  `12 000`), which are joined into one number;
+- a quantity written against its symbol is one token, and the symbol may stand on
+  either side or both: `21%`, `12,50 €`, `$3.50`, `90°`, `20°C`. The degree sign
+  reads `degrees`/`degrés` (`36°` → `trente six degrés`), a currency symbol in
+  front makes the reading a money one (`$1,500,000` → `one million five hundred
+  thousand dollars`), and a unit this table does not know keeps its own symbol in
+  the output rather than stopping the run;
 - `cent` and `quatre-vingt` lose their plural `s` before `mille` (`500 000` →
   `cinq cent mille`, `80 000` → `quatre-vingt mille`), because `mille` is a
   numeral and not a noun. Before `million` and `milliard`, which are nouns, the
@@ -208,12 +220,25 @@ The rules have limits, and they are deliberate:
   is: in these panels a lone `m` is as likely to be a time unit or a filler as a
   length.
 
-The behaviour is pinned by a trap set of 286 pairs in
+**Reading a number never raises.** The functions run on whatever a model answered,
+which is not a controlled input, so a number or a symbol no rule expected is kept
+as it was written instead of stopping the run, and a number of more than thirty
+digits is read digit by digit rather than as a cardinal (a cardinal costs one
+step per group of nine digits, and an invented number of a few hundred digits
+would exhaust the stack). The internal stand-in characters the tokenizer uses for
+a decimal mark, a clock colon and a plus sign never reach an output.
+
+The behaviour is pinned by two tests. A trap set of 307 pairs in
 `tests/data/normalizer_traps.jsonl` (`ref`, `hyp`, `language`, `view`,
-`expect_equal`), 233 of which must compare equal: a pair that must compare
-*different* is as important as one that must match, and the file records both.
-It is agent-written and has not been reviewed by the owner; every pair is
-asserted by `tests/test_eval_normalize.py`.
+`expect_equal`), 249 of which must compare equal: a pair that must compare
+*different* is as important as one that must match, and the file records both. It
+is agent-written and has not been reviewed by the owner; every pair is asserted
+by `tests/test_eval_normalize.py`. On top of it, a seeded fuzz of 3000 strings
+over the alphabet a transcript really uses (digits, `, . $ € £ % ° h : / -`,
+letters and spaces, in three shapes: noise, words, and a written number) checks
+that every view of both languages answers something for any input and that the
+`normalized` view is idempotent — normalizing a text twice gives the same words
+twice. A failure is reproducible from the seed alone.
 
 ## 5. What each number means
 
@@ -233,8 +258,17 @@ Speech panels:
 | truncation rate | reference of 5 words or more answered with fewer than 80 % of its words | 10-word reference, 3-word answer |
 | empty output rate | share of hypotheses with no tokens after normalization | `""` or `euh` |
 | failed requests | calls that never produced text; they are counted, never scored as empty | HTTP 500 after three attempts |
+| scoring errors | hypotheses that came back but that scoring could not read; they are counted, named in the report, and left out of every other number | a number the reader cannot verbalize |
 | latency | median and p95 of the warm calls' **successful request**, cold excluded, plus mean and median RTF | 0.42 s for a 6 s clip = 0.07 |
 | requests | how many HTTP requests the run sent, retries included | 60 items, 2 retries = 62 |
+
+A request that failed and a hypothesis that could not be scored are different
+things, and both are counted rather than dropped: the first never came back, the
+second came back and could not be read. A scoring error costs its own utterance
+only — the panel's numbers are computed over the utterances that did score, and
+the report names the ids that did not, because a scoring error is a bug in the
+reader and a summary that hid it would look complete while covering less than it
+claims.
 
 Zero-reference panels have no WER, so `n/a` is reported rather than 0: an error
 rate over zero reference words does not exist, and a model that talks over

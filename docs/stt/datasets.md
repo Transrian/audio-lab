@@ -85,7 +85,8 @@ not download it again, so the check happens when the file arrives.
   speaker is carried by the utterance id (`<speaker>_<book>_<utterance>`), not by
   `segments.txt`, whose first column is the archive.org URL of the book.
 - **Why it is here**: the French set that looks most like the target use —
-  read, continuous speech, several thousand utterances, many speakers.
+  read, continuous speech and several thousand utterances, with the speaker in
+  the utterance id (see below).
 - **Speakers, and what it costs**: the 2426 utterances belong to 18 speakers, so
   the panels do not hold the same number of them. The sealed panel takes whole
   speakers first: it is 4 speakers (468 clips, 4 groups), while `full` and `fast`
