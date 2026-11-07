@@ -38,7 +38,9 @@ The sealed panel is a one-time measurement. The runner refuses it unless
 ## 2. Describe the model
 
 A model config names the endpoint's environment variables, never the URL or the
-key ([D-015](../owner/directives.md)):
+key ([D-015](../owner/directives.md)). `server_label` is the one place a run can
+say which server answered: it is free text in the config, it is recorded in the
+run identity, and it must not be a URL or a host name.
 
 ```yaml
 # configs/models/example.yaml
@@ -48,13 +50,28 @@ base_url_env: STT_BASE_URL
 api_key_env: STT_API_KEY # optional
 model: served-model-id   # the `model` form field
 send_language: true      # set false for servers that reject `language`
+server_label: ""         # optional free text: which server answered ("our box")
 request: {}              # extra form fields, for example {temperature: 0}
 ```
 
 ```bash
-export STT_BASE_URL=https://server.example/v1   # or the server root
-export STT_API_KEY=...                          # only if the server needs one
+export STT_BASE_URL=https://server.example     # the server root
+export STT_BASE_URL=https://server.example/v1  # ...or the version root: same request
+export STT_API_KEY=...                         # only if the server needs one
 ```
+
+`send_language: true` sends the item's language as the `language` form field. A
+server that answers `400` when it does not know that field is asked **once**:
+the refusal is remembered, the same clip is sent again without the field, and no
+later request in the run carries a language. `records.jsonl` says per clip
+whether a language was sent, so a run whose server refused it is recognisable
+after the fact.
+
+The variable holds the **server root**; a value that ends in `/v1` is accepted
+too, because servers are usually documented that way, and a trailing slash is
+ignored. Only one `/v1` ever ends up in the request path: a value that is only
+`/v1` names no server and is refused with that message rather than being turned
+into `/v1/v1/audio/transcriptions`.
 
 ## 3. Run and read the result
 
@@ -66,19 +83,25 @@ audiolab eval --model configs/models/example.yaml --suite configs/suites/full.ya
 Everything lands in `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`:
 
 - `records.jsonl`: one line per clip, appended and flushed as soon as the
-  answer arrives (`id`, `panel`, `hypothesis`, `error`, `latency_s`, `cold`,
-  `language_sent`, `timestamp`).
-- `run.json`: the run identity — model config without secret values, a hash of
-  the endpoint host (never the URL), the panel hashes, the audiolab version and
-  the git commit.
+  answer arrives (`id`, `panel`, `hypothesis`, `error`, `latency_s`,
+  `attempts`, `cold`, `language_sent`, `timestamp`).
+- `run.json`: the run identity — model config without secret values, the panel
+  hashes, the audiolab version and the git commit. The URL and the key are
+  never stored, and neither is a fingerprint of the host: the config's optional
+  `server_label` is free text, so a run can say which server answered without
+  the repository holding a private address.
 - `summary.json`: every number at full precision. `audiolab score <run dir>`
   writes it again from the records alone, byte for byte.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
-Rerunning the command resumes: recorded clips are skipped. If the model config,
-the endpoint host, a panel or the normalizer changed, the identity differs and
-the runner refuses instead of mixing two experiments; `--fresh` starts a new
-directory named with a timestamp.
+Rerunning the command resumes: clips already answered are skipped, and a clip
+whose last record is an error is **sent again** — a failed request is not a
+measurement. The failed record stays in the file (so a flaky endpoint is still
+visible) and the newest record of a clip is the one that is scored; the summary
+says how many lines and how many clips a run holds. If the model config, a
+panel or the normalizer changed, the identity differs, the error names the field
+that differs, and the runner refuses instead of mixing two experiments;
+`--fresh` starts a new directory named with a timestamp.
 
 Compare two runs over the ids they share:
 
@@ -88,6 +111,15 @@ audiolab compare runs/eval/model-a/full runs/eval/model-b/full
 
 A difference is only reported as a difference when the 95 % interval of `B - A`
 stays away from zero; otherwise the verdict is `not separable`.
+
+A comparison pairs only the clips **both** runs answered, because a clip without
+a hypothesis cannot be paired with anything. Leaving those clips out silently
+would flatter a model that fails: it would look better than a model that answers
+everything and is sometimes wrong. The comparison therefore counts and lists the
+excluded ids with their reason (failed in A, failed in B, not recorded in A or
+B); the report shows the reasons and up to twenty ids, and `--json` holds every
+id. A run whose panel holds nothing but failures cannot be compared at all, and
+says so.
 
 ## 4. Text normalization (three views)
 
@@ -110,18 +142,42 @@ summary because changing a rule changes scores.
 `formatted` is only computed when the reference has casing and punctuation
 (`text_has_casing_punct` in the manifest); elsewhere the report shows `n/a`.
 
-The `normalized` view verbalizes cardinals, decimals (either decimal mark),
-ordinals, percentages, currencies, clock times and the abbreviations that are
-unambiguous (`M.` → `monsieur`, `5 km` → `cinq kilomètres`), and it maps a small
-list of British to American spellings. Non-speech clips carry no language, so
-they are normalized in the neutral view only: enough to tell an invented word
-from silence.
+The `normalized` view verbalizes cardinals, decimals, ordinals, percentages,
+currencies, clock times and the abbreviations that are unambiguous
+(`Mme` → `madame`, `5 km` → `cinq kilomètres`), and it maps a small list of
+British to American spellings.
 
-The behaviour is pinned by a trap set of 220 pairs in
+Every item is scored in the `normalized` view, the non-speech battery included.
+The battery has no language of its own, so its words go through the English
+rules; what it asks is only whether the model said anything, and one view
+everywhere keeps a word count comparable between panels.
+
+The rules have limits, and they are deliberate:
+
+- a comma is always a **decimal mark**: English `1,000` reads as
+  `one point zero zero zero`, not as one thousand, because `1,000` and `1,5` are
+  indistinguishable without knowing the convention of the text;
+- a dot followed by exactly three digits is a **thousands separator**
+  (`12.345` → `twelve thousand three hundred forty five`), which is what the
+  panels need but leaves one string that does not survive a round trip: the
+  strict form of an English `2,000` is `2.000`, and reading that again gives
+  `two thousand` rather than the decimal it came from;
+- four-digit English numbers from 1100 to 2099 read as a **year pair**
+  (`1999` → `nineteen ninety nine`), which is how those are spoken in this
+  panel; a number ending in `00` keeps its cardinal form (`1900` → `one thousand
+  nine hundred`), and the rule is English only: French `1999` stays a cardinal;
+- `M.` is **not** expanded: the dot is stripped by the strict rules, and the one
+  letter left is not enough to tell an abbreviation from a word;
+- `m` and `mm` are **not** expanded to metres and millimetres, although `5 km`
+  is: in these panels a lone `m` is as likely to be a time unit or a filler as a
+  length.
+
+The behaviour is pinned by a trap set of 262 pairs in
 `tests/data/normalizer_traps.jsonl` (`ref`, `hyp`, `language`, `view`,
-`expect_equal`), 185 of which must compare equal. It is agent-written and has
-not been reviewed by the owner; every pair is asserted by
-`tests/test_eval_normalize.py`.
+`expect_equal`), 214 of which must compare equal: a pair that must compare
+*different* is as important as one that must match, and the file records both.
+It is agent-written and has not been reviewed by the owner; every pair is
+asserted by `tests/test_eval_normalize.py`.
 
 ## 5. What each number means
 
@@ -141,9 +197,17 @@ Speech panels:
 | truncation rate | reference of 5 words or more answered with fewer than 80 % of its words | 10-word reference, 3-word answer |
 | empty output rate | share of hypotheses with no tokens after normalization | `""` or `euh` |
 | failed requests | calls that never produced text; they are counted, never scored as empty | HTTP 500 after three attempts |
-| latency | median and p95 of warm calls, cold excluded, plus mean and median RTF | 0.42 s for a 6 s clip = 0.07 |
+| latency | median and p95 of the warm calls' **successful request**, cold excluded, plus mean and median RTF | 0.42 s for a 6 s clip = 0.07 |
+| requests | how many HTTP requests the run sent, retries included | 60 items, 2 retries = 62 |
 
-Zero-reference panels have no WER, so `n/a` is reported rather than 0.
+Zero-reference panels have no WER, so `n/a` is reported rather than 0: an error
+rate over zero reference words does not exist, and a model that talks over
+silence has not scored 0 %. The errors it made are still counted in the battery.
+
+Latency is the time of the request that answered, and nothing else. A backoff
+sleep after a 503, or the second call a server forces after refusing the
+`language` field, is not part of how long the model took to answer; the
+`attempts` of an item say how many requests it cost.
 
 Non-speech panels (the hallucination battery):
 
@@ -160,8 +224,12 @@ Intervals come from a bootstrap that resamples **groups**, not utterances
 (`B = 10 000`, seed 20261107). Utterances of one speaker share an accent, a
 recording and a topic, so their errors are correlated; resampling utterances
 alone would narrow the interval and let noise look like a difference. The
-`audiolab compare` interval is paired over the ids both runs recorded, with the
-same group resampling.
+`audiolab compare` interval is paired over the ids both runs answered, with the
+same group resampling; the excluded ids are listed next to the result, so a
+comparison over a third of a panel cannot pass for a comparison over all of it.
+The draws are made with a fixed seed (`numpy.random.default_rng`), so the same
+totals give the same interval on any machine, and they depend on the numbers
+only: the order the groups happen to be stored in does not change them.
 
 ## 7. What this does not measure
 

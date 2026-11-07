@@ -7,4 +7,7 @@ base_url_env: STT_BASE_URL
 api_key_env: STT_API_KEY
 model: served-model-id
 send_language: true
+# Optional free text recorded in the run identity: which server answered, in
+# your own words ("our box", "vendor API"). Never a URL or a host name.
+server_label: ""
 request: {}

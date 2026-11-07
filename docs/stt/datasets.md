@@ -12,15 +12,37 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 
 | dataset | language | license | split | clips | groups | hours | prepared |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fleurs-fr` | fr | CC-BY-4.0 | test | 676 | 332 | 1.9 | 214 MiB |
-| `fleurs-en` | en | CC-BY-4.0 | test | 647 | 350 | 1.8 | 195 MiB |
-| `mls-fr` | fr | CC-BY-4.0 | test | 2426 | 95 | 10.1 | 1.1 GiB |
-| `librispeech-en` | en | CC-BY-4.0 | test-clean | 1301 | 40 | 2.7 | 292 MiB |
-| `nonspeech` | none | see below | generated + ESC-50 | 300 | 300 | 0.6 | 62 MiB |
+| `fleurs-fr` | fr | CC-BY-4.0 | test | 676 | 332 | 2.0 | 217 MiB |
+| `fleurs-en` | en | CC-BY-4.0 | test | 647 | 350 | 1.8 | 197 MiB |
+| `mls-fr` | fr | CC-BY-4.0 | test | 2426 | 18 | 10.1 | 1.1 GiB |
+| `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
+| `nonspeech` | none | see below | generated + esc50 | 300 | 300 | 0.6 | 63 MiB |
 
 A **group** is the unit the bootstrap resamples: utterances of one group share a
 speaker, a recording or a text, so their errors are not independent. Groups are
 also what the sealed panel holds back whole.
+
+Group counts are the ones the panels depend on, so they are checked against the
+prepared data by ``audiolab data panels --check``; the clip counts are checked by
+``audiolab data fetch``.
+
+## Frozen sources
+
+Every source is fetched at a pinned revision and verified against a checksum
+that lives in the code, which is the authoritative home of these numbers: a
+download that does not match fails loudly instead of quietly changing the
+dataset under a frozen panel.
+
+| dataset | source | pinned at | verified against |
+| --- | --- | --- | --- |
+| `fleurs-fr`, `fleurs-en` | `google/fleurs` | revision `70bb2e84b976b7e960aa89f1c648e09c59f894dd` | sha256 of `test.tsv` and `test.tar.gz`, per language (`src/audiolab/data/fleurs.py`) |
+| `mls-fr` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
+| `librispeech-en` | OpenSLR SLR12 | `test-clean.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
+| `nonspeech` | generated here | fixed seed per clip | nothing to verify: the same seed rebuilds the same samples (`src/audiolab/data/nonspeech.py`) |
+| `nonspeech` | `karolpiczak/ESC-50` | commit `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6` | sha256 of `meta/esc50.csv` (`src/audiolab/data/esc50.py`) |
+
+A cached file is trusted once it has been verified: re-preparing a dataset does
+not download it again, so the check happens when the file arrives.
 
 ## `fleurs-fr`, `fleurs-en` — read Wikipedia sentences
 
@@ -48,7 +70,9 @@ also what the sealed panel holds back whole.
 - **License**: CC-BY-4.0.
 - **Text**: the transcript, lowercase and unpunctuated, so only the `normalized`
   and `strict` views apply.
-- **Group**: the speaker (`group_kind: speaker`), 95 of them here.
+- **Group**: the speaker (`group_kind: speaker`), 18 of them in this split. The
+  speaker is carried by the utterance id (`<speaker>_<book>_<utterance>`), not by
+  `segments.txt`, whose first column is the archive.org URL of the book.
 - **Why it is here**: the French set that looks most like the target use —
   read, continuous speech, several thousand utterances, many speakers.
 
@@ -68,7 +92,7 @@ Three kinds of clip that must stay silent, 300 in total:
 
 | kind | clips | category | how it is made |
 | --- | --- | --- | --- |
-| digital silence | 50 | `silence` | zeros, at two durations and a fixed seed |
+| digital silence | 50 | `silence` | zeros, 2 to 20 s drawn from a fixed seed |
 | low-level noise | 50 | `noise` | white or pink noise with a random level and seed |
 | everyday sounds | 200 | `objects/…`, `nature/…`, `animals/…`, `human/…` | four ESC-50 clips per class, 50 classes |
 
@@ -84,6 +108,31 @@ Three kinds of clip that must stay silent, 300 in total:
   bootstrap over clips.
 - **Why it is here**: a model that hallucinates on silence or noise is unusable
   even when its WER looks good, and this is cheap to check.
+- **Levels**: the noise is scaled to a target **RMS** of -60 to -30 dBFS, which
+  is what a level in dBFS normally means; scaling by the peak instead would put
+  the clips about 10 dB below the level their name claims.
+
+## Known overlap with what models were trained on
+
+These splits are test sets, but a test set is not automatically data the model
+has never seen. Nothing here is a measured property of any model, and no number
+in a report is corrected for it: it is the list of things a reader has to check
+in a model card before trusting a difference of a few points.
+
+- `fleurs-fr`, `fleurs-en`: FLEURS is a common benchmark and its test split
+  appears in public training mixtures. A model trained on the mixture may have
+  seen these sentences, and its numbers here are then not held-out numbers.
+- `librispeech-en`: LibriSpeech `test-clean` is the standard English test split
+  and is also used inside many training setups. A suspiciously low WER on this
+  panel is a reason to check the model card, not evidence of quality.
+- `mls-fr`: MLS French test utterances come from audiobooks of the archive.org
+  collections that other pipelines also train on, and the split has been
+  reported to overlap training data of models trained on MLS itself. Treat
+  `mls-fr` as the panel most likely to be memorised.
+- `nonspeech`: ESC-50 clips are widely used in audio training and can be
+  memorised just as speech can be; the generated silence and noise cannot.
+- No panel is a defence against data contamination, and these points do not
+  change any number: they say which differences are worth being careful about.
 
 ### Known gaps
 
