@@ -350,14 +350,6 @@ def check_panel(path: Path, clips: list[Clip], dataset_dir: Path | None = None) 
     return problems
 
 
-def sealed_is_disjoint(clips: list[Clip], sealed_ids: list[str]) -> bool:
-    """True when no clip outside the sealed panel shares a group with a sealed clip."""
-    chosen = set(sealed_ids)
-    sealed_groups = {clip.group for clip in clips if clip.id in chosen}
-    other_groups = {clip.group for clip in clips if clip.id not in chosen}
-    return not (sealed_groups & other_groups)
-
-
 def load_dataset_clips(dataset: str) -> list[Clip]:
     """Read the manifest of one prepared dataset from the data directory."""
     return read_manifest(data_dir() / dataset)

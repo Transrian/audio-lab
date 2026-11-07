@@ -38,11 +38,6 @@ def ratio(totals: Totals) -> float:
     return numerator / denominator if denominator else 0.0
 
 
-def difference_ratio(totals_a: Totals, totals_b: Totals) -> float:
-    """The same ratio for B minus the one for A, for paired panels."""
-    return ratio(totals_b) - ratio(totals_a)
-
-
 def ratio_interval(
     totals: Totals, *, draws: int = DRAWS, seed: int = SEED, confidence: float = CONFIDENCE
 ) -> tuple[float, float]:

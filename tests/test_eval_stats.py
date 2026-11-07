@@ -94,9 +94,3 @@ def test_difference_uses_only_the_groups_both_runs_share():
     b = {"s2": (2.0, 10.0), "s3": (3.0, 10.0)}
     low, high = stats.difference_interval(a, b, draws=50)
     assert low <= 0.0 <= high  # only s2 is compared, and it is identical there
-
-
-def test_difference_ratio_subtracts_b_from_a():
-    a = {"s1": (1.0, 10.0)}
-    b = {"s1": (2.0, 10.0)}
-    assert stats.difference_ratio(a, b) == 0.1

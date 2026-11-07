@@ -243,7 +243,15 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     scoring.add_argument(
         "--panels-dir", default=DEFAULT_PANELS_DIR, help="directory holding the frozen panels"
     )
+    _add_eval_command(commands, scoring)
+    _add_score_command(commands, scoring)
+    _add_compare_command(commands, scoring)
 
+
+def _add_eval_command(
+    commands: argparse._SubParsersAction, scoring: argparse.ArgumentParser
+) -> None:
+    """``eval``: transcribe a suite with one model, then score it."""
     evaluate = _command(
         commands,
         "eval",
@@ -275,6 +283,11 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     )
     evaluate.set_defaults(func=cmd_eval)
 
+
+def _add_score_command(
+    commands: argparse._SubParsersAction, scoring: argparse.ArgumentParser
+) -> None:
+    """``score``: recompute a finished run's numbers without sending anything."""
     score = _command(
         commands,
         "score",
@@ -286,6 +299,11 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     score.add_argument("run", help="run directory holding records.jsonl")
     score.set_defaults(func=cmd_score)
 
+
+def _add_compare_command(
+    commands: argparse._SubParsersAction, scoring: argparse.ArgumentParser
+) -> None:
+    """``compare``: pair two runs over the ids they both answered."""
     compare = _command(
         commands,
         "compare",

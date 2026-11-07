@@ -25,9 +25,9 @@ from audiolab.data.panels import (  # noqa: E402
     load_dataset_clips,
     panel_path,
     read_panel,
-    sealed_is_disjoint,
     select_panels,
 )
+from audiolab.data.store import Clip  # noqa: E402
 
 
 def panels_of(clips, tmp_path, dataset="fake", built="2026-11-07"):
@@ -42,6 +42,18 @@ def test_speech_panels_have_the_spec_sizes():
     assert len(chosen["fast"]) == FAST_CLIPS
     assert chosen["full"] == sorted(chosen["full"])
     assert chosen["fast"] == sorted(chosen["fast"])
+
+
+def sealed_is_disjoint(clips: list[Clip], sealed_ids: list[str]) -> bool:
+    """True when no clip outside the sealed panel shares a group with a sealed clip.
+
+    Kept here rather than in the package: the panels are built from whole groups,
+    so the property holds by construction, and only these tests ask for it.
+    """
+    chosen = set(sealed_ids)
+    sealed_groups = {clip.group for clip in clips if clip.id in chosen}
+    other_groups = {clip.group for clip in clips if clip.id not in chosen}
+    return not (sealed_groups & other_groups)
 
 
 def test_speech_panels_are_disjoint_and_sealed_groups_are_whole():
