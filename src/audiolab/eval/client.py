@@ -18,6 +18,9 @@ import yaml
 
 # Transient failures are retried; anything else is reported as it is.
 RETRY_ATTEMPTS = 3
+# What replaces the API key in a message that goes into a record: a secret that
+# reaches a file people read, copy and attach to issues has leaked.
+REDACTED_API_KEY = "<redacted api key>"
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 BACKOFF_SECONDS = (1.0, 2.0)
 REQUEST_TIMEOUT_S = 120.0
@@ -195,7 +198,7 @@ class TranscriptionClient:
                 attempt += 1
                 if attempt >= RETRY_ATTEMPTS:
                     raise TranscriptionError(
-                        f"connection failed: {failure}", attempts=attempt
+                        self._redact(f"connection failed: {failure}"), attempts=attempt
                     ) from failure
                 self.sleep(BACKOFF_SECONDS[min(attempt - 1, len(BACKOFF_SECONDS) - 1)])
                 continue
@@ -212,9 +215,20 @@ class TranscriptionClient:
                 return ("", True, 0.0, attempt)
             if response.status_code >= 400:
                 raise TranscriptionError(
-                    f"HTTP {response.status_code}: {_short(response.text)}", attempts=attempt
+                    self._redact(f"HTTP {response.status_code}: {_short(response.text)}"),
+                    attempts=attempt,
                 )
             return (_read_text(response), False, took, attempt)
+
+    def _redact(self, message: str) -> str:
+        """A message without the API key, whatever the server put in it.
+
+        An endpoint that answers an error page containing the request headers,
+        as several do, would otherwise write the key into ``records.jsonl``.
+        """
+        if not self.api_key:
+            return message
+        return message.replace(self.api_key, REDACTED_API_KEY)
 
     def _post(self, audio: bytes, language: str) -> httpx.Response:
         """The multipart request: 16 kHz mono WAV, plus the configured extras."""

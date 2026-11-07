@@ -100,6 +100,10 @@ Everything lands in `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`:
   records alone, byte for byte.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
+A record never holds the API key: an endpoint that echoes the request headers in
+an error body is common enough that the client replaces the key value with
+`<redacted api key>` before any message is written.
+
 Rerunning the command resumes: clips already answered are skipped, and a clip
 whose last record is an error is **sent again** — a failed request is not a
 measurement. The failed record stays in the file (so a flaky endpoint is still

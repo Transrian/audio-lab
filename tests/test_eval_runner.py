@@ -252,6 +252,29 @@ def test_a_refused_language_field_is_not_sent_again(workspace):
     assert not any(record["language_sent"] for record in records)
 
 
+def test_an_api_key_echoed_by_the_server_never_reaches_a_record(workspace):
+    """A record is a file people read and share, so no secret may end up in it.
+
+    Some servers answer an error page that repeats the request headers; the
+    client takes the key out of any message it builds, whichever way it leaks.
+    """
+
+    def echo(headers):
+        body = {"detail": f"rejected {headers.get('Authorization', 'none')}"}
+        return (401, json.dumps(body), "application/json")
+
+    server, url = start_transcription_server(echo)
+    try:
+        with pytest.raises(RunError):
+            run_suite(context(workspace, base_url=url, api_key="sk-not-a-real-key"))
+    finally:
+        server.shutdown()
+    run_dir = next((workspace["runs_dir"] / "eval" / "fake-model").iterdir())
+    body = (run_dir / RECORDS_NAME).read_text(encoding="utf-8")
+    assert "sk-not-a-real-key" not in body
+    assert "rejected Bearer <redacted api key>" in body
+
+
 def test_a_retry_is_recorded_with_the_attempt_count(workspace):
     """Latency is the successful request only, and the attempts are visible."""
     attempts: list = []
