@@ -1,14 +1,24 @@
+import hashlib
+import json
 import sys
 import tarfile
 from pathlib import Path
 
+import httpx
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from helpers import write_tone  # noqa: E402
 
-from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive  # noqa: E402
+from audiolab.data.download import (  # noqa: E402
+    DownloadError,
+    audio_from_archive,
+    download,
+    huggingface_sha256_map,
+    open_archive,
+    sha256_file,
+)
 from audiolab.data.textfiles import read_fields, read_records  # noqa: E402
 
 
@@ -86,3 +96,57 @@ def test_read_records_refuses_an_unexpected_line(tmp_path):
     path.write_text("only-one-field\n", encoding="utf-8")
     with pytest.raises(DownloadError, match="unexpected line"):
         read_records(path, 3)
+
+
+def test_sha256_file_hashes_the_bytes_on_disk(tmp_path):
+    path = tmp_path / "file.bin"
+    path.write_bytes(b"audio-lab")
+    assert sha256_file(path) == hashlib.sha256(b"audio-lab").hexdigest()
+
+
+def test_download_checks_the_recorded_sha256_of_a_fresh_file(tmp_path):
+    """A source that changed under a pinned dataset must stop preparation."""
+    source = tmp_path / "source.tar.gz"
+    source.write_bytes(b"first version")
+    good = hashlib.sha256(b"first version").hexdigest()
+    destination = tmp_path / "cache" / "source.tar.gz"
+
+    assert download(str(source), destination, sha256=good) == destination
+
+    source.write_bytes(b"second version")
+    destination.unlink()
+    with pytest.raises(DownloadError, match="does not have the expected sha256"):
+        download(str(source), destination, sha256=good)
+
+
+def test_huggingface_sha256_map_reads_the_hub_file_listing():
+    """The Hub publishes the sha256 of every large file at a pinned revision."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert (
+            request.url.path == "/api/datasets/facebook/multilingual_librispeech/tree/abc123/data/x"
+        )
+        return httpx.Response(
+            200,
+            json=[
+                {"path": "data/x/one.tar.gz", "lfs": {"oid": "a" * 64}},
+                {"path": "data/x/two.tar.gz", "lfs": {"oid": "b" * 64}},
+            ],
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        hashes = huggingface_sha256_map(
+            "facebook/multilingual_librispeech", "abc123", "data/x", client=client
+        )
+    assert hashes == {"one.tar.gz": "a" * 64, "two.tar.gz": "b" * 64}
+
+
+def test_huggingface_sha256_map_reports_an_unusable_answer():
+    def respond(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=json.dumps({"error": "no"}).encode())
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        with pytest.raises(DownloadError, match="did not answer with a file list"):
+            huggingface_sha256_map(
+                "facebook/multilingual_librispeech", "abc", "data/x", client=client
+            )

@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from audiolab.core.audio import Audio, pcm_sha256, write_wav
+from audiolab.data.download import DownloadError
 from audiolab.data.store import Clip, write_manifest
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -14,6 +15,20 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 def file_name_for(clip_id: str) -> str:
     """A file name for a clip id: the id may contain ':' and '/', the file may not."""
     return _UNSAFE.sub("_", clip_id) + ".wav"
+
+
+def require_clips(dataset: str, count: int, expected: int) -> None:
+    """Fail loudly when a prepared split is not the size its source publishes.
+
+    A short preparation is the quiet way a dataset changes under an evaluation:
+    a moved archive, a truncated download or a renamed text file all give fewer
+    clips and a number that looks usable. Tests pass a small ``expected``.
+    """
+    if count != expected:
+        raise DownloadError(
+            f"{dataset}: prepared {count} clips but {expected} were expected; "
+            "the source is not the split this panel was built from"
+        )
 
 
 class ManifestBuilder:

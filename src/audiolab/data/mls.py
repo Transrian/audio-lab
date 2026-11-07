@@ -10,15 +10,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from audiolab.data.build import ManifestBuilder
-from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive
+from audiolab.data.build import ManifestBuilder, require_clips
+from audiolab.data.download import (
+    DownloadError,
+    audio_from_archive,
+    download,
+    huggingface_sha256_map,
+    open_archive,
+)
 from audiolab.data.textfiles import read_records
 
-REPO_URL = "https://huggingface.co/datasets/facebook/multilingual_librispeech/resolve/main/data"
+REPO = "facebook/multilingual_librispeech"
+# Pinned so the files a panel was built from cannot change under it.
+REVISION = "2e83e61823b4c47dcbcb1980bb88601274127609"
+REPO_URL = f"https://huggingface.co/datasets/{REPO}/resolve/{REVISION}/data"
 LICENSE = "CC-BY-4.0"
 LANGUAGE = "fr"
 SPLIT = "test"
-MINIMUM_CLIPS = 1
+# The published size of the test split; tests patch this.
+EXPECTED_CLIPS = 2426
 
 
 def _source(file_name: str) -> str:
@@ -33,9 +43,12 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
     transcripts = read_records(download(_source("transcripts.txt"), cache / "transcripts.txt"), 2)
     builder = ManifestBuilder(dataset_dir, verbose=verbose)
 
+    pinned = _published_hashes(cache, filenames)
     for index, audio_name in enumerate(filenames, start=1):
         # The name list already includes the .tar.gz suffix.
-        archive = download(_source(f"audio/{audio_name}"), cache / audio_name)
+        archive = download(
+            _source(f"audio/{audio_name}"), cache / audio_name, sha256=pinned.get(audio_name, "")
+        )
         with open_archive(archive) as handle:
             for member in handle:
                 text = _clip_text(name, member.name, segments, transcripts)
@@ -53,10 +66,26 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
         if verbose:
             print(f"  ... archive {index}/{len(filenames)}")
 
-    if len(builder.clips) < MINIMUM_CLIPS:
-        raise DownloadError(f"{name}: only {len(builder.clips)} clips prepared")
+    require_clips(name, len(builder.clips), EXPECTED_CLIPS)
     builder.write()
     return len(builder.clips)
+
+
+def _published_hashes(cache: Path, filenames: list[str]) -> dict[str, str]:
+    """sha256 of each archive, from the Hub listing at the pinned revision.
+
+    The listing is only asked for when an archive still has to be downloaded: a
+    file already in the cache was checked when it arrived.
+    """
+    if not any(not (cache / audio_name).is_file() for audio_name in filenames):
+        return {}
+    hashes = huggingface_sha256_map(REPO, REVISION, f"data/mls_french/{SPLIT}/audio")
+    missing = [audio_name for audio_name in filenames if not hashes.get(audio_name)]
+    if missing:
+        raise DownloadError(
+            f"the Hub lists no checksum for {len(missing)} archives (first {missing[0]})"
+        )
+    return hashes
 
 
 def _read_names(path: Path) -> list[str]:

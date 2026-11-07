@@ -13,16 +13,19 @@ from pathlib import Path
 import numpy as np
 
 from audiolab.core.audio import SAMPLE_RATE, Audio, load_audio
-from audiolab.data.build import ManifestBuilder
+from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import download
-from audiolab.data.esc50 import CSV_URL, fetch_esc50_clips, selected_clips
+from audiolab.data.esc50 import CSV_URL, EXPECTED_CSV_SHA256, fetch_esc50_clips, selected_clips
 from audiolab.data.esc50 import LICENSE as ESC50_LICENSE
 
 LICENSE = "none (generated here)"
 SOURCE_SPLIT = "generated"
+ESC50_SOURCE_SPLIT = "esc50"
 SILENCE_CLIPS = 50
 NOISE_CLIPS = 50
 ESC50_CLIPS = 200
+# The published size of the battery; tests patch this to a small number.
+EXPECTED_CLIPS = SILENCE_CLIPS + NOISE_CLIPS + ESC50_CLIPS
 MINIMUM_DURATION_S = 2.0
 MAXIMUM_DURATION_S = 20.0
 MINIMUM_LEVEL_DBFS = -60.0
@@ -102,6 +105,7 @@ def fetch_nonspeech(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: b
         noise = low_level_noise(name, index)
         builder.add(clip_id, noise, group=clip_id, category="noise", **generated_fields())
     add_esc50_clips(builder, name, cache, verbose)
+    require_clips(name, len(builder.clips), EXPECTED_CLIPS)
     builder.write()
     return len(builder.clips)
 
@@ -152,7 +156,7 @@ def _pink(white: np.ndarray) -> np.ndarray:
 
 def add_esc50_clips(builder: ManifestBuilder, name: str, cache: Path, verbose: bool) -> None:
     """Add the chosen ESC-50 clips, four per class, and record the class group."""
-    csv_path = download(CSV_URL, cache / "esc50.csv")
+    csv_path = download(CSV_URL, cache / "esc50.csv", sha256=EXPECTED_CSV_SHA256)
     chosen = selected_clips(csv_path)
     if len(chosen) != ESC50_CLIPS:
         raise ValueError(f"expected {ESC50_CLIPS} ESC-50 clips, got {len(chosen)}")

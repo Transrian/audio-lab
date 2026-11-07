@@ -14,8 +14,14 @@ from pathlib import Path
 
 from audiolab.data.download import DownloadError, download
 
-CSV_URL = "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv"
-AUDIO_URL = "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/audio"
+# Pinned to one commit: the clips and their metadata cannot change under a
+# battery that was already used to measure something.
+COMMIT = "33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6"
+RAW_URL = f"https://raw.githubusercontent.com/karolpiczak/ESC-50/{COMMIT}"
+CSV_URL = f"{RAW_URL}/meta/esc50.csv"
+AUDIO_URL = f"{RAW_URL}/audio"
+# Recorded from the download that built the battery; checked on a fresh one.
+EXPECTED_CSV_SHA256 = "ca660da60191a97de289983a05821c9382d852a38a2ba8428980816b68cf6246"
 LICENSE = "CC-BY-NC-3.0"
 CLIPS_PER_CLASS = 4
 CLASSES = 50

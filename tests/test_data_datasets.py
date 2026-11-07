@@ -37,11 +37,30 @@ from audiolab.data.store import Clip, read_manifest, verify_clips, write_manifes
 
 @pytest.fixture
 def dirs(tmp_path, monkeypatch):
-    """Data and cache directories of the test, with the environment pointing at them."""
+    """Data and cache directories of the test, with the environment pointing at them.
+
+    The published sizes and the pinned sha256 of the real datasets are replaced
+    by the fixture's own, so every test runs the real preparation code on small
+    files (``expected_counts``); the pinning itself is tested separately.
+    """
     data = tmp_path / "data"
     cache = tmp_path / "cache"
     monkeypatch.setenv("AUDIOLAB_DATA", str(data))
     monkeypatch.setenv("AUDIOLAB_CACHE", str(cache))
+    import audiolab.data.fleurs as fleurs
+    import audiolab.data.librispeech as librispeech
+    import audiolab.data.mls as mls
+    import audiolab.data.nonspeech as nonspeech
+
+    monkeypatch.setattr(fleurs, "EXPECTED_CLIPS", {"fleurs-fr": 60, "fleurs-en": 60}, raising=True)
+    monkeypatch.setattr(fleurs, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(mls, "EXPECTED_CLIPS", 1, raising=True)
+    monkeypatch.setattr(librispeech, "EXPECTED_CLIPS", 1, raising=True)
+    monkeypatch.setattr(librispeech, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(nonspeech, "EXPECTED_CLIPS", 300, raising=True)
+    import audiolab.data.esc50 as esc50
+
+    monkeypatch.setattr(esc50, "EXPECTED_CSV_SHA256", "", raising=True)
     return data, cache
 
 
@@ -64,31 +83,54 @@ def fake_fleurs_cache(cache: Path, name: str, rows: int = 60, readers: int = 3) 
     make_archive(directory / "test.tar.gz", members)
 
 
-def fake_mls_cache(cache: Path, name: str = "mls-fr") -> None:
-    """A cache that looks like a downloaded MLS test split."""
+def fake_mls_cache(cache: Path, name: str = "mls-fr", urls: int = 1) -> None:
+    """A cache that looks like a downloaded MLS test split.
+
+    Utterance ids look like ``<speaker>_<book>_<number>``, the segments file
+    names the source mp3 of each utterance, and one speaker can appear under
+    several mp3 files: that is what the real split does.
+    """
     directory = cache / name
     directory.mkdir(parents=True, exist_ok=True)
     audio_name = "1234_5678_000"
     tone = write_tone(directory / "1.flac", seconds=0.3)
-    make_archive(directory / f"{audio_name}.tar.gz", {f"{audio_name}/1.flac": tone})
+    make_archive(
+        directory / f"{audio_name}.tar.gz",
+        {f"{audio_name}/1234_5678_{index:06d}.flac": tone for index in range(1, 4)},
+    )
     # The real name list already carries the .tar.gz suffix.
     (directory / "audio_filenames.txt").write_text(f"{audio_name}.tar.gz\n", encoding="utf-8")
-    (directory / "segments.txt").write_text("1 1234 0.0 0.3\n", encoding="utf-8")
-    (directory / "transcripts.txt").write_text("1 le petit chat dort\n", encoding="utf-8")
+    segments = [
+        f"1234_5678_{index:06d}\thttp://archive.org/download/book/book_{index % urls}.mp3\t0.0\t0.3"
+        for index in range(1, 4)
+    ]
+    (directory / "segments.txt").write_text("\n".join(segments) + "\n", encoding="utf-8")
+    (directory / "transcripts.txt").write_text(
+        "\n".join(f"1234_5678_{index:06d} le petit chat dort" for index in range(1, 4)) + "\n",
+        encoding="utf-8",
+    )
 
 
-def fake_librispeech_cache(cache: Path, name: str = "librispeech-en") -> None:
-    """A cache that looks like a downloaded LibriSpeech test-clean archive."""
+def fake_librispeech_cache(
+    cache: Path,
+    name: str = "librispeech-en",
+    transcript_text: str = "121-121726-0000 THE CAT SAT\n121-121726-0001 ON THE MAT\n",
+) -> None:
+    """A cache that looks like a downloaded LibriSpeech test-clean archive.
+
+    The FLAC comes first in the archive, as it does upstream: a reader that
+    needs the transcript before the audio has to look for it first.
+    """
     directory = cache / name
     directory.mkdir(parents=True, exist_ok=True)
     flac = write_tone(directory / "121-121726-0000.flac", seconds=0.3)
     transcript = directory / "121-121726.trans.txt"
-    transcript.write_text("121-121726-0000 THE CAT SAT\n121-121726-0001 ON THE MAT\n", "utf-8")
+    transcript.write_text(transcript_text, encoding="utf-8")
     make_archive(
         directory / "test-clean.tar.gz",
         {
-            "test-clean/121/121726/121-121726.trans.txt": transcript,
             "test-clean/121/121726/121-121726-0000.flac": flac,
+            "test-clean/121/121726/121-121726.trans.txt": transcript,
         },
     )
 
@@ -133,35 +175,63 @@ def test_fleurs_fetch_prepares_a_manifest_with_references(dirs):
     assert verify_clips(data / "fleurs-fr", clips) == []
 
 
-def test_fleurs_fetch_refuses_an_archive_that_does_not_match(dirs):
+def test_fleurs_fetch_refuses_a_split_that_is_not_the_published_size(dirs):
+    """A short preparation must fail loudly, not give a number that looks usable."""
     data, cache = dirs
     fake_fleurs_cache(cache, "fleurs-fr", rows=3)
-    with pytest.raises(DownloadError, match="do not match"):
+    with pytest.raises(DownloadError, match="prepared 3 clips but 60 were expected"):
         fetch_fleurs("fleurs-fr", cache, data / "fleurs-fr", verbose=False)
 
 
-def test_mls_fetch_groups_by_speaker(dirs):
+def test_fleurs_fetch_checks_the_pinned_sha256_of_its_files(dirs, monkeypatch):
+    """Each downloaded file is asked for with the checksum recorded for it."""
+    import audiolab.data.fleurs as fleurs
+
+    data, cache = dirs
+    fake_fleurs_cache(cache, "fleurs-fr")
+    pinned = {"fleurs-fr": {"test.tsv": "0" * 64, "test.tar.gz": "1" * 64}}
+    monkeypatch.setattr(fleurs, "PINNED_SHA256", pinned)
+    asked: dict[str, str] = {}
+    real_download = fleurs.download
+
+    def spy(url, destination, **options):
+        asked[destination.name] = options.get("sha256", "")
+        return real_download(url, destination, **options)
+
+    monkeypatch.setattr(fleurs, "download", spy)
+    assert fetch_fleurs("fleurs-fr", cache, data / "fleurs-fr", verbose=False) == 60
+    assert asked == {"test.tsv": "0" * 64, "test.tar.gz": "1" * 64}
+
+
+def test_mls_prepares_every_utterance_of_an_archive(dirs, monkeypatch):
+    """Every utterance of an archive gets its transcript and one manifest line."""
     data, cache = dirs
     fake_mls_cache(cache)
-    assert fetch_mls_fr("mls-fr", cache, data / "mls-fr", verbose=False) == 1
+    monkeypatch.setattr("audiolab.data.mls.EXPECTED_CLIPS", 3)
+    assert fetch_mls_fr("mls-fr", cache, data / "mls-fr", verbose=False) == 3
 
-    clip = read_manifest(data / "mls-fr")[0]
-    assert clip.id == "mls-fr:1"
-    assert clip.text == "le petit chat dort"
-    assert clip.text_has_casing_punct is False
-    assert clip.group == "mls-fr:1234"
-    assert clip.group_kind == "speaker"
+    clips = read_manifest(data / "mls-fr")
+    assert len({clip.id for clip in clips}) == 3
+    assert clips[0].id == "mls-fr:1234_5678_000001"
+    assert clips[0].text == "le petit chat dort"
+    assert clips[0].text_has_casing_punct is False
+    assert clips[0].group_kind == "speaker"
+    assert clips[0].source_split == "test"
 
 
-def test_mls_fetch_refuses_an_audio_file_without_a_segment(dirs):
+def test_mls_fetch_refuses_an_audio_file_without_a_segment(dirs, monkeypatch):
     data, cache = dirs
     fake_mls_cache(cache)
-    (cache / "mls-fr" / "segments.txt").write_text("2 1234 0.0 0.3\n", encoding="utf-8")
+    monkeypatch.setattr("audiolab.data.mls.EXPECTED_CLIPS", 3)
+    (cache / "mls-fr" / "segments.txt").write_text(
+        "1234_5678_000002\thttp://archive.org/x.mp3\t0.0\t0.3\n", encoding="utf-8"
+    )
     with pytest.raises(DownloadError, match="not in segments.txt"):
         fetch_mls_fr("mls-fr", cache, data / "mls-fr", verbose=False)
 
 
-def test_librispeech_fetch_reads_chapter_transcripts(dirs):
+def test_librispeech_reads_transcripts_before_the_audio(dirs):
+    """A tar stream lists the FLAC before the chapter transcript; both are needed."""
     data, cache = dirs
     fake_librispeech_cache(cache)
     count = fetch_librispeech_en("librispeech-en", cache, data / "librispeech-en", verbose=False)
@@ -173,6 +243,13 @@ def test_librispeech_fetch_reads_chapter_transcripts(dirs):
     assert clip.group == "librispeech-en:121"
     assert clip.group_kind == "speaker"
     assert clip.text_has_casing_punct is False
+
+
+def test_librispeech_refuses_audio_without_a_transcript(dirs):
+    data, cache = dirs
+    fake_librispeech_cache(cache, transcript_text="121-121726-0001 ON THE MAT\n")
+    with pytest.raises(DownloadError, match="has no transcript"):
+        fetch_librispeech_en("librispeech-en", cache, data / "librispeech-en", verbose=False)
 
 
 def test_nonspeech_fetch_builds_the_battery(dirs):
