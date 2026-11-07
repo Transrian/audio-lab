@@ -9,8 +9,7 @@ groups keeps the correlation: every draw takes whole speakers.
 
 from __future__ import annotations
 
-import random
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 
 import numpy as np
 
@@ -21,7 +20,9 @@ SEED = 20261107
 CONFIDENCE = 0.95
 
 Totals = Mapping[str, tuple[float, float]]
-Statistic = Callable[[Totals], float]
+
+# How many draws are resampled at once; see :func:`_draw_sums`.
+DRAW_CHUNK = 500
 
 
 def ratio(totals: Totals) -> float:
@@ -40,7 +41,8 @@ def ratio_interval(
     totals: Totals, *, draws: int = DRAWS, seed: int = SEED, confidence: float = CONFIDENCE
 ) -> tuple[float, float]:
     """Percentile interval of :func:`ratio` over resampled groups."""
-    return interval(totals, ratio, draws=draws, seed=seed, confidence=confidence)
+    sums = _draw_sums(_matrix(totals), draws=draws, seed=seed)
+    return _read_interval(_ratios(sums[:, 0], sums[:, 1]), confidence)
 
 
 def difference_interval(
@@ -51,50 +53,58 @@ def difference_interval(
     seed: int = SEED,
     confidence: float = CONFIDENCE,
 ) -> tuple[float, float]:
-    """Percentile interval of the paired difference ``B - A`` over resampled groups."""
+    """Percentile interval of the paired difference ``B - A`` over resampled groups.
+
+    The two runs are resampled together: a draw takes the same groups from both,
+    which is what makes the difference paired. For each draw the two ratios are
+    formed separately and then subtracted, exactly as the reported difference is.
+    """
     shared = sorted(set(totals_a) & set(totals_b))
-    return interval(
-        {
-            group: (totals_a[group][0], totals_a[group][1], totals_b[group][0], totals_b[group][1])
-            for group in shared
-        },
-        lambda totals: difference_ratio(
-            {group: pair[:2] for group, pair in totals.items()},
-            {group: pair[2:] for group, pair in totals.items()},
-        ),
-        draws=draws,
-        seed=seed,
-        confidence=confidence,
+    values = np.array([(*totals_a[group], *totals_b[group]) for group in shared], dtype=float)
+    sums = _draw_sums(values, draws=draws, seed=seed)
+    difference = _ratios(sums[:, 2], sums[:, 3]) - _ratios(sums[:, 0], sums[:, 1])
+    return _read_interval(difference, confidence)
+
+
+def _matrix(totals: Totals) -> np.ndarray:
+    """The totals as one row per group, in sorted group order.
+
+    Sorting is what makes an interval a function of the numbers alone: the same
+    panel gives the same interval whatever order its groups were stored in.
+    """
+    return np.array([totals[group] for group in sorted(totals)], dtype=float).reshape(-1, 2)
+
+
+def _draw_sums(values: np.ndarray, *, draws: int, seed: int) -> np.ndarray:
+    """``draws`` resamples of whole groups with replacement, each one summed.
+
+    Ten thousand draws of a 350 group panel is a few hundred megabytes if it is
+    built at once, so the draws are made in chunks; the generator is consumed in
+    one fixed order, so the result does not depend on the chunk size.
+    """
+    if not len(values):
+        # No group means no draw, and the interval of no draws is the point 0.
+        return np.zeros((0, values.shape[1]), dtype=float)
+    rng = np.random.default_rng(seed)
+    sums = np.empty((draws, values.shape[1]), dtype=float)
+    for start in range(0, draws, DRAW_CHUNK):
+        size = min(DRAW_CHUNK, draws - start)
+        picked = rng.integers(0, len(values), size=(size, len(values)))
+        sums[start : start + size] = values[picked].sum(axis=1)
+    return sums
+
+
+def _ratios(numerators: np.ndarray, denominators: np.ndarray) -> np.ndarray:
+    """Numerator over denominator per draw, 0 where nothing was counted."""
+    return np.divide(
+        numerators, denominators, out=np.zeros_like(numerators), where=denominators != 0
     )
 
 
-def interval(
-    totals: Totals,
-    statistic: Statistic,
-    *,
-    draws: int = DRAWS,
-    seed: int = SEED,
-    confidence: float = CONFIDENCE,
-) -> tuple[float, float]:
-    """Draw whole groups with replacement and read the interval off the draws.
-
-    The draw depends only on ``seed`` and on the sorted group names, so the same
-    totals always produce the same interval.
-    """
-    names = sorted(totals)
-    if not names:
+def _read_interval(values: np.ndarray, confidence: float) -> tuple[float, float]:
+    """The percentile interval of the draws, or a point when there is nothing to draw."""
+    if not values.size:
         return (0.0, 0.0)
-    rng = random.Random(seed)
-    values = []
-    for _ in range(draws):
-        sample = {}
-        for _ in range(len(names)):
-            name = names[rng.randrange(len(names))]
-            first = totals[name]
-            running = sample.get(name, (0.0,) * len(first))
-            sample[name] = tuple(total + value for total, value in zip(running, first, strict=True))
-        values.append(statistic(sample))
-    values.sort()
     low, high = (1 - confidence) / 2, 1 - (1 - confidence) / 2
     return (float(np.percentile(values, low * 100)), float(np.percentile(values, high * 100)))
 

@@ -1,8 +1,8 @@
 """What a dataset prepared by ``audiolab data fetch`` contains.
 
-Every dataset is described here once, including its license: the cards in
-`docs/stt/datasets.md` and the ``audiolab data list`` output are both built
-from this registry, so a license is recorded in exactly one place.
+Every dataset is described here once, including its license, and ``audiolab
+data list`` prints this registry: a license is recorded in exactly one place.
+The prose cards in `docs/stt/datasets.md` are written by hand and link here.
 """
 
 from __future__ import annotations
@@ -74,12 +74,3 @@ DATASETS: dict[str, DatasetInfo] = {
         "clips. No music (known gap).",
     ),
 }
-
-
-def dataset_info(name: str) -> DatasetInfo:
-    """The registry entry of a dataset, or a clear error listing the known names."""
-    try:
-        return DATASETS[name]
-    except KeyError:
-        known = ", ".join(sorted(DATASETS))
-        raise ValueError(f"unknown dataset {name!r}; known datasets: {known}") from None

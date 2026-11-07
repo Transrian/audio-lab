@@ -138,21 +138,63 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _command(
+    commands: argparse._SubParsersAction,
+    name: str,
+    summary: str,
+    detail: str,
+    example: str,
+    parents: list[argparse.ArgumentParser] | None = None,
+):
+    """A subcommand that explains itself: one line in the list, a full text on --help."""
+    return commands.add_parser(
+        name,
+        help=summary,
+        description=f"{summary}. {detail}",
+        epilog=f"example:\n  {example}",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=parents or [],
+    )
+
+
 def _add_data_commands(commands: argparse._SubParsersAction) -> None:
-    data = commands.add_parser("data", help="prepare datasets and freeze panels")
+    data = _command(
+        commands,
+        "data",
+        "prepare the datasets and freeze the panels",
+        "Nothing is scored here; this only fills $AUDIOLAB_DATA.",
+        "audiolab data fetch fleurs-fr",
+    )
     data_commands = data.add_subparsers(title="data commands", metavar="<command>", required=True)
 
-    listing = data_commands.add_parser("list", help="list the datasets that can be prepared")
+    listing = _command(
+        data_commands,
+        "list",
+        "list the datasets this version can prepare",
+        "Names are what the other data commands take.",
+        "audiolab data list",
+    )
     listing.set_defaults(func=cmd_data_list)
 
-    fetch = data_commands.add_parser(
-        "fetch", help="download and prepare datasets into $AUDIOLAB_DATA"
+    fetch = _command(
+        data_commands,
+        "fetch",
+        "download and prepare datasets into $AUDIOLAB_DATA",
+        "Downloads land in $AUDIOLAB_CACHE and are verified against a pinned checksum.",
+        "audiolab data fetch fleurs-fr fleurs-en",
     )
     fetch.add_argument("names", nargs="*", help="dataset names; all of them when omitted")
     fetch.add_argument("--force", action="store_true", help="prepare again even if already present")
     fetch.set_defaults(func=cmd_data_fetch)
 
-    panels = data_commands.add_parser("panels", help="build the frozen fast/full/sealed panels")
+    panels = _command(
+        data_commands,
+        "panels",
+        "build the frozen fast/full/sealed panels",
+        "A panel is a list of clip ids with a hash of the manifest it was cut from; "
+        "building it again from the same dataset gives the same file.",
+        "audiolab data panels fleurs-fr && audiolab data panels fleurs-fr --check",
+    )
     panels.add_argument("dataset", help="prepared dataset name, for example fleurs-fr")
     panels.add_argument(
         "--check", action="store_true", help="verify existing panels instead of building"
@@ -164,7 +206,13 @@ def _add_data_commands(commands: argparse._SubParsersAction) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="audiolab",
-        description="A lab for speech experiments.",
+        description="Run and score speech-to-text models on frozen panels.",
+        epilog=(
+            "example:\n"
+            "  audiolab eval --model configs/models/example.yaml"
+            " --suite configs/suites/fast.yaml"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"audiolab {__version__}")
     parser.add_argument(
@@ -174,7 +222,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(title="commands", metavar="<command>")
 
-    gpus = commands.add_parser("gpus", help="list the GPUs that --gpu can select")
+    gpus = _command(
+        commands,
+        "gpus",
+        "list the GPUs a later phase can select",
+        "Needs nvidia-smi; without a GPU this prints one line and exits 1.",
+        "audiolab gpus",
+    )
     gpus.set_defaults(func=cmd_gpus)
 
     _add_data_commands(commands)
@@ -189,14 +243,19 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     scoring.add_argument(
         "--panels-dir", default=DEFAULT_PANELS_DIR, help="directory holding the frozen panels"
     )
-    scoring.add_argument(
-        "--runs-dir", default=None, help="root for run outputs (default: $AUDIOLAB_RUNS or ./runs)"
-    )
 
-    evaluate = commands.add_parser(
+    evaluate = _command(
+        commands,
         "eval",
-        help="transcribe the panels of a suite with one model and score it",
+        "transcribe the panels of a suite with one model and score it",
+        "Resumes a run over the same panels and model instead of asking again.",
+        "audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.yaml",
         parents=[scoring],
+    )
+    evaluate.add_argument(
+        "--runs-dir",
+        default=None,
+        help="root for run outputs (default: $AUDIOLAB_RUNS or ./runs)",
     )
     evaluate.add_argument(
         "--model", required=True, help="model config, for example configs/models/x.yaml"
@@ -216,12 +275,24 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     )
     evaluate.set_defaults(func=cmd_eval)
 
-    score = commands.add_parser("score", help="score a finished run again", parents=[scoring])
+    score = _command(
+        commands,
+        "score",
+        "score a finished run again",
+        "Reads the run's records and writes the same files; use it after changing a metric.",
+        "audiolab score $AUDIOLAB_RUNS/eval/example-model/fast",
+        parents=[scoring],
+    )
     score.add_argument("run", help="run directory holding records.jsonl")
     score.set_defaults(func=cmd_score)
 
-    compare = commands.add_parser(
-        "compare", help="compare two runs on the panels they share", parents=[scoring]
+    compare = _command(
+        commands,
+        "compare",
+        "compare two runs on the panels they share",
+        "Pairs the ids both runs answered and reports the ones left out.",
+        "audiolab compare RUN_A RUN_B --json",
+        parents=[scoring],
     )
     compare.add_argument("run_a", help="run directory, the baseline (A)")
     compare.add_argument("run_b", help="run directory, the challenger (B)")

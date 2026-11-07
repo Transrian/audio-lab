@@ -33,9 +33,3 @@ def runs_dir() -> Path:
 def cache_dir() -> Path:
     """Where downloads are kept before they are prepared (``$AUDIOLAB_CACHE``)."""
     return _from_env("AUDIOLAB_CACHE", DEFAULT_CACHE_DIR)
-
-
-def ensure_dir(path: Path) -> Path:
-    """Create ``path`` (and parents) and return it, for use in a single expression."""
-    path.mkdir(parents=True, exist_ok=True)
-    return path

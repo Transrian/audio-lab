@@ -9,7 +9,6 @@ rate a dataset happens to ship with.
 from __future__ import annotations
 
 import hashlib
-import io
 from dataclasses import dataclass
 
 import numpy as np
@@ -72,13 +71,6 @@ def pcm_sha256(path, sample_rate: int = SAMPLE_RATE) -> str:
     """
     samples, _ = sf.read(str(path), dtype="int16", always_2d=True)
     return hashlib.sha256(to_mono_int16(samples).tobytes()).hexdigest()
-
-
-def wav_bytes(audio: Audio) -> bytes:
-    """The clip as a 16 kHz mono 16-bit WAV, for sending to a model."""
-    buffer = io.BytesIO()
-    sf.write(buffer, to_int16(audio.samples), audio.sample_rate, format="WAV", subtype=PCM_SUBTYPE)
-    return buffer.getvalue()
 
 
 def write_wav(path, audio: Audio) -> None:

@@ -39,6 +39,36 @@ def test_no_groups_gives_no_spread():
     assert stats.ratio_interval({}, draws=50) == (0.0, 0.0)
 
 
+def test_identical_groups_give_the_interval_of_that_one_value():
+    """Hand-checkable: every resample of identical groups is the same panel.
+
+    Six groups of (2 errors, 5 words) sum to (12, 30) in any draw, so the ratio
+    is 0.4 in every one of them and the interval has no width.
+    """
+    totals_ = {f"g{index}": (2.0, 5.0) for index in range(6)}
+    assert stats.ratio_interval(totals_, draws=500) == (0.4, 0.4)
+
+
+def test_a_missing_group_cannot_take_the_interval_below_the_point():
+    """Hand-checkable: one group carries all the errors, and a draw usually has it.
+
+    A draw that misses the only group with errors counts nothing at all, which
+    is the point 0, so the interval reaches from a very unlikely 0 to the point
+    value: the whole spread of this panel is the question "did we pick it".
+    """
+    totals_ = {"errors": (3.0, 3.0), "clean": (0.0, 3.0)}
+    low, high = stats.ratio_interval(totals_, draws=2_000)
+    assert low == 0.0
+    assert 0.0 < high <= 1.0
+
+
+def test_the_interval_does_not_depend_on_the_order_of_the_groups():
+    """The same numbers give the same interval, however they were assembled."""
+    first = {"s1": (3.0, 10.0), "s2": (1.0, 10.0), "s3": (0.0, 10.0)}
+    second = {"s3": (0.0, 10.0), "s1": (3.0, 10.0), "s2": (1.0, 10.0)}
+    assert stats.ratio_interval(first, draws=300) == stats.ratio_interval(second, draws=300)
+
+
 def test_difference_interval_is_zero_for_identical_runs():
     many = {f"speaker-{index:02d}": (float(index % 3), 10.0) for index in range(20)}
     low, high = stats.difference_interval(many, dict(many), draws=200)

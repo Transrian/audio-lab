@@ -165,11 +165,6 @@ def normalize(text: str, language: str, view: str = "normalized") -> str:
     return " ".join(_normalized_tokens(tokens, language))
 
 
-def token_count(text: str, language: str, view: str = "normalized") -> int:
-    """How many tokens the text has in a view (0 for an empty text)."""
-    return len(normalize(text, language, view).split())
-
-
 def _prepare(text: str) -> str:
     """One representation before tokenizing: NFC, ASCII punctuation, collapsed spaces."""
     folded = unicodedata.normalize("NFC", text)

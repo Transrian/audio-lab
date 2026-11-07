@@ -41,6 +41,38 @@ def test_version_is_reported(capsys):
     assert "audiolab" in capsys.readouterr().out
 
 
+def test_every_command_help_names_the_command_and_shows_an_example(capsys):
+    """A --help that only lists flags leaves the reader to guess the invocation."""
+    for argv, word in (
+        (["data", "--help"], "data"),
+        (["data", "list", "--help"], "list"),
+        (["data", "fetch", "--help"], "fetch"),
+        (["data", "panels", "--help"], "panels"),
+        (["eval", "--help"], "transcribe"),
+        (["score", "--help"], "score a finished run again"),
+        (["compare", "--help"], "compare two runs"),
+        (["gpus", "--help"], "gpus"),
+    ):
+        with pytest.raises(SystemExit) as exit_info:
+            cli.main(argv)
+        assert exit_info.value.code == 0, argv
+        out = capsys.readouterr().out
+        assert word in out, argv
+        assert "example:" in out, argv
+        assert "audiolab" in out, argv
+
+
+def test_runs_dir_is_only_where_it_is_used(capsys):
+    """--runs-dir decides where a run is written, so score and compare must not take it."""
+    for argv in (["score", "--help"], ["compare", "--help"]):
+        with pytest.raises(SystemExit):
+            cli.main(argv)
+        assert "--runs-dir" not in capsys.readouterr().out, argv
+    with pytest.raises(SystemExit):
+        cli.main(["eval", "--help"])
+    assert "--runs-dir" in capsys.readouterr().out
+
+
 def test_every_command_has_help(capsys):
     for argv in (
         ["data", "--help"],

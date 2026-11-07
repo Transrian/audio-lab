@@ -1,5 +1,4 @@
 import hashlib
-import io
 
 import numpy as np
 import pytest
@@ -11,10 +10,9 @@ from audiolab.core.audio import (
     load_audio,
     pcm_sha256,
     to_int16,
-    wav_bytes,
     write_wav,
 )
-from audiolab.core.paths import cache_dir, data_dir, ensure_dir, runs_dir
+from audiolab.core.paths import cache_dir, data_dir, runs_dir
 
 
 def _tone(seconds: float, rate: int, channels: int = 1) -> np.ndarray:
@@ -70,14 +68,6 @@ def test_to_int16_clips_out_of_range_samples():
     assert to_int16(np.array([2.0, -2.0], dtype=np.float32)).tolist() == [32767, -32767]
 
 
-def test_wav_bytes_is_a_readable_wav():
-    data = wav_bytes(Audio(samples=_tone(0.2, SAMPLE_RATE), sample_rate=SAMPLE_RATE))
-    assert data[:4] == b"RIFF"
-    samples, rate = sf.read(io.BytesIO(data), dtype="float32")
-    assert rate == SAMPLE_RATE
-    assert samples.shape[0] == 3_200
-
-
 def test_paths_come_from_environment(monkeypatch, tmp_path):
     monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path / "d"))
     monkeypatch.setenv("AUDIOLAB_RUNS", str(tmp_path / "r"))
@@ -85,9 +75,3 @@ def test_paths_come_from_environment(monkeypatch, tmp_path):
     assert data_dir() == tmp_path / "d"
     assert runs_dir() == tmp_path / "r"
     assert cache_dir() == tmp_path / "c"
-
-
-def test_ensure_dir_creates_parents(tmp_path):
-    created = ensure_dir(tmp_path / "a" / "b")
-    assert created.is_dir()
-    assert ensure_dir(created) == created
