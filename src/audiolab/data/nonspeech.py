@@ -110,13 +110,18 @@ def fetch_nonspeech(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: b
     return len(builder.clips)
 
 
-def generated_fields(license: str = LICENSE) -> dict:
-    """Manifest fields shared by the battery clips: no speech, so no reference text."""
+def generated_fields(license: str = LICENSE, split: str = SOURCE_SPLIT) -> dict:
+    """Manifest fields shared by the battery clips: no speech, so no reference text.
+
+    The split is the source of the clip: the silences and noises are generated
+    here, while the ESC-50 clips come from that corpus, and a reader of the
+    manifest should not see both as "generated".
+    """
     return {
         "language": "none",
         "text": "",
         "text_has_casing_punct": False,
-        "source_split": SOURCE_SPLIT,
+        "source_split": split,
         "license": license,
         "group_kind": "clip",
     }
@@ -130,13 +135,20 @@ def digital_silence(name: str, index: int, rate: int = SAMPLE_RATE) -> Audio:
 
 
 def low_level_noise(name: str, index: int, rate: int = SAMPLE_RATE) -> Audio:
-    """Two to twenty seconds of white or pink noise at -60 to -30 dBFS."""
+    """Two to twenty seconds of white or pink noise, at -60 to -30 dBFS RMS.
+
+    The level is the RMS, which is what a level in dBFS normally means and what
+    the battery is built on: scaling by the peak instead would put the noise far
+    below the intended level (a peak of white noise is three times its RMS) and
+    the clips would measure a quieter condition than the one described.
+    """
     rng = np.random.default_rng(_clip_seed(name, "noise", index))
     seconds = rng.uniform(MINIMUM_DURATION_S, MAXIMUM_DURATION_S)
     white = rng.standard_normal(int(seconds * rate))
     noise = white if index % 2 == 0 else _pink(white)
     target_dbfs = rng.uniform(MINIMUM_LEVEL_DBFS, MAXIMUM_LEVEL_DBFS)
-    samples = noise / np.abs(noise).max() * 10 ** (target_dbfs / 20)
+    rms = float(np.sqrt(np.mean(np.square(noise))))
+    samples = noise * (10 ** (target_dbfs / 20) / rms)
     return Audio(samples=samples.astype(np.float32), sample_rate=rate)
 
 
@@ -167,7 +179,7 @@ def add_esc50_clips(builder: ManifestBuilder, name: str, cache: Path, verbose: b
             load_audio(path),
             group=clip_id,
             category=f"{esc50_group(category)}/{category}",
-            **generated_fields(ESC50_LICENSE),
+            **generated_fields(ESC50_LICENSE, split=ESC50_SOURCE_SPLIT),
         )
     if verbose:
         print(f"  ... {len(chosen)} ESC-50 clips prepared")

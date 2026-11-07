@@ -10,6 +10,7 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -272,6 +273,9 @@ def test_nonspeech_fetch_builds_the_battery(dirs):
     # the two generated kinds, then one group/class label per ESC-50 class.
     assert sum(clip.category == "silence" for clip in clips) == 50
     assert sum(clip.category == "noise" for clip in clips) == 50
+    # The split names where a clip came from: generated here, or ESC-50.
+    assert {clip.source_split for clip in clips if "/" not in clip.category} == {"generated"}
+    assert {clip.source_split for clip in clips if "/" in clip.category} == {"esc50"}
     sounds = [clip.category for clip in clips if "/" in clip.category]
     assert len(sounds) == 200
     assert len({category.split("/")[1] for category in sounds}) == 50
@@ -298,8 +302,13 @@ def test_nonspeech_levels_and_durations_stay_in_range():
         assert 2.0 <= silence.duration_s <= 20.0
 
         noise = low_level_noise("nonspeech", index)
-        level = 20 * math.log10(float(abs(noise.samples).max()))
+        # The level is the RMS, which is what a level in dBFS means: the battery
+        # describes "noise at -60 to -30 dBFS", and the peak of white noise is
+        # three times its RMS, so a peak-based level would miss the range.
+        samples = np.asarray(noise.samples, dtype=np.float64)
+        level = 20 * math.log10(float(np.sqrt(np.mean(np.square(samples)))))
         assert -60.5 <= level <= -29.5
+        assert float(np.abs(samples).max()) <= 1.0
         assert 2.0 <= noise.duration_s <= 20.0
 
 
