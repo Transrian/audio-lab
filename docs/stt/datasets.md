@@ -31,7 +31,7 @@ part of how precise its numbers can be:
 | `fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
 | `mls-fr` | 100 / 14 | 600 / 14 | 468 / 4 |
 | `librispeech-en` | 100 / 32 | 600 / 32 | 492 / 8 |
-| `nonspeech` | 60 / 60 | 240 / 240 | 60 / 60 |
+| `nonspeech` | 60 / 60 | 280 / 280 | 20 / 20 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -125,6 +125,13 @@ Three kinds of clip that must stay silent, 300 in total:
 - **Reference text**: empty. What is measured is what a model invents.
 - **Group**: each clip is its own group, so a bootstrap over groups is a
   bootstrap over clips.
+- **Panels**: drawn kind by kind, so every panel holds all three. `fast` has
+  10 silences, 10 noises and 40 sounds; `full` 40, 40 and 200; `sealed` 10
+  silences and 10 noises. ESC-50 is never sealed: it is public, so a held-back
+  copy of it would prove little. The first panels, built on 2026-11-07, sealed
+  all 50 silences, so no run could score a silence; they were rebuilt on
+  2026-11-08 before any score was published, and the new sealed clips are all
+  taken from the old sealed panel, so none of them was ever scored.
 - **Why it is here**: a model that hallucinates on silence or noise is unusable
   even when its WER looks good, and this is cheap to check.
 - **Levels**: the noise is scaled to a target **RMS** of -60 to -30 dBFS, which

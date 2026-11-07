@@ -1,61 +1,51 @@
 # panel: nonspeech-fast
 # dataset: nonspeech (300 clips in 300 groups; esc50 200, generated 100)
 # items: 60  (clip ids below, one per line)
-# clips_sha256: e859f4718edde1d5647103edd791af764ab7de0c11721a35b051012ceb801bd8  (sha256 of the sorted id/audio hashes)
+# clips_sha256: f8e7fa6ae43b8e9b4f190d214fc2d4960e378ac033fdd43b8f75177f4ba0b41a  (sha256 of the sorted id/audio hashes)
 # manifest_sha256: cf360f6962523359a7f90fc9e27b699b454e1cb72cfdb85adb5ef42835280cb9  (sha256 of the sorted manifest ids)
 # seed: 20261107
-# built: 2026-11-07  (date the panel was frozen; never rebuilt)
+# built: 2026-11-08  (date the panel was frozen; never rebuilt)
 # audio and reference text live under $AUDIOLAB_DATA
-nonspeech:esc50-1-100038-A-14
-nonspeech:esc50-1-101296-A-19
-nonspeech:esc50-1-101404-A-34
-nonspeech:esc50-1-11687-A-47
-nonspeech:esc50-1-119125-A-45
-nonspeech:esc50-1-121951-A-8
-nonspeech:esc50-1-12653-A-15
-nonspeech:esc50-1-17124-A-43
-nonspeech:esc50-1-18074-A-6
-nonspeech:esc50-1-18527-A-44
-nonspeech:esc50-1-208757-A-2
-nonspeech:esc50-1-26143-A-21
-nonspeech:esc50-1-57316-A-13
-nonspeech:esc50-2-106015-B-44
-nonspeech:esc50-2-108761-A-14
-nonspeech:esc50-2-109371-A-16
+nonspeech:esc50-1-13613-A-37
+nonspeech:esc50-1-155858-A-25
+nonspeech:esc50-1-1791-A-26
+nonspeech:esc50-1-18810-A-49
+nonspeech:esc50-1-26806-A-1
+nonspeech:esc50-2-103426-A-3
+nonspeech:esc50-2-104476-A-37
 nonspeech:esc50-2-112213-B-39
-nonspeech:esc50-2-125966-A-11
+nonspeech:esc50-2-116400-A-0
+nonspeech:esc50-2-119102-A-21
+nonspeech:esc50-2-121978-A-29
 nonspeech:esc50-2-146877-A-31
-nonspeech:esc50-2-151079-A-20
 nonspeech:esc50-2-51630-A-49
-nonspeech:esc50-2-60791-A-26
-nonspeech:esc50-2-70366-A-33
-nonspeech:esc50-3-118059-A-18
-nonspeech:esc50-3-118658-B-41
-nonspeech:esc50-3-126113-A-26
-nonspeech:esc50-3-153444-A-32
-nonspeech:esc50-3-155766-A-13
+nonspeech:esc50-2-54962-A-23
+nonspeech:esc50-2-59565-A-46
+nonspeech:esc50-2-71162-A-1
+nonspeech:esc50-3-118069-B-27
+nonspeech:esc50-3-141240-B-44
+nonspeech:esc50-3-145387-A-29
+nonspeech:esc50-3-147965-A-12
+nonspeech:esc50-3-155584-A-14
 nonspeech:esc50-3-166546-A-34
-nonspeech:esc50-3-170574-A-30
-nonspeech:esc50-3-177083-A-22
-nonspeech:esc50-3-203377-A-39
-nonspeech:esc50-3-87936-A-46
-nonspeech:esc50-3-95695-A-5
-nonspeech:esc50-4-150364-B-46
-nonspeech:esc50-4-165813-A-19
-nonspeech:esc50-4-172500-C-27
+nonspeech:esc50-3-170377-A-38
+nonspeech:esc50-3-51909-B-42
+nonspeech:esc50-3-71964-A-4
+nonspeech:esc50-4-145006-A-18
+nonspeech:esc50-4-161303-A-5
+nonspeech:esc50-4-169127-A-41
+nonspeech:esc50-4-173865-B-9
 nonspeech:esc50-4-178402-A-43
-nonspeech:esc50-4-181999-A-36
+nonspeech:esc50-4-185415-A-21
 nonspeech:esc50-4-189838-A-22
-nonspeech:esc50-4-193480-A-40
 nonspeech:esc50-4-195451-A-44
-nonspeech:esc50-4-197454-A-28
-nonspeech:esc50-4-199261-A-0
+nonspeech:esc50-4-195805-A-13
+nonspeech:esc50-4-204683-A-31
+nonspeech:esc50-4-204777-C-39
 nonspeech:esc50-4-210000-A-23
 nonspeech:esc50-4-212604-B-15
+nonspeech:esc50-4-213915-B-3
 nonspeech:esc50-4-216349-A-34
-nonspeech:esc50-4-251645-A-49
-nonspeech:esc50-4-251959-A-47
-nonspeech:esc50-4-59579-A-20
 nonspeech:noise-003
 nonspeech:noise-015
 nonspeech:noise-018
@@ -66,3 +56,13 @@ nonspeech:noise-033
 nonspeech:noise-035
 nonspeech:noise-048
 nonspeech:noise-049
+nonspeech:silence-001
+nonspeech:silence-003
+nonspeech:silence-005
+nonspeech:silence-007
+nonspeech:silence-010
+nonspeech:silence-024
+nonspeech:silence-026
+nonspeech:silence-031
+nonspeech:silence-032
+nonspeech:silence-045

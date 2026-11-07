@@ -18,7 +18,8 @@ from audiolab.data.panels import (  # noqa: E402
     DEFAULT_SEED,
     FAST_CLIPS,
     FULL_CLIPS,
-    NONSPEECH_CLIPS,
+    NONSPEECH_FAST,
+    NONSPEECH_SEALED,
     PANEL_NAMES,
     build_panels,
     check_panel,
@@ -109,18 +110,21 @@ def battery_clips() -> list:
     )
 
 
-def test_nonspeech_panels_have_the_spec_sizes_and_stay_disjoint():
+def family_counts(ids: list[str]) -> Counter:
+    return Counter(clip_id.split(":")[1].split("-")[0] for clip_id in ids)
+
+
+def test_every_nonspeech_panel_holds_silences_noises_and_sounds():
+    # Version 1 sealed the 50 silences, so no fast or full run ever scored one.
     chosen = select_panels(battery_clips(), 1234)
-    assert len(chosen["sealed"]) == NONSPEECH_CLIPS["sealed"]
-    assert len(chosen["full"]) == NONSPEECH_CLIPS["full"]
-    assert len(chosen["fast"]) == NONSPEECH_CLIPS["fast"]
+    assert family_counts(chosen["sealed"]) == {k: v for k, v in NONSPEECH_SEALED.items() if v}
+    assert family_counts(chosen["fast"]) == NONSPEECH_FAST
+    assert family_counts(chosen["full"]) == {"silence": 40, "noise": 40, "esc50": 200}
 
     sealed, full, fast = (set(chosen[name]) for name in "sealed full fast".split())
     assert not sealed & full and not sealed & fast
     assert fast <= full  # the battery is too small for three disjoint panels
-    # silence first, then noise, then ESC-50: sealed takes all silences plus some noises
-    kinds = Counter(clip_id.split(":")[1].split("-")[0] for clip_id in chosen["full"])
-    assert kinds == {"noise": 40, "esc50": 200}
+    assert all(chosen[name] == sorted(chosen[name]) for name in chosen)
 
 
 def test_build_panels_writes_frozen_files_with_a_header(tmp_path):

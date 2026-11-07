@@ -35,9 +35,11 @@ DEFAULT_PANELS_DIR = Path("configs/panels")
 FULL_CLIPS = 600
 FAST_CLIPS = 100
 SEALED_GROUP_SHARE = 0.2
-# The non-speech battery is small enough to size directly: sealed 60, full 240, fast 60.
-NONSPEECH_CLIPS = {"sealed": 60, "full": 240, "fast": 60}
-NONSPEECH_FIRST = ("silence", "noise")  # ordered; ESC-50 classes come last
+# The non-speech battery is sized per family, so that every panel holds every
+# family. Only the clips generated here can be sealed: ESC-50 is public and
+# widely copied, so a sealed copy of it would prove little.
+NONSPEECH_SEALED = {"silence": 10, "noise": 10, "esc50": 0}
+NONSPEECH_FAST = {"silence": 10, "noise": 10, "esc50": 40}
 
 
 @dataclass(frozen=True)
@@ -163,40 +165,42 @@ def _select_speech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
 
 
 def _select_nonspeech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
-    """Sealed clips first, then a full battery and a fast subset of it.
+    """Sealed, full and fast panels drawn family by family.
 
-    The battery has 300 clips, so the fast panel is a subset of the full one
-    rather than a third disjoint list: 60 + 240 + 60 clips would need 360. Both
-    come from the same order, so the fast panel keeps the proportions of the
-    full one, which is what a shorter run needs.
+    Families are silence, noise and ESC-50 sounds. The whole battery is shuffled
+    once and split by family, keeping the shuffled order; the first clips of a
+    family are sealed and the rest form its full panel. The battery has 300
+    clips, too few for three disjoint panels, so the fast panel is an evenly
+    spread subset of the full one. Drawing per family guarantees that silences,
+    the case where models are known to invent text, are scored in every panel.
     """
-    ordered = _battery_order(clips, seed)
-    end_of_sealed = NONSPEECH_CLIPS["sealed"]
-    full = ordered[end_of_sealed : end_of_sealed + NONSPEECH_CLIPS["full"]]
-    return {
-        "sealed": ordered[:end_of_sealed],
-        "full": full,
-        "fast": _evenly_spaced(full, NONSPEECH_CLIPS["fast"]),
-    }
+    panels: dict[str, list[str]] = {"sealed": [], "full": [], "fast": []}
+    for family, ids in sorted(_families(clips, seed).items()):
+        sealed_count = NONSPEECH_SEALED[family]
+        full = ids[sealed_count:]
+        panels["sealed"] += ids[:sealed_count]
+        panels["full"] += full
+        panels["fast"] += _evenly_spaced(full, NONSPEECH_FAST[family])
+    return {name: sorted(ids) for name, ids in panels.items()}
+
+
+def _families(clips: list[Clip], seed: int) -> dict[str, list[str]]:
+    """Shuffled clip ids per family; the family is the first word of the id."""
+    ids = sorted(clip.id for clip in clips)
+    random.Random(_panel_seed(seed, "nonspeech")).shuffle(ids)
+    families: dict[str, list[str]] = defaultdict(list)
+    for clip_id in ids:
+        family = clip_id.split(":", 1)[1].split("-")[0]
+        if family not in NONSPEECH_SEALED:
+            raise ValueError(f"{clip_id}: unknown non-speech family {family!r}")
+        families[family].append(clip_id)
+    return families
 
 
 def _evenly_spaced(items: list[str], count: int) -> list[str]:
     """Take ``count`` items spread over a list, without favouring its start."""
     step = len(items) / count
-    return sorted(items[int(index * step)] for index in range(count))
-
-
-def _battery_order(clips: list[Clip], seed: int) -> list[str]:
-    """Silences, then noises, then ESC-50 sounds, in a shuffled order within each family."""
-    ids = sorted(clip.id for clip in clips)
-    random.Random(_panel_seed(seed, "nonspeech")).shuffle(ids)
-    return sorted(ids, key=_family_rank)  # stable: the shuffle survives within a family
-
-
-def _family_rank(clip_id: str) -> int:
-    """Silence first, noise second, everything else (ESC-50) last."""
-    kind = clip_id.split(":", 1)[1].split("-")[0]
-    return NONSPEECH_FIRST.index(kind) if kind in NONSPEECH_FIRST else len(NONSPEECH_FIRST)
+    return [items[int(index * step)] for index in range(count)]
 
 
 def _members_by_group(clips: list[Clip]) -> dict[str, list[str]]:

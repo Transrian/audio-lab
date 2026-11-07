@@ -1,68 +1,28 @@
 # panel: nonspeech-sealed
 # dataset: nonspeech (300 clips in 300 groups; esc50 200, generated 100)
-# items: 60  (clip ids below, one per line)
-# clips_sha256: bad0b1e40a6db109d8c309250a43b17339cfc129e6486c8878c1c3971f83dbb2  (sha256 of the sorted id/audio hashes)
+# items: 20  (clip ids below, one per line)
+# clips_sha256: 988a289ed32df4a4bb95cff7d645b737a4af4a4989da2a70ee0dfd8a870ad2ad  (sha256 of the sorted id/audio hashes)
 # manifest_sha256: cf360f6962523359a7f90fc9e27b699b454e1cb72cfdb85adb5ef42835280cb9  (sha256 of the sorted manifest ids)
 # seed: 20261107
-# built: 2026-11-07  (date the panel was frozen; never rebuilt)
+# built: 2026-11-08  (date the panel was frozen; never rebuilt)
 # audio and reference text live under $AUDIOLAB_DATA
-nonspeech:silence-040
-nonspeech:silence-036
-nonspeech:silence-039
-nonspeech:silence-016
-nonspeech:silence-023
-nonspeech:silence-015
-nonspeech:silence-038
-nonspeech:silence-046
-nonspeech:silence-017
-nonspeech:silence-029
-nonspeech:silence-005
-nonspeech:silence-009
-nonspeech:silence-006
-nonspeech:silence-035
-nonspeech:silence-007
-nonspeech:silence-002
-nonspeech:silence-011
-nonspeech:silence-043
-nonspeech:silence-045
-nonspeech:silence-021
-nonspeech:silence-004
-nonspeech:silence-044
-nonspeech:silence-031
-nonspeech:silence-018
-nonspeech:silence-037
-nonspeech:silence-013
-nonspeech:silence-001
-nonspeech:silence-033
-nonspeech:silence-048
-nonspeech:silence-020
-nonspeech:silence-026
-nonspeech:silence-022
-nonspeech:silence-000
-nonspeech:silence-025
-nonspeech:silence-024
-nonspeech:silence-030
-nonspeech:silence-008
-nonspeech:silence-014
-nonspeech:silence-010
-nonspeech:silence-012
-nonspeech:silence-041
-nonspeech:silence-047
-nonspeech:silence-032
-nonspeech:silence-019
-nonspeech:silence-027
-nonspeech:silence-034
-nonspeech:silence-003
-nonspeech:silence-042
-nonspeech:silence-049
-nonspeech:silence-028
-nonspeech:noise-045
-nonspeech:noise-037
 nonspeech:noise-011
-nonspeech:noise-047
-nonspeech:noise-029
-nonspeech:noise-038
 nonspeech:noise-017
-nonspeech:noise-030
-nonspeech:noise-042
 nonspeech:noise-026
+nonspeech:noise-029
+nonspeech:noise-030
+nonspeech:noise-037
+nonspeech:noise-038
+nonspeech:noise-042
+nonspeech:noise-045
+nonspeech:noise-047
+nonspeech:silence-015
+nonspeech:silence-016
+nonspeech:silence-017
+nonspeech:silence-023
+nonspeech:silence-029
+nonspeech:silence-036
+nonspeech:silence-038
+nonspeech:silence-039
+nonspeech:silence-040
+nonspeech:silence-046
