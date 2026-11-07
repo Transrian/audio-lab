@@ -56,3 +56,4 @@ Never invent alternatives after the fact.
 | [0007](accepted/0007-single-package-single-command.md) | global | accepted | One package, one command, one config per experiment |
 | [0008](accepted/0008-training-monitoring-vs-official-evaluation.md) | stt | accepted | Training monitoring is direct; official evaluation goes through the API |
 | [0009](accepted/0009-non-commercial-datasets-for-testing-only.md) | stt | accepted | Non-commercial datasets may be used for testing only |
+| [0010](proposed/0010-stt-evaluation-core.md) | stt | proposed | STT evaluation core (phase 1a) |
