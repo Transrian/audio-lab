@@ -310,7 +310,8 @@ def test_a_changed_identity_names_the_field_that_changed(workspace):
     except RunError as failure:
         message = str(failure)
     assert message is not None
-    assert "model" in message
+    # The nested path and both values, so a reader knows which field to change.
+    assert 'model.model changed ("served-id" -> "another-id")' in message
 
 
 def test_scoring_twice_writes_the_same_bytes(workspace):

@@ -184,15 +184,31 @@ def _prepare_run_dir(context: RunContext, identity: dict) -> Path:
 def _identity_differences(recorded: dict, current: dict) -> str:
     """Which parts of the identity changed, so the message says what to fix.
 
-    Saying only that "something changed" leaves the reader to diff two JSON
-    files; the field names (and, for the panels, the hashes) are the answer.
+    Nested parts are named by their path: "model changed ({...})" would leave the
+    reader to diff two JSON blobs, while "model.model changed (served-id ->
+    other-id)" is the answer, and a long identity has more than one field that
+    can move.
     """
+    before, after = _flatten_identity(recorded), _flatten_identity(current)
     changed = []
-    for key in sorted(set(recorded) | set(current)):
-        before, after = recorded.get(key), current.get(key)
-        if before != after:
-            changed.append(f"{key} changed ({_short_value(before)} -> {_short_value(after)})")
+    for path in sorted(set(before) | set(after)):
+        if before.get(path) == after.get(path):
+            continue
+        was, now = _short_value(before.get(path)), _short_value(after.get(path))
+        changed.append(f"{path} changed ({was} -> {now})")
     return "; ".join(changed) if changed else "the recorded identity is not the same one"
+
+
+def _flatten_identity(identity: dict, prefix: str = "") -> dict:
+    """One entry per leaf, keyed by its dotted path."""
+    flat: dict = {}
+    for key, value in identity.items():
+        path = f"{prefix}{key}"
+        if isinstance(value, dict):
+            flat.update(_flatten_identity(value, f"{path}."))
+        else:
+            flat[path] = value
+    return flat
 
 
 def _short_value(value, limit: int = 40) -> str:
