@@ -53,6 +53,9 @@ DECIMAL_COMMA = "\x01"
 DECIMAL_POINT = "\x02"
 SIGN_PLUS = "\x04"  # stands in for the "+" of a number, so it survives tokenizing
 CLOCK_COLON = "\x03"  # stands in for the colon of a time, as in 14:30
+# Every stand-in character, so a test can assert that none of them ever reaches
+# an output: they are the module's own bookkeeping and mean nothing to a reader.
+STAND_IN_CHARACTERS = (DECIMAL_COMMA, DECIMAL_POINT, CLOCK_COLON, SIGN_PLUS)
 UNIT_CHARS = "%€$£°"
 
 # Only strings that are never a word: "ben" and "bah" are French names as often
@@ -144,8 +147,30 @@ YEAR_RANGE = (1100, 2099)
 
 # Number-with-unit patterns. The unit is verbalized as a plain word so that
 # "20 %" and "vingt pour cent" score equal.
-FR_UNITS_WORDS = {"%": "pour cent", "€": "euros", "$": "dollars", "£": "livres", "°C": "degrés"}
-EN_UNITS_WORDS = {"%": "percent", "€": "euros", "$": "dollars", "£": "pounds", "°C": "degrees"}
+FR_UNITS_WORDS = {
+    "%": "pour cent",
+    "€": "euros",
+    "$": "dollars",
+    "£": "livres",
+    "°": "degrés",
+    "°C": "degrés",
+}
+EN_UNITS_WORDS = {
+    "%": "percent",
+    "€": "euros",
+    "$": "dollars",
+    "£": "pounds",
+    "°": "degrees",
+    "°C": "degrees",
+}
+# The mark each language groups thousands with. English uses the comma and only
+# the comma: a point there is the decimal mark (3.141 is pi, not three thousand
+# one hundred forty one). French is the other way round.
+THOUSANDS_MARK = {"en": ",", "fr": "."}
+# Beyond this many digits a spoken cardinal means nothing, and the reading would
+# cost more recursion than a transcript can justify; such a number is read digit
+# by digit instead of failing.
+MAXIMUM_NUMBER_DIGITS = 30
 # Symbols carry no letters, so tokenizing keeps them only by looking them up here.
 UNIT_SYMBOLS = frozenset(FR_UNITS_WORDS) | frozenset(EN_UNITS_WORDS)
 # Words that make the number before them a quantity rather than a bare number:
@@ -269,7 +294,8 @@ def _strict_tokens(text: str, language: str) -> list[str]:
     for chunk in _split_on_separators(protected):
         word = _restore_marks(_trim(chunk), language)
         spelled = word.upper() in UNIT_SYMBOLS or word in SYMBOL_WORDS
-        if word and (any(character.isalnum() for character in word) or spelled):
+        symbols = all(character in UNIT_CHARS or character in SYMBOL_WORDS for character in word)
+        if word and (any(character.isalnum() for character in word) or spelled or symbols):
             tokens.append(word)
     return tokens
 
@@ -306,35 +332,63 @@ def _trim(word: str) -> str:
 
 
 def _restore_marks(word: str, language: str) -> str:
-    """Put the protected marks back, canonicalizing a number on the way."""
+    """Put the protected marks back, canonicalizing a number on the way.
+
+    A currency symbol in front and a unit symbol behind stay where they are, and
+    the digits between them are canonicalized like any other number, so no
+    separator is left inside a token: "$10,000" becomes "$10000" and "2,000%"
+    becomes "2000%" in the strict view, and ``_attached_unit`` reads the quantity
+    from there.
+    """
     word = word.replace(SIGN_PLUS, "+")
     if CLOCK_COLON in word:
-        return word.replace(CLOCK_COLON, ":")
+        # A time keeps its colon. Every other mark goes back in the same pass: a
+        # token that mixes a clock with a decimal comma ("835,09:30") is left as
+        # it was written, and a stand-in character must never reach the output.
+        return (
+            word.replace(CLOCK_COLON, ":").replace(DECIMAL_COMMA, ",").replace(DECIMAL_POINT, ".")
+        )
     if DECIMAL_COMMA in word or DECIMAL_POINT in word:
-        return _canonical_number(word, language)
+        restored = word.replace(DECIMAL_COMMA, ",").replace(DECIMAL_POINT, ".")
+        number = re.fullmatch(rf"([$€£]?)([+-]?\d[\d.,]*)([{re.escape(UNIT_CHARS)}]|°c)?", restored)
+        if number:
+            # The symbols around the number stay where they are; the digits are
+            # canonicalized so that no separator is left inside a token.
+            return (
+                (number.group(1) or "")
+                + _canonical_number(number.group(2), language)
+                + (number.group(3) or "")
+            )
+        return restored
     return word
 
 
 def _canonical_number(word: str, language: str) -> str:
     """One spelling for a number: no thousands separator, a point for the decimal.
 
-    The language decides which mark means what, because the two cultures write
-    numbers the other way round. English groups thousands with either mark and
-    writes the decimal with a point: "1,500" and "1.500" are fifteen hundred and
-    "1.5" is one and a half. French writes the decimal with a comma and groups
-    thousands with a point: "1,5" is one and a half and "1.500" is fifteen
-    hundred. A mark that does not fit the three-digit grouping pattern is read
-    as the decimal mark, which is the reading that loses least: an English
-    "1,5" is one and a half rather than fifteen. French space-separated groups
-    are joined before this point, so both sides of a pair end up here as
-    digits.
+    The language decides which mark groups thousands: English uses a comma
+    ("1,500" and "1,000,000"), French a point ("1.500"), and each language reads
+    the other mark as its decimal mark ("3.5" is three and a half in English,
+    "3,5" in French). A mark that groups three digits can only do so between a
+    leading group of at most three digits and a group of exactly three, and the
+    leading group cannot start with zero, because no number is written "0 125".
+
+    The last mark is the decimal mark when what follows it is not a full group:
+    "1,500.00" is fifteen hundred with two decimals, and "0.125" is a decimal in
+    both languages. Anything this function cannot read is returned as it was
+    written, never raised: it runs on whatever a model answered.
     """
     sign = word[0] if word[:1] in "+-" else ""
     digits = word[len(sign) :].replace(DECIMAL_POINT, ".").replace(DECIMAL_COMMA, ",")
-    thousands = r"[.,]" if language == "en" else r"\."
-    if re.fullmatch(rf"\d{{1,3}}(?:{thousands}\d{{3}})+", digits):
+    mark = re.escape(THOUSANDS_MARK[language])
+    if re.fullmatch(rf"[1-9]\d{{0,2}}(?:{mark}\d{{3}})+", digits):
         return sign + re.sub(r"[.,]", "", digits)
-    return sign + digits.replace(",", ".")
+    cut = max(digits.rfind("."), digits.rfind(","))
+    if cut < 0:
+        return sign + digits
+    whole, fraction = digits[:cut], digits[cut + 1 :]
+    whole = re.sub(r"[.,]", "", whole)
+    return sign + whole + ("." + fraction if fraction else "")
 
 
 def _normalized_tokens(tokens: list[str], language: str) -> list[str]:
@@ -350,7 +404,9 @@ def _normalized_tokens(tokens: list[str], language: str) -> list[str]:
         if symbol.upper() in UNIT_SYMBOLS and re.fullmatch(r"[+-]?\d[\d .,]*", number):
             # "21 %" must read as the hypothesis writes it: "vingt et un pour cent",
             # so the hyphens of "vingt-et-un" are spaces here like everywhere else.
-            result += _words(_measure_words(number, symbol, language))
+            # The number is canonicalized first: "1,500,000%" is a million and a
+            # half percent, not a comma number the reader cannot verbalize.
+            result += _words(_measure_words(_canonical_number(number, language), symbol, language))
             index += 2
             continue
         result += _spoken_words(number, language, year=not _followed_by_a_unit(merged, index))
@@ -376,10 +432,22 @@ def _words(text: str) -> list[str]:
 
 
 def _spoken_words(token: str, language: str, *, year: bool = True) -> list[str]:
-    """The spoken words of one token, without filler words."""
+    """The spoken words of one token, without filler words.
+
+    A token this module cannot read is kept as the model wrote it. Scoring runs
+    on model output, which is not a controlled input: an unheard-of number, a
+    symbol in a place no rule expected, and the run must record a score instead
+    of dying on one hypothesis. The trap set and the fuzz test in
+    ``tests/test_eval_normalize.py`` pin both halves of that: what is read, and
+    that nothing raises.
+    """
+    try:
+        words = _normalize_token(token, language, year=year)
+    except (ValueError, KeyError):
+        return [token]
     return [
         spelled
-        for word in _normalize_token(token, language, year=year)
+        for word in words
         if word and word not in FILLERS[language]
         for spelled in _words(word)
     ]
@@ -487,8 +555,7 @@ def _measure_words(number: str, symbol: str, language: str) -> str:
     Money reads the way it is said: "douze euros cinquante". Other units keep
     the decimal reading: "deux virgule cinq kilogrammes".
     """
-    units = FR_UNITS_WORDS if language == "fr" else EN_UNITS_WORDS
-    unit = units[symbol.upper()]
+    unit = _unit_word(symbol, language)
     money = re.fullmatch(r"([+-]?)(\d+)[.,](\d{2})", number)
     if money and symbol in "€$£":
         sign = _sign_words(number, language)
@@ -528,7 +595,15 @@ def _digit_words(digits: str, language: str) -> str:
 
 
 def _verbalize_number(value: int, language: str, *, year: bool = True) -> str:
-    """The cardinal in words; ``year`` allows the English year reading."""
+    """The cardinal in words; ``year`` allows the English year reading.
+
+    A number of more than ``MAXIMUM_NUMBER_DIGITS`` digits is read digit by
+    digit: reading it as a cardinal would recurse once per group of roughly nine
+    digits, and no utterance contains such a number.
+    """
+    digits = str(abs(value))
+    if len(digits) > MAXIMUM_NUMBER_DIGITS:
+        return _digit_words(digits, language)
     return _french_number(value) if language == "fr" else _english_number(value, year=year)
 
 
@@ -647,15 +722,34 @@ def _ordinal(value: int, language: str) -> str:
     return word + " " + _ordinal(unit, language)
 
 
+def _unit_word(symbol: str, language: str) -> str:
+    """The word for a unit symbol; a symbol with no word keeps its own shape.
+
+    The text is scored, not validated: a symbol this table does not know ("°" in
+    an older version of it, or anything a model invents) must not raise.
+    """
+    units = FR_UNITS_WORDS if language == "fr" else EN_UNITS_WORDS
+    return units.get(symbol.upper(), symbol)
+
+
 def _attached_unit(word: str, language: str) -> list[str] | None:
-    """A unit written against the number: ``21%``, ``20°C``, ``$3.50``."""
-    number = re.fullmatch(r"([$€£])([+-]?\d[\d.,]*)", word)
-    if number:
-        return _measure_words(number.group(2), number.group(1), language).split()
-    attached = re.fullmatch(rf"([+-]?\d[\d.,]*)([{re.escape(UNIT_CHARS)}]|°c)", word)
-    if attached:
-        return _measure_words(attached.group(1), attached.group(2), language).split()
-    return None
+    """A quantity written without a space: ``21%``, ``20°C``, ``$3.50``, ``€5°C``.
+
+    A symbol may stand on both sides. The reading is the one the leading symbol
+    asks for (money before a plain number) and the trailing symbol keeps its own
+    word: "€5°C" is five euros degrees, which is nonsense as text but is what a
+    model wrote, and scoring it must not depend on which side of the number the
+    symbols were written.
+    """
+    quantity = re.fullmatch(rf"([$€£]?)([+-]?\d[\d.,]*)([{re.escape(UNIT_CHARS)}]|°c)?", word)
+    if not quantity or not (quantity.group(1) or quantity.group(3)):
+        return None
+    digits = _canonical_number(quantity.group(2), language)
+    symbols = quantity.group(1) or quantity.group(3)
+    words = _measure_words(digits, symbols, language).split()
+    if quantity.group(1) and quantity.group(3):
+        words.append(_unit_word(quantity.group(3), language))
+    return words
 
 
 def _clock_words(hour: int, minutes: str | None, language: str) -> list[str]:

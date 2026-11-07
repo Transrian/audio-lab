@@ -263,13 +263,13 @@
 {"id": "m4-money", "language": "fr", "ref": "$3.50", "hyp": "trois dollars cinquante", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-thousands-digits", "language": "en", "ref": "1,500", "hyp": "1500", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-thousands-written", "language": "en", "ref": "1,500", "hyp": "one thousand five hundred", "view": "normalized", "expect_equal": true}
-{"id": "n1-en-thousands-point", "language": "en", "ref": "1.500", "hyp": "1,500", "view": "normalized", "expect_equal": true}
+{"id": "n1-en-thousands-point", "language": "en", "ref": "1.500", "hyp": "one point five zero zero", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-millions", "language": "en", "ref": "1,000,000", "hyp": "one million", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-decimal", "language": "en", "ref": "1.5", "hyp": "one point five", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-decimal-not-thousands", "language": "en", "ref": "1,5", "hyp": "15", "view": "normalized", "expect_equal": false}
 {"id": "n1-en-thousands-not-decimal", "language": "en", "ref": "2,000", "hyp": "two point zero zero zero", "view": "normalized", "expect_equal": false}
 {"id": "n1-strict-en-comma-groups", "language": "en", "ref": "1,500", "hyp": "1500", "view": "strict", "expect_equal": true}
-{"id": "n1-strict-en-point-groups", "language": "en", "ref": "1.500", "hyp": "1500", "view": "strict", "expect_equal": true}
+{"id": "n1-strict-en-point-groups", "language": "en", "ref": "1.500", "hyp": "1500", "view": "strict", "expect_equal": false}
 {"id": "n1-fr-comma-is-decimal", "language": "fr", "ref": "1,5", "hyp": "15", "view": "normalized", "expect_equal": false}
 {"id": "n1-fr-point-groups", "language": "fr", "ref": "1.500", "hyp": "1500", "view": "normalized", "expect_equal": true}
 {"id": "n1-fr-space-groups", "language": "fr", "ref": "1 500", "hyp": "1500", "view": "normalized", "expect_equal": true}
@@ -285,3 +285,24 @@
 {"id": "n1-en-year-measurement-symbol", "language": "en", "ref": "1999 %", "hyp": "one thousand nine hundred ninety nine percent", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-year-decade", "language": "en", "ref": "2021", "hyp": "twenty twenty one", "view": "normalized", "expect_equal": true}
 {"id": "n1-en-round-hundred-not-a-year", "language": "en", "ref": "1500", "hyp": "fifteen hundred", "view": "normalized", "expect_equal": false}
+{"id": "n2-money-grouped", "language": "en", "ref": "$1,500,000", "hyp": "1,500,000 dollars", "view": "normalized", "expect_equal": true}
+{"id": "n2-money-ten-thousand", "language": "en", "ref": "$10,000", "hyp": "10,000 dollars", "view": "normalized", "expect_equal": true}
+{"id": "n2-money-euro", "language": "en", "ref": "€2,000", "hyp": "2000 euros", "view": "normalized", "expect_equal": true}
+{"id": "n2-money-pound", "language": "en", "ref": "£2,000", "hyp": "two thousand pounds", "view": "normalized", "expect_equal": true}
+{"id": "n2-percent-grouped", "language": "en", "ref": "2,000%", "hyp": "two thousand percent", "view": "normalized", "expect_equal": true}
+{"id": "n2-percent-million", "language": "en", "ref": "1,500,000%", "hyp": "one million five hundred thousand percent", "view": "normalized", "expect_equal": true}
+{"id": "n2-degrees-number", "language": "en", "ref": "90°", "hyp": "ninety degrees", "view": "normalized", "expect_equal": true}
+{"id": "n2-degrees-number-fr", "language": "fr", "ref": "90°", "hyp": "quatre-vingt-dix degrés", "view": "normalized", "expect_equal": true}
+{"id": "n2-degrees-negative", "language": "en", "ref": "-5°", "hyp": "minus five degrees", "view": "normalized", "expect_equal": true}
+{"id": "n2-degrees-in-a-sentence", "language": "en", "ref": "a 90° angle", "hyp": "a ninety degrees angle", "view": "normalized", "expect_equal": true}
+{"id": "n2-degree-and-celsius-agree", "language": "en", "ref": "20°", "hyp": "vingt degrés", "view": "normalized", "expect_equal": false}
+{"id": "n2-leading-zero-decimal", "language": "en", "ref": "0.125", "hyp": "zero point one two five", "view": "normalized", "expect_equal": true}
+{"id": "n2-leading-zero-decimal-fr", "language": "fr", "ref": "0.125", "hyp": "zéro virgule un deux cinq", "view": "normalized", "expect_equal": true}
+{"id": "n2-pi", "language": "en", "ref": "3.141", "hyp": "three point one four one", "view": "normalized", "expect_equal": true}
+{"id": "n2-point-is-decimal-en", "language": "en", "ref": "1.500", "hyp": "1500", "view": "normalized", "expect_equal": false}
+{"id": "n2-comma-is-decimal-fr", "language": "fr", "ref": "0,125", "hyp": "cent vingt-cinq", "view": "normalized", "expect_equal": false}
+{"id": "n2-money-with-cents", "language": "en", "ref": "$1,500.50", "hyp": "one thousand five hundred dollars fifty", "view": "normalized", "expect_equal": true}
+{"id": "n2-strict-money-grouped", "language": "en", "ref": "$10,000", "hyp": "$10000", "view": "strict", "expect_equal": true}
+{"id": "n2-strict-money-million", "language": "en", "ref": "$1,500,000", "hyp": "$1500000", "view": "strict", "expect_equal": true}
+{"id": "n2-strict-cents", "language": "en", "ref": "$1,500.50", "hyp": "$1500.50", "view": "strict", "expect_equal": true}
+{"id": "n2-money-cents-reading", "language": "en", "ref": "$1,500.50", "hyp": "1500.50 dollars", "view": "normalized", "expect_equal": false}
