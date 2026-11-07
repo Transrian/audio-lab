@@ -27,6 +27,9 @@ SUMMARY_NAME = "summary.json"
 REPORT_NAME = "report.md"
 
 # 1a measures none of this; saying so beats letting a reader assume it does.
+# How many excluded ids the comparison prints before it points at the JSON.
+EXCLUDED_IDS_SHOWN = 20
+
 GAPS = (
     "noise and reverberation: not measured in 1a",
     "long-form audio (more than one utterance per request): not measured",
@@ -144,12 +147,18 @@ def compare_runs(
     records_a, records_b = read_records(run_a / RECORDS_NAME), read_records(run_b / RECORDS_NAME)
     comparison = {"a": name_a, "b": name_b, "panels": {}}
     for panel in sorted(identity_a["panels"]):
-        items_a, items_b = _paired_items(panel, panels_dir, data_dir, records_a, records_b)
+        items_a, items_b, excluded = _paired_items(
+            panel, panels_dir, data_dir, records_a, records_b
+        )
         if not items_a:
-            raise ValueError(f"{panel}: the two runs share no ids, so nothing can be compared")
+            raise ValueError(
+                f"{panel}: the two runs share no answered ids, so nothing can be compared "
+                f"({_exclusion_summary(excluded)})"
+            )
         comparison["panels"][panel] = _compare_panel(
             panel, items_a, items_b, name_a, name_b, draws, seed
         )
+        comparison["panels"][panel]["excluded"] = excluded
     return comparison
 
 
@@ -159,13 +168,45 @@ def _paired_items(
     data_dir: Path | None,
     records_a: list[dict],
     records_b: list[dict],
-) -> tuple[list[metrics.Item], list[metrics.Item]]:
-    """The items both runs recorded, in panel order, one list per run."""
-    shared = {record["id"] for record in records_a} & {record["id"] for record in records_b}
+) -> tuple[list[metrics.Item], list[metrics.Item], dict]:
+    """The items to compare and the ids left out of it, per run.
+
+    A pair is one clip both runs answered: an id that failed in either run has
+    no hypothesis to compare with the other run, so it leaves the comparison —
+    and is listed, because a comparison that silently drops the items a model
+    could not answer is exactly how a broken tenth of a panel looks like a win.
+    """
+    latest_a, latest_b = latest_records(records_a), latest_records(records_b)
+    answered_a = {key for key, record in latest_a.items() if not record.get("error")}
+    answered_b = {key for key, record in latest_b.items() if not record.get("error")}
+    shared = answered_a & answered_b
     items = [item for item in load_panel_items(panel, panels_dir, data_dir) if item.id in shared]
+    excluded = {
+        "not_recorded_in_a": sorted(set(latest_b) - set(latest_a)),
+        "not_recorded_in_b": sorted(set(latest_a) - set(latest_b)),
+        "failed_in_a": sorted(set(latest_a) - answered_a),
+        "failed_in_b": sorted(set(latest_b) - answered_b),
+    }
+    every = set()
+    for ids in excluded.values():
+        every.update(ids)
+    excluded["ids"] = sorted(every)
     return (
-        with_records(items, [record for record in records_a if record["id"] in shared]),
-        with_records(items, [record for record in records_b if record["id"] in shared]),
+        with_records(items, records_a),
+        with_records(items, records_b),
+        excluded,
+    )
+
+
+def _exclusion_summary(excluded: dict) -> str:
+    """How many ids were left out and why, in one line."""
+    return (
+        ", ".join(
+            f"{len(excluded[key])} {key.replace('_', ' ')}"
+            for key in ("not_recorded_in_a", "not_recorded_in_b", "failed_in_a", "failed_in_b")
+            if excluded[key]
+        )
+        or "nothing was left out"
     )
 
 
@@ -220,7 +261,21 @@ def render_comparison(comparison: dict) -> str:
     lines += [
         "",
         f"{sum(section['items'] for section in comparison['panels'].values())} items compared.",
+        "",
     ]
+    for panel, section in comparison["panels"].items():
+        if not section["excluded"]["ids"]:
+            continue
+        listed = section["excluded"]["ids"][:EXCLUDED_IDS_SHOWN]
+        more = len(section["excluded"]["ids"]) - len(listed)
+        lines += [
+            f"- {panel}: {len(section['excluded']['ids'])} ids left out "
+            f"({_exclusion_summary(section['excluded'])}): {', '.join(listed)}"
+            + (f", and {more} more" if more else ""),
+            "  (the JSON comparison lists every excluded id)",
+        ]
+    if not any(section["excluded"]["ids"] for section in comparison["panels"].values()):
+        lines += ["No id was left out: both runs answered every clip of every panel."]
     return "\n".join(lines) + "\n"
 
 

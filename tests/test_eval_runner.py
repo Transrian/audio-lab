@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -21,7 +22,13 @@ from audiolab.eval.records import (  # noqa: E402
     latest_records,
     read_records,
 )
-from audiolab.eval.report import REPORT_NAME, SUMMARY_NAME, compare_runs, score_run  # noqa: E402
+from audiolab.eval.report import (  # noqa: E402
+    REPORT_NAME,
+    SUMMARY_NAME,
+    compare_runs,
+    render_comparison,
+    score_run,
+)
 from audiolab.eval.runner import RunContext, RunError, SuiteSpec, load_suite, run_suite  # noqa: E402
 
 PANEL = "fake-fr-fast"
@@ -36,7 +43,11 @@ def workspace(tmp_path) -> dict:
         for index in range(3):
             clip_id = f"fake:{speaker:03d}-{index:03d}"
             clip = make_clip(clip_id, group=f"fake:spk{speaker:03d}", text="bonjour tout le monde")
-            write_tone(data_dir / "fake-fr" / clip.audio, seconds=1.0)
+            # A different tone per clip, so the audio of one clip is recognised
+            # in a request (the multipart boundary changes on every request).
+            write_tone(
+                data_dir / "fake-fr" / clip.audio, seconds=1.0, frequency=200 + speaker * 3 + index
+            )
             clips.append(clip)
     write_manifest(data_dir / "fake-fr", clips)
     panels_dir = tmp_path / "panels"
@@ -325,11 +336,11 @@ def test_the_sealed_panel_needs_the_flag(workspace):
     assert read_records(run_dir / RECORDS_NAME)
 
 
-def _run_model(workspace, url: str, name: str) -> Path:
+def _run_model(workspace, url: str, name: str, factory=None) -> Path:
     """Run the same suite under a second model name, for the comparison tests."""
     changed = context(workspace, base_url=url)
     changed.model = ModelConfig(name=name, model="served-id")
-    return run_suite(changed)
+    return run_suite(changed, client_factory=factory)
 
 
 def test_compare_two_models_pairs_the_same_ids(workspace):
@@ -377,8 +388,70 @@ def test_compare_refuses_a_run_with_no_shared_ids(workspace, tmp_path):
         (first / IDENTITY_NAME).read_text(encoding="utf-8"), encoding="utf-8"
     )
     (empty / RECORDS_NAME).write_text("", encoding="utf-8")
-    with pytest.raises(ValueError, match="share no ids"):
+    with pytest.raises(ValueError, match="share no answered ids"):
         compare_runs(first, empty, workspace["panels_dir"], workspace["data_dir"], draws=50)
+
+
+def test_compare_leaves_out_the_ids_a_run_failed_on(workspace, tmp_path):
+    """A model that fails a third of the panel must not be compared as if it did not.
+
+    The failures of run B are excluded from the paired difference (they have no
+    hypothesis to pair with), and every excluded id is listed in the comparison.
+    """
+    state = {"failing": False, "order": []}
+
+    def respond(request):
+        # The clip, not the request: the multipart boundary differs every time.
+        content = request.content
+        start = content.index(b"RIFF")
+        key = hashlib.sha256(content[start : start + 4096]).hexdigest()
+        if key not in state["order"]:
+            state["order"].append(key)
+        # Every third clip of the panel fails, retries included, so the failing
+        # set is the same whatever order the requests arrive in.
+        if state["failing"] and state["order"].index(key) % 3 == 0:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(
+            context_.model,
+            base_url,
+            transport=httpx.MockTransport(respond),
+            sleep=lambda _: None,
+        )
+
+    url = "http://server.test"
+    run_a = _run_model(workspace, url, "model-a", factory)
+    state["failing"] = True
+    run_b_root = tmp_path / "runs-b"
+    with pytest.raises(RunError):
+        run_suite(
+            context(
+                workspace,
+                base_url=url,
+                runs_root=run_b_root,
+                model=ModelConfig(name="model-b", model="served-id"),
+            ),
+            client_factory=factory,
+        )
+    comparison = compare_runs(
+        run_a,
+        run_b_root / "eval" / "model-b" / "fast",
+        workspace["panels_dir"],
+        workspace["data_dir"],
+        draws=50,
+    )
+    section = comparison["panels"][PANEL]
+    failed = section["excluded"]["failed_in_b"]
+    assert failed
+    assert section["items"] == panel_size(workspace) - len(failed)
+    for clip_id in failed:
+        assert clip_id in section["excluded"]["ids"]
+
+    text = render_comparison(comparison)
+    assert "ids left out" in text
+    assert failed[0] in text
 
 
 def test_a_non_speech_panel_is_scored_for_hallucinations(tmp_path):
