@@ -5,7 +5,14 @@ description = "A lab for speech experiments, written by LLM agents and meant to 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "huggingface-hub>=2.4.0",
+    "numpy>=2.5.4",
+    "pyyaml>=6.0.3",
+    "soundfile>=0.14.0",
+    "soxr>=1.1.0",
+]
 
 [project.scripts]
 audiolab = "audiolab.cli:main"
