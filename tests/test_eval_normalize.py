@@ -12,7 +12,7 @@ import pytest  # noqa: E402
 
 from audiolab.eval.normalize import NORMALIZER_VERSION, VIEWS, normalize, token_count  # noqa: E402
 
-TRAP_SET = Path(__file__).parent / "data" / "trap_set.jsonl"
+TRAP_SET = Path(__file__).parent / "data" / "normalizer_traps.jsonl"
 
 # What each equal pair is meant to prove. Only the pairs whose intent is not
 # obvious from the text are listed; the file itself stays free of explanations.
@@ -31,15 +31,22 @@ RULES = {
 
 
 def load_pairs() -> list[dict]:
-    return [json.loads(line) for line in TRAP_SET.read_text(encoding="utf-8").splitlines()]
+    """The pairs of the trap set; the header line carries no pair."""
+    rows = [json.loads(line) for line in TRAP_SET.read_text(encoding="utf-8").splitlines()]
+    return [row for row in rows if "id" in row]
 
 
 PAIRS = load_pairs()
 
 
+def test_trap_set_header_says_it_is_unreviewed():
+    header = json.loads(TRAP_SET.read_text(encoding="utf-8").splitlines()[0])
+    assert "not yet reviewed by the owner" in header["note"]
+
+
 def test_trap_set_is_large_and_balanced():
     assert len(PAIRS) >= 200
-    equal = [pair for pair in PAIRS if pair["equal"]]
+    equal = [pair for pair in PAIRS if pair["expect_equal"]]
     assert len(equal) >= 120
     assert len(PAIRS) - len(equal) >= 25
     identifiers = [pair["id"] for pair in PAIRS]
@@ -50,9 +57,9 @@ def test_trap_set_is_large_and_balanced():
 
 @pytest.mark.parametrize("pair", PAIRS, ids=[pair["id"] for pair in PAIRS])
 def test_trap_set_pair(pair: dict):
-    reference = normalize(pair["reference"], pair["language"], pair["view"])
-    hypothesis = normalize(pair["hypothesis"], pair["language"], pair["view"])
-    assert (reference == hypothesis) is pair["equal"], (
+    reference = normalize(pair["ref"], pair["language"], pair["view"])
+    hypothesis = normalize(pair["hyp"], pair["language"], pair["view"])
+    assert (reference == hypothesis) is pair["expect_equal"], (
         f"{pair['id']}: {pair['reference']!r} -> {reference!r}, "
         f"{pair['hypothesis']!r} -> {hypothesis!r}"
     )
@@ -76,7 +83,7 @@ def test_unknown_view_or_language_is_refused():
 
 def test_normalizing_twice_changes_nothing():
     for pair in PAIRS:
-        once = normalize(pair["reference"], pair["language"], pair["view"])
+        once = normalize(pair["ref"], pair["language"], pair["view"])
         assert normalize(once, pair["language"], pair["view"]) == once
 
 

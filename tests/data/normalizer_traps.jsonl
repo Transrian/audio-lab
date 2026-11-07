@@ -1,0 +1,221 @@
+{"note": "agent-written, not yet reviewed by the owner", "version": 1, "language_pair": ["fr", "en"], "fields": ["id", "language", "ref", "hyp", "view", "expect_equal"]}
+{"id": "frsmall-0", "language": "fr", "ref": "zéro", "hyp": "0", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-1", "language": "fr", "ref": "un", "hyp": "1", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-2", "language": "fr", "ref": "deux", "hyp": "2", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-3", "language": "fr", "ref": "trois", "hyp": "3", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-4", "language": "fr", "ref": "quatre", "hyp": "4", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-5", "language": "fr", "ref": "cinq", "hyp": "5", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-6", "language": "fr", "ref": "six", "hyp": "6", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-7", "language": "fr", "ref": "sept", "hyp": "7", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-8", "language": "fr", "ref": "huit", "hyp": "8", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-9", "language": "fr", "ref": "neuf", "hyp": "9", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-10", "language": "fr", "ref": "dix", "hyp": "10", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-11", "language": "fr", "ref": "onze", "hyp": "11", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-12", "language": "fr", "ref": "douze", "hyp": "12", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-13", "language": "fr", "ref": "treize", "hyp": "13", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-14", "language": "fr", "ref": "quatorze", "hyp": "14", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-15", "language": "fr", "ref": "quinze", "hyp": "15", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-16", "language": "fr", "ref": "seize", "hyp": "16", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-17", "language": "fr", "ref": "dix-sept", "hyp": "17", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-18", "language": "fr", "ref": "dix-huit", "hyp": "18", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-19", "language": "fr", "ref": "dix-neuf", "hyp": "19", "view": "normalized", "expect_equal": true}
+{"id": "frsmall-20", "language": "fr", "ref": "vingt", "hyp": "20", "view": "normalized", "expect_equal": true}
+{"id": "frmore-21", "language": "fr", "ref": "vingt et un", "hyp": "21", "view": "normalized", "expect_equal": true}
+{"id": "frmore-30", "language": "fr", "ref": "trente", "hyp": "30", "view": "normalized", "expect_equal": true}
+{"id": "frmore-31", "language": "fr", "ref": "trente et un", "hyp": "31", "view": "normalized", "expect_equal": true}
+{"id": "frmore-40", "language": "fr", "ref": "quarante", "hyp": "40", "view": "normalized", "expect_equal": true}
+{"id": "frmore-50", "language": "fr", "ref": "cinquante", "hyp": "50", "view": "normalized", "expect_equal": true}
+{"id": "frmore-60", "language": "fr", "ref": "soixante", "hyp": "60", "view": "normalized", "expect_equal": true}
+{"id": "frmore-61", "language": "fr", "ref": "soixante et un", "hyp": "61", "view": "normalized", "expect_equal": true}
+{"id": "frmore-70", "language": "fr", "ref": "soixante-dix", "hyp": "70", "view": "normalized", "expect_equal": true}
+{"id": "frmore-71", "language": "fr", "ref": "soixante et onze", "hyp": "71", "view": "normalized", "expect_equal": true}
+{"id": "frmore-72", "language": "fr", "ref": "soixante-douze", "hyp": "72", "view": "normalized", "expect_equal": true}
+{"id": "frmore-80", "language": "fr", "ref": "quatre-vingts", "hyp": "80", "view": "normalized", "expect_equal": true}
+{"id": "frmore-81", "language": "fr", "ref": "quatre-vingt-un", "hyp": "81", "view": "normalized", "expect_equal": true}
+{"id": "frmore-90", "language": "fr", "ref": "quatre-vingt-dix", "hyp": "90", "view": "normalized", "expect_equal": true}
+{"id": "frmore-91", "language": "fr", "ref": "quatre-vingt-onze", "hyp": "91", "view": "normalized", "expect_equal": true}
+{"id": "frmore-99", "language": "fr", "ref": "quatre-vingt-dix-neuf", "hyp": "99", "view": "normalized", "expect_equal": true}
+{"id": "frmore-100", "language": "fr", "ref": "cent", "hyp": "100", "view": "normalized", "expect_equal": true}
+{"id": "frmore-101", "language": "fr", "ref": "cent un", "hyp": "101", "view": "normalized", "expect_equal": true}
+{"id": "frmore-200", "language": "fr", "ref": "deux cents", "hyp": "200", "view": "normalized", "expect_equal": true}
+{"id": "frmore-201", "language": "fr", "ref": "deux cent un", "hyp": "201", "view": "normalized", "expect_equal": true}
+{"id": "frmore-1000", "language": "fr", "ref": "mille", "hyp": "1000", "view": "normalized", "expect_equal": true}
+{"id": "frmore-1001", "language": "fr", "ref": "mille un", "hyp": "1001", "view": "normalized", "expect_equal": true}
+{"id": "frmore-2000", "language": "fr", "ref": "deux mille", "hyp": "2000", "view": "normalized", "expect_equal": true}
+{"id": "frmore-1234", "language": "fr", "ref": "mille deux cent trente-quatre", "hyp": "1234", "view": "normalized", "expect_equal": true}
+{"id": "frmore-1000000", "language": "fr", "ref": "un million", "hyp": "1000000", "view": "normalized", "expect_equal": true}
+{"id": "frmore-22", "language": "fr", "ref": "vingt-deux", "hyp": "22", "view": "normalized", "expect_equal": true}
+{"id": "frmore-33", "language": "fr", "ref": "trente-trois", "hyp": "33", "view": "normalized", "expect_equal": true}
+{"id": "frmore-45", "language": "fr", "ref": "quarante-cinq", "hyp": "45", "view": "normalized", "expect_equal": true}
+{"id": "frmore-56", "language": "fr", "ref": "cinquante-six", "hyp": "56", "view": "normalized", "expect_equal": true}
+{"id": "frmore-67", "language": "fr", "ref": "soixante-sept", "hyp": "67", "view": "normalized", "expect_equal": true}
+{"id": "frmore-78", "language": "fr", "ref": "soixante-dix-huit", "hyp": "78", "view": "normalized", "expect_equal": true}
+{"id": "frmore-89", "language": "fr", "ref": "quatre-vingt-neuf", "hyp": "89", "view": "normalized", "expect_equal": true}
+{"id": "frmore-95", "language": "fr", "ref": "quatre-vingt-quinze", "hyp": "95", "view": "normalized", "expect_equal": true}
+{"id": "frmore-365", "language": "fr", "ref": "trois cent soixante-cinq", "hyp": "365", "view": "normalized", "expect_equal": true}
+{"id": "frmore-1999", "language": "fr", "ref": "mille neuf cent quatre-vingt-dix-neuf", "hyp": "1999", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-0", "language": "en", "ref": "zero", "hyp": "0", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-1", "language": "en", "ref": "one", "hyp": "1", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-2", "language": "en", "ref": "two", "hyp": "2", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-3", "language": "en", "ref": "three", "hyp": "3", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-4", "language": "en", "ref": "four", "hyp": "4", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-5", "language": "en", "ref": "five", "hyp": "5", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-6", "language": "en", "ref": "six", "hyp": "6", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-7", "language": "en", "ref": "seven", "hyp": "7", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-8", "language": "en", "ref": "eight", "hyp": "8", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-9", "language": "en", "ref": "nine", "hyp": "9", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-10", "language": "en", "ref": "ten", "hyp": "10", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-11", "language": "en", "ref": "eleven", "hyp": "11", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-12", "language": "en", "ref": "twelve", "hyp": "12", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-13", "language": "en", "ref": "thirteen", "hyp": "13", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-14", "language": "en", "ref": "fourteen", "hyp": "14", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-15", "language": "en", "ref": "fifteen", "hyp": "15", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-16", "language": "en", "ref": "sixteen", "hyp": "16", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-17", "language": "en", "ref": "seventeen", "hyp": "17", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-18", "language": "en", "ref": "eighteen", "hyp": "18", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-19", "language": "en", "ref": "nineteen", "hyp": "19", "view": "normalized", "expect_equal": true}
+{"id": "ensmall-20", "language": "en", "ref": "twenty", "hyp": "20", "view": "normalized", "expect_equal": true}
+{"id": "enmore-21", "language": "en", "ref": "twenty one", "hyp": "21", "view": "normalized", "expect_equal": true}
+{"id": "enmore-30", "language": "en", "ref": "thirty", "hyp": "30", "view": "normalized", "expect_equal": true}
+{"id": "enmore-40", "language": "en", "ref": "forty", "hyp": "40", "view": "normalized", "expect_equal": true}
+{"id": "enmore-50", "language": "en", "ref": "fifty", "hyp": "50", "view": "normalized", "expect_equal": true}
+{"id": "enmore-60", "language": "en", "ref": "sixty", "hyp": "60", "view": "normalized", "expect_equal": true}
+{"id": "enmore-70", "language": "en", "ref": "seventy", "hyp": "70", "view": "normalized", "expect_equal": true}
+{"id": "enmore-80", "language": "en", "ref": "eighty", "hyp": "80", "view": "normalized", "expect_equal": true}
+{"id": "enmore-90", "language": "en", "ref": "ninety", "hyp": "90", "view": "normalized", "expect_equal": true}
+{"id": "enmore-100", "language": "en", "ref": "one hundred", "hyp": "100", "view": "normalized", "expect_equal": true}
+{"id": "enmore-101", "language": "en", "ref": "one hundred and one", "hyp": "101", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1000", "language": "en", "ref": "one thousand", "hyp": "1000", "view": "normalized", "expect_equal": true}
+{"id": "enmore-2000", "language": "en", "ref": "two thousand", "hyp": "2000", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1234", "language": "en", "ref": "one thousand two hundred thirty-four", "hyp": "1234", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1000000", "language": "en", "ref": "one million", "hyp": "1000000", "view": "normalized", "expect_equal": true}
+{"id": "enmore-22", "language": "en", "ref": "twenty two", "hyp": "22", "view": "normalized", "expect_equal": true}
+{"id": "enmore-33", "language": "en", "ref": "thirty three", "hyp": "33", "view": "normalized", "expect_equal": true}
+{"id": "enmore-45", "language": "en", "ref": "forty five", "hyp": "45", "view": "normalized", "expect_equal": true}
+{"id": "enmore-56", "language": "en", "ref": "fifty six", "hyp": "56", "view": "normalized", "expect_equal": true}
+{"id": "enmore-67", "language": "en", "ref": "sixty seven", "hyp": "67", "view": "normalized", "expect_equal": true}
+{"id": "enmore-78", "language": "en", "ref": "seventy eight", "hyp": "78", "view": "normalized", "expect_equal": true}
+{"id": "enmore-89", "language": "en", "ref": "eighty nine", "hyp": "89", "view": "normalized", "expect_equal": true}
+{"id": "enmore-95", "language": "en", "ref": "ninety five", "hyp": "95", "view": "normalized", "expect_equal": true}
+{"id": "enmore-365", "language": "en", "ref": "three hundred and sixty five", "hyp": "365", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1999", "language": "en", "ref": "one thousand nine hundred and ninety nine", "hyp": "1999", "view": "normalized", "expect_equal": true}
+{"id": "fr-case", "language": "fr", "ref": "Bonjour, le monde !", "hyp": "bonjour le monde", "view": "normalized", "expect_equal": true}
+{"id": "fr-quotes", "language": "fr", "ref": "« Bonjour »", "hyp": "bonjour", "view": "normalized", "expect_equal": true}
+{"id": "fr-accents-kept", "language": "fr", "ref": "Élève", "hyp": "eleve", "view": "normalized", "expect_equal": false}
+{"id": "fr-accents-case", "language": "fr", "ref": "Élève", "hyp": "élève", "view": "normalized", "expect_equal": true}
+{"id": "en-case", "language": "en", "ref": "Hello, world!", "hyp": "hello world", "view": "normalized", "expect_equal": true}
+{"id": "en-cafe", "language": "en", "ref": "café", "hyp": "cafe", "view": "normalized", "expect_equal": false}
+{"id": "fr-elision-one-token", "language": "fr", "ref": "l'homme", "hyp": "l homme", "view": "normalized", "expect_equal": false}
+{"id": "fr-elision-joined", "language": "fr", "ref": "d'accord", "hyp": "daccord", "view": "normalized", "expect_equal": false}
+{"id": "fr-typographic-apostrophe", "language": "fr", "ref": "l’homme", "hyp": "l'homme", "view": "normalized", "expect_equal": true}
+{"id": "fr-hyphen-words", "language": "fr", "ref": "qu'est-ce que", "hyp": "qu'est ce que", "view": "normalized", "expect_equal": true}
+{"id": "en-contraction", "language": "en", "ref": "don't", "hyp": "do not", "view": "normalized", "expect_equal": false}
+{"id": "fr-decimal-words", "language": "fr", "ref": "trois virgule cinq", "hyp": "3,5", "view": "normalized", "expect_equal": true}
+{"id": "fr-decimal-point", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "normalized", "expect_equal": true}
+{"id": "fr-decimal-zero", "language": "fr", "ref": "0,5", "hyp": "zéro virgule cinq", "view": "normalized", "expect_equal": true}
+{"id": "fr-decimal-wrong", "language": "fr", "ref": "3,5", "hyp": "trois virgule six", "view": "normalized", "expect_equal": false}
+{"id": "en-decimal-words", "language": "en", "ref": "three point five", "hyp": "3.5", "view": "normalized", "expect_equal": true}
+{"id": "en-decimal-zero", "language": "en", "ref": "0.5", "hyp": "zero point five", "view": "normalized", "expect_equal": true}
+{"id": "en-decimal-french-style", "language": "en", "ref": "1,5", "hyp": "one point five", "view": "normalized", "expect_equal": true}
+{"id": "fr-percent", "language": "fr", "ref": "vingt pour cent", "hyp": "20 %", "view": "normalized", "expect_equal": true}
+{"id": "fr-percent-attached", "language": "fr", "ref": "vingt pour cent", "hyp": "20%", "view": "normalized", "expect_equal": true}
+{"id": "en-percent", "language": "en", "ref": "twenty percent", "hyp": "20%", "view": "normalized", "expect_equal": true}
+{"id": "fr-kilogram", "language": "fr", "ref": "deux virgule cinq kilogrammes", "hyp": "2,5 kg", "view": "normalized", "expect_equal": true}
+{"id": "fr-kilometre", "language": "fr", "ref": "cinq kilomètres", "hyp": "5 km", "view": "normalized", "expect_equal": true}
+{"id": "en-kilometre", "language": "en", "ref": "five kilometers", "hyp": "5 km", "view": "normalized", "expect_equal": true}
+{"id": "fr-degree", "language": "fr", "ref": "vingt degrés", "hyp": "20 °C", "view": "normalized", "expect_equal": true}
+{"id": "fr-euro", "language": "fr", "ref": "douze euros cinquante", "hyp": "12,50 €", "view": "normalized", "expect_equal": true}
+{"id": "en-dollar", "language": "en", "ref": "three dollars fifty", "hyp": "$3.50", "view": "normalized", "expect_equal": true}
+{"id": "fr-plus-percent", "language": "fr", "ref": "plus trois virgule cinq pour cent", "hyp": "+3,5 %", "view": "normalized", "expect_equal": true}
+{"id": "fr-minus", "language": "fr", "ref": "moins deux", "hyp": "-2", "view": "normalized", "expect_equal": true}
+{"id": "fr-minus-decimal", "language": "fr", "ref": "moins trois virgule cinq", "hyp": "-3,5", "view": "normalized", "expect_equal": true}
+{"id": "en-minus", "language": "en", "ref": "minus two", "hyp": "-2", "view": "normalized", "expect_equal": true}
+{"id": "fr-ordinal-first", "language": "fr", "ref": "le premier mai", "hyp": "le 1er mai", "view": "normalized", "expect_equal": true}
+{"id": "fr-ordinal-2", "language": "fr", "ref": "deuxième", "hyp": "2e", "view": "normalized", "expect_equal": true}
+{"id": "fr-ordinal-21", "language": "fr", "ref": "vingt et unième", "hyp": "21e", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-1", "language": "en", "ref": "first", "hyp": "1st", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-2", "language": "en", "ref": "second", "hyp": "2nd", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-3", "language": "en", "ref": "third", "hyp": "3rd", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-5", "language": "en", "ref": "fifth", "hyp": "5th", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-12", "language": "en", "ref": "twelfth", "hyp": "12th", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-20", "language": "en", "ref": "twentieth", "hyp": "20th", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-21", "language": "en", "ref": "twenty first", "hyp": "21st", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-100", "language": "en", "ref": "one hundredth", "hyp": "100th", "view": "normalized", "expect_equal": true}
+{"id": "en-ordinal-century", "language": "en", "ref": "the twenty first century", "hyp": "the 21st century", "view": "normalized", "expect_equal": true}
+{"id": "fr-time-h", "language": "fr", "ref": "quatorze heures trente", "hyp": "14h30", "view": "normalized", "expect_equal": true}
+{"id": "fr-time-colon", "language": "fr", "ref": "quatorze heures trente", "hyp": "14:30", "view": "normalized", "expect_equal": true}
+{"id": "fr-time-whole", "language": "fr", "ref": "quatorze heures", "hyp": "14 h", "view": "normalized", "expect_equal": true}
+{"id": "en-time", "language": "en", "ref": "three thirty", "hyp": "3:30", "view": "normalized", "expect_equal": true}
+{"id": "en-time-whole", "language": "en", "ref": "three o'clock", "hyp": "3:00", "view": "normalized", "expect_equal": true}
+{"id": "fr-mister", "language": "fr", "ref": "monsieur Dupont", "hyp": "M. Dupont", "view": "normalized", "expect_equal": true}
+{"id": "fr-doctor", "language": "fr", "ref": "docteur Martin", "hyp": "Dr Martin", "view": "normalized", "expect_equal": true}
+{"id": "fr-and", "language": "fr", "ref": "et", "hyp": "&", "view": "normalized", "expect_equal": true}
+{"id": "en-mister", "language": "en", "ref": "mister Smith", "hyp": "Mr. Smith", "view": "normalized", "expect_equal": true}
+{"id": "en-doctor", "language": "en", "ref": "doctor Smith", "hyp": "Dr Smith", "view": "normalized", "expect_equal": true}
+{"id": "en-and", "language": "en", "ref": "and", "hyp": "&", "view": "normalized", "expect_equal": true}
+{"id": "fr-filler", "language": "fr", "ref": "le chat", "hyp": "euh le chat", "view": "normalized", "expect_equal": true}
+{"id": "fr-filler-two", "language": "fr", "ref": "le chat", "hyp": "heu ben le chat", "view": "normalized", "expect_equal": true}
+{"id": "en-filler", "language": "en", "ref": "hello", "hyp": "uh hello", "view": "normalized", "expect_equal": true}
+{"id": "en-filler-two", "language": "en", "ref": "hello", "hyp": "um hello", "view": "normalized", "expect_equal": true}
+{"id": "fr-only-filler", "language": "fr", "ref": "", "hyp": "euh", "view": "normalized", "expect_equal": true}
+{"id": "en-only-filler", "language": "en", "ref": "", "hyp": "uh", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-color", "language": "en", "ref": "colour", "hyp": "color", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-center", "language": "en", "ref": "centre", "hyp": "center", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-organize", "language": "en", "ref": "organise", "hyp": "organize", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-traveling", "language": "en", "ref": "travelling", "hyp": "traveling", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-gray", "language": "en", "ref": "grey", "hyp": "gray", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-program", "language": "en", "ref": "programme", "hyp": "program", "view": "normalized", "expect_equal": true}
+{"id": "en-spelling-realized", "language": "en", "ref": "realised", "hyp": "realized", "view": "normalized", "expect_equal": true}
+{"id": "fr-extra-spaces", "language": "fr", "ref": "bonjour   le monde", "hyp": "bonjour le monde", "view": "normalized", "expect_equal": true}
+{"id": "fr-nbsp", "language": "fr", "ref": "bonjour le monde", "hyp": "bonjour le monde", "view": "normalized", "expect_equal": true}
+{"id": "fr-nfd", "language": "fr", "ref": "café", "hyp": "café", "view": "normalized", "expect_equal": true}
+{"id": "en-em-dash", "language": "en", "ref": "Hello—world", "hyp": "hello world", "view": "normalized", "expect_equal": true}
+{"id": "fr-dash-range", "language": "fr", "ref": "10-15", "hyp": "dix quinze", "view": "normalized", "expect_equal": true}
+{"id": "empty-empty", "language": "fr", "ref": "", "hyp": "", "view": "normalized", "expect_equal": true}
+{"id": "fr-homophone-son", "language": "fr", "ref": "sont", "hyp": "son", "view": "normalized", "expect_equal": false}
+{"id": "fr-homophone-sa", "language": "fr", "ref": "ça", "hyp": "sa", "view": "normalized", "expect_equal": false}
+{"id": "en-homophone-their", "language": "en", "ref": "their", "hyp": "there", "view": "normalized", "expect_equal": false}
+{"id": "en-homophone-two", "language": "en", "ref": "two", "hyp": "to", "view": "normalized", "expect_equal": false}
+{"id": "fr-number-neighbour", "language": "fr", "ref": "vingt", "hyp": "vingt-cinq", "view": "normalized", "expect_equal": false}
+{"id": "en-number-neighbour", "language": "en", "ref": "fifteen", "hyp": "fifty", "view": "normalized", "expect_equal": false}
+{"id": "fr-year-neighbour", "language": "fr", "ref": "2021", "hyp": "2020", "view": "normalized", "expect_equal": false}
+{"id": "en-year-neighbour", "language": "en", "ref": "2021", "hyp": "2020", "view": "normalized", "expect_equal": false}
+{"id": "fr-plural-kept", "language": "fr", "ref": "cent", "hyp": "cents", "view": "normalized", "expect_equal": false}
+{"id": "fr-dropped-syllable", "language": "fr", "ref": "le chat noir", "hyp": "le chat", "view": "normalized", "expect_equal": false}
+{"id": "en-dropped-word", "language": "en", "ref": "the black cat", "hyp": "the cat", "view": "normalized", "expect_equal": false}
+{"id": "fr-sentence-number", "language": "fr", "ref": "il a trois ans", "hyp": "Il a 3 ans.", "view": "normalized", "expect_equal": true}
+{"id": "fr-sentence-thousands", "language": "fr", "ref": "la ville compte douze mille habitants", "hyp": "la ville compte 12 000 habitants", "view": "normalized", "expect_equal": true}
+{"id": "en-sentence-number", "language": "en", "ref": "the cat has four legs", "hyp": "The cat has 4 legs!", "view": "normalized", "expect_equal": true}
+{"id": "en-sentence-percent", "language": "en", "ref": "sales grew by twenty five percent", "hyp": "sales grew by 25 %", "view": "normalized", "expect_equal": true}
+{"id": "fr-sentence-time", "language": "fr", "ref": "le train part à quatorze heures trente", "hyp": "le train part à 14h30", "view": "normalized", "expect_equal": true}
+{"id": "fr-sentence-euro", "language": "fr", "ref": "ça coûte douze euros cinquante", "hyp": "ça coûte 12,50 €", "view": "normalized", "expect_equal": true}
+{"id": "en-sentence-ordinal", "language": "en", "ref": "the second of May", "hyp": "the 2nd of May", "view": "normalized", "expect_equal": true}
+{"id": "fr-sentence-plain", "language": "fr", "ref": "le chat dort", "hyp": "le chien dort", "view": "normalized", "expect_equal": false}
+{"id": "fr-number-in-word", "language": "fr", "ref": "vingt pour cent", "hyp": "vingt pourcent", "view": "normalized", "expect_equal": false}
+{"id": "en-number-in-word", "language": "en", "ref": "twenty percent", "hyp": "twentypercent", "view": "normalized", "expect_equal": false}
+{"id": "fr-decimal-thousands-confusion", "language": "fr", "ref": "trois virgule cinq", "hyp": "35", "view": "normalized", "expect_equal": false}
+{"id": "fr-ordre-inverse", "language": "fr", "ref": "2021 est une année", "hyp": "une année 2021 est", "view": "normalized", "expect_equal": false}
+{"id": "fr-extra-word", "language": "fr", "ref": "il fait beau", "hyp": "il fait très beau", "view": "normalized", "expect_equal": false}
+{"id": "en-wrong-number-word", "language": "en", "ref": "seven", "hyp": "eleven", "view": "normalized", "expect_equal": false}
+{"id": "fr-hyphen-in-word-kept", "language": "fr", "ref": "week-end", "hyp": "week end", "view": "normalized", "expect_equal": true}
+{"id": "en-apostrophe-kept", "language": "en", "ref": "the cat's bowl", "hyp": "the cat's bowl", "view": "normalized", "expect_equal": true}
+{"id": "fr-no-apostrophe", "language": "fr", "ref": "le chat", "hyp": "lchat", "view": "normalized", "expect_equal": false}
+{"id": "strict-trailing-punctuation", "language": "fr", "ref": "chat.", "hyp": "chat", "view": "strict", "expect_equal": true}
+{"id": "strict-exclamation", "language": "fr", "ref": "Bonjour !", "hyp": "bonjour", "view": "strict", "expect_equal": true}
+{"id": "strict-decimal", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "strict", "expect_equal": true}
+{"id": "strict-thousands-en", "language": "en", "ref": "2,000", "hyp": "2000", "view": "strict", "expect_equal": true}
+{"id": "strict-thousands-fr", "language": "fr", "ref": "1.234", "hyp": "1234", "view": "strict", "expect_equal": true}
+{"id": "strict-case", "language": "fr", "ref": "Chat", "hyp": "chat", "view": "strict", "expect_equal": true}
+{"id": "strict-hyphen", "language": "fr", "ref": "vingt-deux", "hyp": "vingt deux", "view": "strict", "expect_equal": false}
+{"id": "strict-comma-between-words", "language": "en", "ref": "hello,world", "hyp": "hello world", "view": "strict", "expect_equal": true}
+{"id": "strict-plural", "language": "fr", "ref": "chat", "hyp": "chats", "view": "strict", "expect_equal": false}
+{"id": "strict-elision", "language": "fr", "ref": "l'homme", "hyp": "l homme", "view": "strict", "expect_equal": false}
+{"id": "strict-accents", "language": "fr", "ref": "café", "hyp": "cafe", "view": "strict", "expect_equal": false}
+{"id": "strict-percent-spacing", "language": "fr", "ref": "20 %", "hyp": "20%", "view": "strict", "expect_equal": false}
+{"id": "strict-number-words", "language": "fr", "ref": "22", "hyp": "vingt-deux", "view": "strict", "expect_equal": false}
+{"id": "formatted-comma-kept", "language": "fr", "ref": "Bonjour, monde.", "hyp": "Bonjour monde", "view": "formatted", "expect_equal": false}
+{"id": "formatted-commas-spaced", "language": "fr", "ref": "Bonjour, monde.", "hyp": "Bonjour , monde .", "view": "formatted", "expect_equal": true}
+{"id": "formatted-case-kept", "language": "fr", "ref": "Bonjour", "hyp": "bonjour", "view": "formatted", "expect_equal": false}
+{"id": "formatted-decimal-mark", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "formatted", "expect_equal": false}
+{"id": "formatted-question", "language": "en", "ref": "Is it?", "hyp": "Is it", "view": "formatted", "expect_equal": false}
+{"id": "fr-decimal-dot", "language": "fr", "ref": "un virgule cinq", "hyp": "1.5", "view": "normalized", "expect_equal": true}
