@@ -18,9 +18,20 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
 | `nonspeech` | none | see below | esc50 + generated | 300 | 300 | 0.6 | 63 MiB |
 
+## Panels and their groups
+
 A **group** is the unit the bootstrap resamples: utterances of one group share a
 speaker, a recording or a text, so their errors are not independent. Groups are
-also what the sealed panel holds back whole.
+also what the sealed panel holds back whole. How many of them each panel has is
+part of how precise its numbers can be:
+
+| dataset | `fast` | `full` | `sealed` |
+| --- | --- | --- | --- |
+| `fleurs-fr` | 100 clips / 100 groups | 533 / 266 | 143 / 66 |
+| `fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
+| `mls-fr` | 100 / 14 | 600 / 14 | 468 / 4 |
+| `librispeech-en` | 100 / 32 | 600 / 32 | 492 / 8 |
+| `nonspeech` | 60 / 60 | 240 / 240 | 60 / 60 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -75,6 +86,13 @@ not download it again, so the check happens when the file arrives.
   `segments.txt`, whose first column is the archive.org URL of the book.
 - **Why it is here**: the French set that looks most like the target use —
   read, continuous speech, several thousand utterances, many speakers.
+- **Speakers, and what it costs**: the 2426 utterances belong to 18 speakers, so
+  the panels do not hold the same number of them. The sealed panel takes whole
+  speakers first: it is 4 speakers (468 clips, 4 groups), while `full` and `fast`
+  use the other 14 (600 and 100 clips, 14 groups each). A French interval from
+  this dataset is therefore built on 4 to 14 groups, not on thousands of
+  independent utterances, and the report says so (`few groups (n < 20): interval
+  approximate`).
 
 ## `librispeech-en` — read audiobook English
 
@@ -82,9 +100,9 @@ not download it again, so the check happens when the file arrives.
   LibriSpeech test split.
 - **License**: CC-BY-4.0.
 - **Text**: the chapter transcript, uppercase and unpunctuated.
-- **Group**: the speaker (`group_kind: speaker`), 40 of them here.
-- **Why it is here**: it is what every English paper reports, so our numbers can
-  be put next to published ones.
+- **Group**: the speaker (`group_kind: speaker`), 40 of them here. The sealed
+  panel takes 8 of them (492 clips) and `full` and `fast` the other 32 (600 and
+  100 clips).
 
 ## `nonspeech` — the hallucination battery
 

@@ -16,6 +16,7 @@ from helpers import make_clip, start_transcription_server, write_tone  # noqa: E
 
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
+from audiolab.eval import stats  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
 from audiolab.eval.records import (  # noqa: E402
     IDENTITY_NAME,
@@ -395,6 +396,36 @@ def test_a_changed_identity_names_the_field_that_changed(workspace):
     assert message is not None
     # The nested path and both values, so a reader knows which field to change.
     assert 'model.model changed ("served-id" -> "another-id")' in message
+
+
+def test_a_panel_with_few_groups_says_its_interval_is_approximate(workspace):
+    """The bootstrap resamples groups, so four speakers give a poor interval.
+
+    The fake panel has six speakers and the report must say so; the same panel
+    seen with a threshold of exactly that many groups must not, which pins the
+    rule to the group count rather than to the panel name.
+    """
+    server, url = server_answering()
+    try:
+        run_dir = run_suite(context(workspace, base_url=url))
+    finally:
+        server.shutdown()
+    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+    assert "few groups (n < 20): interval approximate" in report
+    summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
+    groups = summary["panels"][PANEL]["groups"]
+    assert 1 <= groups < 20
+    assert summary["panels"][PANEL]["interval_caution"]
+
+    # A panel with enough groups gets no caution, at the same numbers.
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(stats, "MINIMUM_GROUPS_FOR_INTERVALS", groups)
+    try:
+        again = score_run(run_dir, workspace["panels_dir"], workspace["data_dir"], draws=50)
+    finally:
+        monkey.undo()
+    assert "interval_caution" not in again["panels"][PANEL]
+    assert "interval approximate" not in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
 
 
 def test_scoring_twice_writes_the_same_bytes(workspace):

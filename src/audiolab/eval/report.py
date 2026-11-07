@@ -30,6 +30,8 @@ REPORT_NAME = "report.md"
 # 1a measures none of this; saying so beats letting a reader assume it does.
 # How many excluded ids the comparison prints before it points at the JSON.
 EXCLUDED_IDS_SHOWN = 20
+# Said in the report whenever a panel has too few groups for its interval.
+FEW_GROUPS_CAUTION = "few groups (n < 20): interval approximate"
 
 GAPS = (
     "noise and reverberation: not measured in 1a",
@@ -111,6 +113,9 @@ def panel_summary(panel: str, items: list[metrics.Item], *, draws: int, seed: in
     # has nothing to say about accuracy.
     scored = metrics.score_items(items)
     if speech:
+        # The interval resamples groups, so it is only as good as their number.
+        if summary["groups"] < stats.MINIMUM_GROUPS_FOR_INTERVALS:
+            summary["interval_caution"] = FEW_GROUPS_CAUTION
         for view, entry in summary["wer"].items():
             # No reference words means no rate to put an interval around.
             if entry and entry["value"] is not None:
@@ -236,6 +241,11 @@ def _compare_panel(
     result = {
         "items": len(items_a),
         "groups": len(metrics.totals_by_group(scored_a, value)),
+        "interval_caution": (
+            FEW_GROUPS_CAUTION
+            if len(metrics.totals_by_group(scored_a, value)) < stats.MINIMUM_GROUPS_FOR_INTERVALS
+            else ""
+        ),
         "kind": "speech" if speech else "nonspeech",
         "metric": "wer_normalized" if speech else "hallucination_rate",
         "a": stats.ratio(totals_a),
@@ -252,7 +262,7 @@ def render_comparison(comparison: dict) -> str:
     lines = [
         f"# Comparison: {comparison['a']} (A) against {comparison['b']} (B)",
         "",
-        "Paired over the ids both runs recorded. A difference is called a difference only",
+        "Paired over the ids both runs answered. A difference is called a difference only",
         "when the 95 % interval of B - A stays away from zero.",
         "",
         "| panel | metric | A | B | B - A | 95 % CI | verdict |",
@@ -268,8 +278,11 @@ def render_comparison(comparison: dict) -> str:
     lines += [
         "",
         f"{sum(section['items'] for section in comparison['panels'].values())} items compared.",
-        "",
     ]
+    for panel, section in comparison["panels"].items():
+        if section.get("interval_caution"):
+            lines.append(f"- **{panel}: {section['interval_caution']}**")
+    lines += [""]
     for panel, section in comparison["panels"].items():
         if not section["excluded"]["ids"]:
             continue
@@ -344,6 +357,10 @@ def _speech_section(section: dict) -> list[str]:
     lines = [
         f"- utterances: {section['items']} scored {section['scored_items']}, "
         f"{section['groups']} groups, {section['failed_requests']} failed requests",
+    ]
+    if section.get("interval_caution"):
+        lines.append(f"- **{section['interval_caution']}**")
+    lines += [
         "",
         "| view | WER | 95 % CI | errors | reference words |",
         "| --- | --- | --- | --- | --- |",

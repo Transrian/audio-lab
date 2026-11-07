@@ -15,6 +15,12 @@ import numpy as np
 
 # Ten thousand draws is the usual choice for a percentile interval: enough that
 # the interval itself moves by less than the rounding of the report.
+# Below this many groups the percentile bootstrap is dominated by which groups
+# happened to be drawn rather than by sampling error: with four speakers of
+# French there are only 4^4 distinct resamples, so the interval is written as an
+# approximation in the report instead of being quoted as if it were a
+# measurement of uncertainty.
+MINIMUM_GROUPS_FOR_INTERVALS = 20
 DRAWS = 10_000
 SEED = 20261107
 CONFIDENCE = 0.95

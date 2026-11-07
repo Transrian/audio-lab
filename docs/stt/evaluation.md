@@ -260,6 +260,16 @@ The draws are made with a fixed seed (`numpy.random.default_rng`), so the same
 totals give the same interval on any machine, and they depend on the numbers
 only: the order the groups happen to be stored in does not change them.
 
+**The interval is only as good as the number of groups behind it.** Below
+`stats.MINIMUM_GROUPS_FOR_INTERVALS` (20) a percentile bootstrap over groups has
+fewer distinct resamples than the interval has meaning, so the report writes
+`few groups (n < 20): interval approximate` next to that panel, in `report.md`
+and in the comparison. Groups are counted per dataset and per panel in
+[datasets.md](datasets.md#panels-and-their-groups); `mls-fr` is the one that
+matters here, 4 groups on its sealed panel and 14 on the others, so a French
+interval is an indication of spread between speakers rather than a precise
+bound.
+
 ## 7. What this does not measure
 
 - noise and reverberation;
