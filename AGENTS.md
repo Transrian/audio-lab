@@ -8,6 +8,9 @@ Rules for LLM agents working in this repository. Humans should start with the
 1. [`docs/owner/directives.md`](docs/owner/directives.md): what the owner asked for.
 2. [`docs/decisions/`](docs/decisions/README.md): accepted decisions, then proposed ones.
 3. [`docs/roadmap.md`](docs/roadmap.md): the current phase.
+4. `AGENTS.local.md`, if it exists (git-ignored): the facts of this machine,
+   such as servers, paths and models. Facts that hold only on one machine go
+   there, never into a committed file.
 
 ## Authority
 

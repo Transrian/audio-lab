@@ -28,8 +28,9 @@ dist/
 *.safetensors
 *.gguf
 
-# Local environment
+# Local environment and machine-specific agent notes (see AGENTS.md)
 .env
+/AGENTS.local.md
 .DS_Store
 
 # Local agent working notes (see AGENTS.md)
