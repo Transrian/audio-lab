@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 from audiolab.eval.client import ModelConfig
-from audiolab.eval.records import ENDPOINT_FINGERPRINT_KEY, read_records
+from audiolab.eval.records import ENDPOINT_FINGERPRINT_KEY
 
 # Bump when a change to the client could change what a server returns (how the
 # audio is encoded, which fields a request carries): every clip is asked again.
@@ -43,14 +43,15 @@ def transcript_key(model: ModelConfig, endpoint_fingerprint: str) -> dict:
     }
 
 
-def cache_file(runs_root: Path, model: ModelConfig, key: dict) -> Path:
-    """``<runs>/transcripts/<config name>/<key digest>.jsonl``.
+def cache_file(runs_root: Path, key: dict) -> Path:
+    """``<runs>/transcripts/<key digest>.jsonl``.
 
-    The config name is only there so a person finds the file; the digest is what
-    separates two ways of asking the same model.
+    Only the key names the file, so two configs that ask a model the same way
+    share their answers, and renaming a config keeps them. The ``.key.json``
+    file next to it says which model and options the digest stands for.
     """
     digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode("utf-8")).hexdigest()[:16]
-    return Path(runs_root) / TRANSCRIPTS_DIR / model.name / f"{digest}.jsonl"
+    return Path(runs_root) / TRANSCRIPTS_DIR / f"{digest}.jsonl"
 
 
 def open_cache(path: Path, key: dict) -> None:
@@ -65,14 +66,34 @@ def open_cache(path: Path, key: dict) -> None:
         key_path.write_text(json.dumps(key, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def cached_answers(path: Path) -> dict[tuple[str, str], dict]:
-    """The newest answer per clip, keyed by (clip id, audio sha256).
+def answer_key(clip_id: str, audio_sha256: str, language: str) -> tuple[str, str, str]:
+    """What one answer belongs to: the clip, its audio, and the language asked.
 
-    The audio hash is part of the key so that a clip whose audio changed (a
-    re-fetch, a fixed preparation step) is asked again rather than scored with
-    an answer to other audio.
+    The audio hash makes a clip whose audio changed (a re-fetch, a fixed
+    preparation step) a new question; the language does the same for a clip
+    whose manifest language changed, since that is what the request carries.
     """
-    answers: dict[tuple[str, str], dict] = {}
-    for record in read_records(path):
-        answers[(record["id"], record.get("audio_sha256", ""))] = record
+    return (clip_id, audio_sha256, language)
+
+
+def cached_answers(path: Path) -> dict[tuple[str, str, str], dict]:
+    """The newest answer per ``answer_key``.
+
+    A line that does not parse is skipped with a warning rather than stopping
+    every later run: it can only be the last line of a crashed write, and its
+    clip is simply asked again.
+    """
+    answers: dict[tuple[str, str, str], dict] = {}
+    if not path.is_file():
+        return answers
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            print(f"warning: {path}:{number} is not a complete answer; that clip is asked again")
+            continue
+        key = answer_key(record["id"], record["audio_sha256"], record["language"])
+        answers[key] = record
     return answers

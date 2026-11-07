@@ -48,6 +48,7 @@ class Item:
     cold: bool = False
     text_has_casing_punct: bool = False
     attempts: int = 1  # requests sent for this item, retries included
+    language_sent: bool = True  # False when the server refused the language field
 
     @property
     def failed(self) -> bool:

@@ -27,7 +27,13 @@ import yaml
 from audiolab import __version__
 from audiolab.core.paths import runs_dir
 from audiolab.data.panels import DEFAULT_PANELS_DIR
-from audiolab.eval.cache import cache_file, cached_answers, open_cache, transcript_key
+from audiolab.eval.cache import (
+    answer_key,
+    cache_file,
+    cached_answers,
+    open_cache,
+    transcript_key,
+)
 from audiolab.eval.client import (
     ModelConfig,
     TranscriptionClient,
@@ -115,7 +121,7 @@ def run_suite(context: RunContext, *, client_factory=None) -> Path:
     }
     fingerprint = endpoint_fingerprint(base_url, identity_key(Path(context.runs_root)))
     key = transcript_key(context.model, fingerprint)
-    cache_path = cache_file(Path(context.runs_root), context.model, key)
+    cache_path = cache_file(Path(context.runs_root), key)
     open_cache(cache_path, key)
     pending = _pending_items(items_by_panel, cached_answers(cache_path), context.fresh)
 
@@ -129,8 +135,8 @@ def run_suite(context: RunContext, *, client_factory=None) -> Path:
         # The report exists and counts the failures; the non-zero exit is what
         # tells a caller that the numbers are not a full picture.
         raise RunError(
-            f"{failed} requests failed; they are sent again on the next run "
-            f"(see {run_dir / RECORDS_NAME})"
+            f"{failed} panel items have no answer (their request failed); "
+            f"they are sent again on the next run (see {run_dir / RECORDS_NAME})"
         )
     return run_dir
 
@@ -170,7 +176,7 @@ def _identity(context: RunContext, panels: list[str], cache_path: Path) -> dict:
         "audiolab_version": __version__,
         "normalizer_version": NORMALIZER_VERSION,
         "git_commit": git_commit(),
-        "transcripts": f"{cache_path.parent.name}/{cache_path.name}",
+        "transcripts": cache_path.name,
     }
 
 
@@ -190,7 +196,7 @@ def identity_key(runs_root: Path) -> bytes:
 
     It is written with mode 0600 and never leaves the runs directory: it is not
     a secret the project manages, only something that makes the fingerprints in
-    one machine's run directories meaningless anywhere else.
+    one machine's cache key files meaningless anywhere else.
     """
     path = runs_root / IDENTITY_KEY_NAME
     if path.is_file():
@@ -219,11 +225,12 @@ def _write_run(
     run_dir.mkdir(parents=True, exist_ok=True)
     answers = cached_answers(cache_path)
     records = [
-        {**answers[(item.id, item.audio_sha256)], "panel": panel}
+        {**answers[_answer_key(item)], "panel": panel}
         for panel, items in items_by_panel.items()
         for item in items
     ]
     identity = _identity(context, list(items_by_panel), cache_path)
+    _warn_if_replacing_another_run(context, run_dir, identity)
     (run_dir / IDENTITY_NAME).write_text(
         json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -231,8 +238,35 @@ def _write_run(
     return run_dir
 
 
+def _warn_if_replacing_another_run(context: RunContext, run_dir: Path, identity: dict) -> None:
+    """Say so when the directory held answers from another cache file.
+
+    That happens when the same config name now asks differently (another served
+    id, request option or server). The answers are not lost, they stay in their
+    cache file; only this view of them is replaced.
+    """
+    previous_path = run_dir / IDENTITY_NAME
+    if not previous_path.is_file():
+        return
+    previous = json.loads(previous_path.read_text(encoding="utf-8")).get("transcripts")
+    if previous and previous != identity["transcripts"] and context.verbose:
+        print(
+            f"note: {run_dir} showed the answers of {previous}; it now shows "
+            f"{identity['transcripts']} (copy the directory first to keep both views)"
+        )
+
+
+def _answer_key(item: Item) -> tuple[str, str, str]:
+    """The cache key of an item; no language is asked for non-speech clips."""
+    return answer_key(item.id, item.audio_sha256, _language_asked(item))
+
+
+def _language_asked(item: Item) -> str:
+    return "" if item.language == "none" else item.language
+
+
 def _pending_items(
-    items_by_panel: dict[str, list[Item]], answers: dict[tuple[str, str], dict], fresh: bool
+    items_by_panel: dict[str, list[Item]], answers: dict[tuple[str, str, str], dict], fresh: bool
 ) -> list[Item]:
     """The clips to send: those with no cached answer, plus those that failed.
 
@@ -241,10 +275,10 @@ def _pending_items(
     answer winning. ``fresh`` sends every clip again. A clip in two panels of
     the suite is sent once.
     """
-    pending: dict[tuple[str, str], Item] = {}
+    pending: dict[tuple[str, str, str], Item] = {}
     for items in items_by_panel.values():
         for item in items:
-            key = (item.id, item.audio_sha256)
+            key = _answer_key(item)
             cached = answers.get(key)
             if fresh or cached is None or cached.get("error"):
                 pending.setdefault(key, item)
@@ -291,13 +325,14 @@ def _transcribe_pending(
 
 def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict:
     """One request, one record: a failure is an error record, never empty text."""
-    language = "" if item.language == "none" else item.language
+    language = _language_asked(item)
     try:
         result = client.transcribe(audio_file.read_bytes(), language)
     except TranscriptionError as failure:
         return {
             "id": item.id,
             "audio_sha256": item.audio_sha256,
+            "language": language,
             "panel": item.panel,
             "hypothesis": "",
             "error": str(failure),
@@ -310,6 +345,7 @@ def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict
     return {
         "id": item.id,
         "audio_sha256": item.audio_sha256,
+        "language": language,
         "panel": item.panel,
         "hypothesis": result.text,
         "error": "",
@@ -331,16 +367,14 @@ def _report_progress(done: int, total: int, record: dict) -> None:
 
 
 def _announce(context: RunContext, run_dir: Path, cache_path: Path, *, sent: int) -> int:
-    """Say where the run lives and how it went; returns how many requests failed."""
+    """Say where the run lives and how it went; returns how many items have no answer."""
     records = read_records(run_dir / RECORDS_NAME)
     failed = [record for record in records if record["error"]]
     if context.verbose:
         print(
-            f"records: {run_dir / RECORDS_NAME} ({len(records)} items, {sent} sent now, "
-            f"{len(records) - sent if sent <= len(records) else 0} from the cache, "
-            f"{len(failed)} failed)"
+            f"records: {run_dir / RECORDS_NAME} ({len(records)} panel items, {len(failed)} failed)"
         )
-        print(f"transcript cache: {cache_path}")
+        print(f"requests sent now: {sent}; transcript cache: {cache_path}")
         if failed:
             print(f"first failure: {failed[0]['id']}: {failed[0]['error']}")
     return len(failed)

@@ -84,10 +84,11 @@ Sending audio to a model is the slow part; scoring takes seconds. So the
 answers are kept once, in a **transcript cache** shared by every suite, and a
 suite's run directory is rebuilt from it on every run.
 
-**The cache**: `$AUDIOLAB_RUNS/transcripts/<model name>/<key>.jsonl`, one line
-per answer, appended and flushed as it arrives (`id`, `audio_sha256`, `panel`,
+**The cache**: `$AUDIOLAB_RUNS/transcripts/<key>.jsonl`, one line per answer,
+appended and flushed as it arrives (`id`, `audio_sha256`, `language`, `panel`,
 `hypothesis`, `error`, `latency_s`, `attempts`, `cold`, `language_sent`,
-`timestamp`). An answer is reused when the same clip, with the same audio, is
+`timestamp`). A torn last line left by a crash is skipped with a warning and its
+clip is asked again. An answer is reused when the same clip, with the same audio, is
 asked the same way again. "The same way" is the cache key, stored next to the
 file as `<key>.key.json`:
 
@@ -95,7 +96,7 @@ file as `<key>.key.json`:
 | --- | --- |
 | served model id, `api`, `request` options, `send_language` | config `name`, `server_label`, environment variable names |
 | the server, as a keyed fingerprint (below) | the API key |
-| the clip id and the sha256 of its audio | the panel or suite the clip is in |
+| the clip id, the sha256 of its audio, the language asked | the panel or suite the clip is in |
 | `CACHE_FORMAT` of `eval/cache.py`, bumped when the client changes what it sends | the git commit, the normalizer version, the metrics |
 
 So adding a dataset or a panel costs only the clips never asked; `fast` clips
@@ -105,6 +106,11 @@ answer: it stays in the file, so a flaky endpoint remains visible, and the clip
 is sent again on the next run, the newest line winning. `--fresh` sends every
 clip of the suite again (the old lines stay in the file).
 
+What the key cannot see: a server upgraded behind the same URL, or a server
+that refused the language field (the client then asks without it, and those
+answers are cached like any other; the report counts them per panel). After
+such a change, rerun with `--fresh`.
+
 The server is recorded as a **keyed fingerprint** of its root URL: HMAC-SHA256
 with a random per-machine key in `<runs dir>/.identity-key` (created on first
 use, mode `0600`). The URL and the API key are never stored, and the
@@ -112,7 +118,11 @@ fingerprint cannot be reversed by guessing the shape of a private address. It
 lives only in the cache's key file, never in a run directory.
 
 **The run directory**: `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`, rewritten on
-every run so it always describes the current panels:
+every run so it always describes the current panels. If the same config name now
+asks differently (another served id, option or server), the run says so and the
+directory shows the new answers; the old ones stay in their cache file. To keep
+two views side by side, for example before and after `--fresh`, copy the
+directory first.
 
 - `records.jsonl`: one line per panel item, the cached answer with the panel it
   is scored in.

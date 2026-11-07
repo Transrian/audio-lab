@@ -106,6 +106,11 @@ def panel_summary(panel: str, items: list[metrics.Item], *, draws: int, seed: in
     speech = any(item.language != "none" for item in items)
     summary = metrics.speech_summary(items) if speech else metrics.nonspeech_summary(items)
     summary["panel"] = panel
+    # A server that refused the language field answered without it; such
+    # answers are cached like any other, so the summary says how many there are.
+    summary["answered_without_language"] = sum(
+        1 for item in items if speech and not item.failed and not item.language_sent
+    )
     dataset, name = dataset_and_panel(panel)
     summary["dataset"] = dataset
     summary["panel_name"] = name
@@ -380,6 +385,11 @@ def _speech_section(section: dict) -> list[str]:
     ]
     if section.get("interval_caution"):
         lines.append(f"- **{section['interval_caution']}**")
+    if section.get("answered_without_language"):
+        lines.append(
+            f"- **{section['answered_without_language']} answers were given without a "
+            "language hint** (the server refused the field)"
+        )
     lines += _scoring_error_lines(section)
     lines += [
         "",

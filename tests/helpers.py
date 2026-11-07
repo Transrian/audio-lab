@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import soundfile as sf
 
@@ -24,7 +26,9 @@ def make_clip(clip_id: str, language: str = "fr", group: str = "", **fields) -> 
     values = {
         "id": clip_id,
         "audio": f"audio/{clip_id.replace(':', '_')}.wav",
-        "sha256": "0" * 64,
+        # A distinct hash per clip, as real audio has: the transcript cache keys
+        # answers on it, so identical fake hashes would hide a wrong reuse.
+        "sha256": hashlib.sha256(clip_id.encode("utf-8")).hexdigest(),
         "duration_s": 3.0,
         "language": language,
         "text": "bonjour tout le monde" if is_speech else "",

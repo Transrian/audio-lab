@@ -150,7 +150,7 @@ def test_a_second_run_resumes_without_asking_again(workspace):
 
 def cache_lines(workspace: dict) -> list[dict]:
     """Every answer the transcript cache of the fake model holds, oldest first."""
-    files = sorted((workspace["runs_dir"] / "transcripts" / "fake-model").glob("*.jsonl"))
+    files = sorted((workspace["runs_dir"] / "transcripts").glob("*.jsonl"))
     return [record for path in files for record in read_records(path)]
 
 
@@ -184,7 +184,7 @@ def test_what_changes_no_answer_sends_nothing_again(workspace, monkeypatch):
         monkeypatch.setattr(runner, "NORMALIZER_VERSION", 99)
         relabelled = context(workspace, base_url=url)
         relabelled.model = ModelConfig(
-            name="fake-model",
+            name="renamed-config",
             model="served-id",
             base_url_env="FAKE_URL",
             api_key_env="FAKE_KEY",
@@ -223,6 +223,58 @@ def test_what_changes_an_answer_asks_again(workspace):
     finally:
         server.shutdown()
     assert len(calls) == 2 * panel_size(workspace) + 1
+
+
+def test_a_changed_language_asks_again(workspace):
+    """The language is part of the request, so a relabelled clip is a new question."""
+    calls: list = []
+    server, url = server_answering(counter=calls)
+    try:
+        run_suite(context(workspace, base_url=url))
+        manifest_path = workspace["data_dir"] / "fake-fr" / "manifest.jsonl"
+        rows = [json.loads(line) for line in manifest_path.read_text().splitlines()]
+        manifest_path.write_text(
+            "".join(json.dumps({**row, "language": "en"}, sort_keys=True) + "\n" for row in rows)
+        )
+        run_suite(context(workspace, base_url=url))
+    finally:
+        server.shutdown()
+    assert len(calls) == 2 * panel_size(workspace)
+
+
+def test_a_torn_last_line_costs_one_clip_not_the_cache(workspace, capsys):
+    """A crash mid-write leaves half a line; the next run asks that clip again."""
+    calls: list = []
+    server, url = server_answering(counter=calls)
+    try:
+        run_suite(context(workspace, base_url=url))
+        (cache_path,) = (workspace["runs_dir"] / "transcripts").glob("*.jsonl")
+        data = cache_path.read_bytes()
+        cache_path.write_bytes(data[: len(data) - 40])
+        run_dir = run_suite(context(workspace, base_url=url, verbose=True))
+    finally:
+        server.shutdown()
+    assert len(calls) == panel_size(workspace) + 1
+    assert "is not a complete answer" in capsys.readouterr().out
+    assert len(read_records(run_dir / RECORDS_NAME)) == panel_size(workspace)
+    # The new answer was not glued onto the torn line: every other line parses.
+    lines = cache_path.read_text(encoding="utf-8").splitlines()
+    assert sum(1 for line in lines if not line.endswith("}")) == 1
+
+
+def test_answers_given_without_a_language_are_counted(workspace):
+    def respond(request):
+        if b'name="language"' in request.content:
+            return httpx.Response(400, json={"detail": "unknown field: language"})
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(context_.model, base_url, transport=httpx.MockTransport(respond))
+
+    run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
+    assert summary["panels"][PANEL]["answered_without_language"] == panel_size(workspace)
+    assert "without a language hint" in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
 
 
 def test_fresh_sends_every_clip_again(workspace):
@@ -420,7 +472,7 @@ def test_the_endpoint_fingerprint_is_keyed_and_stays_in_the_cache(workspace):
         run_dir = run_suite(context(workspace, base_url=url))
     finally:
         server.shutdown()
-    key_files = list((workspace["runs_dir"] / "transcripts" / "fake-model").glob("*.key.json"))
+    key_files = list((workspace["runs_dir"] / "transcripts").glob("*.key.json"))
     assert len(key_files) == 1
     fingerprint = json.loads(key_files[0].read_text(encoding="utf-8"))["endpoint_fingerprint"]
     assert len(fingerprint) == 64

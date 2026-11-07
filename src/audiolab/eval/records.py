@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from audiolab.core.paths import data_dir
@@ -19,20 +21,20 @@ from audiolab.eval.metrics import Item
 
 RECORDS_NAME = "records.jsonl"
 IDENTITY_NAME = "run.json"
-# The run identity records the endpoint under a keyed fingerprint: a run
-# directory can be shared, and the address of the server must not travel with
-# it, while resuming against a different server must still be refused. The
-# fingerprint is written to ``run.json`` only, never to the summary or the
-# report, and the key that makes it unguessable stays next to the runs.
+# The transcript cache key records the server under a keyed fingerprint: the
+# answers of two servers must never mix, and the address of a server must not
+# travel with a shared file. The fingerprint is written to the cache's key file
+# only, never to a run directory.
 ENDPOINT_FINGERPRINT_KEY = "endpoint_fingerprint"
-# The key that makes that fingerprint unforgeable and unguessable, next to the
-# runs it protects; created with mode 0600 on first use.
+# The key that makes that fingerprint unguessable, next to the runs; created
+# with mode 0600 on first use.
 IDENTITY_KEY_NAME = ".identity-key"
 
 # Fields of one record; anything else is corruption rather than a new feature.
 RECORD_FIELDS = (
     "id",
     "audio_sha256",
+    "language",
     "panel",
     "hypothesis",
     "error",
@@ -90,7 +92,7 @@ def clip_paths(panel_title: str, data_dir_: str | Path | None = None) -> dict[st
 
 
 def panel_hashes(panel_titles: list[str], panels_dir: str | Path) -> dict[str, str]:
-    """sha256 of each panel file, so a resume can tell whether the ids changed."""
+    """sha256 of each panel file, so a run says exactly which panels it scored."""
     panels_dir = Path(panels_dir)
     return {
         title: hashlib.sha256((panels_dir / f"{title}.txt").read_bytes()).hexdigest()
@@ -103,9 +105,18 @@ def append_record(path: Path, record: dict) -> None:
     unknown = set(record) - set(RECORD_FIELDS)
     if unknown:
         raise ValueError(f"record has unknown fields: {sorted(unknown)}")
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    line = json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+    with path.open("a+b") as handle:
+        # A crash can leave a torn last line; never glue a new answer onto it.
+        if handle.seek(0, os.SEEK_END) and _last_byte(handle) != b"\n":
+            line = "\n" + line
+        handle.write(line.encode("utf-8"))
         handle.flush()
+
+
+def _last_byte(handle) -> bytes:
+    handle.seek(-1, os.SEEK_END)
+    return handle.read(1)
 
 
 def write_records(path: Path, records: list[dict]) -> None:
@@ -117,9 +128,12 @@ def write_records(path: Path, records: list[dict]) -> None:
     text = "".join(
         json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in records
     )
-    partial = path.with_suffix(".partial")
-    partial.write_text(text, encoding="utf-8")
-    partial.replace(path)
+    # A unique temporary name, so two runs writing at once cannot collide.
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False
+    ) as handle:
+        handle.write(text)
+    Path(handle.name).replace(path)
 
 
 def read_records(path: Path) -> list[dict]:
@@ -134,9 +148,8 @@ def read_records(path: Path) -> list[dict]:
 def latest_records(records: list[dict]) -> dict[str, dict]:
     """The newest record of each item.
 
-    An item can have several: a failed request is retried on the next run and
-    the new record is appended, so the error stays visible in the file while the
-    item itself is measured. Everything that reports on items uses this view.
+    A run directory holds one record per item; this view also serves files
+    where an item appears more than once, the newest record winning.
     """
     latest: dict[str, dict] = {}
     for record in records:
@@ -166,6 +179,7 @@ def with_records(items: list[Item], records: list[dict]) -> list[Item]:
                 error=record.get("error", ""),
                 latency_s=float(record.get("latency_s", 0.0)),
                 attempts=int(record.get("attempts", 1)),
+                language_sent=bool(record.get("language_sent", True)),
                 duration_s=item.duration_s,
                 cold=bool(record.get("cold", False)),
                 text_has_casing_punct=item.text_has_casing_punct,
