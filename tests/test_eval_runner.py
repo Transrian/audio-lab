@@ -392,6 +392,44 @@ def test_compare_refuses_a_run_with_no_shared_ids(workspace, tmp_path):
         compare_runs(first, empty, workspace["panels_dir"], workspace["data_dir"], draws=50)
 
 
+def test_a_panel_with_no_reference_text_reports_no_wer(tmp_path):
+    """References are the only source of WER; without them the report says n/a."""
+    data_dir = tmp_path / "datasets"
+    clips = [
+        make_clip(f"empty:{index:03d}-000", group=f"empty:spk{index}", text="")
+        for index in range(4)
+    ]
+    for clip in clips:
+        write_tone(data_dir / "empty-fr" / clip.audio, seconds=1.0)
+    write_manifest(data_dir / "empty-fr", clips)
+    panels_dir = tmp_path / "panels"
+    build_panels("empty-fr", clips, panels_dir, built="2026-11-07")
+    server, url = server_answering(text="bonjour tout le monde")
+    try:
+        run_dir = run_suite(
+            RunContext(
+                model=ModelConfig(name="fake-model", model="served-id"),
+                suite=SuiteSpec(name="full", panels=["empty-fr-full"]),
+                panels_dir=panels_dir,
+                data_dir=data_dir,
+                runs_root=tmp_path / "runs",
+                base_url=url,
+                verbose=False,
+            )
+        )
+    finally:
+        server.shutdown()
+    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+    assert "| normalized | n/a |" in report
+    summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
+    wer = summary["panels"]["empty-fr-full"]["wer"]["normalized"]
+    assert wer["value"] is None
+    assert wer["reference_words"] == 0
+    # "bonjour tout le monde" is four words, invented again in every clip the
+    # panel holds (the sealed panel took one of the four groups first).
+    assert wer["errors"] == 4 * summary["panels"]["empty-fr-full"]["items"]
+
+
 def test_compare_leaves_out_the_ids_a_run_failed_on(workspace, tmp_path):
     """A model that fails a third of the panel must not be compared as if it did not.
 

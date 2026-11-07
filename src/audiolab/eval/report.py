@@ -106,7 +106,8 @@ def panel_summary(panel: str, items: list[metrics.Item], *, draws: int, seed: in
     scored = metrics.score_items(items)
     if speech:
         for view, entry in summary["wer"].items():
-            if entry:
+            # No reference words means no rate to put an interval around.
+            if entry and entry["value"] is not None:
                 entry["ci"] = _interval(scored, metrics.wer_value(view), draws, seed)
         summary["sentence_error_rate"]["ci"] = _interval(scored, _sentence_value, draws, seed)
     else:
@@ -335,8 +336,12 @@ def _speech_section(section: dict) -> list[str]:
         "| --- | --- | --- | --- | --- |",
     ]
     for view, entry in section["wer"].items():
-        if entry is None:
-            lines.append(f"| {view} | n/a | n/a | n/a | n/a |")
+        if entry is None or entry["value"] is None:
+            # A view the references cannot support, or a panel with no reference
+            # at all: there is no rate to show.
+            errors = "" if entry is None else f"{entry['errors']}"
+            words = "" if entry is None else f"{entry['reference_words']}"
+            lines.append(f"| {view} | n/a | n/a | {errors} | {words} |")
             continue
         lines.append(
             f"| {view} | {_percent(entry['value'])} | "
@@ -413,8 +418,9 @@ def _cell(text: str, limit: int = 60) -> str:
     return collapsed if len(collapsed) <= limit else collapsed[:limit] + "..."
 
 
-def _percent(value: float) -> str:
-    return f"{value * 100:.2f} %"
+def _percent(value: float | None) -> str:
+    """A rate, or n/a where the panel has no reference to compute one from."""
+    return "n/a" if value is None else f"{value * 100:.2f} %"
 
 
 def _number(value: float) -> str:

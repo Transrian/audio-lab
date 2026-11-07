@@ -157,6 +157,31 @@ def test_nonspeech_summary_counts_hallucinations_by_category():
     assert summary["by_category"]["noise"]["mean_words"] == 1.0
 
 
+def test_the_battery_counts_words_in_the_same_view_as_speech():
+    """One view for every item, so a word count means the same thing everywhere.
+
+    "21 %" is three words ("twenty one percent") on the battery too; counting it
+    as the single token the strict view produces would understate how much a
+    model invented on a clip where it should have said nothing.
+    """
+    summary = metrics.nonspeech_summary([battery_item("a", "21 %")])
+    assert summary["words"]["mean"] == 3
+    assert summary["words"]["share_at_least_5"]["value"] == 0.0
+
+
+def test_a_panel_with_no_reference_words_has_no_wer():
+    """A rate over zero reference words is not 0 %, it is undefined."""
+    items = [
+        speech_item("one", "", "bonjour"),
+        speech_item("two", "", ""),
+    ]
+    summary = metrics.speech_summary(items)
+    assert summary["wer"]["normalized"]["value"] is None
+    assert summary["wer"]["normalized"]["errors"] == 1
+    assert summary["wer"]["normalized"]["reference_words"] == 0
+    assert summary["wer"]["normalized"]["utterances"] == 2
+
+
 def test_top_hypotheses_are_ordered_by_count_then_text():
     items = [battery_item(letter, "bruit blanc") for letter in "abc"] + [battery_item("d", "ah")]
     top = metrics.nonspeech_summary(items)["top_hypotheses"]

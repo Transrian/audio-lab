@@ -73,17 +73,23 @@ class Counts:
 
 def tokens(text: str, language: str, view: str) -> list[str]:
     """The tokens a text contributes to one view."""
-    return normalize(text, language, view).split()
+    return normalize(text, language_for(language), view).split()
 
 
 def view_for(language: str) -> str:
-    """The view a language is scored in.
+    """The view a text is scored in: the normalized one, for every item.
 
-    Non-speech clips have no language, so no language rules apply to them: for
-    those, "normalized" would be guesswork, and the neutral view is enough to
-    tell an invented word from an empty answer.
+    The non-speech battery has no language of its own, so its words are
+    normalized with the English rules: the question it asks is only whether the
+    model said anything, and one view for all items means a word count in a
+    report always means the same thing.
     """
-    return "normalized" if language in ("fr", "en") else "strict"
+    return "normalized"
+
+
+def language_for(language: str) -> str:
+    """The rules a language is normalized with; "none" falls back to English."""
+    return language if language in ("fr", "en") else "en"
 
 
 def counts(reference: str, hypothesis: str, language: str, view: str) -> Counts:
@@ -185,7 +191,7 @@ def score_items(items: list[Item]) -> list[UtteranceScore]:
 
 def _counts_for(item: Item) -> dict[str, Counts]:
     """The views one item can be scored in: formatted needs a formatted reference."""
-    views = ["normalized", "strict"] if item.language in ("fr", "en") else ["strict"]
+    views = ["normalized", "strict"] if item.language in ("fr", "en") else ["normalized"]
     if item.text_has_casing_punct:
         views.append("formatted")
     return {view: counts(item.reference, item.hypothesis, item.language, view) for view in views}
@@ -231,7 +237,7 @@ def nonspeech_summary(items: list[Item]) -> dict:
             "max": max(word_counts) if word_counts else 0,
             "share_at_least_5": _ratio(
                 sum(1 for count in word_counts if count >= HALLUCINATION_LONG_WORDS), len(scored)
-            ),  # noqa: E501
+            ),
         },
         "top_hypotheses": [
             {"text": text, "count": count}
@@ -254,7 +260,9 @@ def _view_wer(scored: list[UtteranceScore], view: str) -> dict | None:
     return {
         "errors": errors,
         "reference_words": words,
-        "value": errors / words if words else 0.0,
+        # No reference word means no error rate: a model that answers where there
+        # is nothing to answer has not scored 0 %, it has scored nothing.
+        "value": errors / words if words else None,
         "utterances": len(supported),
     }
 
@@ -321,8 +329,8 @@ def _repeats(tokens_: list[str], gram: list[str]) -> bool:
 
 def _is_truncated(score: UtteranceScore) -> bool:
     """A long reference answered with much too few words."""
-    reference = tokens(score.item.reference, score.item.language, "normalized")
-    hypothesis = tokens(score.item.hypothesis, score.item.language, "normalized")
+    reference = score.reference_words
+    hypothesis = score.hypothesis_words
     if len(reference) < TRUNCATION_MIN_WORDS:
         return False
     return len(hypothesis) < TRUNCATION_SHARE * len(reference)
