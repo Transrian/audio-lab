@@ -87,7 +87,7 @@
 {"id": "enmore-101", "language": "en", "ref": "one hundred and one", "hyp": "101", "view": "normalized", "expect_equal": true}
 {"id": "enmore-1000", "language": "en", "ref": "one thousand", "hyp": "1000", "view": "normalized", "expect_equal": true}
 {"id": "enmore-2000", "language": "en", "ref": "two thousand", "hyp": "2000", "view": "normalized", "expect_equal": true}
-{"id": "enmore-1234", "language": "en", "ref": "one thousand two hundred thirty-four", "hyp": "1234", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1234", "language": "en", "ref": "1234", "hyp": "twelve thirty-four", "view": "normalized", "expect_equal": true}
 {"id": "enmore-1000000", "language": "en", "ref": "one million", "hyp": "1000000", "view": "normalized", "expect_equal": true}
 {"id": "enmore-22", "language": "en", "ref": "twenty two", "hyp": "22", "view": "normalized", "expect_equal": true}
 {"id": "enmore-33", "language": "en", "ref": "thirty three", "hyp": "33", "view": "normalized", "expect_equal": true}
@@ -98,7 +98,7 @@
 {"id": "enmore-89", "language": "en", "ref": "eighty nine", "hyp": "89", "view": "normalized", "expect_equal": true}
 {"id": "enmore-95", "language": "en", "ref": "ninety five", "hyp": "95", "view": "normalized", "expect_equal": true}
 {"id": "enmore-365", "language": "en", "ref": "three hundred and sixty five", "hyp": "365", "view": "normalized", "expect_equal": true}
-{"id": "enmore-1999", "language": "en", "ref": "one thousand nine hundred and ninety nine", "hyp": "1999", "view": "normalized", "expect_equal": true}
+{"id": "enmore-1999", "language": "en", "ref": "1999", "hyp": "nineteen ninety-nine", "view": "normalized", "expect_equal": true}
 {"id": "fr-case", "language": "fr", "ref": "Bonjour, le monde !", "hyp": "bonjour le monde", "view": "normalized", "expect_equal": true}
 {"id": "fr-quotes", "language": "fr", "ref": "« Bonjour »", "hyp": "bonjour", "view": "normalized", "expect_equal": true}
 {"id": "fr-accents-kept", "language": "fr", "ref": "Élève", "hyp": "eleve", "view": "normalized", "expect_equal": false}
@@ -147,14 +147,14 @@
 {"id": "fr-time-whole", "language": "fr", "ref": "quatorze heures", "hyp": "14 h", "view": "normalized", "expect_equal": true}
 {"id": "en-time", "language": "en", "ref": "three thirty", "hyp": "3:30", "view": "normalized", "expect_equal": true}
 {"id": "en-time-whole", "language": "en", "ref": "three o'clock", "hyp": "3:00", "view": "normalized", "expect_equal": true}
-{"id": "fr-mister", "language": "fr", "ref": "monsieur Dupont", "hyp": "M. Dupont", "view": "normalized", "expect_equal": true}
+{"id": "fr-mister", "language": "fr", "ref": "monsieur Dupont", "hyp": "M. Dupont", "view": "normalized", "expect_equal": false}
 {"id": "fr-doctor", "language": "fr", "ref": "docteur Martin", "hyp": "Dr Martin", "view": "normalized", "expect_equal": true}
 {"id": "fr-and", "language": "fr", "ref": "et", "hyp": "&", "view": "normalized", "expect_equal": true}
 {"id": "en-mister", "language": "en", "ref": "mister Smith", "hyp": "Mr. Smith", "view": "normalized", "expect_equal": true}
 {"id": "en-doctor", "language": "en", "ref": "doctor Smith", "hyp": "Dr Smith", "view": "normalized", "expect_equal": true}
 {"id": "en-and", "language": "en", "ref": "and", "hyp": "&", "view": "normalized", "expect_equal": true}
 {"id": "fr-filler", "language": "fr", "ref": "le chat", "hyp": "euh le chat", "view": "normalized", "expect_equal": true}
-{"id": "fr-filler-two", "language": "fr", "ref": "le chat", "hyp": "heu ben le chat", "view": "normalized", "expect_equal": true}
+{"id": "fr-filler-two", "language": "fr", "ref": "le chat", "hyp": "heu euh le chat", "view": "normalized", "expect_equal": true}
 {"id": "en-filler", "language": "en", "ref": "hello", "hyp": "uh hello", "view": "normalized", "expect_equal": true}
 {"id": "en-filler-two", "language": "en", "ref": "hello", "hyp": "um hello", "view": "normalized", "expect_equal": true}
 {"id": "fr-only-filler", "language": "fr", "ref": "", "hyp": "euh", "view": "normalized", "expect_equal": true}
@@ -203,7 +203,7 @@
 {"id": "strict-trailing-punctuation", "language": "fr", "ref": "chat.", "hyp": "chat", "view": "strict", "expect_equal": true}
 {"id": "strict-exclamation", "language": "fr", "ref": "Bonjour !", "hyp": "bonjour", "view": "strict", "expect_equal": true}
 {"id": "strict-decimal", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "strict", "expect_equal": true}
-{"id": "strict-thousands-en", "language": "en", "ref": "2,000", "hyp": "2000", "view": "strict", "expect_equal": true}
+{"id": "strict-thousands-en", "language": "en", "ref": "2,000", "hyp": "2000", "view": "strict", "expect_equal": false}
 {"id": "strict-thousands-fr", "language": "fr", "ref": "1.234", "hyp": "1234", "view": "strict", "expect_equal": true}
 {"id": "strict-case", "language": "fr", "ref": "Chat", "hyp": "chat", "view": "strict", "expect_equal": true}
 {"id": "strict-hyphen", "language": "fr", "ref": "vingt-deux", "hyp": "vingt deux", "view": "strict", "expect_equal": false}
@@ -219,3 +219,45 @@
 {"id": "formatted-decimal-mark", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "formatted", "expect_equal": false}
 {"id": "formatted-question", "language": "en", "ref": "Is it?", "hyp": "Is it", "view": "formatted", "expect_equal": false}
 {"id": "fr-decimal-dot", "language": "fr", "ref": "un virgule cinq", "hyp": "1.5", "view": "normalized", "expect_equal": true}
+{"id": "b3-quotes-normalized", "language": "fr", "ref": "\"Bonjour\" (dit-il)", "hyp": "bonjour dit il", "view": "normalized", "expect_equal": true}
+{"id": "b3-quotes-strict", "language": "fr", "ref": "\"Bonjour\" (dit-il)", "hyp": "bonjour dit-il", "view": "strict", "expect_equal": true}
+{"id": "b3-brackets", "language": "fr", "ref": "le mot [sic] est là", "hyp": "le mot sic est là", "view": "normalized", "expect_equal": true}
+{"id": "b3-slash", "language": "fr", "ref": "un / deux", "hyp": "un deux", "view": "normalized", "expect_equal": true}
+{"id": "b3-bracketed-number", "language": "fr", "ref": "(21) personnes", "hyp": "vingt et un personnes", "view": "normalized", "expect_equal": true}
+{"id": "b3-guillemets", "language": "fr", "ref": "« Bonjour »", "hyp": "bonjour", "view": "normalized", "expect_equal": true}
+{"id": "b3-underscore", "language": "en", "ref": "file_name", "hyp": "file name", "view": "strict", "expect_equal": true}
+{"id": "b3-apostrophe-kept", "language": "fr", "ref": "l'homme", "hyp": "l homme", "view": "strict", "expect_equal": false}
+{"id": "b3-ellipsis", "language": "fr", "ref": "il part… vraiment", "hyp": "il part vraiment", "view": "normalized", "expect_equal": true}
+{"id": "b3-semicolon", "language": "fr", "ref": "un; deux", "hyp": "un deux", "view": "normalized", "expect_equal": true}
+{"id": "b3-quoted-number", "language": "fr", "ref": "\"20\"", "hyp": "vingt", "view": "normalized", "expect_equal": true}
+{"id": "b3-quoted-number-hyphen", "language": "fr", "ref": "« 20 »", "hyp": "vingt", "view": "normalized", "expect_equal": true}
+{"id": "b3-bracket-span", "language": "en", "ref": "[unclear] the cat", "hyp": "unclear the cat", "view": "normalized", "expect_equal": true}
+{"id": "m4-decimal-leading-zero", "language": "fr", "ref": "3,05", "hyp": "trois virgule cinq", "view": "normalized", "expect_equal": false}
+{"id": "m4-decimal-leading-zero-kept", "language": "fr", "ref": "3,05", "hyp": "trois virgule zéro cinq", "view": "normalized", "expect_equal": true}
+{"id": "m4-decimal-small", "language": "fr", "ref": "0,125", "hyp": "cent vingt-cinq", "view": "normalized", "expect_equal": false}
+{"id": "m4-decimal-small-kept", "language": "fr", "ref": "0,125", "hyp": "zéro virgule un deux cinq", "view": "normalized", "expect_equal": true}
+{"id": "m4-fr-comma-is-decimal", "language": "fr", "ref": "3,500", "hyp": "3500", "view": "normalized", "expect_equal": false}
+{"id": "m4-fr-comma-is-decimal-words", "language": "fr", "ref": "3,500", "hyp": "trois virgule cinq zéro zéro", "view": "normalized", "expect_equal": true}
+{"id": "m4-measure-percent", "language": "fr", "ref": "21 %", "hyp": "vingt et un pour cent", "view": "normalized", "expect_equal": true}
+{"id": "m4-measure-percent-attached", "language": "fr", "ref": "21%", "hyp": "vingt et un pour cent", "view": "normalized", "expect_equal": true}
+{"id": "m4-million-groups", "language": "fr", "ref": "1 000 000", "hyp": "un million", "view": "normalized", "expect_equal": true}
+{"id": "m4-thousand-groups", "language": "fr", "ref": "1 000", "hyp": "mille", "view": "normalized", "expect_equal": true}
+{"id": "m4-space-groups", "language": "fr", "ref": "12 000", "hyp": "douze mille", "view": "normalized", "expect_equal": true}
+{"id": "m4-dot-groups", "language": "fr", "ref": "2.000", "hyp": "2000", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-year", "language": "en", "ref": "1999", "hyp": "nineteen ninety-nine", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-year-oh", "language": "en", "ref": "1905", "hyp": "nineteen oh five", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-year-2000s", "language": "en", "ref": "2010", "hyp": "twenty ten", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-year-cardinal", "language": "en", "ref": "1999", "hyp": "one thousand nine hundred and ninety nine", "view": "normalized", "expect_equal": false}
+{"id": "m4-en-year-round", "language": "en", "ref": "1900", "hyp": "nineteen hundred", "view": "normalized", "expect_equal": false}
+{"id": "m4-en-nineteen", "language": "en", "ref": "19", "hyp": "nineteen", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-and-in-number", "language": "en", "ref": "one hundred and one", "hyp": "one hundred one", "view": "normalized", "expect_equal": true}
+{"id": "m4-en-and-between-numbers", "language": "en", "ref": "one and two", "hyp": "one two", "view": "normalized", "expect_equal": false}
+{"id": "m4-filler-ben-kept", "language": "fr", "ref": "le chat", "hyp": "heu ben le chat", "view": "normalized", "expect_equal": false}
+{"id": "m4-filler-euh-dropped", "language": "fr", "ref": "le chat", "hyp": "heu euh hmm le chat", "view": "normalized", "expect_equal": true}
+{"id": "m4-filler-er-kept", "language": "en", "ref": "the cat", "hyp": "er the cat", "view": "normalized", "expect_equal": false}
+{"id": "m4-abbrev-m-dropped", "language": "fr", "ref": "M. Dupont", "hyp": "monsieur Dupont", "view": "normalized", "expect_equal": false}
+{"id": "m4-abbrev-mme-kept", "language": "fr", "ref": "Mme Dupont", "hyp": "madame Dupont", "view": "normalized", "expect_equal": true}
+{"id": "m4-metre-not-monsieur", "language": "fr", "ref": "5 m", "hyp": "cinq mètres", "view": "normalized", "expect_equal": false}
+{"id": "m4-spelling-colour", "language": "en", "ref": "the colour is nice", "hyp": "the color is nice", "view": "normalized", "expect_equal": true}
+{"id": "m4-clock-h", "language": "fr", "ref": "14h30", "hyp": "quatorze heures trente", "view": "normalized", "expect_equal": true}
+{"id": "m4-money", "language": "fr", "ref": "$3.50", "hyp": "trois dollars cinquante", "view": "normalized", "expect_equal": true}

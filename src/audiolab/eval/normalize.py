@@ -51,18 +51,22 @@ KEPT_IN_WORD = "'-"
 # mistake a decimal mark for a sentence separator.
 DECIMAL_COMMA = "\x01"
 DECIMAL_POINT = "\x02"
+SIGN_PLUS = "\x04"  # stands in for the "+" of a number, so it survives tokenizing
 CLOCK_COLON = "\x03"  # stands in for the colon of a time, as in 14:30
 UNIT_CHARS = "%€$£°"
 
-FILLERS = {"fr": {"euh", "heu", "hum", "hmm", "ben", "bah"}, "en": {"uh", "um", "erm", "hmm", "er"}}
+# Only strings that are never a word: "ben" and "bah" are French names as often
+# as they are hesitation, and "er" is a surname initial in English.
+FILLERS = {
+    "fr": frozenset({"euh", "heu", "hum", "hmm", "mm"}),
+    "en": frozenset({"uh", "um", "erm", "hmm", "mm"}),
+}
 
 # Only unambiguous strings: "sept" is the number seven as often as it is
 # September, so month names are left alone. Dots are already gone by this point,
 # which is why dotted abbreviations are matched without them.
 ABBREVIATIONS = {
     "fr": {
-        "m": "monsieur",
-        "mm": "messieurs",
         "mme": "madame",
         "dr": "docteur",
         "st": "saint",
@@ -131,17 +135,12 @@ EN_UNITS = (
     "nineteen",
 )  # fmt: skip
 EN_TENS = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
-EN_NUMBER_WORDS = (
-    frozenset(EN_UNITS[:-1])
-    | frozenset(EN_TENS)
-    | {
-        "hundred",
-        "thousand",
-        "million",
-        "billion",
-        "point",
-    }
-)
+# Scales after which a spoken "and" is a number connector ("one hundred and
+# one"), unlike "and" between two plain numbers ("one and two").
+EN_SCALES = frozenset({"hundred", "thousand", "million", "billion"})
+EN_NUMBER_WORDS = frozenset(EN_UNITS) | frozenset(EN_TENS) | EN_SCALES | frozenset({"point"})
+# Years read as two pairs ("nineteen ninety nine") rather than as a cardinal.
+YEAR_RANGE = (1100, 2099)
 
 # Number-with-unit patterns. The unit is verbalized as a plain word so that
 # "20 %" and "vingt pour cent" score equal.
@@ -186,21 +185,52 @@ def _punctuation_view(text: str) -> str:
 
 
 def _strict_tokens(text: str) -> list[str]:
-    """Case-folded tokens without punctuation; ``'`` and ``-`` stay inside words."""
+    """Case-folded tokens without punctuation; ``'`` and ``-`` stay inside words.
+
+    Every punctuation or symbol character separates, whatever it is: quotes,
+    brackets, slashes and anything else a model may write around a word. The
+    exceptions are the two marks that are part of a French word (``l'homme``,
+    ``dit-il``) and the symbols that carry a word of their own (``%``, ``&``,
+    ``°``), which ``UNIT_SYMBOLS`` and ``SYMBOL_WORDS`` name.
+    """
     lowered = text.casefold()
-    # A comma or point between two digits is a decimal mark, not punctuation:
-    # hiding it keeps "3,5" one token instead of splitting it into 3 and 5.
+    # A comma, point or colon between digits is a decimal mark or a time, not
+    # punctuation: hiding it keeps "3,5" and "14:30" one token each.
     protected = re.sub(r"(?<=\d),(?=\d)", DECIMAL_COMMA, lowered)
     protected = re.sub(r"(?<=\d)\.(?=\d)", DECIMAL_POINT, protected)
     protected = re.sub(r"(?<=\d):(?=\d{2}\D|\d{2}$)", CLOCK_COLON, protected)
+    # A sign belongs to the number it introduces, even though "+" is a symbol.
+    protected = re.sub(r"(?<![\w.,])[+](?=\d)", SIGN_PLUS, protected)
     tokens: list[str] = []
-    for chunk in re.findall(rf"[^\s{re.escape(SENTENCE_PUNCTUATION)}]+", protected):
-        word = _trim(chunk)
-        word = _restore_marks(word)
+    for chunk in _split_on_separators(protected):
+        word = _restore_marks(_trim(chunk))
         spelled = word.upper() in UNIT_SYMBOLS or word in SYMBOL_WORDS
         if word and (any(character.isalnum() for character in word) or spelled):
             tokens.append(word)
     return tokens
+
+
+def _split_on_separators(text: str) -> list[str]:
+    """Split on spaces and on every punctuation or symbol that is not a word part."""
+    chunks: list[str] = []
+    current: list[str] = []
+    for character in text:
+        if character.isspace() or _is_separator(character):
+            if current:
+                chunks.append("".join(current))
+                current = []
+        else:
+            current.append(character)
+    if current:
+        chunks.append("".join(current))
+    return chunks
+
+
+def _is_separator(character: str) -> bool:
+    """True for a punctuation or symbol character that can never be inside a word."""
+    if character in KEPT_IN_WORD or character in UNIT_CHARS or character in SYMBOL_WORDS:
+        return False
+    return unicodedata.category(character)[0] in ("P", "S")
 
 
 def _trim(word: str) -> str:
@@ -213,6 +243,7 @@ def _trim(word: str) -> str:
 
 def _restore_marks(word: str) -> str:
     """Put the protected marks back, canonicalizing a number on the way."""
+    word = word.replace(SIGN_PLUS, "+")
     if CLOCK_COLON in word:
         return word.replace(CLOCK_COLON, ":")
     if DECIMAL_COMMA in word or DECIMAL_POINT in word:
@@ -221,17 +252,19 @@ def _restore_marks(word: str) -> str:
 
 
 def _canonical_number(word: str) -> str:
-    """Drop thousands separators, write a decimal with a point.
+    """One spelling for a number: no thousands separator, a point for the decimal.
 
-    Both conventions then compare equal: ``2.000`` and ``2,000`` are the same
-    number, and a model that writes ``3.5`` matches a reference that writes
-    ``3,5``. A group of exactly three digits is a thousands group, anything
-    else is a decimal.
+    A comma between digits is a decimal mark, never a thousands separator:
+    French writes 3,5 for three and a half and the corpora scored here are
+    French and English, so 3,500 is read as 3,500 and not as 3500. A dot with
+    exactly three digits behind it is a thousands group (2.000 is 2000), and
+    French space-separated groups are joined before this point, so a model
+    writing 3.5 and a reference writing 3,5 compare equal.
     """
     restored = word.replace(DECIMAL_POINT, ".").replace(DECIMAL_COMMA, ",")
-    if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", restored):
-        return re.sub(r"[.,]", "", restored)
-    if re.fullmatch(r"[+-]?\d+[.,]\d+", restored):
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", restored):
+        return restored.replace(".", "")
+    if re.fullmatch(r"[+-]?\d+,\d+", restored):
         return restored.replace(",", ".")
     return restored
 
@@ -247,12 +280,21 @@ def _normalized_tokens(tokens: list[str], language: str) -> list[str]:
         number = merged[index]
         symbol = merged[index + 1] if index + 1 < len(merged) else ""
         if symbol.upper() in UNIT_SYMBOLS and re.fullmatch(r"[+-]?\d[\d .,]*", number):
-            result += _measure_words(number, symbol, language).split()
+            # "21 %" must read as the hypothesis writes it: "vingt et un pour cent",
+            # so the hyphens of "vingt-et-un" are spaces here like everywhere else.
+            result += _words(_measure_words(number, symbol, language))
             index += 2
             continue
         result += _spoken_words(number, language)
         index += 1
-    return _drop_number_connectors(result) if language == "en" else result
+    if language == "en":
+        result = _drop_number_connectors(result)
+    return _apply_spelling(result)
+
+
+def _words(text: str) -> list[str]:
+    """Split into words; word-internal hyphens are spaces, as they are everywhere else."""
+    return [word for word in text.replace("-", " ").split() if word]
 
 
 def _spoken_words(token: str, language: str) -> list[str]:
@@ -261,24 +303,34 @@ def _spoken_words(token: str, language: str) -> list[str]:
         spelled
         for word in _normalize_token(token, language)
         if word and word not in FILLERS[language]
-        for spelled in word.replace("-", " ").split()
+        for spelled in _words(word)
     ]
 
 
 def _drop_number_connectors(words: list[str]) -> list[str]:
-    """Drop the "and" of "one hundred and one", keeping the one in "salt and pepper"."""
+    """Drop the "and" of "one hundred and one", keeping the one in "salt and pepper".
+
+    Only a scale word makes an "and" a number connector: "one and two" is two
+    numbers joined by a real word, and dropping that "and" would hide a
+    deletion.
+    """
     kept: list[str] = []
     for index, word in enumerate(words):
         number_and = (
             word == "and"
             and kept
-            and kept[-1] in EN_NUMBER_WORDS
+            and kept[-1] in EN_SCALES
             and index + 1 < len(words)
             and words[index + 1] in EN_NUMBER_WORDS
         )
         if not number_and:
-            kept.append(SPELLING.get(word, word))
+            kept.append(word)
     return kept
+
+
+def _apply_spelling(words: list[str]) -> list[str]:
+    """One spelling per word, so a British and an American form score equal."""
+    return [SPELLING.get(word, word) for word in words]
 
 
 def _merge_number_groups(tokens: list[str]) -> list[str]:
@@ -292,11 +344,15 @@ def _merge_number_groups(tokens: list[str]) -> list[str]:
     index = 0
     while index < len(tokens):
         token = tokens[index]
-        if re.fullmatch(r"[+-]?\d{1,3}", token) and index + 1 < len(tokens):
-            follower = tokens[index + 1]
-            if re.fullmatch(r"\d{3}", follower):
-                merged.append(token + " " + follower)
-                index += 2
+        if re.fullmatch(r"[+-]?\d{1,3}", token):
+            groups = [token]
+            while index + len(groups) < len(tokens) and re.fullmatch(
+                r"\d{3}", tokens[index + len(groups)]
+            ):
+                groups.append(tokens[index + len(groups)])
+            if len(groups) > 1:
+                merged.append(" ".join(groups))
+                index += len(groups)
                 continue
         merged.append(token)
         index += 1
@@ -308,9 +364,10 @@ def _normalize_token(token: str, language: str) -> list[str]:
     word = _trim(token)
     sign = _sign_words(word, language)
     body = word.lstrip("+-")
-    grouped = re.fullmatch(r"(\d{1,3}) (\d{3})", body)
-    if grouped:
-        return (sign + _verbalize_number(int(body.replace(" ", "")), language)).split()
+    if re.fullmatch(r"(\d{1,3})( \d{3})+", body):
+        # Grouped digits are one number however many groups there are: "1 000 000"
+        # is a million, not a thousand and a zero.
+        return (sign + _verbalize_number(int(_without_spaces(body)), language)).split()
     if re.fullmatch(r"\d+", body):
         return (sign + _verbalize_number(int(body), language)).split()
     decimal = re.fullmatch(r"\d+[.,]\d+", body)
@@ -365,7 +422,13 @@ def _without_spaces(word: str) -> str:
 
 
 def _number_words(text: str, language: str) -> str:
-    """Read a number: ``3.5`` is "trois virgule cinq" in French, "three point five" in English."""
+    """Read a number: ``3.5`` is "trois virgule cinq" in French, "three point five" in English.
+
+    The digits after the decimal mark are read one by one, which is how a
+    decimal is said and the only reading that keeps leading zeros: reading them
+    as a number turned "3,05" and "0,125" into "trois virgule cinq" (the same
+    words as 3,5) and "cent vingt-cinq".
+    """
     cleaned = _without_spaces(text)
     sign = _sign_words(cleaned, language)
     body = cleaned.lstrip("+-")
@@ -373,9 +436,14 @@ def _number_words(text: str, language: str) -> str:
     if re.fullmatch(r"\d+[.,]\d+", body):
         whole, fraction = re.split(r"[.,]", body, maxsplit=1)
         whole_words = _verbalize_number(int(whole), language)
-        fraction_words = _verbalize_number(int(fraction), language)
-        return f"{sign}{whole_words} {separator} {fraction_words}"
+        return f"{sign}{whole_words} {separator} {_digit_words(fraction, language)}"
     return sign + _verbalize_number(int(body), language)
+
+
+def _digit_words(digits: str, language: str) -> str:
+    """A run of digits read one by one: "05" is "zéro cinq", not "cinq"."""
+    units = FR_UNITS if language == "fr" else EN_UNITS
+    return " ".join(units[int(digit)] for digit in digits)
 
 
 def _verbalize_number(value: int, language: str) -> str:
@@ -419,9 +487,19 @@ def _french_number(value: int) -> str:
 
 
 def _english_number(value: int) -> str:
-    """Cardinal in words, hyphens replaced by spaces so both spellings match."""
+    """Cardinal in words, hyphens replaced by spaces so both spellings match.
+
+    A year is read as two pairs ("nineteen ninety nine", "twenty oh five"),
+    which is how references write a year and how a model says it. Only the
+    years people actually quote are read that way: outside that range a four
+    digit number is a quantity and keeps its cardinal reading.
+    """
     if value < 0:
         return "minus " + _english_number(-value)
+    if YEAR_RANGE[0] <= value <= YEAR_RANGE[1] and value % 100:
+        hundreds, rest = divmod(value, 100)
+        pair = _english_number(rest) if rest >= 10 else f"oh {EN_UNITS[rest]}"
+        return f"{_english_number(hundreds)} {pair}"
     if value < 20:
         return EN_UNITS[value]
     if value < 100:
