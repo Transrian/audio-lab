@@ -68,7 +68,18 @@ class Counts:
 
     @property
     def wer(self) -> float:
-        return self.errors / self.reference_words if self.reference_words else 0.0
+        """Errors over reference words; an empty reference counts its insertions.
+
+        A reference with no words after normalization has no rate to divide by,
+        and the panel-level WER leaves it out of the denominator on purpose. Per
+        utterance the rate has to exist, because the tail quantiles and shares
+        are built on it: dividing by one instead of zero makes a model that
+        talks over an empty reference score one error per word it invented, well
+        above the 50 % line, which is what the sentence error rate already says
+        about that utterance. An empty reference answered with nothing stays
+        0 %, which is the right reading of "said nothing about nothing".
+        """
+        return self.errors / self.reference_words if self.reference_words else float(self.errors)
 
 
 def tokens(text: str, language: str, view: str) -> list[str]:

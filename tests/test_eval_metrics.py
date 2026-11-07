@@ -46,18 +46,40 @@ def battery_item(identifier: str, hypothesis: str, category: str = "silence") ->
     )
 
 
-def test_edit_counts_are_the_usual_three_kinds():
-    assert metrics.edit_counts(["a", "b", "c"], ["a", "b", "c"]) == metrics.Counts(0, 0, 0, 3)
-    assert metrics.edit_counts(["a", "b", "c"], ["a", "x", "c"]).substitutions == 1
-    assert metrics.edit_counts(["a", "b", "c"], ["a", "c"]).deletions == 1
-    assert metrics.edit_counts(["a", "c"], ["a", "b", "c"]).insertions == 1
-    counts = metrics.edit_counts(["a", "b", "c"], ["a", "x", "c", "d"])
-    assert counts.errors == 2 and counts.reference_words == 3
-    assert counts.wer == 2 / 3
+def test_an_empty_reference_puts_its_insertions_in_the_tail():
+    """A hypothesis over an empty reference is an error, not a perfect utterance.
+
+    The sentence error rate already counts it, so the per-utterance WER has to
+    as well, or the worst tenth of a panel would hide a model talking over a
+    reference that normalized away (a filler word, punctuation only). Panel WER
+    keeps its own denominator: the invented words are errors counted over the
+    words that were really there.
+    """
+    talking, silent, clean = metrics.score_items(
+        [
+            speech_item("s1", "euh", "bonjour tout le monde"),
+            speech_item("s2", "euh", ""),
+            speech_item("s3", "bonjour le monde", "bonjour le monde"),
+        ]
+    )
+    summary = metrics.speech_summary([talking.item, silent.item, clean.item])
+    assert talking.counts["normalized"].reference_words == 0
+    assert talking.counts["normalized"].insertions == 4
+    assert talking.counts["normalized"].wer == 4.0
+    assert silent.counts["normalized"].wer == 0.0
+    assert summary["sentence_error_rate"]["value"] == pytest.approx(1 / 3)
+    assert summary["tail"]["share_over_50"]["value"] == pytest.approx(1 / 3)
+    # Four invented words over the three reference words of the panel.
+    assert summary["wer"]["normalized"]["value"] == pytest.approx(4 / 3)
+    assert summary["wer"]["normalized"]["reference_words"] == 3
 
 
-def test_wer_of_an_empty_reference_is_zero():
-    assert metrics.edit_counts([], ["invented"]).wer == 0.0
+def test_a_panel_with_no_reference_words_at_all_has_no_wer():
+    """With nothing to divide by, the rate is `n/a` and the errors still count."""
+    talking = metrics.score_items([speech_item("s1", "euh", "bonjour")])[0]
+    summary = metrics.speech_summary([talking.item])
+    assert summary["wer"]["normalized"]["value"] is None
+    assert summary["wer"]["normalized"]["errors"] == 1
 
 
 def test_utterance_wer_uses_the_normalizer():
