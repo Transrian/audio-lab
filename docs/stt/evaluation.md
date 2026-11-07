@@ -80,41 +80,53 @@ audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.ya
 audiolab eval --model configs/models/example.yaml --suite configs/suites/full.yaml --concurrency 4
 ```
 
-Everything lands in `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`:
+Sending audio to a model is the slow part; scoring takes seconds. So the
+answers are kept once, in a **transcript cache** shared by every suite, and a
+suite's run directory is rebuilt from it on every run.
 
-- `records.jsonl`: one line per clip, appended and flushed as soon as the
-  answer arrives (`id`, `panel`, `hypothesis`, `error`, `latency_s`,
-  `attempts`, `cold`, `language_sent`, `timestamp`).
-- `run.json`: the run identity — model config without secret values, the panel
-  hashes, the audiolab version, the git commit, and the endpoint. The URL itself
-  and the API key are never stored: the endpoint is a **keyed fingerprint** of
-  the server root, computed with HMAC-SHA256 and a random per-machine key in
-  `<runs dir>/.identity-key` (created on first use, mode `0600`). A run
-  directory can therefore be shared without naming a private address, and the
-  fingerprint cannot be reversed by guessing the shape of a URL. It is only ever
-  compared, never printed: `summary.json` and `report.md` do not contain it. The
-  config's optional `server_label` is free text, so a run can also say in words
-  which server answered.
-- `summary.json`: every number at full precision, plus the run identity without
-  the endpoint fingerprint. `audiolab score <run dir>` writes it again from the
-  records alone, byte for byte.
+**The cache**: `$AUDIOLAB_RUNS/transcripts/<model name>/<key>.jsonl`, one line
+per answer, appended and flushed as it arrives (`id`, `audio_sha256`, `panel`,
+`hypothesis`, `error`, `latency_s`, `attempts`, `cold`, `language_sent`,
+`timestamp`). An answer is reused when the same clip, with the same audio, is
+asked the same way again. "The same way" is the cache key, stored next to the
+file as `<key>.key.json`:
+
+| in the key (a change asks again) | not in the key (a change reuses the answers) |
+| --- | --- |
+| served model id, `api`, `request` options, `send_language` | config `name`, `server_label`, environment variable names |
+| the server, as a keyed fingerprint (below) | the API key |
+| the clip id and the sha256 of its audio | the panel or suite the clip is in |
+| `CACHE_FORMAT` of `eval/cache.py`, bumped when the client changes what it sends | the git commit, the normalizer version, the metrics |
+
+So adding a dataset or a panel costs only the clips never asked; `fast` clips
+are never asked again by `full`, which contains them; a new commit or a
+normalizer change sends nothing and only re-scores. A failed request is not an
+answer: it stays in the file, so a flaky endpoint remains visible, and the clip
+is sent again on the next run, the newest line winning. `--fresh` sends every
+clip of the suite again (the old lines stay in the file).
+
+The server is recorded as a **keyed fingerprint** of its root URL: HMAC-SHA256
+with a random per-machine key in `<runs dir>/.identity-key` (created on first
+use, mode `0600`). The URL and the API key are never stored, and the
+fingerprint cannot be reversed by guessing the shape of a private address. It
+lives only in the cache's key file, never in a run directory.
+
+**The run directory**: `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`, rewritten on
+every run so it always describes the current panels:
+
+- `records.jsonl`: one line per panel item, the cached answer with the panel it
+  is scored in.
+- `run.json`: the model config without secret values, the panel hashes, the
+  audiolab and normalizer versions, the git commit that scored it, and the
+  name of the cache file the answers came from. The config's optional
+  `server_label` says in words which server answered.
+- `summary.json`: every number at full precision. `audiolab score <run dir>`
+  writes it again from the records alone, byte for byte.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
 A record never holds the API key: an endpoint that echoes the request headers in
 an error body is common enough that the client replaces the key value with
 `<redacted api key>` before any message is written.
-
-Rerunning the command resumes: clips already answered are skipped, and a clip
-whose last record is an error is **sent again** — a failed request is not a
-measurement. The failed record stays in the file (so a flaky endpoint is still
-visible) and the newest record of a clip is the one that is scored; the summary
-says how many lines and how many clips a run holds. If the model config, the
-endpoint, a panel or the normalizer changed, the identity differs and the runner
-refuses instead of mixing two experiments; the error names the field that
-differs by its path (`model.model`, `panels.fleurs-fr-fast`), with its old and
-new value, except for the endpoint fingerprint, which is reported only as "the
-server URL is not the one recorded" so that no reading of the run directory ever
-gets the fingerprint. `--fresh` starts a new directory named with a timestamp.
 
 Compare two runs over the ids they share:
 

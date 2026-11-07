@@ -14,14 +14,14 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 from helpers import make_clip, start_transcription_server, write_tone  # noqa: E402
 
+from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
-from audiolab.eval import metrics, stats  # noqa: E402
+from audiolab.eval import metrics, runner, stats  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
 from audiolab.eval.records import (  # noqa: E402
     IDENTITY_NAME,
     RECORDS_NAME,
-    latest_records,
     read_records,
 )
 from audiolab.eval.report import (  # noqa: E402
@@ -148,34 +148,95 @@ def test_a_second_run_resumes_without_asking_again(workspace):
     assert len(read_records(second / RECORDS_NAME)) == panel_size(workspace)
 
 
-def test_a_changed_panel_refuses_to_resume(workspace):
-    server, url = server_answering()
+def cache_lines(workspace: dict) -> list[dict]:
+    """Every answer the transcript cache of the fake model holds, oldest first."""
+    files = sorted((workspace["runs_dir"] / "transcripts" / "fake-model").glob("*.jsonl"))
+    return [record for path in files for record in read_records(path)]
+
+
+def test_a_new_panel_only_sends_the_clips_never_asked(workspace):
+    """Adding a panel to a suite costs its new clips, not the whole suite again."""
+    calls: list = []
+    server, url = server_answering(counter=calls)
+    full = "fake-fr-full"
     try:
         run_suite(context(workspace, base_url=url))
-        changed = context(workspace, base_url=url)
-        changed.suite = SuiteSpec(name="fast", panels=[PANEL])
-        (workspace["panels_dir"] / f"{PANEL}.txt").write_text(
-            (workspace["panels_dir"] / f"{PANEL}.txt")
-            .read_text(encoding="utf-8")
-            .replace("fake:000-000", "fake:000-001"),
-            encoding="utf-8",
-        )
-        with pytest.raises(RunError, match="different run"):
-            run_suite(changed)
+        bigger = context(workspace, base_url=url)
+        bigger.suite = SuiteSpec(name="fast", panels=[PANEL, full])
+        run_dir = run_suite(bigger)
     finally:
         server.shutdown()
+    fast_ids = set(read_panel(workspace["panels_dir"] / f"{PANEL}.txt").ids)
+    full_ids = set(read_panel(workspace["panels_dir"] / f"{full}.txt").ids)
+    assert len(calls) == len(fast_ids | full_ids)
+    records = read_records(run_dir / RECORDS_NAME)
+    assert {record["panel"] for record in records} == {PANEL, full}
+    assert len(records) == len(fast_ids) + len(full_ids)
 
 
-def test_fresh_starts_a_new_directory(workspace):
-    server, url = server_answering()
+def test_what_changes_no_answer_sends_nothing_again(workspace, monkeypatch):
+    """A new commit, a new normalizer or a renamed server label keeps the answers."""
+    calls: list = []
+    server, url = server_answering(counter=calls)
+    try:
+        run_suite(context(workspace, base_url=url))
+        monkeypatch.setattr(runner, "git_commit", lambda: "another-commit")
+        monkeypatch.setattr(runner, "NORMALIZER_VERSION", 99)
+        relabelled = context(workspace, base_url=url)
+        relabelled.model = ModelConfig(
+            name="fake-model",
+            model="served-id",
+            base_url_env="FAKE_URL",
+            api_key_env="FAKE_KEY",
+            server_label="the same server, renamed",
+        )
+        run_dir = run_suite(relabelled)
+    finally:
+        server.shutdown()
+    assert len(calls) == panel_size(workspace)
+    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    assert identity["git_commit"] == "another-commit"  # the run says what scored it
+    assert identity["normalizer_version"] == 99
+
+
+def test_what_changes_an_answer_asks_again(workspace):
+    """Another served model, or new audio under the same id, is a new question."""
+    calls: list = []
+    server, url = server_answering(counter=calls)
+    try:
+        run_suite(context(workspace, base_url=url))
+        other = context(workspace, base_url=url)
+        other.model = ModelConfig(name="fake-model", model="another-id")
+        run_suite(other)
+        assert len(calls) == 2 * panel_size(workspace)
+
+        # New audio for one clip: only that clip is sent again.
+        first = read_panel(workspace["panels_dir"] / f"{PANEL}.txt").ids[0]
+        manifest_path = workspace["data_dir"] / "fake-fr" / "manifest.jsonl"
+        rows = [json.loads(line) for line in manifest_path.read_text().splitlines()]
+        row = next(row for row in rows if row["id"] == first)
+        audio = workspace["data_dir"] / "fake-fr" / row["audio"]
+        write_tone(audio, seconds=1.0, frequency=999)
+        row["sha256"] = pcm_sha256(audio)
+        manifest_path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+        run_suite(context(workspace, base_url=url))
+    finally:
+        server.shutdown()
+    assert len(calls) == 2 * panel_size(workspace) + 1
+
+
+def test_fresh_sends_every_clip_again(workspace):
+    calls: list = []
+    server, url = server_answering(counter=calls)
     try:
         first = run_suite(context(workspace, base_url=url))
         second = run_suite(context(workspace, base_url=url, fresh=True))
     finally:
         server.shutdown()
-    assert second != first
-    assert second.name.startswith("fast-")
-    assert (second / IDENTITY_NAME).is_file()
+    assert first == second
+    assert len(calls) == 2 * panel_size(workspace)
+    assert len(cache_lines(workspace)) == 2 * panel_size(workspace)  # nothing is lost
+    assert len(read_records(second / RECORDS_NAME)) == panel_size(workspace)
 
 
 def test_a_failed_request_is_recorded_as_an_error(workspace):
@@ -319,83 +380,61 @@ def test_a_failed_item_is_sent_again_on_the_next_run(workspace):
         run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
     state["fail"] = False
     run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    assert len(cache_lines(workspace)) == 2 * panel_size(workspace)  # the failures stay visible
     records = read_records(run_dir / RECORDS_NAME)
-    assert len(records) > panel_size(workspace)  # the failures stay visible
-    latest = latest_records(records)
-    assert len(latest) == panel_size(workspace)
-    assert not [record for record in latest.values() if record["error"]]
+    assert len(records) == panel_size(workspace)
+    assert not [record for record in records if record["error"]]
 
 
-def test_resuming_against_another_server_is_refused(workspace):
-    """The endpoint is part of the run identity, so a resume cannot mix servers.
+def test_another_server_gets_its_own_answers(workspace):
+    """The same model on two servers is two experiments: answers never mix.
 
-    It is recorded as a keyed fingerprint: the refusal must name the field, and
-    the URL of either run must not appear in the message or in the files.
+    The server enters the cache key as a keyed fingerprint, so neither its URL
+    nor the fingerprint appears in a run directory.
     """
-    server, url = server_answering()
+    calls_a: list = []
+    calls_b: list = []
+    server_a, url_a = server_answering(counter=calls_a)
+    server_b, url_b = server_answering(text="autre chose", counter=calls_b)
     try:
-        run_suite(context(workspace, base_url=url))
-        with pytest.raises(RunError, match="endpoint_fingerprint"):
-            run_suite(context(workspace, base_url="http://localhost:9/v1"))
+        run_suite(context(workspace, base_url=url_a))
+        run_dir = run_suite(context(workspace, base_url=url_b))
+        assert len(calls_b) == panel_size(workspace)
+        records = read_records(run_dir / RECORDS_NAME)
+        assert {record["hypothesis"] for record in records} == {"autre chose"}
         # The same server written two ways is the same server.
-        assert run_suite(context(workspace, base_url=f"{url}/v1")) is not None
+        run_suite(context(workspace, base_url=f"{url_a}/v1"))
     finally:
-        server.shutdown()
-    run_dir = workspace["runs_dir"] / "eval" / "fake-model" / "fast"
-    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
-    assert len(identity["endpoint_fingerprint"]) == 64
-    assert url not in json.dumps(identity)
-    assert "localhost:9" not in json.dumps(identity)
+        server_a.shutdown()
+        server_b.shutdown()
+    assert len(calls_a) == panel_size(workspace)
+    for name in (IDENTITY_NAME, RECORDS_NAME, SUMMARY_NAME, REPORT_NAME):
+        text = (run_dir / name).read_text(encoding="utf-8")
+        assert url_a not in text and url_b not in text and "endpoint" not in text
 
 
-def test_the_endpoint_fingerprint_is_keyed_and_stays_out_of_the_summary(workspace):
-    """The fingerprint is compared, never published, and the key is local.
-
-    A summary or a report is what leaves this machine, so neither may hold the
-    fingerprint of the server; the key file next to the runs is what makes a
-    fingerprint in a shared run directory useless elsewhere.
-    """
+def test_the_endpoint_fingerprint_is_keyed_and_stays_in_the_cache(workspace):
+    """The fingerprint is compared, never published, and the key is local."""
     server, url = server_answering()
     try:
         run_dir = run_suite(context(workspace, base_url=url))
     finally:
         server.shutdown()
-    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
-    fingerprint = identity["endpoint_fingerprint"]
-    summary = (run_dir / SUMMARY_NAME).read_text(encoding="utf-8")
-    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
-    assert fingerprint not in summary and "endpoint" not in summary
-    assert fingerprint not in report and "localhost" not in report
+    key_files = list((workspace["runs_dir"] / "transcripts" / "fake-model").glob("*.key.json"))
+    assert len(key_files) == 1
+    fingerprint = json.loads(key_files[0].read_text(encoding="utf-8"))["endpoint_fingerprint"]
+    assert len(fingerprint) == 64
+    for name in (IDENTITY_NAME, SUMMARY_NAME, REPORT_NAME):
+        assert fingerprint not in (run_dir / name).read_text(encoding="utf-8")
 
     key_path = workspace["runs_dir"] / ".identity-key"
     assert stat.S_IMODE(key_path.stat().st_mode) == 0o600
-    assert len(bytes.fromhex(key_path.read_text(encoding="utf-8").strip())) == 32
-
+    key = bytes.fromhex(key_path.read_text(encoding="utf-8").strip())
+    assert len(key) == 32
     # The same URL under another key is a different fingerprint, and the same
     # key gives the same one: nothing about the URL can be read off the value.
-    key = bytes.fromhex(key_path.read_text(encoding="utf-8").strip())
     assert endpoint_fingerprint(url, key) == fingerprint
     assert endpoint_fingerprint(url, bytes(32)) != fingerprint
-
-
-def test_a_changed_identity_names_the_field_that_changed(workspace):
-    server, url = server_answering()
-    try:
-        run_suite(context(workspace, base_url=url))
-        changed = context(workspace, base_url=url)
-        changed.model = ModelConfig(name="fake-model", model="another-id")
-        with pytest.raises(RunError, match="panels|model"):
-            run_suite(changed)
-    finally:
-        server.shutdown()
-    message = None
-    try:
-        run_suite(changed)
-    except RunError as failure:
-        message = str(failure)
-    assert message is not None
-    # The nested path and both values, so a reader knows which field to change.
-    assert 'model.model changed ("served-id" -> "another-id")' in message
 
 
 def test_a_panel_with_few_groups_says_its_interval_is_approximate(workspace):

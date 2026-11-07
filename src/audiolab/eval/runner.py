@@ -1,12 +1,11 @@
-"""Run a suite against one model and keep every answer on disk.
+"""Run a suite against one model: ask what is not cached, then score.
 
-Two rules shape this file. A run is resumable: results are appended and flushed
-as they arrive, and rerunning skips what is already recorded. A run has an
-identity: if the model config, the endpoint, the panels or the normalizer
-changed, the old records no longer belong to the new run, so the runner refuses
-to add to them instead of mixing two experiments in one directory. The endpoint
-enters the identity as a keyed fingerprint, so the run directory never holds the
-address of the server it talked to.
+Answers live in the transcript cache (``eval.cache``), one file per way of
+asking a model, shared by every suite. A run sends only the clips the cache has
+no good answer for, appending each answer as it arrives, so an interrupted run
+resumes where it stopped and a new dataset costs only its own clips. The run
+directory of a suite is then rebuilt from the cache: its records, its identity
+and its scores always describe the current panels, never a mix.
 """
 
 from __future__ import annotations
@@ -28,6 +27,7 @@ import yaml
 from audiolab import __version__
 from audiolab.core.paths import runs_dir
 from audiolab.data.panels import DEFAULT_PANELS_DIR
+from audiolab.eval.cache import cache_file, cached_answers, open_cache, transcript_key
 from audiolab.eval.client import (
     ModelConfig,
     TranscriptionClient,
@@ -39,7 +39,6 @@ from audiolab.eval.client import (
 from audiolab.eval.metrics import Item
 from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.records import (
-    ENDPOINT_FINGERPRINT_KEY,
     IDENTITY_KEY_NAME,
     IDENTITY_NAME,
     RECORDS_NAME,
@@ -47,10 +46,10 @@ from audiolab.eval.records import (
     clip_paths,
     dataset_and_panel,
     git_commit,
-    latest_records,
     load_panel_items,
     panel_hashes,
     read_records,
+    write_records,
 )
 from audiolab.eval.report import score_run
 
@@ -107,28 +106,31 @@ class RunContext:
 
 
 def run_suite(context: RunContext, *, client_factory=None) -> Path:
-    """Score every panel of the suite, then write the summary; returns the run directory."""
+    """Answer and score every panel of the suite; returns the run directory."""
     _refuse_sealed_without_flag(context)
     base_url = context.base_url or base_url_from_env(context.model)
     items_by_panel = {
         panel: load_panel_items(panel, context.panels_dir, context.data_dir)
         for panel in context.suite.panels
     }
-    identity = _identity(context, list(items_by_panel), base_url)
-    run_dir = _prepare_run_dir(context, identity)
-    records_path = run_dir / RECORDS_NAME
-    pending = _pending_items(items_by_panel, read_records(records_path))
+    fingerprint = endpoint_fingerprint(base_url, identity_key(Path(context.runs_root)))
+    key = transcript_key(context.model, fingerprint)
+    cache_path = cache_file(Path(context.runs_root), context.model, key)
+    open_cache(cache_path, key)
+    pending = _pending_items(items_by_panel, cached_answers(cache_path), context.fresh)
 
     if pending:
         factory = client_factory or _default_client
-        _transcribe_pending(context, pending, records_path, base_url, factory)
-    failed = _announce(context, records_path)
+        _transcribe_pending(context, pending, cache_path, base_url, factory)
+    run_dir = _write_run(context, items_by_panel, cache_path)
+    failed = _announce(context, run_dir, cache_path, sent=len(pending))
     score_run(run_dir, context.panels_dir, context.data_dir)
     if failed:
         # The report exists and counts the failures; the non-zero exit is what
         # tells a caller that the numbers are not a full picture.
         raise RunError(
-            f"{failed} of {len(read_records(records_path))} requests failed; see {records_path}"
+            f"{failed} requests failed; they are sent again on the next run "
+            f"(see {run_dir / RECORDS_NAME})"
         )
     return run_dir
 
@@ -153,13 +155,13 @@ def _refuse_sealed_without_flag(context: RunContext) -> None:
         print(f"warning: {SEALED_WARNING}")
 
 
-def _identity(context: RunContext, panels: list[str], base_url: str) -> dict:
-    """What a resumable run is: the model, the endpoint, the panels, the code.
+def _identity(context: RunContext, panels: list[str], cache_path: Path) -> dict:
+    """What a run directory describes: the model, the panels, the code, the cache.
 
-    The endpoint is part of the identity, because the same model served from two
-    places is two experiments; it is recorded as a keyed fingerprint, because a
-    run directory can be committed or shared and a URL names a host. The
-    ``server_label`` of the model config says in words which server this was.
+    It is rewritten on every run, so it always matches the records next to it.
+    The endpoint is not here: it is part of the cache key, under a keyed
+    fingerprint that stays in the cache directory, because a run directory is
+    meant to be shared and a URL names a host.
     """
     return {
         "model": context.model.identity(),
@@ -168,9 +170,7 @@ def _identity(context: RunContext, panels: list[str], base_url: str) -> dict:
         "audiolab_version": __version__,
         "normalizer_version": NORMALIZER_VERSION,
         "git_commit": git_commit(),
-        ENDPOINT_FINGERPRINT_KEY: endpoint_fingerprint(
-            base_url, identity_key(Path(context.runs_root))
-        ),
+        "transcripts": f"{cache_path.parent.name}/{cache_path.name}",
     }
 
 
@@ -206,90 +206,55 @@ def identity_key(runs_root: Path) -> bytes:
     return key
 
 
-def _prepare_run_dir(context: RunContext, identity: dict) -> Path:
-    """Find the run directory: resume the matching one, refuse a mismatching one."""
-    root = Path(context.runs_root) / "eval" / context.model.name / context.suite.name
-    identity_path = root / IDENTITY_NAME
-    if not context.fresh and identity_path.is_file():
-        recorded = json.loads(identity_path.read_text(encoding="utf-8"))
-        if recorded == identity:
-            return root
-        raise RunError(
-            f"{root} holds a different run: {_identity_differences(recorded, identity)}. "
-            "Pass --fresh to start a new directory, or use a different --runs dir."
-        )
-    run_dir = _timestamped(root) if context.fresh and root.exists() else root
+def _write_run(
+    context: RunContext, items_by_panel: dict[str, list[Item]], cache_path: Path
+) -> Path:
+    """Rebuild the suite's run directory from the cache: identity and records.
+
+    One record per panel item, the cached answer with the panel it is scored
+    in. Rebuilding rather than appending is what keeps a directory from mixing
+    two versions of a panel, or two servers.
+    """
+    run_dir = Path(context.runs_root) / "eval" / context.model.name / context.suite.name
     run_dir.mkdir(parents=True, exist_ok=True)
+    answers = cached_answers(cache_path)
+    records = [
+        {**answers[(item.id, item.audio_sha256)], "panel": panel}
+        for panel, items in items_by_panel.items()
+        for item in items
+    ]
+    identity = _identity(context, list(items_by_panel), cache_path)
     (run_dir / IDENTITY_NAME).write_text(
         json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    write_records(run_dir / RECORDS_NAME, records)
     return run_dir
 
 
-def _identity_differences(recorded: dict, current: dict) -> str:
-    """Which parts of the identity changed, so the message says what to fix.
+def _pending_items(
+    items_by_panel: dict[str, list[Item]], answers: dict[tuple[str, str], dict], fresh: bool
+) -> list[Item]:
+    """The clips to send: those with no cached answer, plus those that failed.
 
-    Nested parts are named by their path: "model changed ({...})" would leave the
-    reader to diff two JSON blobs, while "model.model changed (served-id ->
-    other-id)" is the answer. Values are shown except for the keyed fingerprint,
-    which is only ever compared.
+    A failed request is not a measurement: it stays in the cache file (the
+    summary counts failed requests) and the clip is sent again, the newest
+    answer winning. ``fresh`` sends every clip again. A clip in two panels of
+    the suite is sent once.
     """
-    before, after = _flatten_identity(recorded), _flatten_identity(current)
-    changed = []
-    for path in sorted(set(before) | set(after)):
-        if before.get(path) == after.get(path):
-            continue
-        if path == ENDPOINT_FINGERPRINT_KEY:
-            changed.append(f"{path} changed (the server URL is not the one recorded)")
-            continue
-        was, now = _short_value(before.get(path)), _short_value(after.get(path))
-        changed.append(f"{path} changed ({was} -> {now})")
-    return "; ".join(changed) if changed else "the recorded identity is not the same one"
-
-
-def _flatten_identity(identity: dict, prefix: str = "") -> dict:
-    """One level per dotted path, so a difference names the field that moved."""
-    flat: dict = {}
-    for key, value in identity.items():
-        path = f"{prefix}{key}"
-        if isinstance(value, dict):
-            flat.update(_flatten_identity(value, f"{path}."))
-        else:
-            flat[path] = value
-    return flat
-
-
-def _short_value(value, limit: int = 40) -> str:
-    """A value as the error message shows it: short, and never a long JSON blob."""
-    text = json.dumps(value, sort_keys=True, ensure_ascii=False)
-    return text if len(text) <= limit else text[: limit - 3] + "..."
-
-
-def _timestamped(root: Path) -> Path:
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    return root.parent / f"{root.name}-{stamp}"
-
-
-def _pending_items(items_by_panel: dict[str, list[Item]], records: list[dict]) -> list[Item]:
-    """The items to send: those with no record yet, plus those that failed.
-
-    A failed request is not a measurement: its record keeps the failure visible
-    (the summary counts failed requests separately) and the item is sent again
-    on the next run, the newest record winning.
-    """
-    last = latest_records(records)
-    return [
-        item
-        for items in items_by_panel.values()
-        for item in items
-        if item.id not in last or last[item.id].get("error")
-    ]
+    pending: dict[tuple[str, str], Item] = {}
+    for items in items_by_panel.values():
+        for item in items:
+            key = (item.id, item.audio_sha256)
+            cached = answers.get(key)
+            if fresh or cached is None or cached.get("error"):
+                pending.setdefault(key, item)
+    return list(pending.values())
 
 
 def _transcribe_pending(
-    context: RunContext, pending: list[Item], records_path: Path, base_url: str, factory
+    context: RunContext, pending: list[Item], cache_path: Path, base_url: str, factory
 ) -> None:
-    """Send every pending item, appending each answer as soon as it arrives.
+    """Send every pending item, appending each answer to the cache as it arrives.
 
     One client serves the whole run: it holds the connection pool, and creating
     one per item would open a connection per request and never close it.
@@ -303,7 +268,7 @@ def _transcribe_pending(
         index, item = index_and_item
         record = _transcribe_one(client, item, paths[item.panel][item.id], cold=index == 0)
         with lock:
-            append_record(records_path, record)
+            append_record(cache_path, record)
             if client.language_refused and not refused:
                 refused = True
                 if context.verbose:
@@ -332,6 +297,7 @@ def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict
     except TranscriptionError as failure:
         return {
             "id": item.id,
+            "audio_sha256": item.audio_sha256,
             "panel": item.panel,
             "hypothesis": "",
             "error": str(failure),
@@ -343,6 +309,7 @@ def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict
         }
     return {
         "id": item.id,
+        "audio_sha256": item.audio_sha256,
         "panel": item.panel,
         "hypothesis": result.text,
         "error": "",
@@ -363,15 +330,17 @@ def _report_progress(done: int, total: int, record: dict) -> None:
     print(f"[{done}/{total}] {record['id']} {state} ({record['latency_s']:.2f}s)", flush=True)
 
 
-def _announce(context: RunContext, records_path: Path) -> int:
+def _announce(context: RunContext, run_dir: Path, cache_path: Path, *, sent: int) -> int:
     """Say where the run lives and how it went; returns how many requests failed."""
-    records = read_records(records_path)
-    latest = latest_records(records)
-    failed = [record for record in latest.values() if record["error"]]
+    records = read_records(run_dir / RECORDS_NAME)
+    failed = [record for record in records if record["error"]]
     if context.verbose:
-        retried = len(records) - len(latest)
-        extra = f", {retried} earlier records kept from retries" if retried else ""
-        print(f"records: {records_path} ({len(latest)} items, {len(failed)} failed{extra})")
+        print(
+            f"records: {run_dir / RECORDS_NAME} ({len(records)} items, {sent} sent now, "
+            f"{len(records) - sent if sent <= len(records) else 0} from the cache, "
+            f"{len(failed)} failed)"
+        )
+        print(f"transcript cache: {cache_path}")
         if failed:
             print(f"first failure: {failed[0]['id']}: {failed[0]['error']}")
     return len(failed)

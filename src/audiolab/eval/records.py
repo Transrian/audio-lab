@@ -32,6 +32,7 @@ IDENTITY_KEY_NAME = ".identity-key"
 # Fields of one record; anything else is corruption rather than a new feature.
 RECORD_FIELDS = (
     "id",
+    "audio_sha256",
     "panel",
     "hypothesis",
     "error",
@@ -73,6 +74,7 @@ def load_panel_items(
             category=clips[clip_id].category,
             language=clips[clip_id].language,
             reference=clips[clip_id].text,
+            audio_sha256=clips[clip_id].sha256,
             duration_s=clips[clip_id].duration_s,
             text_has_casing_punct=clips[clip_id].text_has_casing_punct,
         )
@@ -104,6 +106,20 @@ def append_record(path: Path, record: dict) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
         handle.flush()
+
+
+def write_records(path: Path, records: list[dict]) -> None:
+    """Replace a records file in one step, so a reader never sees half of it."""
+    for record in records:
+        unknown = set(record) - set(RECORD_FIELDS)
+        if unknown:
+            raise ValueError(f"record has unknown fields: {sorted(unknown)}")
+    text = "".join(
+        json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n" for record in records
+    )
+    partial = path.with_suffix(".partial")
+    partial.write_text(text, encoding="utf-8")
+    partial.replace(path)
 
 
 def read_records(path: Path) -> list[dict]:
@@ -145,6 +161,7 @@ def with_records(items: list[Item], records: list[dict]) -> list[Item]:
                 category=item.category,
                 language=item.language,
                 reference=item.reference,
+                audio_sha256=item.audio_sha256,
                 hypothesis=record.get("hypothesis", ""),
                 error=record.get("error", ""),
                 latency_s=float(record.get("latency_s", 0.0)),

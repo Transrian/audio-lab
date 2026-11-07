@@ -85,8 +85,8 @@ def _panel_items(
 def _run_identity(identity: dict, records: list[dict]) -> dict:
     """The run's identity plus what the records themselves say.
 
-    The endpoint fingerprint of ``run.json`` is left out: it exists to refuse a
-    resume against another server, and a summary is meant to be shared.
+    An endpoint fingerprint is left out if an older ``run.json`` still has one:
+    a summary is meant to be shared.
     """
     latest = latest_records(records)
     timestamps = [record["timestamp"] for record in records if record.get("timestamp")]

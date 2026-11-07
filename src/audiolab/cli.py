@@ -256,7 +256,7 @@ def _add_eval_command(
         commands,
         "eval",
         "transcribe the panels of a suite with one model and score it",
-        "Resumes a run over the same panels and model instead of asking again.",
+        "Only clips with no cached answer are sent; everything else is re-scored.",
         "audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.yaml",
         parents=[scoring],
     )
@@ -277,7 +277,9 @@ def _add_eval_command(
     evaluate.add_argument(
         "--sealed", action="store_true", help="allow the sealed panel (one-time act)"
     )
-    evaluate.add_argument("--fresh", action="store_true", help="start a new run directory")
+    evaluate.add_argument(
+        "--fresh", action="store_true", help="send every clip again, even those already answered"
+    )
     evaluate.add_argument(
         "--base-url", default="", help="endpoint URL; normally from the config's env var"
     )

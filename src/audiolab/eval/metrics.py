@@ -40,6 +40,7 @@ class Item:
     category: str
     language: str
     reference: str
+    audio_sha256: str = ""  # which audio the answer belongs to (see eval.cache)
     hypothesis: str = ""
     error: str = ""
     latency_s: float = 0.0
