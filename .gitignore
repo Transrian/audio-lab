@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Data, audio, weights and run outputs never live in the repository.
+/data/
+/runs/
+*.wav
+*.flac
+*.mp3
+*.ogg
+*.opus
+*.m4a
+*.aac
+*.webm
+*.nemo
+*.ckpt
+*.pt
+*.safetensors
+*.gguf
+
+# Local environment
+.env
+.DS_Store
+
+# Drafts
+PLAN-draft.md

@@ -1,0 +1,10 @@
+# Files that change only at the owner's explicit request.
+# A commit touching any of these needs an "Owner-Approved:" trailer
+# (docs/decisions/accepted/0005-owner-approved-trailer.md).
+# One path prefix per line. A trailing "/" protects a whole folder.
+.github/protected-paths.txt
+.github/workflows/
+scripts/check_repo.py
+docs/owner/
+docs/decisions/accepted/
+docs/decisions/rejected/
