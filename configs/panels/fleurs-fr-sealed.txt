@@ -1,9 +1,11 @@
 # panel: fleurs-fr-sealed
-# dataset: fleurs-fr
+# dataset: fleurs-fr (676 clips in 332 groups; test 676)
+# items: 143  (clip ids below, one per line)
+# clips_sha256: dab5c060513fdebadd7b53f049a566e517afddb32bd22bcc8f67ef0127d759ff  (sha256 of the sorted id/audio hashes)
 # manifest_sha256: 5fbd784f7377aa21f6a9a4b54e50214baabbcc21d396f60fac885adffc4ef1ec  (sha256 of the sorted manifest ids)
 # seed: 20261107
 # built: 2026-11-07  (date the panel was frozen; never rebuilt)
-# one clip id per line; audio and reference text live under $AUDIOLAB_DATA
+# audio and reference text live under $AUDIOLAB_DATA
 fleurs-fr:10174413140250646001
 fleurs-fr:10399459061919571703
 fleurs-fr:10481242713503018126

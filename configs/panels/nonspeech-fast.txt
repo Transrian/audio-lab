@@ -1,9 +1,11 @@
 # panel: nonspeech-fast
-# dataset: nonspeech
+# dataset: nonspeech (300 clips in 300 groups; generated 300)
+# items: 60  (clip ids below, one per line)
+# clips_sha256: 63c5338e3ff923cfbe2996ad9714c537ea553559b5918d751dc8e91373ecb6e3  (sha256 of the sorted id/audio hashes)
 # manifest_sha256: cf360f6962523359a7f90fc9e27b699b454e1cb72cfdb85adb5ef42835280cb9  (sha256 of the sorted manifest ids)
 # seed: 20261107
 # built: 2026-11-07  (date the panel was frozen; never rebuilt)
-# one clip id per line; audio and reference text live under $AUDIOLAB_DATA
+# audio and reference text live under $AUDIOLAB_DATA
 nonspeech:esc50-1-100038-A-14
 nonspeech:esc50-1-101296-A-19
 nonspeech:esc50-1-101404-A-34
