@@ -8,8 +8,8 @@ NVIDIA Parakeet with a rigorous evaluation method: frozen test sets, per-dataset
 results with confidence intervals, and train/test leakage checks. Other problem
 families (text-to-speech, full-duplex speech) may follow.
 
-**Status:** phase 0 (foundation) is done; phase 1 (evaluation) is next. See the
-[roadmap](docs/roadmap.md).
+**Status:** phase 0 (foundation) is done; phase 1 (evaluation) is in progress.
+See the [roadmap](docs/roadmap.md).
 
 ## Quickstart
 
@@ -25,6 +25,30 @@ uv run audiolab gpus          # list the GPUs audiolab can use
 
 Every command that uses a GPU takes `--gpu`, either an index (`--gpu 1`) or a GPU
 UUID prefix (`--gpu GPU-1a2b`). The default is GPU 0; one GPU is always enough.
+
+## Score a model
+
+`audiolab` scores any model served through an OpenAI-compatible transcription
+API on frozen French, English and non-speech panels, and reports honest numbers
+(grouped confidence intervals, a paired comparison, a repeatable summary).
+
+```bash
+export AUDIOLAB_DATA=/mnt/data/audio-lab/data    # datasets live outside the repo
+export AUDIOLAB_RUNS=/mnt/data/audio-lab/runs    # runs too
+uv run audiolab data fetch                       # prepare the five datasets
+uv run audiolab data panels fleurs-fr            # freeze one dataset's panels
+
+export STT_BASE_URL=https://server.example/v1    # never written to disk
+export STT_API_KEY=...                           # only if the server needs one
+uv run audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.yaml
+uv run audiolab score runs/eval/example/fast     # rewrite the summary from the records
+
+uv run audiolab compare runs/eval/model-a/full runs/eval/model-b/full
+```
+
+[Evaluating a speech-to-text model](docs/stt/evaluation.md) explains the panels,
+every metric and what they do not cover;
+[datasets](docs/stt/datasets.md) has one card per dataset, with its license.
 
 ## How this repository is built
 
@@ -45,9 +69,12 @@ owner in control:
 
 ```
 src/audiolab/     the Python package (one command: audiolab)
-  core/           shared building blocks: configuration, GPU selection, ...
+  core/           shared building blocks: configuration, GPU selection, audio
+  data/           dataset preparation and frozen panels
+  eval/           text normalization, metrics, statistics, runs and reports
+configs/          one file per experiment: models, suites, frozen panels
 tests/            fast CPU tests
-docs/             roadmap, owner directives, decisions
+docs/             roadmap, owner directives, decisions, how-to pages
 scripts/          repository checks
 ```
 
