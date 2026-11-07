@@ -38,9 +38,12 @@ trained on here, and a source the earlier project trained on is a candidate.
 
 Only what the repository settles is used here as a criterion.
 
-- **French first, English kept** ([D-009](../owner/directives.md)): French is the
-  priority, English is kept, other languages are out of scope. Every source
-  below is French, English, or supplies noise and room acoustics.
+- **French first, English kept, dictation as the main use**
+  ([D-009](../owner/directives.md)): French is the priority, English is kept,
+  other languages are out of scope. The main target is a French developer
+  dictating to coding agents: French with English words and technical terms,
+  FR↔EN switches inside a sentence, passages entirely in English, and English
+  with a French accent. Sources that cover these cases rank first.
 - **No audio in the repository** ([D-013](../owner/directives.md)): a dataset is
   prepared by a script into `$AUDIOLAB_DATA` and never committed. That avoids
   redistributing it, not the need for the right to use it.
@@ -53,14 +56,6 @@ Only what the repository settles is used here as a criterion.
 - **The evaluation sets are frozen** ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
   they are fixed before a training campaign starts, so a new source is checked
   against them before it is acquired.
-
-**Coverage the earlier project prioritised.** An owner statement of 2026-11-05,
-recorded in the earlier project, put first the dictation of a French developer
-(towards coding agents and language models): French loaded with English words and
-technical terms, FR↔EN code-switching inside a sentence, passages entirely in
-English, and English spoken with a French accent. That statement is *not* a
-directive in this repository; it is recorded here only because it ordered the
-candidates below.
 
 ## Used — trained on here
 
@@ -87,7 +82,7 @@ its panels; nothing about them is repeated here.
 Nothing here is downloaded. The priority order and the four groups are the
 earlier project's (a search run in four angles: French variety, accents and
 public sector, code-switching and technical vocabulary, permissive text to
-speech), kept because that project's goal was close to this one. Licenses are as
+speech), kept because it follows the same target use (D-009). Licenses are as
 recorded there on the dates given, and classed as recorded: **publishable**
 (CC0, CC-BY, Apache, MIT, Licence Ouverte), **SA**, **NC** or **unknown**.
 

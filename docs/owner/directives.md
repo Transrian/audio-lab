@@ -24,7 +24,7 @@ Scopes in use: `global` (the whole repository), `stt` (speech-to-text).
 | D-006 | global | 2026-11-07 | A model is published (on Hugging Face) only at the owner's explicit request, after the owner has tested it. |
 | D-007 | global | 2026-11-07 | Everything in the repository is in English. |
 | D-008 | global | 2026-11-07 | The GPU used is selectable; everything runs on a single GPU. |
-| D-009 | stt | 2026-11-07 | French is the priority. English is kept, and its WER is reduced where this is simple. Other languages are out of scope. |
+| D-009 | stt | 2026-11-07, amended 2026-11-08 | French is the priority. English is kept, and its WER is reduced where this is simple. Other languages are out of scope. The target use is mainly dictation by a French developer to coding agents and language models: French with many English words and technical terms, switches between French and English within a sentence, passages entirely in English, and English spoken with a French accent. |
 | D-010 | global | 2026-11-07 | Scripts stay very simple and build on a shared base; using the repository never requires copying many files. Documentation is very clear to human readers. |
 | D-011 | global | 2026-11-07 | Owner directives are kept distinct from agent inferences. A directive applies only within its scope. |
 | D-012 | global | 2026-11-07 | Directives are recorded faithful to the owner's meaning, in neutral wording validated by the owner. |
