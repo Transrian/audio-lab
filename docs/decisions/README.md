@@ -54,3 +54,4 @@ Never invent alternatives after the fact.
 | [0005](accepted/0005-owner-approved-trailer.md) | global | accepted | `Owner-Approved:` trailer on protected files |
 | [0006](accepted/0006-task-tiers-not-model-names.md) | global | accepted | Task tiers, never model names |
 | [0007](accepted/0007-single-package-single-command.md) | global | accepted | One package, one command, one config per experiment |
+| [0008](accepted/0008-training-monitoring-vs-official-evaluation.md) | stt | accepted | Training monitoring is direct; official evaluation goes through the API |
