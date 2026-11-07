@@ -14,6 +14,7 @@ from pathlib import Path
 
 from audiolab.eval import metrics, stats
 from audiolab.eval.records import (
+    ENDPOINT_FINGERPRINT_KEY,
     IDENTITY_NAME,
     RECORDS_NAME,
     dataset_and_panel,
@@ -80,11 +81,16 @@ def _panel_items(
 
 
 def _run_identity(identity: dict, records: list[dict]) -> dict:
-    """The run's identity plus what the records themselves say."""
+    """The run's identity plus what the records themselves say.
+
+    The endpoint fingerprint of ``run.json`` is left out: it exists to refuse a
+    resume against another server, and a summary is meant to be shared.
+    """
     latest = latest_records(records)
     timestamps = [record["timestamp"] for record in records if record.get("timestamp")]
+    summarised = {key: value for key, value in identity.items() if key != ENDPOINT_FINGERPRINT_KEY}
     return {
-        **identity,
+        **summarised,
         "records": len(records),
         "items": len(latest),
         "failed_requests": sum(1 for record in latest.values() if record.get("error")),

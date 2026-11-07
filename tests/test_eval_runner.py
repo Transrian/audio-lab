@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 import sys
 from pathlib import Path
 
@@ -29,7 +30,14 @@ from audiolab.eval.report import (  # noqa: E402
     render_comparison,
     score_run,
 )
-from audiolab.eval.runner import RunContext, RunError, SuiteSpec, load_suite, run_suite  # noqa: E402
+from audiolab.eval.runner import (  # noqa: E402
+    RunContext,
+    RunError,
+    SuiteSpec,
+    endpoint_fingerprint,
+    load_suite,
+    run_suite,
+)
 
 PANEL = "fake-fr-fast"
 
@@ -292,6 +300,58 @@ def test_a_failed_item_is_sent_again_on_the_next_run(workspace):
     latest = latest_records(records)
     assert len(latest) == panel_size(workspace)
     assert not [record for record in latest.values() if record["error"]]
+
+
+def test_resuming_against_another_server_is_refused(workspace):
+    """The endpoint is part of the run identity, so a resume cannot mix servers.
+
+    It is recorded as a keyed fingerprint: the refusal must name the field, and
+    the URL of either run must not appear in the message or in the files.
+    """
+    server, url = server_answering()
+    try:
+        run_suite(context(workspace, base_url=url))
+        with pytest.raises(RunError, match="endpoint_fingerprint"):
+            run_suite(context(workspace, base_url="http://localhost:9/v1"))
+        # The same server written two ways is the same server.
+        assert run_suite(context(workspace, base_url=f"{url}/v1")) is not None
+    finally:
+        server.shutdown()
+    run_dir = workspace["runs_dir"] / "eval" / "fake-model" / "fast"
+    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    assert len(identity["endpoint_fingerprint"]) == 64
+    assert url not in json.dumps(identity)
+    assert "localhost:9" not in json.dumps(identity)
+
+
+def test_the_endpoint_fingerprint_is_keyed_and_stays_out_of_the_summary(workspace):
+    """The fingerprint is compared, never published, and the key is local.
+
+    A summary or a report is what leaves this machine, so neither may hold the
+    fingerprint of the server; the key file next to the runs is what makes a
+    fingerprint in a shared run directory useless elsewhere.
+    """
+    server, url = server_answering()
+    try:
+        run_dir = run_suite(context(workspace, base_url=url))
+    finally:
+        server.shutdown()
+    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    fingerprint = identity["endpoint_fingerprint"]
+    summary = (run_dir / SUMMARY_NAME).read_text(encoding="utf-8")
+    report = (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+    assert fingerprint not in summary and "endpoint" not in summary
+    assert fingerprint not in report and "localhost" not in report
+
+    key_path = workspace["runs_dir"] / ".identity-key"
+    assert stat.S_IMODE(key_path.stat().st_mode) == 0o600
+    assert len(bytes.fromhex(key_path.read_text(encoding="utf-8").strip())) == 32
+
+    # The same URL under another key is a different fingerprint, and the same
+    # key gives the same one: nothing about the URL can be read off the value.
+    key = bytes.fromhex(key_path.read_text(encoding="utf-8").strip())
+    assert endpoint_fingerprint(url, key) == fingerprint
+    assert endpoint_fingerprint(url, bytes(32)) != fingerprint
 
 
 def test_a_changed_identity_names_the_field_that_changed(workspace):

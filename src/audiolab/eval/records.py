@@ -19,6 +19,15 @@ from audiolab.eval.metrics import Item
 
 RECORDS_NAME = "records.jsonl"
 IDENTITY_NAME = "run.json"
+# The run identity records the endpoint under a keyed fingerprint: a run
+# directory can be shared, and the address of the server must not travel with
+# it, while resuming against a different server must still be refused. The
+# fingerprint is written to ``run.json`` only, never to the summary or the
+# report, and the key that makes it unguessable stays next to the runs.
+ENDPOINT_FINGERPRINT_KEY = "endpoint_fingerprint"
+# The key that makes that fingerprint unforgeable and unguessable, next to the
+# runs it protects; created with mode 0600 on first use.
+IDENTITY_KEY_NAME = ".identity-key"
 
 # Fields of one record; anything else is corruption rather than a new feature.
 RECORD_FIELDS = (

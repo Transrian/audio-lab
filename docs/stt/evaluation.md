@@ -86,22 +86,31 @@ Everything lands in `$AUDIOLAB_RUNS/eval/<model name>/<suite>/`:
   answer arrives (`id`, `panel`, `hypothesis`, `error`, `latency_s`,
   `attempts`, `cold`, `language_sent`, `timestamp`).
 - `run.json`: the run identity — model config without secret values, the panel
-  hashes, the audiolab version and the git commit. The URL and the key are
-  never stored, and neither is a fingerprint of the host: the config's optional
-  `server_label` is free text, so a run can say which server answered without
-  the repository holding a private address.
-- `summary.json`: every number at full precision. `audiolab score <run dir>`
-  writes it again from the records alone, byte for byte.
+  hashes, the audiolab version, the git commit, and the endpoint. The URL itself
+  and the API key are never stored: the endpoint is a **keyed fingerprint** of
+  the server root, computed with HMAC-SHA256 and a random per-machine key in
+  `<runs dir>/.identity-key` (created on first use, mode `0600`). A run
+  directory can therefore be shared without naming a private address, and the
+  fingerprint cannot be reversed by guessing the shape of a URL. It is only ever
+  compared, never printed: `summary.json` and `report.md` do not contain it. The
+  config's optional `server_label` is free text, so a run can also say in words
+  which server answered.
+- `summary.json`: every number at full precision, plus the run identity without
+  the endpoint fingerprint. `audiolab score <run dir>` writes it again from the
+  records alone, byte for byte.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
 Rerunning the command resumes: clips already answered are skipped, and a clip
 whose last record is an error is **sent again** — a failed request is not a
 measurement. The failed record stays in the file (so a flaky endpoint is still
 visible) and the newest record of a clip is the one that is scored; the summary
-says how many lines and how many clips a run holds. If the model config, a
-panel or the normalizer changed, the identity differs, the error names the field
-that differs, and the runner refuses instead of mixing two experiments;
-`--fresh` starts a new directory named with a timestamp.
+says how many lines and how many clips a run holds. If the model config, the
+endpoint, a panel or the normalizer changed, the identity differs and the runner
+refuses instead of mixing two experiments; the error names the field that
+differs by its path (`model.model`, `panels.fleurs-fr-fast`), with its old and
+new value, except for the endpoint fingerprint, which is reported only as "the
+server URL is not the one recorded" so that no reading of the run directory ever
+gets the fingerprint. `--fresh` starts a new directory named with a timestamp.
 
 Compare two runs over the ids they share:
 
