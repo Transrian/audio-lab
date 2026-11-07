@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -12,8 +13,9 @@ import pytest  # noqa: E402
 from helpers import make_clip, start_transcription_server, write_tone  # noqa: E402
 
 from audiolab import cli  # noqa: E402
+from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.core.gpu import parse_nvidia_smi  # noqa: E402
-from audiolab.data.panels import build_panels  # noqa: E402
+from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import MANIFEST_NAME, read_manifest, write_manifest  # noqa: E402
 
 PANEL = "fake-fr-fast"
@@ -96,13 +98,13 @@ def test_data_panels_requires_a_dataset(capsys, tmp_path):
 def prepared(tmp_path) -> dict:
     """A tiny prepared dataset with its panels, plus the paths the CLI needs."""
     data_dir = tmp_path / "datasets"
-    clips = [
-        make_clip(f"fake:{speaker:03d}-{index:03d}", group=f"fake:spk{speaker:03d}")
-        for speaker in range(6)
-        for index in range(3)
-    ]
-    for clip in clips:
-        write_tone(data_dir / "fake-fr" / clip.audio, seconds=0.5)
+    # The audio hash is the real one: ``data panels --check`` hashes the clips.
+    clips = []
+    for speaker in range(6):
+        for index in range(3):
+            clip = make_clip(f"fake:{speaker:03d}-{index:03d}", group=f"fake:spk{speaker:03d}")
+            path = write_tone(data_dir / "fake-fr" / clip.audio, seconds=0.5)
+            clips.append(replace(clip, sha256=pcm_sha256(path)))
     write_manifest(data_dir / "fake-fr", clips)
     panels_dir = tmp_path / "panels"
     build_panels("fake-fr", clips, panels_dir, built="2026-11-07")
@@ -264,3 +266,26 @@ def test_data_panels_check_reports_what_it_found(prepared, capsys):
     )
     assert code == 1
     assert "different manifest" in capsys.readouterr().err
+
+
+def test_data_panels_check_hashes_the_audio_of_the_panel(prepared, capsys):
+    """A panel names audio: replacing a clip's file must fail the check."""
+    panel = read_panel(prepared["panels_dir"] / f"{PANEL}.txt")
+    clip = read_manifest(prepared["data_dir"] / "fake-fr")[0]
+    assert clip.id in panel.ids
+    write_tone(prepared["data_dir"] / "fake-fr" / clip.audio, seconds=0.5, frequency=999)
+
+    code = cli.main(
+        [
+            "--data-dir",
+            str(prepared["data_dir"]),
+            "data",
+            "panels",
+            "fake-fr",
+            "--check",
+            "--panels-dir",
+            str(prepared["panels_dir"]),
+        ]
+    )
+    assert code == 1
+    assert "does not match its sha256" in capsys.readouterr().err

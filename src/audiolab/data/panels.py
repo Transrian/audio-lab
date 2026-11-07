@@ -15,13 +15,19 @@ from __future__ import annotations
 
 import hashlib
 import random
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 from audiolab.core.paths import data_dir
-from audiolab.data.store import Clip, manifest_id_sha256, read_manifest
+from audiolab.data.store import (
+    Clip,
+    manifest_id_sha256,
+    pcm_sha256_of,
+    read_manifest,
+    verify_clips,
+)
 
 PANEL_NAMES = ("fast", "full", "sealed")
 DEFAULT_SEED = 20261107
@@ -36,13 +42,23 @@ NONSPEECH_FIRST = ("silence", "noise")  # ordered; ESC-50 classes come last
 
 @dataclass(frozen=True)
 class Panel:
-    """One frozen id list plus what is needed to rebuild and check it."""
+    """One frozen id list plus what is needed to rebuild and check it.
+
+    The header records what the panel is (dataset and its real size, the split
+    it came from), what the panel holds (its item count, the audio hash of
+    exactly those items) and which manifest and seed produced it, so a reader
+    can check the file without the data directory and a scoring run can check
+    the audio it is about to use.
+    """
 
     name: str
     dataset: str
     ids: list[str]
+    items: int  # what the header declares, read back so the file can be checked
     seed: int
     manifest_sha256: str
+    clips_sha256: str
+    dataset_line: str
     built: str
 
     @property
@@ -53,11 +69,13 @@ class Panel:
         header = "\n".join(
             [
                 f"# panel: {self.title}",
-                f"# dataset: {self.dataset}",
+                f"# dataset: {self.dataset_line}",
+                f"# items: {len(self.ids)}  (clip ids below, one per line)",
+                f"# clips_sha256: {self.clips_sha256}  (sha256 of the sorted id/audio hashes)",
                 f"# manifest_sha256: {self.manifest_sha256}  (sha256 of the sorted manifest ids)",
                 f"# seed: {self.seed}",
                 f"# built: {self.built}  (date the panel was frozen; never rebuilt)",
-                "# one clip id per line; audio and reference text live under $AUDIOLAB_DATA",
+                "# audio and reference text live under $AUDIOLAB_DATA",
             ]
         )
         return header + "\n" + "\n".join(self.ids) + "\n"
@@ -86,13 +104,17 @@ def build_panels(
     if not clips:
         raise ValueError(f"cannot build panels for {dataset}: the manifest is empty")
     chosen = select_panels(clips, DEFAULT_SEED)
+    by_id = {clip.id: clip for clip in clips}
     panels = [
         Panel(
             name=name,
             dataset=dataset,
             ids=chosen[name],
+            items=len(chosen[name]),
             seed=DEFAULT_SEED,
             manifest_sha256=manifest_id_sha256(clips),
+            clips_sha256=pcm_sha256_of([by_id[clip_id] for clip_id in chosen[name]]),
+            dataset_line=dataset_line(dataset, clips),
             built=built or date.today().isoformat(),
         )
         for name in PANEL_NAMES
@@ -101,6 +123,19 @@ def build_panels(
     for panel in panels:
         panel_path(panel.title, panels_dir).write_text(panel.text(), encoding="utf-8")
     return panels
+
+
+def dataset_line(dataset: str, clips: list[Clip]) -> str:
+    """The dataset's real size, per split, as the panel header records it.
+
+    A reader of a panel should not have to guess how much audio it came from,
+    nor assume one split: the non-speech battery is generated clips plus ESC-50,
+    and a panel of it is drawn from both.
+    """
+    groups = len({clip.group for clip in clips})
+    splits = Counter(clip.source_split for clip in clips)
+    parts = ", ".join(f"{split} {count}" for split, count in sorted(splits.items()))
+    return f"{dataset} ({len(clips)} clips in {groups} groups; {parts})"
 
 
 def select_panels(clips: list[Clip], seed: int) -> dict[str, list[str]]:
@@ -240,11 +275,23 @@ def read_panel(path: Path) -> Panel:
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith("#"):
             keyword, _, value = line[2:].partition(":")
-            if keyword.strip() in ("panel", "dataset", "manifest_sha256", "seed", "built"):
-                header[keyword.strip()] = value.split("(")[0].strip()
+            keyword = keyword.strip()
+            if keyword == "dataset":
+                # The size in that line is part of it: it is checked, not decoration.
+                header["dataset"] = value.strip()
+            elif keyword in (
+                "panel",
+                "items",
+                "clips_sha256",
+                "manifest_sha256",
+                "seed",
+                "built",
+            ):
+                header[keyword] = value.split("(")[0].strip()
         elif line.strip():
             ids.append(line.strip())
-    missing = [key for key in ("dataset", "manifest_sha256", "seed", "built") if key not in header]
+    wanted = ("dataset", "items", "clips_sha256", "manifest_sha256", "seed", "built")
+    missing = [key for key in wanted if key not in header]
     if missing:
         raise ValueError(f"{path} has no header field {missing}")
     name = path.stem.rsplit("-", 1)[-1]
@@ -252,19 +299,32 @@ def read_panel(path: Path) -> Panel:
         raise ValueError(f"{path} is not named <dataset>-<panel>.txt")
     return Panel(
         name=name,
-        dataset=header["dataset"],
+        dataset=header["dataset"].split(" ")[0],
         ids=ids,
+        items=int(header["items"]),
         seed=int(header["seed"]),
         manifest_sha256=header["manifest_sha256"],
+        clips_sha256=header["clips_sha256"],
+        dataset_line=header["dataset"],
         built=header["built"],
     )
 
 
-def check_panel(path: Path, clips: list[Clip]) -> list[str]:
-    """What makes a panel unusable with the current data; an empty list is good."""
+def check_panel(path: Path, clips: list[Clip], dataset_dir: Path | None = None) -> list[str]:
+    """What makes a panel unusable with the current data; an empty list is good.
+
+    With ``dataset_dir``, the audio of the panel's own clips is hashed as well:
+    a panel names audio, so a panel whose ids are right and whose files were
+    replaced is still not the panel an earlier run scored.
+    """
     panel = read_panel(path)
     problems = []
     current = manifest_id_sha256(clips)
+    if panel.dataset_line != dataset_line(panel.dataset, clips):
+        problems.append(
+            f"header says {panel.dataset_line!r}, the manifest says "
+            f"{dataset_line(panel.dataset, clips)!r}"
+        )
     if panel.manifest_sha256 != current:
         problems.append(
             f"prepared from a different manifest ({panel.manifest_sha256[:12]} != {current[:12]})"
@@ -276,6 +336,17 @@ def check_panel(path: Path, clips: list[Clip]) -> list[str]:
     expected = select_panels(clips, panel.seed)[panel.name]
     if panel.ids != expected:
         problems.append(f"ids differ from what the current data and seed {panel.seed} produce")
+    if panel.items != len(panel.ids):
+        problems.append(f"the header says {panel.items} items, the file lists {len(panel.ids)}")
+    chosen = [clip for clip in clips if clip.id in set(panel.ids)]
+    current_audio = pcm_sha256_of(chosen)
+    if panel.clips_sha256 != current_audio:
+        problems.append(
+            f"the audio of these ids is not the audio the panel recorded "
+            f"({panel.clips_sha256[:12]} != {current_audio[:12]})"
+        )
+    if dataset_dir is not None:
+        problems.extend(verify_clips(dataset_dir, chosen))
     return problems
 
 

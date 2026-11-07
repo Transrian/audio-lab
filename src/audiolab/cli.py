@@ -88,7 +88,7 @@ def _check_panels(dataset: str, panels_dir: Path) -> int:
             print(f"{path}: missing", file=sys.stderr)
             failed = True
             continue
-        problems = check_panel(path, clips)
+        problems = check_panel(path, clips, data_dir() / dataset)
         if problems:
             print(f"{path}: {'; '.join(problems)}", file=sys.stderr)
             failed = True

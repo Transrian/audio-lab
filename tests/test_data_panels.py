@@ -1,3 +1,4 @@
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -6,8 +7,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import make_clip, speech_clips  # noqa: E402
+from helpers import (  # noqa: E402
+    make_clip,
+    speech_clips,
+    write_tone,  # noqa: E402
+)
 
+from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_SEED,
     FAST_CLIPS,
@@ -113,11 +119,16 @@ def test_build_panels_writes_frozen_files_with_a_header(tmp_path):
     text = path.read_text(encoding="utf-8")
     assert "# dataset: fake" in text and "# built: 2026-11-07" in text
     assert "# manifest_sha256: " in text and f"# seed: {DEFAULT_SEED}" in text
+    # The header states what the panel is made of, so a reader needs no data.
+    assert "# items: 320  (clip ids below, one per line)" in text
+    assert "# clips_sha256: " in text
+    assert "(400 clips in 20 groups; test 400)" in text
 
     read_back = read_panel(path)
     assert read_back.ids == panels[1].ids
     assert read_back.seed == panels[1].seed
     assert read_back.dataset == "fake"
+    assert read_back.items == len(panels[1].ids) == 320
 
 
 def test_build_panels_refuses_to_overwrite(tmp_path):
@@ -144,6 +155,52 @@ def test_check_panel_detects_changed_data(tmp_path):
 
     renamed = clips[:-1] + [make_clip("fake:000-999", group="fake:spk000")]
     assert check_panel(path, renamed)
+
+
+def test_check_panel_notices_a_changed_item_count(tmp_path):
+    clips = speech_clips("fake", speakers=10, per_speaker=10)
+    panels_of(clips, tmp_path)
+    path = panel_path("fake-full", tmp_path / "configs" / "panels")
+    text = re.sub(r"# items: \d+ ", "# items: 99 ", path.read_text(encoding="utf-8"))
+    path.write_text(text, encoding="utf-8")
+    assert any("the header says 99 items" in problem for problem in check_panel(path, clips))
+
+
+def test_check_panel_notices_audio_replaced_under_the_same_ids(tmp_path):
+    """The panel names audio, so the same ids with other bytes are another panel."""
+    clips = speech_clips("fake", speakers=10, per_speaker=10)
+    panels_of(clips, tmp_path)
+    path = panel_path("fake-full", tmp_path / "configs" / "panels")
+    assert check_panel(path, clips) == []
+
+    rerecorded = [
+        clip
+        if clip.id not in set(read_panel(path).ids[:5])
+        else make_clip(clip.id, sha256="9" * 64)
+        for clip in clips
+    ]
+    problems = check_panel(path, rerecorded)
+    assert any("not the audio the panel recorded" in problem for problem in problems)
+
+
+def test_check_panel_verifies_the_audio_on_disk(tmp_path, monkeypatch):
+    """--check hashes the panel's clips: a replaced file is not the frozen panel."""
+    monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path / "data"))
+    clips = []
+    for index in range(30):
+        path = write_tone(
+            tmp_path / "data" / "fake" / "audio" / f"fake_{index:03d}.wav",
+            seconds=0.2,
+            frequency=200 + index,
+        )
+        clips.append(make_clip(f"fake:{index:03d}", sha256=pcm_sha256(path)))
+    panels_of(clips, tmp_path)
+    path = panel_path("fake-full", tmp_path / "configs" / "panels")
+    assert check_panel(path, clips, tmp_path / "data" / "fake") == []
+
+    write_tone(tmp_path / "data" / "fake" / clips[0].audio, seconds=0.2, frequency=999)
+    problems = check_panel(path, clips, tmp_path / "data" / "fake")
+    assert any("does not match its sha256" in problem for problem in problems)
 
 
 def test_read_panel_refuses_a_bad_header(tmp_path):

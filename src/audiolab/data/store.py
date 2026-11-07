@@ -92,3 +92,16 @@ def manifest_id_sha256(clips: list[Clip]) -> str:
     """Hash of the sorted clip ids: identifies the content of a manifest."""
     joined = "\n".join(clip.id for clip in sorted(clips, key=lambda clip: clip.id))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def pcm_sha256_of(clips: list[Clip]) -> str:
+    """Hash of the sorted ``<id> <audio sha256>`` pairs of some clips.
+
+    Two manifests can hold the same ids with different audio (a re-encoded
+    download, a changed decoder), so a panel records this hash next to the ids:
+    it is what an evaluation actually scored.
+    """
+    joined = "\n".join(
+        f"{clip.id} {clip.sha256}" for clip in sorted(clips, key=lambda clip: clip.id)
+    )
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()

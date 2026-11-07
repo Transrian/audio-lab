@@ -12,7 +12,7 @@ import pytest  # noqa: E402
 from helpers import make_clip, start_transcription_server, write_tone  # noqa: E402
 
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
-from audiolab.data.store import write_manifest  # noqa: E402
+from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
 from audiolab.eval.client import ModelConfig  # noqa: E402
 from audiolab.eval.records import IDENTITY_NAME, RECORDS_NAME, read_records  # noqa: E402
 from audiolab.eval.report import REPORT_NAME, SUMMARY_NAME, compare_runs, score_run  # noqa: E402
@@ -281,7 +281,9 @@ def test_a_non_speech_panel_is_scored_for_hallucinations(tmp_path):
     panel_text = "\n".join(
         [
             "# panel: nonspeech-full",
-            "# dataset: nonspeech",
+            "# dataset: nonspeech (4 clips in 4 groups; generated 4)",
+            "# items: 4  (clip ids below, one per line)",
+            f"# clips_sha256: {pcm_sha256_of(clips)}",
             "# manifest_sha256: x",
             "# seed: 1",
             "# built: 2026-11-07",
