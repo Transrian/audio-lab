@@ -48,7 +48,9 @@ uv run audiolab compare runs/eval/model-a/full runs/eval/model-b/full
 
 [Evaluating a speech-to-text model](docs/stt/evaluation.md) explains the panels,
 every metric and what they do not cover;
-[datasets](docs/stt/datasets.md) has one card per dataset, with its license.
+[datasets](docs/stt/datasets.md) has one card per dataset, with its license, and
+[sources](docs/stt/sources.md) registers every data source considered, with its
+status.
 
 ## How this repository is built
 

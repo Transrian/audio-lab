@@ -4,6 +4,8 @@ One card per dataset `audiolab data fetch` can prepare. Everything is prepared
 into `$AUDIOLAB_DATA` as `manifest.jsonl` plus 16 kHz mono 16-bit WAV files;
 nothing here is committed, because datasets are not ours to redistribute
 ([D-013](../owner/directives.md)). `audiolab data list` prints the same names.
+Which of these are used for evaluation, and every other source considered with
+its status and license, is in [the source register](sources.md) (D-018).
 
 Prepared sizes below are what one run of `audiolab data fetch` produced on the
 owner's machine, so a reader can tell how much disk a phase needs. Audio is
