@@ -203,14 +203,20 @@ def test_fleurs_fetch_checks_the_pinned_sha256_of_its_files(dirs, monkeypatch):
     assert asked == {"test.tsv": "0" * 64, "test.tar.gz": "1" * 64}
 
 
-def test_mls_prepares_every_utterance_of_an_archive(dirs, monkeypatch):
-    """Every utterance of an archive gets its transcript and one manifest line."""
+def test_mls_groups_by_speaker_not_by_source_file(dirs, monkeypatch):
+    """One reader is spread over several mp3 files: the group is the reader.
+
+    Reading the speaker out of the segments file instead gave one group per
+    source mp3 (95 of them on the real split) so the sealed panel shared
+    readers with the full panel, which is the leak the grouping exists to stop.
+    """
     data, cache = dirs
-    fake_mls_cache(cache)
+    fake_mls_cache(cache, urls=2)
     monkeypatch.setattr("audiolab.data.mls.EXPECTED_CLIPS", 3)
     assert fetch_mls_fr("mls-fr", cache, data / "mls-fr", verbose=False) == 3
 
     clips = read_manifest(data / "mls-fr")
+    assert {clip.group for clip in clips} == {"mls-fr:1234"}
     assert len({clip.id for clip in clips}) == 3
     assert clips[0].id == "mls-fr:1234_5678_000001"
     assert clips[0].text == "le petit chat dort"

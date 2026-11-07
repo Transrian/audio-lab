@@ -58,7 +58,7 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
                     language=LANGUAGE,
                     text=text,
                     text_has_casing_punct=False,
-                    group=f"{name}:{segments[Path(member.name).stem].split()[0]}",
+                    group=f"{name}:{_speaker(name, member.name)}",
                     group_kind="speaker",
                     source_split=SPLIT,
                     license=LICENSE,
@@ -95,6 +95,21 @@ def _read_names(path: Path) -> list[str]:
 
 def _clip_id(name: str, member_name: str) -> str:
     return f"{name}:{Path(member_name).stem}"
+
+
+def _speaker(name: str, member_name: str) -> str:
+    """The speaker of one utterance, read from its id.
+
+    An MLS utterance id is ``<speaker>_<book>_<number>``. The speaker is what a
+    bootstrap must resample: one reader's voice, accent and recording conditions
+    fail together, and the segments file says nothing about speakers — its second
+    field is the source mp3, and one reader is spread over many of those.
+    """
+    utterance_id = Path(member_name).stem
+    speaker = utterance_id.split("_")[0]
+    if not speaker or speaker == utterance_id:
+        raise DownloadError(f"{name}: {utterance_id} does not look like <speaker>_<book>_<number>")
+    return speaker
 
 
 def _clip_text(name: str, member_name: str, segments: dict, transcripts: dict) -> str:
