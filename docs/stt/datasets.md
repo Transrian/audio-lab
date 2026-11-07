@@ -16,7 +16,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `fleurs-en` | en | CC-BY-4.0 | test | 647 | 350 | 1.8 | 197 MiB |
 | `mls-fr` | fr | CC-BY-4.0 | test | 2426 | 18 | 10.1 | 1.1 GiB |
 | `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
-| `nonspeech` | none | see below | generated + esc50 | 300 | 300 | 0.6 | 63 MiB |
+| `nonspeech` | none | see below | esc50 + generated | 300 | 300 | 0.6 | 63 MiB |
 
 A **group** is the unit the bootstrap resamples: utterances of one group share a
 speaker, a recording or a text, so their errors are not independent. Groups are

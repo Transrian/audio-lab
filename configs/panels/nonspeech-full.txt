@@ -1,7 +1,7 @@
 # panel: nonspeech-full
-# dataset: nonspeech (300 clips in 300 groups; generated 300)
+# dataset: nonspeech (300 clips in 300 groups; esc50 200, generated 100)
 # items: 240  (clip ids below, one per line)
-# clips_sha256: fde619c5e91cbb91f381872948d23865376be3b67967b3bc9f5b1bc7fd80cabe  (sha256 of the sorted id/audio hashes)
+# clips_sha256: c2987097fe5703d7a201cef6529dd322d07a82f41bf49fabd2ce93c60a134353  (sha256 of the sorted id/audio hashes)
 # manifest_sha256: cf360f6962523359a7f90fc9e27b699b454e1cb72cfdb85adb5ef42835280cb9  (sha256 of the sorted manifest ids)
 # seed: 20261107
 # built: 2026-11-07  (date the panel was frozen; never rebuilt)

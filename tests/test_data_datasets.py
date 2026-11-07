@@ -6,6 +6,7 @@ on files that look like the upstream ones.
 """
 
 import csv
+import hashlib
 import math
 import sys
 from pathlib import Path
@@ -310,6 +311,31 @@ def test_nonspeech_levels_and_durations_stay_in_range():
         assert -60.5 <= level <= -29.5
         assert float(np.abs(samples).max()) <= 1.0
         assert 2.0 <= noise.duration_s <= 20.0
+
+
+# The generated clips are the only ones audiolab makes itself, so they are the
+# only ones whose exact bytes can be pinned. These digests are the samples of
+# clip 0 of each kind: they change when a level, a duration or a seed changes,
+# which is what a re-prepared dataset must not do silently. The pin was taken
+# from the clips prepared after the level fix (RMS, not peak), and the previous
+# scaling produced ad047a28... for this same clip.
+PINNED_GENERATED_SAMPLES = {
+    ("noise", 0): "e59af511b8e20ef6edde6f0faaee3930e30b7621d77fb3251ecda821724973ba",
+    ("silence", 0): "c4dde64d69280acc2d59fde16225be723d9b381d6ec472815efd1a2314c75f20",
+}
+
+
+def test_the_generated_clips_are_the_same_bytes_as_when_they_were_pinned():
+    """The battery is generated here, so its exact bytes can be pinned.
+
+    The clips were prepared once with the level applied to the peak instead of
+    the RMS, and those files stayed on disk until the dataset was fetched again.
+    A pinned digest of one clip per kind makes that drift impossible to miss.
+    """
+    for (kind, index), pinned in PINNED_GENERATED_SAMPLES.items():
+        generator = digital_silence if kind == "silence" else low_level_noise
+        samples = np.asarray(generator("nonspeech", index).samples, dtype=np.float32)
+        assert hashlib.sha256(samples.tobytes()).hexdigest() == pinned, kind
 
 
 def test_esc50_selection_is_spread_over_each_class(dirs):
