@@ -103,7 +103,16 @@ NOTICE = re.compile(
     r"|\bused (?:courtesy of|with permission)\b",
     re.IGNORECASE,
 )
-ENCORE = re.compile(r"\bencore\b", re.IGNORECASE)
+# What a title adds when an episode is aired again: "Encore: X", "Mars Ep. 3: X".
+RERUN_TITLE = re.compile(r"\bencore\b|^.*?\b(?:ep|episode)\.? ?\d+ ?:", re.IGNORECASE)
+# What the page of an episode aired again says of it: "This episode originally
+# aired May 1, 2020, as Episode 142", "the rebroadcast of a conversation".
+MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
+RERUN_PAGE = re.compile(
+    rf"\boriginally (?:aired|released)(?: on)? (?:as )?(?:episode\b|(?:{MONTHS}) \d)"
+    r"|\brebroadcast of\b",
+    re.IGNORECASE,
+)
 # Pages come from one public website: three at a time, as the audio downloads.
 PAGE_WORKERS = 3
 # The counts of the labelling report, beside those of the Parakeet pass.
@@ -156,31 +165,31 @@ def episode_slug(url: str) -> str:
 
 
 def without_repeats(episodes: list[Talk]) -> list[Talk]:
-    """Each episode once, in the order given.
+    """Each episode once: the first copy of it in the order given.
 
-    A show republishes an episode as an "Encore", or posts it twice, under a new
-    page and a new MP3. Two episodes are the same when they share a page, an MP3
-    file or a title once "Encore" and punctuation are set aside; the copy kept
-    is the first one whose title does not say "Encore".
+    A show airs an episode again under a new page and a new MP3, as an "Encore"
+    or in a series ("Mars Ep. 3: X"), and once in a while posts it twice. Two
+    episodes are the same when they share a page, an MP3 file or a title once
+    :data:`RERUN_TITLE` and punctuation are set aside. The listing passes the
+    episodes oldest first, so the copy kept is the one aired first.
     """
-    originals_first = sorted(episodes, key=lambda episode: bool(ENCORE.search(episode.title)))
     seen: set[tuple[str, str]] = set()
-    kept: set[str] = set()
-    for episode in originals_first:
+    kept = []
+    for episode in episodes:
         keys = {
             ("page", episode.url),
             ("audio", urlparse(episode.file).path.rsplit("/", 1)[-1]),
             ("title", title_key(episode.title)),
         }
         if not keys & seen:
-            kept.add(episode.url)
+            kept.append(episode)
         seen |= keys
-    return [episode for episode in episodes if episode.url in kept]
+    return kept
 
 
 def title_key(title: str) -> str:
-    """What two copies of one episode's title share: its words, without "Encore"."""
-    return " ".join(re.findall(r"[a-z0-9]+", ENCORE.sub(" ", title.lower())))
+    """What two copies of one episode's title share: its words, without a rerun's prefix."""
+    return " ".join(re.findall(r"[a-z0-9]+", RERUN_TITLE.sub(" ", title.lower())))
 
 
 # The episode pages.
@@ -247,6 +256,13 @@ def episode_body(page: str) -> str:
     return page[start : end if end > 0 else len(page)]
 
 
+def blocks_of(page: str) -> list[Block]:
+    """The paragraphs of an episode's content that hold any text."""
+    parser = _Blocks()
+    parser.feed(episode_body(page))
+    return [block for block in parser.blocks if block.text]
+
+
 def transcript_lines(page: str) -> list[Line]:
     """The transcript of an episode page, as lines with their speakers.
 
@@ -254,9 +270,7 @@ def transcript_lines(page: str) -> list[Line]:
     with the episode's content otherwise; a description that comes before it on
     such a page is text nobody says, which the alignment finds no audio for.
     """
-    parser = _Blocks()
-    parser.feed(episode_body(page))
-    blocks = [block for block in parser.blocks if block.text]
+    blocks = blocks_of(page)
     headings = [n for n, block in enumerate(blocks) if is_transcript_heading(block.text)]
     start = headings[0] + 1 if headings else 0
     lines = [line_of(block) for block in blocks[start:]]
@@ -318,9 +332,7 @@ def words_in(lines: list[Line]) -> int:
 
 def notice_in(page: str) -> str:
     """The copyright notice an episode's content carries, with its context, or nothing."""
-    parser = _Blocks()
-    parser.feed(episode_body(page))
-    for block in parser.blocks:
+    for block in blocks_of(page):
         if NOTICE.search(block.text):
             return block.text[:200]
     return ""
@@ -352,6 +364,8 @@ def why_unusable(http: httpx.Client, episode: Talk, pages: Path) -> str:
         return "page not fetched"
     if notice_in(page):
         return "page with a copyright notice"
+    if RERUN_PAGE.search(" ".join(block.text for block in blocks_of(page))):
+        return "page of an episode aired before"
     minutes = max(episode.duration_s / 60, 1.0)
     if words_in(transcript_lines(page)) < MIN_WORDS_PER_MINUTE * minutes:
         return "page without a transcript"
@@ -367,7 +381,8 @@ def list_episodes(http: httpx.Client) -> list[Talk]:
     for show in SHOWS:
         response = http.get(FEED.format(show=show))
         response.raise_for_status()
-        episodes += feed_episodes(response.text, show)
+        # A feed lists the newest episode first; a repeat is newer than its original.
+        episodes += reversed(feed_episodes(response.text, show))
     unique = without_repeats(episodes)
     slugs = Counter(episode.id for episode in unique)
     if max(slugs.values(), default=0) > 1:
@@ -392,7 +407,8 @@ SOURCE = TalkSource(
         "feeds": [FEED.format(show=show) for show in SHOWS],
         "feed_copyright_holders": sorted(FEED_COPYRIGHTS),
         "page": f"https://{PAGE_HOST}/{PAGE_SECTION}/<section>/<slug>/",
-        "repeats": "one episode per page, MP3 file or title without 'Encore'",
+        "repeats": "the first aired of the episodes sharing a page, an MP3 file or a title "
+        "without 'Encore' or a series' 'Ep. N:'; no page saying it aired before",
         "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
         "copyright_notice": "an episode whose page carries one is left out",
     },

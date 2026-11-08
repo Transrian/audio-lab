@@ -105,19 +105,43 @@ def test_a_feed_that_names_another_copyright_holder_is_refused():
         nasa.feed_episodes(feed(item("a"), copyright="NASA/JPL/Caltech"), SHOW)
 
 
-def test_a_repeat_is_listed_once_under_its_original():
-    listed = [
-        episode("encore-a-day-in-space", title="Encore: A Day In Space"),
+def test_a_repeat_is_listed_once_under_the_copy_aired_first():
+    oldest_first = [
         episode("a-day-in-space", title="A Day in Space"),
+        episode("encore-a-day-in-space", title="Encore: A Day In Space"),
         episode("same-mp3", file="https://chrt.fm/track/X/traffic.megaphone.fm/a-day-in-space.mp3"),
         episode("posted-twice", title="Mars Is Hard. Here's Why."),
         episode("posted-twice-again", title="Mars is hard: here’s why"),
+        episode("suit-up-for-mars", title="Suit Up for Mars"),
+        episode("mars-ep-10-suit-up-for-mars", title="Mars Ep. 10: Suit Up for Mars"),
         episode("another", title="Another episode"),
     ]  # fmt: skip
 
-    kept = nasa.without_repeats(listed)
+    kept = nasa.without_repeats(oldest_first)
 
-    assert [one.id for one in kept] == ["a-day-in-space", "posted-twice", "another"]
+    assert [one.id for one in kept] == [
+        "a-day-in-space",
+        "posted-twice",
+        "suit-up-for-mars",
+        "another",
+    ]
+
+
+def test_the_listing_reads_each_feed_oldest_first(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUDIOLAB_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setattr(nasa, "SHOWS", {SHOW: "Gravity Assist"})
+    transcript = page("<strong>Transcript</strong>", " ".join(["word"] * 70))
+    newest_first = feed(item("encore-moon", title="Encore: Moon"), item("moon", title="Moon"))
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, text=newest_first if "/feeds/" in request.url.path else transcript
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(answer)) as http:
+        listed = nasa.list_episodes(http)
+
+    assert [one.id for one in listed] == ["moon"]
 
 
 # The episode pages.
@@ -169,6 +193,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "credited": page(words, "Clips from a 1993 interview are used courtesy of an archive."),
         "said": page(words, "Host: So it's not a copyright of the government? Courtesy of Nate."),
         "live": page("Video with captions:", "A short caption."),
+        "rerun": page(words, "This episode originally aired May 1, 2020, as Episode 142."),
+        "hubble": page(words, "The image Hubble originally released back in 1995."),
     }
     for slug, text in pages.items():
         (tmp_path / f"{slug}.html").write_text(text, encoding="utf-8")
@@ -182,6 +208,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "credited": "page with a copyright notice",
         "said": "",
         "live": "page without a transcript",
+        "rerun": "page of an episode aired before",
+        "hubble": "",
     }
 
 
