@@ -316,9 +316,9 @@ def fetch_talks(
     order = reading_order(talks, SEED, source.spread_by)
     with (
         http_client() as http,
-        _client(SEGMENT_MODEL, source.language, {"response_format": "verbose_json"}) as whisper,
-        _client(LABEL_MODEL, source.language) as qwen,
-        _client(BASE_MODEL, source.language) as parakeet,
+        _client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
+        _client(LABEL_MODEL) as qwen,
+        _client(BASE_MODEL) as parakeet,
         closing(prefetched(order, partial(_audio_file, http, cache, source))) as audio_files,
     ):
         models = Models(
@@ -597,11 +597,11 @@ def _audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk)
         return None
 
 
-def _client(model: str, language: str, request: dict | None = None) -> TranscriptionClient:
+def _client(model: str, request: dict | None = None) -> TranscriptionClient:
     """A client for one model, from its config in ``configs/models``.
 
-    The language is part of the request, so it is part of the model's answers:
-    an English talk is labelled by a client that was told English.
+    The language is not the client's: :func:`_answer` passes the source's
+    language with every request, so an English talk is heard in English.
     """
     config = ModelConfig.from_file(MODEL_CONFIGS / CONFIG_FILES[model])
     config = replace(config, request={**config.request, **(request or {})})

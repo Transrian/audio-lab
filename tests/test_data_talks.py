@@ -367,9 +367,7 @@ def serve_fakes(monkeypatch, listed, answers: dict, log: list[str], language: st
     monkeypatch.setattr(
         talks,
         "_client",
-        lambda model, source_language, request=None: FakeClient(
-            model, answers[model], log, language
-        ),
+        lambda model, request=None: FakeClient(model, answers[model], log, language),
     )
 
 
