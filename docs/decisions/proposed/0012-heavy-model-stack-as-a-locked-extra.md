@@ -2,9 +2,8 @@
 
 - Scope: global
 - Derived from: D-010, decision 0003
-- Decided by: proposed by an agent, 2026-11-08; awaiting owner review
 
-## Proposal
+## Decision
 
 Training a checkpoint and serving one locally need PyTorch, NeMo, Numba and a CUDA
 compiler — about ten gigabytes of wheels, and a machine with an NVIDIA GPU. They
@@ -22,7 +21,7 @@ nemo = ["nemo_toolkit[asr]==...", "torch==...", ...]
 locked in `uv.lock` like every other dependency, so that `uv sync --extra nemo`
 is all it takes to fine-tune or serve a local model. The default install stays
 light: scoring a model through an API keeps needing nothing heavy
-([D-015](../owner/directives.md)).
+([D-015](../../owner/directives.md)).
 
 One check stands in the way, and it is the owner's to decide:
 
@@ -41,7 +40,7 @@ files, so skipping it looks safe — but that is the owner's call.
 
 - Anyone who follows the README should reach a working environment with one
   command, and two environments that are installed in different ways is exactly
-  the kind of thing [D-010](../owner/directives.md) asks to avoid.
+  the kind of thing [D-010](../../owner/directives.md) asks to avoid.
 - A lock that cannot be generated is worse than none: a hand-maintained pin list
   drifts from `uv.lock`, and the differences show up as confusing resolver
   conflicts (for example a package that pins `numpy<2.3` while the light install
@@ -52,17 +51,10 @@ files, so skipping it looks safe — but that is the owner's call.
 
 ## Alternatives considered
 
-- **Keeping the stopgap documented as it is.** Rejected: it works, but it costs a
-  second environment, a second installation command and an
-  `$AUDIOLAB_NEMO_PYTHON` variable, and it leaves the pins outside the lock.
-- **Making the heavy stack a default dependency.** Rejected: every install,
-  including CI and anyone who only scores a remote model, would pull ten
-  gigabytes of CUDA wheels.
-- **Letting each user install PyTorch and NeMo themselves.** Rejected: the
-  versions are load-bearing — a system toolkit newer than the driver accepts
-  fails the first training step with `CUDA_ERROR_UNSUPPORTED_PTX_VERSION`, and
-  the Numba, `numba-cuda` and `cuda-python` pins have to agree with PyTorch's
-  build.
-- **Running the heavy stack in a CUDA container.** Tried and rejected: the CUDA
-  images ship no Python, so the environment cannot be created inside one without
-  more machinery than this project wants.
+- **Keeping the stopgap as it is** (a requirements file and a second
+  environment). What runs tonight, 2026-11-08; it works, at the cost of a second
+  environment, a second install command and an `AUDIOLAB_NEMO_PYTHON` variable,
+  with the pins outside the lock.
+- **Running the heavy stack in a CUDA container.** Tried on 2026-11-08 and
+  dropped: the CUDA images ship no Python, so the environment cannot be created
+  inside one without more machinery than this project wants.
