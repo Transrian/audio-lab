@@ -33,6 +33,7 @@ def download(
     client: httpx.Client | None = None,
     sha256: str = "",
     md5: str = "",
+    git_blob_sha1: str = "",
 ) -> Path:
     """Download ``url`` to ``destination``, skipping it when it is already there.
 
@@ -42,9 +43,10 @@ def download(
     again instead of taking a bad file from the cache. A ``url`` that is already
     a local file is copied instead of fetched, which is how the tests exercise
     preparation without network access; it goes through a temporary name like a
-    fetched file. When a checksum is given — a ``sha256``, or the ``md5`` some
-    hosts publish instead — a file that was just fetched or copied must match it;
-    a file already in the cache was checked when it arrived.
+    fetched file. When a checksum is given — a ``sha256``, the ``md5`` some hosts
+    publish instead, or the ``git_blob_sha1`` a Hub publishes for a file it keeps
+    as a git object — a file that was just fetched or copied must match it; a
+    file already in the cache was checked when it arrived.
     """
     if destination.is_file() and destination.stat().st_size > 0:
         return destination
@@ -71,7 +73,7 @@ def download(
             if own_client:
                 http.close()
     try:
-        _check(staged, sha256=sha256, md5=md5, source=url)
+        _check(staged, sha256=sha256, md5=md5, git_blob_sha1=git_blob_sha1, source=url)
     except DownloadError:
         # A file that does not match what was pinned must not be left behind:
         # the next preparation would find it in the cache and take it as it is.
@@ -102,15 +104,31 @@ def _digest_file(digest, path: Path) -> str:
     return digest.hexdigest()
 
 
-def _check(path: Path, *, sha256: str, md5: str, source: str) -> None:
+def git_blob_sha1_file(path: Path) -> str:
+    """The sha1 of a file as a git blob, which is how a Hub names a small file.
+
+    A file the Hub does not store through its LFS is named by the sha1 of the git
+    object ``blob <size>\0<content>``, so the digest covers the size as well as
+    the bytes.
+    """
+    digest = hashlib.sha1(usedforsecurity=False)
+    digest.update(f"blob {path.stat().st_size}\0".encode())
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(HASH_CHUNK), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _check(path: Path, *, sha256: str, md5: str, git_blob_sha1: str, source: str) -> None:
     """Refuse a file that does not have the digest it was pinned by.
 
-    The two parameters are the expected digests, named after them so that a
-    call site reads the same way as :func:`download`.
+    The parameters are the expected digests, named after them so that a call site
+    reads the same way as :func:`download`; one that is empty is not checked.
     """
     for digest_of, wanted, name in (
         (sha256_file, sha256, "sha256"),
         (md5_file, md5, "md5"),
+        (git_blob_sha1_file, git_blob_sha1, "git blob sha1"),
     ):
         if not wanted:
             continue
@@ -133,10 +151,35 @@ def huggingface_sha256_map(
     thousand files at most, so a bigger directory is followed page by page: a
     file left out of the map would look like a file without a checksum.
     """
+    return {
+        Path(entry["path"]).name: str((entry.get("lfs") or {}).get("oid", ""))
+        for entry in huggingface_entries(repo, revision, path, recursive=False, client=client)
+    }
+
+
+def huggingface_entries(
+    repo: str,
+    revision: str,
+    path: str,
+    *,
+    recursive: bool = True,
+    client: httpx.Client | None = None,
+) -> list[dict]:
+    """One entry per file under one Hub directory, as the Hub lists it.
+
+    With ``recursive`` the answer holds the files of every subdirectory as well,
+    which is what a corpus keeps its meetings in; without it, only the files of
+    the directory itself. The path of an entry is its full path inside the
+    repository, so a caller can tell which file is which — and which entry is a
+    large file, whose sha256 it carries under ``lfs``, rather than a small one it
+    stores as a plain git object.
+    """
     url = f"https://huggingface.co/api/datasets/{repo}/tree/{revision}/{path}"
+    if recursive:
+        url = f"{url}?recursive=true"
     own_client = client is None
     http = client or httpx.Client(follow_redirects=True, timeout=120.0)
-    hashes: dict[str, str] = {}
+    files: list[dict] = []
     try:
         while url:
             try:
@@ -147,14 +190,14 @@ def huggingface_sha256_map(
                 raise DownloadError(f"cannot list {url}: {error}") from error
             if not isinstance(entries, list):
                 raise DownloadError(f"{url} did not answer with a file list")
-            for entry in entries:
-                if isinstance(entry, dict) and entry.get("path"):
-                    hashes[Path(entry["path"]).name] = str(entry.get("lfs", {}).get("oid", ""))
+            files.extend(
+                entry for entry in entries if isinstance(entry, dict) and entry.get("path")
+            )
             url = _next_page(response)
     finally:
         if own_client:
             http.close()
-    return hashes
+    return files
 
 
 def _next_page(response: httpx.Response) -> str:

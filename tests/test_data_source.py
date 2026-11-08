@@ -15,6 +15,8 @@ from audiolab.data.download import (  # noqa: E402
     DownloadError,
     audio_from_archive,
     download,
+    git_blob_sha1_file,
+    huggingface_entries,
     huggingface_sha256_map,
     open_archive,
     sha256_file,
@@ -262,6 +264,57 @@ def test_huggingface_sha256_map_follows_a_long_listing_page_by_page():
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         hashes = huggingface_sha256_map("byan/cs-fleurs", "abc", "data/x", client=client)
     assert hashes == {"one.tar.gz": "a" * 64, "two.tar.gz": "b" * 64}
+
+
+def test_huggingface_entries_keeps_the_path_of_every_file_of_a_directory():
+    """A listing of many meetings is one answer with the files of all of them."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        # The listing is asked for recursively: a directory of a corpus is not
+        # the files of one meeting but the files of every meeting under it.
+        assert request.url.params.get("recursive") == "true"
+        return httpx.Response(
+            200,
+            json=[
+                {"type": "directory", "path": "data/one"},
+                {"type": "file", "path": "data/one/a.wav", "lfs": {"oid": "a" * 64}},
+                {"type": "file", "path": "data/two/b.wav", "oid": "b" * 40},
+            ],
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        entries = huggingface_entries("microsoft/NOTSOFAR", "abc", "data", client=client)
+    assert [entry["path"] for entry in entries] == [
+        "data/one",
+        "data/one/a.wav",
+        "data/two/b.wav",
+    ]
+
+
+def test_git_blob_sha1_is_the_digest_of_the_object_stored_not_only_of_the_bytes(tmp_path):
+    """A Hub names a file it keeps as a git object by the sha1 of ``blob <size>\0…``."""
+    path = tmp_path / "gt_transcription.json"
+    path.write_text("[]", encoding="utf-8")
+
+    digest = git_blob_sha1_file(path)
+    assert digest == hashlib.sha1(b"blob 2\0[]").hexdigest()
+    # A file that grew by a byte has another digest, which the bytes alone miss.
+    path.write_text("[] ", encoding="utf-8")
+    assert git_blob_sha1_file(path) != digest
+
+
+def test_download_refuses_a_file_whose_git_blob_digest_is_not_the_pinned_one(tmp_path):
+    source = tmp_path / "source.json"
+    source.write_text("[]", encoding="utf-8")
+    destination = tmp_path / "cache" / "source.json"
+
+    download(str(source), destination, git_blob_sha1=git_blob_sha1_file(source))
+    assert destination.read_text(encoding="utf-8") == "[]"
+
+    other = tmp_path / "other.json"
+    other.write_text("[] ", encoding="utf-8")
+    with pytest.raises(DownloadError, match="expected git blob sha1"):
+        download(str(other), tmp_path / "cache" / "other.json", git_blob_sha1="0" * 40)
 
 
 def test_parquet_rows_come_back_one_dictionary_per_row(tmp_path):
