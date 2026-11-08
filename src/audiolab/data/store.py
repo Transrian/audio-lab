@@ -22,7 +22,12 @@ GROUP_KINDS = ("speaker", "recording", "sentence", "clip")
 
 @dataclass(frozen=True)
 class Clip:
-    """One prepared utterance: where its audio is, what was said, how to group it."""
+    """One prepared utterance: where its audio is, what was said, how to group it.
+
+    ``source_url``, ``source_title`` and ``source_author`` are empty unless the
+    source's license asks for attribution per recording (CC BY on a video): the
+    manifest line is what travels with the clip, so the attribution goes there.
+    """
 
     id: str
     audio: str
@@ -36,6 +41,9 @@ class Clip:
     source_split: str
     license: str
     category: str = ""
+    source_url: str = ""
+    source_title: str = ""
+    source_author: str = ""
 
     def manifest_line(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, sort_keys=True)
@@ -43,10 +51,11 @@ class Clip:
 
 def clip_from_dict(data: dict) -> Clip:
     """Rebuild a clip, refusing unknown or missing fields instead of guessing."""
+    optional = {"category", "source_url", "source_title", "source_author"}
     unknown = set(data) - set(Clip.__dataclass_fields__)
     if unknown:
         raise ValueError(f"manifest line has unknown fields: {sorted(unknown)}")
-    missing = set(Clip.__dataclass_fields__) - set(data) - {"category"}
+    missing = set(Clip.__dataclass_fields__) - set(data) - optional
     if missing:
         raise ValueError(f"manifest line is missing fields: {sorted(missing)}")
     return Clip(**data)

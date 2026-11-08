@@ -49,6 +49,14 @@ def test_clip_from_dict_refuses_unknown_and_missing_fields():
         clip_from_dict({"id": "d:001"})
 
 
+def test_a_line_without_the_optional_fields_reads_with_them_empty():
+    line = json.loads(make_clip("d:001").manifest_line())
+    for optional in ("category", "source_url", "source_title", "source_author"):
+        del line[optional]
+    clip = clip_from_dict(line)
+    assert (clip.category, clip.source_url, clip.source_title, clip.source_author) == ("",) * 4
+
+
 def test_verify_clips_reports_missing_and_altered_audio(tmp_path):
     tone = write_tone(tmp_path / "audio" / "001.wav")
     good = make_clip("d:001", audio="audio/001.wav", sha256=pcm_sha256(tone))

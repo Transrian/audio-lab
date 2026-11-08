@@ -89,12 +89,15 @@ class Take:
         """
         return self.per_group.get(group, 0) >= self.cap_per_group
 
-    def offer(self, source_id: str, audio: Audio, *, text: str, group: str) -> bool:
+    def offer(self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields) -> bool:
         """Offer one row of the source; it becomes a clip when it passes the filters.
 
         ``group`` is the id the source itself uses for what the row belongs to
         (a speaker, a recording), without the dataset name: it is what the
-        evaluation sets are checked against.
+        evaluation sets are checked against. ``extra_fields`` are manifest
+        fields only some sources fill, such as the attribution a licence
+        requires to travel with the clip, or a license that is not the same for
+        every row of the source.
         """
         if self.full():
             return False
@@ -123,7 +126,7 @@ class Take:
             group=f"{self.name}:{group}",
             group_kind=self.group_kind,
             source_split=self.source_split,
-            license=self.license,
+            **{"license": self.license, **extra_fields},
         )
         self.kept += 1
         self.per_group[group] = self.per_group.get(group, 0) + 1
