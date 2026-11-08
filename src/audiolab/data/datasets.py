@@ -63,6 +63,18 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "african-accented-fr-train": DatasetInfo(
+        name="african-accented-fr-train",
+        source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/train)",
+        license="Apache-2.0",
+        split="train",
+        reference_style="lowercase, no punctuation",
+        grouping="speaker (group = directory of the recordings)",
+        notes="Training data for the per-source screening: every train recording that "
+        "has a transcript and passes the filters documented in docs/stt/datasets.md, "
+        "which is fewer clips than the cap. The corpus has no transcript for part "
+        "of its train recordings. No panels.",
+    ),
     "granary-fr-train": DatasetInfo(
         name="granary-fr-train",
         source="https://huggingface.co/datasets/espnet/yodas-granary (data/fr000, asr_only)",

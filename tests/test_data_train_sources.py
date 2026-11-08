@@ -24,7 +24,7 @@ from helpers import (  # noqa: E402
 )
 from test_data_source import make_archive  # noqa: E402
 
-from audiolab.data import granary, mls, voxpopuli_train  # noqa: E402
+from audiolab.data import african_french, granary, mls, voxpopuli_train  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
@@ -212,9 +212,7 @@ def test_voxpopuli_fr_train_refuses_a_directory_without_train_shards(dirs, monke
         )
 
 
-def test_voxpopuli_fr_train_refuses_a_shard_the_hub_lists_no_checksum_for(
-    dirs, monkeypatch
-):
+def test_voxpopuli_fr_train_refuses_a_shard_the_hub_lists_no_checksum_for(dirs, monkeypatch):
     """A file that cannot be checked is not a frozen source."""
     _, cache = dirs
     monkeypatch.setattr(
@@ -372,3 +370,116 @@ def test_granary_fr_train_refuses_a_directory_without_shards(dirs, monkeypatch):
     )
     with pytest.raises(DownloadError, match="lists no shard"):
         granary.fetch_granary_fr_train("granary-fr-train", cache, cache / "out", verbose=False)
+
+
+def fake_african_french_cache(
+    cache: Path, name: str = "african-accented-fr-train", conditioned: str = ""
+) -> None:
+    """A cache that looks like SLR57, with its three ways of naming a recording.
+
+    The corpus names its files after their date, so only the extension can be
+    removed: a test that used a generic stem would pass while the preparation
+    dropped every ``ca16`` recording.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.wav", seconds=2.0)
+    root = "African_Accented_French"
+    members = {
+        f"{root}/transcripts/train/ca16_read/conditioned.txt": _text_file(
+            directory,
+            "conditioned.txt",
+            conditioned
+            or "afc-gabon_16.06.15_048_read_0344 d' accord mais je ne connais pas\n",
+        ),
+        f"{root}/transcripts/train/ca16_conv/transcripts.txt": _text_file(
+            directory,
+            "transcripts.txt",
+            "afc-gabon_16.06.11_002_conv_0023.tdf bonjour je voudrais voir\n",
+        ),
+        f"{root}/transcripts/train/yaounde/fn_text.txt": _text_file(
+            directory,
+            "fn_text.txt",
+            "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0002.wav"
+            " quand il n' y en a plus\n",
+        ),
+        f"{root}/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav": tone,
+        f"{root}/speech/train/ca16/113/afc-gabon_16.06.11_002_conv_0023.wav": tone,
+        f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0002.wav": tone,
+        f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0003.wav": tone,
+    }
+    make_archive(directory / "African_Accented_French.tar.gz", members)
+
+
+def _text_file(directory: Path, file_name: str, content: str) -> Path:
+    path = directory / "text" / file_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def test_african_french_removes_only_a_known_extension_from_a_recording_name():
+    """``afc-gabon_16.06.15_048_read_0344`` has dots a generic stem would cut."""
+    assert (
+        african_french._key(
+            "African_Accented_French/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav"
+        )
+        == "afc-gabon_16.06.15_048_read_0344"
+    )
+    assert (
+        african_french._key("afc-gabon_16.06.11_002_conv_0023.tdf")
+        == "afc-gabon_16.06.11_002_conv_0023"
+    )
+    assert (
+        african_french._key("/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0002.wav")
+        == "ctell1-01-0002"
+    )
+
+
+def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs):
+    data, cache = dirs
+    fake_african_french_cache(cache)
+
+    count = african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+    assert count == 3
+
+    clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-train")}
+    assert set(clips) == {
+        "african-accented-fr-train:afc-gabon_16.06.15_048_read_0344",
+        "african-accented-fr-train:afc-gabon_16.06.11_002_conv_0023",
+        "african-accented-fr-train:ctell1-01-0002",
+    }
+    ca16 = clips["african-accented-fr-train:afc-gabon_16.06.15_048_read_0344"]
+    assert ca16.text == "d' accord mais je ne connais pas"
+    assert ca16.group == "african-accented-fr-train:113"
+    assert ca16.group_kind == "speaker"
+    assert ca16.source_split == "train"
+    assert ca16.license == "Apache-2.0"
+    # The corpus publishes lowercase, unpunctuated text: a source that has
+    # neither teaches the model to drop what it already writes.
+    assert ca16.text_has_casing_punct is False
+    # A recording published in the archive without a transcript is left out
+    # rather than prepared with an empty reference.
+    assert "african-accented-fr-train:ctell1-01-0003" not in clips
+
+
+def test_african_french_stops_at_the_cap(dirs, monkeypatch):
+    data, cache = dirs
+    fake_african_french_cache(cache)
+    monkeypatch.setattr(african_french, "TRAIN_CLIP_CAP", 1, raising=True)
+
+    count = african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+    assert count == 1
+
+
+def test_african_french_refuses_a_transcript_line_without_text(dirs):
+    """A line that cannot give a recording and its text stops the preparation."""
+    data, cache = dirs
+    fake_african_french_cache(cache, conditioned="afc-gabon_16.06.15_048_read_0344\n")
+    with pytest.raises(DownloadError, match="unexpected line"):
+        african_french.fetch_african_accented_fr_train(
+            "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+        )
