@@ -40,7 +40,67 @@ another rate or length.
 
 ## Results
 
-To be filled from the evaluation runs.
+Normalized WER on the full suite (hallucination rate for `nonspeech`). The base
+column is the base model served by `audiolab serve`, exactly like the five
+fine-tunes; each other cell is the change against it in points, with its 95 %
+confidence interval, and **bold** when the interval excludes zero. Negative is
+better.
+
+| panel | base | Granary | VoxPopuli FR | MLS FR | African-accented FR | LibriSpeech EN |
+|---|---|---|---|---|---|---|
+| fleurs-fr | 4.96 | +0.10 [−0.12, +0.31] | −0.21 [−0.45, +0.02] | **+0.97** [+0.55, +1.44] | **+11.45** [+10.23, +12.73] | **+7.32** [+6.00, +8.75] |
+| mls-fr | 5.61 | **−0.26** [−0.54, −0.02] | −0.15 [−0.37, +0.05] | −0.14 [−0.50, +0.34] | **+12.86** [+11.80, +13.72] | **+51.54** [+49.48, +53.30] |
+| servicenow en-fr | 13.26 | −1.10 [−2.32, +0.09] | −1.05 [−2.23, +0.11] | +0.90 [−1.03, +3.05] | **+23.74** [+20.77, +26.82] | **+24.82** [+22.14, +27.42] |
+| servicenow en-fr-ca | 15.18 | **−1.71** [−3.35, −0.25] | −0.66 [−2.15, +1.06] | −0.51 [−2.53, +1.44] | **+20.59** [+17.69, +23.66] | **+32.89** [+29.79, +35.92] |
+| cs-fleurs-fr-en | 16.27 | −0.90 [−2.03, +0.13] | **−0.98** [−1.96, −0.07] | −0.37 [−1.57, +0.71] | **+10.52** [+8.87, +12.11] | **+27.98** [+25.96, +30.05] |
+| voxpopuli-en-french-accent | 20.44 | +0.09 [−0.52, +0.98] | **+4.73** [+3.37, +6.61] | **+2.59** [+0.95, +4.98] | **+5.02** [+3.16, +8.04] | **+3.10** [+2.23, +4.34] |
+| fleurs-en | 5.24 | −0.03 [−0.22, +0.17] | +0.11 [−0.08, +0.30] | +0.35 [−0.03, +0.80] | **+0.43** [+0.09, +0.78] | **+13.20** [+12.18, +14.23] |
+| librispeech-en | 2.04 | −0.04 [−0.23, +0.13] | −0.03 [−0.15, +0.10] | −0.01 [−0.24, +0.21] | +0.10 [−0.10, +0.31] | **+2.27** [+1.83, +2.72] |
+| nonspeech (hallucination) | 5.00 | **−3.93** [−6.79, −1.43] | **−2.50** [−5.00, −0.36] | **−3.93** [−6.43, −1.79] | **−3.93** [−6.79, −1.43] | −0.36 [−2.86, +2.14] |
+
+Formatted WER (casing and punctuation kept), absolute, on the panels whose
+references carry them:
+
+| panel | base | Granary | VoxPopuli FR | MLS FR | African-accented FR | LibriSpeech EN |
+|---|---|---|---|---|---|---|
+| fleurs-fr | 8.85 | 8.68 | 8.63 | 19.03 | 29.41 | 23.34 |
+| servicenow en-fr | 16.15 | 15.81 | 15.21 | 27.89 | 48.80 | 83.00 |
+| servicenow en-fr-ca | 18.25 | 17.50 | 18.28 | 26.24 | 44.55 | 84.24 |
+| cs-fleurs-fr-en | 20.87 | 19.84 | 19.55 | 29.74 | 39.45 | 72.64 |
+| fleurs-en | 11.21 | 11.01 | 11.33 | 15.52 | 18.58 | 93.89 |
+
+Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
+
+### What each source does alone
+
+- **Granary** is the only source with no measurable harm anywhere. It gains a
+  little on read French (MLS) and on the Québec code-switched panel, and keeps
+  English and formatting intact.
+- **VoxPopuli FR** is neutral to slightly better on French, including the
+  code-switched panels, but costs **4.7 points on English spoken with a French
+  accent**, the panel closest to it (same Parliament, other speakers): after
+  training on French parliament speech, the model hears more of that English as
+  French.
+- **MLS FR** hurts the main French panel (+0.97) and accented English, and does
+  not even improve its own corpus's panel. Its lowercase, unpunctuated text
+  doubles the formatted WER on fleurs-fr. This matches what the earlier project
+  found about MLS.
+- **African-accented FR**: most of its damage is orthographic. Its transcripts
+  write a space after an apostrophe (`j' ai`, `d' accord`), the model learns it,
+  and the scorer counts two words. Re-scoring its answers with that space
+  removed (a diagnostic, not the official score) leaves fleurs-fr at +1.03
+  [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], and still a real cost on the
+  code-switched panels (+7.7 and +12.3) and on accented English (+5.0). The
+  source would need its text fixed before any mix.
+- **LibriSpeech EN** is unusable as it is prepared: its transcripts are all
+  uppercase, the model learns to write in capitals (`HE HOPED THERE WOULD BE
+  STEW FOR DINNER`), which this tokenizer spells poorly, and it gets worse even
+  on LibriSpeech. Alone it also loses French, as an English-only fine-tune
+  should. A cased and punctuated version of the same audio would be the one to
+  test.
+- **Hallucinations**: every French source cut the hallucination rate on
+  non-speech from 5.0 % to 1.1–2.5 %. Whether that comes from the data or from
+  fine-tuning at all, this screening cannot tell.
 
 ## The batch normalization bug
 

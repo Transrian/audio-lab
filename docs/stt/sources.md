@@ -23,12 +23,12 @@ here is legal advice, and dataset cards change.
 
 ## Statuses
 
-Statuses describe *this* repository. It has trained nothing yet, so "used" means
-trained on here, and a source the earlier project trained on is a candidate.
+Statuses describe *this* repository: "used" means trained on here, and a source
+the earlier project trained on is a candidate until this repository trains on it.
 
 | Status | Meaning |
 | --- | --- |
-| `used` | Trained on here. **Today: none.** |
+| `used` | Trained on here. |
 | `evaluation only` | Used here to evaluate models; never to train. |
 | `candidate` | Researched, not acquired here. |
 | `abandoned` | Tried, then withdrawn, here or in the earlier project. |
@@ -66,18 +66,26 @@ were prepared for it with `audiolab data fetch`, as the datasets whose name ends
 in `-train`; [Training sources](datasets.md#training-sources) has one card per
 dataset.
 
-**Preparing a source is not training on it.** No status in this register changes
-because of this preparation: what a source becomes depends on what the screening
-shows, and that result is not in yet. The statuses stay as they are, including
-for MLS, whose train split is prepared for the screening even though it is the
-source the earlier project abandoned for training — re-testing that finding, one
-source at a time, is what the screening is for (see its row in
-[Abandoned](#abandoned--tried-then-withdrawn)).
+The screening then trained on five of them, one at a time (2026-11-08), so those
+five are `used` below; its results are in [per-source screening](screening.md).
+GLOBE V2 was not prepared (no accent labels to select French speakers by), and
+its row stays a candidate.
 
 ## Used — trained on here
 
-**None.** Phase 1 of the [roadmap](../roadmap.md) evaluates existing models, and
-no training campaign has started, so no source is `used` in this repository yet.
+Trained on in the per-source screening of 2026-11-08: 10 000 clips and 2 000
+updates per source, one source per run. The numbers are in
+[per-source screening](screening.md); the card of each prepared dataset is under
+[training sources](datasets.md#training-sources). "Screening" below is what that
+source did alone, against the base model.
+
+| Source | Language | License | Reason / note |
+| --- | --- | --- | --- |
+| [Granary / YODAS FR](https://huggingface.co/datasets/espnet/yodas-granary) (`granary-fr-train`) | fr | audio CC-BY-3.0, labels CC-BY-4.0 (2026-11-01) | Pseudo-labelled YouTube speech, the widest variety found. Earlier private project (2026-10-28): built a filtered 100 h subset and trained on it; its audit removed duplicate audio, repetition loops and hallucination patterns; not reproduced here. Screening: the only source with no measurable harm; small gains on read French and on Québec code-switching. |
+| [VoxPopuli FR](https://github.com/facebookresearch/voxpopuli) (`voxpopuli-fr-train`) | fr | data CC0, code and models CC-BY-NC (not used) (2026-11-01) | European Parliament speech with human-edited transcripts. Earlier private project (2026-11-01): trained on the train split; not reproduced here. Screening: neutral to slightly better on French, but 4.7 points worse on English with a French accent. Its English `en_accented` set is used for evaluation, with its speakers kept out of this train split. |
+| [MLS FR](https://www.openslr.org/94/) (`mls-fr-train`) | fr | CC-BY-4.0 (2026-11-05) | Read audiobooks. Earlier private project (2026-11-01): measured to hurt in training — a 10 % share of a mix degraded one panel by 8–14 % relative — and abandoned there for good; not reproduced here. Trained on again here alone, to test that finding. Screening: hurts the main French panel and accented English, and its lowercase, unpunctuated text doubles the formatted WER — the earlier finding holds. Its **test** split stays an evaluation set ([evaluation only](#evaluation-only--used-here-to-evaluate)). |
+| [African Accented French](https://www.openslr.org/57) (SLR57, `african-accented-fr-train`) | fr | Apache-2.0 (2026-11-05) | French spoken with Cameroonian, Chadian, Congolese, Gabonese and Nigerian accents, otherwise almost absent from open French data. Screening: its transcripts put a space after apostrophes (`j' ai`), which the model learns; with that removed it still costs on code-switched French and accented English. Its text needs fixing before any mix. |
+| [LibriSpeech](https://www.openslr.org/12) train (`librispeech-en-train`) | en | CC-BY-4.0 (2026-11-08) | English read audiobooks, as the English guard of a French mix. Screening: its all-uppercase transcripts teach the model to write in capitals, so it is unusable as prepared; a cased and punctuated version of the same audio would be the one to test. |
 
 ## Evaluation only — used here to evaluate
 
@@ -89,7 +97,7 @@ its panels; nothing about them is repeated here.
 | --- | --- | --- | --- |
 | [`fleurs-fr`](datasets.md#fleurs-fr-fleurs-en--read-wikipedia-sentences) | fr | CC-BY-4.0 | Test split only: short read speech, the main French panel. |
 | [`fleurs-en`](datasets.md#fleurs-fr-fleurs-en--read-wikipedia-sentences) | en | CC-BY-4.0 | Same corpus, English side; the everyday English panel. |
-| [`mls-fr`](datasets.md#mls-fr--read-audiobook-french) | fr | CC-BY-4.0 | Test split only. The earlier project trained on this dataset and dropped it (see [Abandoned](#abandoned--tried-then-withdrawn)); here it measures read audiobook French, and no number is corrected for the overlap with training data. |
+| [`mls-fr`](datasets.md#mls-fr--read-audiobook-french) | fr | CC-BY-4.0 | Test split only. The earlier project trained on this dataset and dropped it; its train split is used here in the screening (see [Used](#used--trained-on-here)); here it measures read audiobook French, and no number is corrected for the overlap with training data. |
 | [`librispeech-en`](datasets.md#librispeech-en--read-audiobook-english) | en | CC-BY-4.0 | The standard English read-speech panel. |
 | [ESC-50](datasets.md#nonspeech--the-hallucination-battery) | none | CC-BY-NC-3.0 | Everyday sounds inside `nonspeech`. Non-commercial: **testing only** per [decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md). |
 | [Generated silence and noise](datasets.md#nonspeech--the-hallucination-battery) | none | none: generated here from a fixed seed | There is no license to honour and no redistribution question. |
@@ -110,12 +118,11 @@ recorded there on the dates given, and classed as recorded: **publishable**
 ### Candidates the earlier project already trained on
 
 Trained on there, candidates here: they are the closest to being acquired, and
-the note says what that project did and found. None is `used` in this repository.
+the note says what that project did and found. Granary and VoxPopuli FR, which
+stood here, are `used` since 2026-11-08 ([Used](#used--trained-on-here)).
 
 | Source | Language | License | Reason / note |
 | --- | --- | --- | --- |
-| [Granary / YODAS FR](https://huggingface.co/datasets/espnet/yodas-granary) | fr | audio CC-BY-3.0, labels CC-BY-4.0 (2026-11-01) | Pseudo-labelled YouTube speech, the widest variety found. Earlier private project (2026-10-28): built a filtered 100 h subset and trained on it; its audit removed duplicate audio, repetition loops and hallucination patterns. Not reproduced here. |
-| [VoxPopuli FR](https://github.com/facebookresearch/voxpopuli) | fr | data CC0, code and models CC-BY-NC (not used) (2026-11-01) | European Parliament speech with human-edited transcripts. Earlier private project (2026-11-01): trained on the train split. Not reproduced here. Its English `en_accented` set is used for evaluation (see [Evaluation only](#evaluation-only--used-here-to-evaluate)). |
 | [Common Voice Spontaneous Speech 5.0 FR](https://mozilladatacollective.com/datasets/cmu5z135s00ginq072mliz1as) | fr | CC0 + Mozilla Data Collective terms | Spontaneous speech. Earlier private project (2026-11-01): it could use very few clips, because almost every speaker overlapped the protected evaluation pool. Not reproduced here. The MDC terms forbid re-identification and redistribution; treat as publishable-with-conditions. |
 | Common Voice Spontaneous Speech 5.0 EN | en | CC0 + Mozilla Data Collective terms | English guard in a French mix. Earlier private project (2026-11-01): trained on a small capped share of it for that purpose. Not reproduced here. |
 | [MUSAN](https://www.openslr.org/17/) `noise/` | none | CC-BY-4.0 (2026-11-01) | Noise augmentation. Earlier private project: kept half of the noise files for training and reserved the other half, so a later acquisition must not reuse the reserved half. Not reproduced here. |
@@ -132,7 +139,7 @@ The owner's private recordings: never published, never in this repository
 | 2 | [Conférences Pierre Mendès France](https://www.data.gouv.fr/fr/datasets/transcriptionsxml-audiomp3-mefr-ccpmf-2012-2020-zip/) (2012–2020) | fr | Licence Ouverte 2.0, publishable (2026-11-05) | Conferences and round tables on economy, digital and administration: a register close to dictation. The data.gouv.fr exports point at a download site that no longer serves the set, so the archive must be found again, and the XML must be checked to be faithful, alignable transcripts. |
 | 3 | [« Libre à vous ! »](https://libreavous.org) (April, radio Cause Commune) | fr | audio **SA** (CC-BY-SA 2.0+ / Art Libre 1.3+ / GFDL 1.3+); transcripts on [librealire.org](https://www.librealire.org) under the "Verbatim" licence (2026-11-05) | Free-software radio: English loanwords and IT vocabulary in conversational French, with human transcripts. Music has its own licences and must be cut; the transcripts may be copied but not republished modified. |
 | 3 bis | French **PeerTube** via [SepiaSearch](https://sepiasearch.org) | fr | per video, declared by the uploader (BY, BY-SA or public domain) (2026-11-05) | Conference recordings from the free-software world, so technical French, plus public-sector instances. A declared licence is not a real one: the sample checked contained a badly labelled anime dump, so instances and channels need a whitelist, and the language too. Pseudo-labels as in 1 bis. |
-| 4 | [African Accented French](https://www.openslr.org/57) (SLR57) | fr | Apache-2.0 (2026-11-05) | French spoken with Cameroonian, Chadian, Congolese, Gabonese and Nigerian accents: accents are otherwise almost absent from open French ASR data. |
+| 4 | [African Accented French](https://www.openslr.org/57) (SLR57) | fr | Apache-2.0 (2026-11-05) | Trained on here since 2026-11-08: see [Used](#used--trained-on-here). |
 | 5 | [CEREALES](https://www.isca-archive.org/interspeech_2025/maison25_interspeech.html) (Interspeech 2025) | fr | **unknown**: the paper announces an OpenSLR release and gives no licence (2026-11-05) | Québec accent and spontaneous speech with human stenography. Absent from OpenSLR and Hugging Face when checked, so the authors must be asked for distribution and licence before anything else. |
 | 6 | [CommissionsQC](https://www.isca-archive.org/interspeech_2025/serrand25_interspeech.html) | fr | access on request, research only, no voice synthesis or imitation ([arXiv:2508.21193](https://arxiv.org/abs/2508.21193)) | Long Québec public-commission recordings, reverberant rooms, human stenography. In practice non-commercial with no publication, so a written request would have to state the ASR use. |
 | 7 | Common Voice **scripted** FR, official [MDC release](https://github.com/common-voice/cv-dataset) | fr | CC0 + Mozilla Data Collective terms | Thousands of voices and microphones, but read prompts. Use the train split only, and exclude the speakers and sentences of the protected sets. |
@@ -206,7 +213,6 @@ cannot be checked in this repository, because the data and the runs are private.
 
 | Source | Language | License | Reason it was withdrawn |
 | --- | --- | --- | --- |
-| [MLS FR](https://www.openslr.org/94/) | fr | CC-BY-4.0 (2026-11-05) | Earlier private project (2026-11-01): measured to hurt in training — a 10 % share of a mix degraded one panel by 8–14 % relative — and abandoned there for good; not reproduced here. This repository uses the **test** split for evaluation only, which is a separate decision ([evaluation only](#evaluation-only--used-here-to-evaluate)). Its **train** split was prepared 2026-11-08 for the per-source screening, which trains on that source alone and changes no status here ([above](#prepared-2026-11-08-for-the-per-source-screening)). |
 | An unofficial Hugging Face mirror of Common Voice FR | fr | CC0 announced (2026-11-05) | Version inconsistency (16.1 files in a set announced as 17) with no attestable checksum: withdrawn by decision in the earlier project and never used here. Replaced by the official MDC release, a candidate above. |
 | Synthetic speech from Voxtral-4B-TTS FR-IT | fr, it | **model and preset voices CC-BY-NC-4.0**; the rights on the output were not established (2026-11-05) | Personal and non-commercial scope only, so unusable for a model that could be published: withdrawn by decision. The candidate list of permissive text-to-speech models replaces it. |
 | [CEFC-ORFEO](https://huggingface.co/datasets/datasets-CNRS/CEFC-ORFEO) | fr | **CC-BY-NC-SA** — 4.0 on the card, 3.0 in the individual notices; contradiction kept, not resolved (2026-10-15) | Tried as a mechanical pipeline test in the earlier project, then withdrawn: the version contradiction and the NC/SA clause are unresolved, and NC plus SA are a poor fit for a model meant to be published. License as recorded, recheck the version question before any use. |
