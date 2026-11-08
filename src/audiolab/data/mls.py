@@ -1,9 +1,16 @@
-"""MLS French (``mls-fr``): read audiobook excerpts.
+"""MLS French (``mls-fr`` test, ``mls-fr-train``): read audiobook excerpts.
 
 The corpus is stored as one tar archive of FLAC files per speaker plus three
 text files (audio file names, segments, transcripts). Hugging Face also serves
 auto-converted Parquet files, but those are a derived copy: the official files
 are used here, so preparation matches the published corpus.
+
+The train split is the same three text files and six hundred archives, of which
+only the first archives are downloaded: a training source stops at the cap, so
+it reads the published file list in order and takes archive after archive until
+it has enough. The splits name their speakers, and MLS keeps them apart, so the
+speakers scored on the test split cannot be trained on here; the preparation
+also checks that against the prepared test manifest.
 """
 
 from __future__ import annotations
@@ -19,6 +26,7 @@ from audiolab.data.download import (
     open_archive,
 )
 from audiolab.data.textfiles import read_records
+from audiolab.data.train import TRAIN_CLIP_CAP, Take, evaluation_groups
 
 REPO = "facebook/multilingual_librispeech"
 # Pinned so the files a panel was built from cannot change under it.
@@ -27,12 +35,17 @@ REPO_URL = f"https://huggingface.co/datasets/{REPO}/resolve/{REVISION}/data"
 LICENSE = "CC-BY-4.0"
 LANGUAGE = "fr"
 SPLIT = "test"
+TRAIN_SPLIT = "train"
 # The published size of the test split; tests patch this.
 EXPECTED_CLIPS = 2426
+# The dataset prepared from the test split of this same corpus. MLS keeps the
+# speakers of its splits apart, so nothing should be found in common here, but a
+# speaker that is scored is never trained on (decision 0002).
+EVALUATION_DATASET = "mls-fr"
 
 
-def _source(file_name: str) -> str:
-    return f"{REPO_URL}/mls_french/{SPLIT}/{file_name}"
+def _source(file_name: str, split: str = SPLIT) -> str:
+    return f"{REPO_URL}/mls_french/{split}/{file_name}"
 
 
 def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
@@ -71,7 +84,60 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
     return len(builder.clips)
 
 
-def _published_hashes(cache: Path, filenames: list[str]) -> dict[str, str]:
+def fetch_mls_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
+    """Prepare the French train split up to the cap, returning the number of clips."""
+    cache = cache_dir / name
+    filenames = _read_names(
+        download(_source("audio_filenames.txt", TRAIN_SPLIT), cache / "audio_filenames.txt")
+    )
+    segments = read_records(
+        download(_source("segments.txt", TRAIN_SPLIT), cache / "segments.txt"), 3
+    )
+    transcripts = read_records(
+        download(_source("transcripts.txt", TRAIN_SPLIT), cache / "transcripts.txt"), 2
+    )
+    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    take = Take(
+        name=name,
+        builder=builder,
+        language=LANGUAGE,
+        source_split=TRAIN_SPLIT,
+        license=LICENSE,
+        text_has_casing_punct=False,
+        excluded=evaluation_groups(EVALUATION_DATASET),
+        cap=TRAIN_CLIP_CAP,
+    )
+
+    pinned = _published_hashes(cache, filenames, TRAIN_SPLIT)
+    for index, audio_name in enumerate(filenames, start=1):
+        if take.full():
+            break
+        # The name list already includes the .tar.gz suffix.
+        archive = download(
+            _source(f"audio/{audio_name}", TRAIN_SPLIT),
+            cache / audio_name,
+            sha256=pinned.get(audio_name, ""),
+        )
+        with open_archive(archive) as handle:
+            for member in handle:
+                if take.full():
+                    break
+                take.offer(
+                    Path(member.name).stem,
+                    audio_from_archive(handle, member),
+                    text=_clip_text(name, member.name, segments, transcripts),
+                    group=_speaker(name, member.name),
+                )
+        if verbose:
+            print(f"  ... archive {index}/{len(filenames)}")
+
+    if verbose:
+        print(f"  {take.report()}")
+    builder.write()
+    return take.kept
+
+
+def _published_hashes(cache: Path, filenames: list[str], split: str = SPLIT) -> dict[str, str]:
     """sha256 of each archive, from the Hub listing at the pinned revision.
 
     The listing is only asked for when an archive still has to be downloaded: a
@@ -79,7 +145,7 @@ def _published_hashes(cache: Path, filenames: list[str]) -> dict[str, str]:
     """
     if not any(not (cache / audio_name).is_file() for audio_name in filenames):
         return {}
-    hashes = huggingface_sha256_map(REPO, REVISION, f"data/mls_french/{SPLIT}/audio")
+    hashes = huggingface_sha256_map(REPO, REVISION, f"data/mls_french/{split}/audio")
     missing = [audio_name for audio_name in filenames if not hashes.get(audio_name)]
     if missing:
         raise DownloadError(

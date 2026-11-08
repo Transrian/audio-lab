@@ -16,11 +16,17 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import audio_cell, write_parquet, write_tone  # noqa: E402
+from helpers import (  # noqa: E402
+    audio_cell,
+    make_clip,  # noqa: E402
+    write_parquet,
+    write_tone,
+)
+from test_data_source import make_archive  # noqa: E402
 
-from audiolab.data import voxpopuli_train  # noqa: E402
+from audiolab.data import mls, voxpopuli_train  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
-from audiolab.data.store import read_manifest  # noqa: E402
+from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
 
 @pytest.fixture
@@ -225,3 +231,80 @@ def test_voxpopuli_fr_train_refuses_a_shard_the_hub_lists_no_checksum_for(
         voxpopuli_train.fetch_voxpopuli_fr_train(
             "voxpopuli-fr-train", cache, cache / "out", verbose=False
         )
+
+
+def fake_mls_train_cache(cache: Path, name: str = "mls-fr-train") -> None:
+    """A cache that looks like a downloaded MLS French train split.
+
+    One archive per speaker, as the corpus publishes it, and the same three text
+    files as the test split; the utterance id carries the speaker.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.flac", seconds=4.0)
+    archives = {"1234_5678_000": "1234_5678_000001", "9999_1111_000": "9999_1111_000001"}
+    for archive, utterance in archives.items():
+        make_archive(directory / f"{archive}.tar.gz", {f"{archive}/{utterance}.flac": tone})
+    (directory / "audio_filenames.txt").write_text(
+        "\n".join(f"{archive}.tar.gz" for archive in archives) + "\n", encoding="utf-8"
+    )
+    (directory / "segments.txt").write_text(
+        "\n".join(
+            f"{utterance}\thttp://archive.org/download/book/book.mp3\t0.0\t4.0"
+            for utterance in archives.values()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (directory / "transcripts.txt").write_text(
+        "\n".join(f"{utterance} le petit chat dort" for utterance in archives.values()) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_mls_fr_train_reads_the_train_split_and_groups_by_speaker(dirs):
+    data, cache = dirs
+    fake_mls_train_cache(cache)
+
+    count = mls.fetch_mls_fr_train("mls-fr-train", cache, data / "mls-fr-train", verbose=False)
+    assert count == 2
+
+    clips = read_manifest(data / "mls-fr-train")
+    first = clips[0]
+    assert first.id == "mls-fr-train:1234_5678_000001"
+    assert first.text == "le petit chat dort"
+    # The corpus publishes lowercase, unpunctuated transcripts, so the base
+    # model's own formatting is not reinforced by this source.
+    assert first.text_has_casing_punct is False
+    assert {clip.group for clip in clips} == {"mls-fr-train:1234", "mls-fr-train:9999"}
+    assert first.source_split == "train"
+    assert first.license == "CC-BY-4.0"
+
+
+def test_mls_fr_train_leaves_out_a_speaker_the_test_split_scores(dirs):
+    """The splits keep their speakers apart; a scored speaker is never trained on."""
+    data, cache = dirs
+    fake_mls_train_cache(cache)
+    write_manifest(
+        data / "mls-fr",
+        [make_clip("mls-fr:1234_5678_000001", group="mls-fr:1234")],
+    )
+
+    count = mls.fetch_mls_fr_train("mls-fr-train", cache, data / "mls-fr-train", verbose=False)
+    assert count == 1
+    assert [clip.group for clip in read_manifest(data / "mls-fr-train")] == ["mls-fr-train:9999"]
+
+
+def test_mls_fr_train_stops_before_the_archive_it_does_not_need(dirs, monkeypatch):
+    data, cache = dirs
+    fake_mls_train_cache(cache)
+    monkeypatch.setattr(mls, "TRAIN_CLIP_CAP", 1, raising=True)
+    real_download = mls.download
+
+    def refuse(url, destination, **options):
+        if not Path(destination).is_file():
+            raise AssertionError(f"{url} would have been downloaded after the cap was reached")
+        return real_download(url, destination, **options)
+
+    monkeypatch.setattr(mls, "download", refuse)
+    count = mls.fetch_mls_fr_train("mls-fr-train", cache, data / "mls-fr-train", verbose=False)
+    assert count == 1

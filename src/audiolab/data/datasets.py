@@ -63,6 +63,19 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "mls-fr-train": DatasetInfo(
+        name="mls-fr-train",
+        source="https://huggingface.co/datasets/facebook/multilingual_librispeech "
+        "(config french, data/mls_french/train)",
+        license="CC-BY-4.0",
+        split="train",
+        reference_style="lowercase, no punctuation",
+        grouping="speaker (group = MLS speaker id)",
+        notes="Training data for the per-source screening: a capped number of clips "
+        "of the train split, selected and filtered as documented in "
+        "docs/stt/datasets.md. MLS keeps the speakers of its splits apart, and "
+        "the speakers of the test split are excluded anyway. No panels.",
+    ),
     "voxpopuli-fr-train": DatasetInfo(
         name="voxpopuli-fr-train",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config fr, split train)",
