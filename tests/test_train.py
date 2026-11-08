@@ -421,7 +421,10 @@ def test_serving_a_config_without_a_serve_block_says_what_to_do(tmp_path, capsys
 
 
 class FakeParameter:
-    """Something an optimizer group can hold; the check only compares identities."""
+    """Something an optimizer group can hold; the check compares identities and flags."""
+
+    def __init__(self, requires_grad: bool = True):
+        self.requires_grad = requires_grad
 
 
 class FakeModule:
@@ -437,6 +440,15 @@ class FakeModel:
         self._optimizer = type("Optimizer", (), {"param_groups": groups})()
         for name, module in parts.items():
             setattr(self, name, module)
+
+    def named_parameters(self):
+        """Every weight the model holds, under the name a real model would give it."""
+        return [
+            (f"{name}.weight", parameter)
+            for name, module in vars(self).items()
+            if isinstance(module, FakeModule)
+            for parameter in module.parameters()
+        ]
 
 
 # The two rates of the example config: the encoder, then the heads.
@@ -515,4 +527,45 @@ def test_a_third_rate_in_the_optimizer_is_refused():
     model = fake_model(weightless=("preprocessor",))
     model._optimizer.param_groups.append({"params": [FakeParameter()], "lr": 1.0})
     with pytest.raises(ValueError, match="did not ask for"):
+        check_rates(model, config())
+
+
+def test_a_parameter_no_named_part_owns_is_refused():
+    """It would train at the fallback rate, and the run would not mean what it says."""
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    model.extra_head = FakeModule([FakeParameter()])
+    with pytest.raises(ValueError, match="belongs to no part this run sets a rate for"):
+        check_rates(model, config())
+
+
+def test_a_frozen_parameter_is_refused():
+    """A run that says full fine-tune must not leave weights behind."""
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    model.encoder._parameters[0].requires_grad = False
+    with pytest.raises(ValueError, match="is frozen"):
+        check_rates(model, config())
+
+
+def test_a_part_whose_weights_are_frozen_is_refused():
+    """NeMo leaves a frozen parameter out of the optimizer: no rate can reach it."""
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    for group in model._optimizer.param_groups:
+        group["params"] = []  # what NeMo builds when a part's weights are all frozen
+    with pytest.raises(ValueError, match="holds no parameter of"):
+        check_rates(model, config())
+
+
+def test_an_optimizer_parameter_of_no_named_part_is_refused():
+    """Even at one of the two rates, nothing outside the named parts may train."""
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    model._optimizer.param_groups.append({"params": [FakeParameter()], "lr": 3.0e-5})
+    with pytest.raises(ValueError, match="parameters of no named part"):
         check_rates(model, config())
