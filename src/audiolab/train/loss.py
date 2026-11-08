@@ -1,11 +1,10 @@
 """The loss a run reports: the number in its log, and how it is read back.
 
-A training step returns the loss of the batch it just saw. That is not what an
-update that trains on several accumulated batches optimised: Lightning divides
-the value for the backward pass and averages the gradients over the batches, but
-it never scales the number it reports. A log that wrote one batch's loss would
-therefore say something other than what the update did, and two runs with
-different accumulation settings could not be compared.
+A training step returns the loss of the batch it just saw, and with gradient
+accumulation Lightning divides it by the number of accumulated batches before
+the backward pass, and passes that divided value on to the hooks. The training
+loop multiplies it back, and the log holds the mean batch loss since the
+previous line: the same scale whatever the accumulation is.
 
 Nothing here needs PyTorch: the training loop hands over the value it received,
 and these functions turn a sequence of batch losses into the loss of the run.

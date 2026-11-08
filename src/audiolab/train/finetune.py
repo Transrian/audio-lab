@@ -28,7 +28,7 @@ from omegaconf import OmegaConf, open_dict
 
 from audiolab.core.checkpoint import Checkpoint
 from audiolab.train.config import TrainConfig
-from audiolab.train.loss import UpdateLoss, batch_loss, last_logged_loss, write_loss_line
+from audiolab.train.loss import UpdateLoss, as_float, batch_loss, last_logged_loss, write_loss_line
 from audiolab.train.run import MODEL_NAME, RESUME_NAME
 from audiolab.train.settings import (
     check_rates,
@@ -65,7 +65,13 @@ class LossLog(Callback):
         self.started = time.monotonic()
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        logged = self.updates.batch(int(trainer.global_step), batch_loss(outputs))
+        # Lightning hands this hook the loss already divided by the accumulation
+        # (it is the value it backpropagates); multiplying it back gives the
+        # batch's own loss.
+        loss = as_float(batch_loss(outputs))
+        if loss is not None:
+            loss *= trainer.accumulate_grad_batches
+        logged = self.updates.batch(int(trainer.global_step), loss)
         if logged is None:
             return
         update, value = logged

@@ -123,12 +123,10 @@ against).
    `min_lr` when `schedule: cosine`.
 5. Every `log_every` updates a line goes to `train-log.jsonl` (the update, the
    loss, and the seconds since the run started) and to the terminal. The loss of
-   a line is the **mean of the batch losses seen since the previous line**: a
-   training step returns the loss of one batch, and with
-   `accumulate_grad_batches` above 1 that is not what the update optimised —
-   PyTorch Lightning divides the value for the backward pass and averages the
-   gradients over the batches, but never scales the number it reports. Averaging
-   over the batches of the interval is the loss the run is at, on the same scale
+   a line is the **mean of the batch losses seen since the previous line**.
+   With `accumulate_grad_batches` above 1, PyTorch Lightning divides each batch
+   loss by that number before the backward pass and hands the divided value to
+   the hooks; the loop multiplies it back, so a line is on the same scale
    whether or not the config accumulates. That is the whole progress a run
    reports: this recipe watches the loss and nothing else. A validation WER
    inside the training process is allowed — it is monitoring, not a result
