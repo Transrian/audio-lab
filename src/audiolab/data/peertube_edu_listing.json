@@ -25,6 +25,10 @@
   "channel_words_left_out": [
    "chant",
    "chants",
+   "choeur",
+   "choeurs",
+   "chœur",
+   "chœurs",
    "chorale",
    "chorales",
    "comptine",
@@ -33,7 +37,8 @@
    "concerts",
    "danse",
    "jazz",
-   "karaok",
+   "karaoke",
+   "karaoké",
    "musicale",
    "music",
    "musique",
@@ -44,6 +49,19 @@
    "spectacle",
    "theatre",
    "théâtre"
+  ],
+  "title_words_left_out": [
+   "choeur",
+   "chœur",
+   "chorale",
+   "chorales",
+   "concert",
+   "concerts",
+   "karaoke",
+   "karaoké",
+   "musicale",
+   "spectacle",
+   "spectacles"
   ]
  },
  "talks": [
@@ -176,16 +194,6 @@
    "author": "geindreau_pascal",
    "channel": "La semaine de l'éducation 2026 à Creil",
    "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
-   "id": "01ee337f-3457-4571-9e6c-997b762cc6fb",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/01ee337f-3457-4571-9e6c-997b762cc6fb",
-   "title": "Chorale Fernand Léger juin 2023 part2",
-   "duration_s": 992,
-   "license": "CC-BY",
-   "author": "yods",
-   "channel": "Fernand Léger",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "01f42959-eef5-42f2-a42e-7da944538f52",
@@ -416,16 +424,6 @@
    "author": "JBL",
    "channel": "Radio Victor Louis",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "03992b18-2748-4d7a-a51d-e53dad0924a2",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/03992b18-2748-4d7a-a51d-e53dad0924a2",
-   "title": "21/05 PM - Ecoles élém. Hugo & prim. Philippe - Creil - Ville en choeur- CM2 Mmes Przadka & Vignon",
-   "duration_s": 652,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "03a806e1-f8bb-42ee-adb6-f0157da40dc6",
@@ -1248,16 +1246,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "0a9d4885-16d6-469c-b69f-26761ab6fddc",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/0a9d4885-16d6-469c-b69f-26761ab6fddc",
-   "title": "Concert Conférence CHAM 3E",
-   "duration_s": 1809,
-   "license": "CC0-1.0",
-   "author": "lepine.ronan",
-   "channel": "Main lepine.ronan channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "0aa62307-d44f-4ee6-992b-750c222ca199",
    "url": "https://tube-education-physique-et-sportive.apps.education.fr/videos/watch/0aa62307-d44f-4ee6-992b-750c222ca199",
    "title": "Université populaire de la rationalité et de l'esprit critique #1 - Gérald Bronner (Conférence)",
@@ -1346,16 +1334,6 @@
    "author": "webradioot",
    "channel": "Main webradioot-1 channel",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "0bc5fb74-8aef-4e9d-9ea3-f23f1e2b3836",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/0bc5fb74-8aef-4e9d-9ea3-f23f1e2b3836",
-   "title": "Spectacle atelier théâtre 2026",
-   "duration_s": 5156,
-   "license": "CC-BY",
-   "author": "Ludovic Arbaud",
-   "channel": "Collège Vivian Maier",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "0bebb6a1-3406-4b97-8d22-76996ab0f9cf",
@@ -1786,16 +1764,6 @@
    "author": "bgachet",
    "channel": "Classe Fleur",
    "instance": "https://tube-cycle-2.apps.education.fr"
-  },
-  {
-   "id": "0fd30f8c-e0dc-496c-88cb-ff7b096423a3",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/0fd30f8c-e0dc-496c-88cb-ff7b096423a3",
-   "title": "chorale 2 juin partie 2",
-   "duration_s": 1303,
-   "license": "CC-BY",
-   "author": "fabiencontant",
-   "channel": "Main fabiencontant channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "1027329b-ded2-4b0d-9062-4ec418922535",
@@ -2868,16 +2836,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "1aa9284f-941e-4ab9-8fcb-601ad3671691",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/1aa9284f-941e-4ab9-8fcb-601ad3671691",
-   "title": "16 mai 2025 - CM1/CM2 école Hugo & CM2 école Philippe - Creil Ville en chœur 2025 - CHAM",
-   "duration_s": 796,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Creil Ville en chœur 2025",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "1acc87ea-466f-4f51-973a-28a58b005224",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/1acc87ea-466f-4f51-973a-28a58b005224",
    "title": "Comment Venise s'est construite sur l'eau ? - C'est pas sorcier",
@@ -3298,16 +3256,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "1edf21ef-5211-4ff6-9137-65b2c5e8188b",
-   "url": "https://tube-cycle-2.apps.education.fr/videos/watch/1edf21ef-5211-4ff6-9137-65b2c5e8188b",
-   "title": "Spectacle de Violon CP/CE1 juin 2026",
-   "duration_s": 2302,
-   "license": "CC-BY",
-   "author": "melaniethoret",
-   "channel": "Main melaniethoret channel",
-   "instance": "https://tube-cycle-2.apps.education.fr"
-  },
-  {
    "id": "1edf32a2-dba0-4ca8-a2f9-8d32e7dff51d",
    "url": "https://tube-action-educative.apps.education.fr/videos/watch/1edf32a2-dba0-4ca8-a2f9-8d32e7dff51d",
    "title": "Visio 8janv26(1)",
@@ -3668,16 +3616,6 @@
    "instance": "https://tube-sciences-technologies.apps.education.fr"
   },
   {
-   "id": "21bfaa9e-1ab6-432d-8609-7c21bed1bad1",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/21bfaa9e-1ab6-432d-8609-7c21bed1bad1",
-   "title": "SPECTACLE DE NOEL V2",
-   "duration_s": 3810,
-   "license": "CC-BY",
-   "author": "rex_guillaume",
-   "channel": "Main rex_guillaume channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "21d81e6a-9fce-4ef7-80e9-4c7ef632ac68",
    "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/21d81e6a-9fce-4ef7-80e9-4c7ef632ac68",
    "title": "SES Tle 4",
@@ -3886,16 +3824,6 @@
    "author": "guilbaud_christine",
    "channel": "Main guilbaud_christine channel",
    "instance": "https://tube-maternelle.apps.education.fr"
-  },
-  {
-   "id": "2434a7d1-3797-47b7-b7c0-410cb6af4601",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/2434a7d1-3797-47b7-b7c0-410cb6af4601",
-   "title": "21/05 PM - Ecole prim. Philippe - Creil - Ville en choeur- CE2 Mme Benhija CE2/CM1 M Demachy",
-   "duration_s": 611,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "245224a9-15c6-4dd0-8433-c22c47edf49c",
@@ -5078,16 +5006,6 @@
    "instance": "https://tube-institutionnel.apps.education.fr"
   },
   {
-   "id": "2fe8ad1e-45fc-4da3-9138-dce3fcd34f0c",
-   "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/2fe8ad1e-45fc-4da3-9138-dce3fcd34f0c",
-   "title": "Concert Chorale 2 Juin 2026",
-   "duration_s": 3656,
-   "license": "CC-BY",
-   "author": "covache_olivier",
-   "channel": "Main covache_olivier channel",
-   "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
    "id": "2fee63c5-95b4-4583-a513-480ac46947e2",
    "url": "https://tube-cycle-2.apps.education.fr/videos/watch/2fee63c5-95b4-4583-a513-480ac46947e2",
    "title": "12 J'apprends à lire la lettre OU_2026",
@@ -5206,26 +5124,6 @@
    "author": "Webradio Orléans-Tours",
    "channel": "Emissions du Loir et Cher",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "30fc9e19-15af-440b-95a0-b47335f49080",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/30fc9e19-15af-440b-95a0-b47335f49080",
-   "title": "22/05 AM - Ecole élém. Hugo - Creil - Ville en choeur- CE1/CE2 Mme Vandenabeele",
-   "duration_s": 711,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
-   "id": "31000649-d2ae-42bc-9c23-c7f6cc1c8e50",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/31000649-d2ae-42bc-9c23-c7f6cc1c8e50",
-   "title": "21/05 PM - Ecole élém. Nerval - Creil - Ville en choeur- CM1 Mme Aurigny - CM1/CM2 Mme Bartyzel - CM2 Mme Zabé",
-   "duration_s": 709,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "312ef5c2-53c1-44b8-aa08-695388e50e49",
@@ -5386,16 +5284,6 @@
    "author": "brosse_marie_christine",
    "channel": "Main brosse_marie_christine channel",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "33e6fca0-d6ff-4ca2-935b-642fe57048d1",
-   "url": "https://tube-maternelle.apps.education.fr/videos/watch/33e6fca0-d6ff-4ca2-935b-642fe57048d1",
-   "title": "Chorale 2026",
-   "duration_s": 1243,
-   "license": "CC-BY",
-   "author": "mliebaux",
-   "channel": "Main mliebaux channel",
-   "instance": "https://tube-maternelle.apps.education.fr"
   },
   {
    "id": "33f40794-f75e-4d8b-8f90-41a129488a77",
@@ -6338,16 +6226,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "3cec67fb-c6e7-49fb-a626-dfca025dd1f3",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/3cec67fb-c6e7-49fb-a626-dfca025dd1f3",
-   "title": "Concert du 26 mai 2026 - En choeur, plus fort pour aller plus loin",
-   "duration_s": 3934,
-   "license": "CC-BY",
-   "author": "prudentos_derrick",
-   "channel": "Main prudentos_derrick channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "3cfa7e38-8361-4b9d-bb91-8dd68dcbd3f5",
    "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/3cfa7e38-8361-4b9d-bb91-8dd68dcbd3f5",
    "title": "RECONSTITUER LE CERCLE TRIGONOMÉTRIQUE",
@@ -6406,16 +6284,6 @@
    "author": "aude.bernardc",
    "channel": "Main aude.bernardc channel",
    "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
-   "id": "3db3c9c4-9f1d-4ca1-9827-45d01ba97706",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/3db3c9c4-9f1d-4ca1-9827-45d01ba97706",
-   "title": "Chorale 13 juin partie 2",
-   "duration_s": 1346,
-   "license": "CC-BY",
-   "author": "fabiencontant",
-   "channel": "Main fabiencontant channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "3dd87b5a-007a-4494-b893-acaf8fa7b1cd",
@@ -6698,16 +6566,6 @@
    "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
-   "id": "3fc324c1-610d-4f91-8445-d1d3dedd8a81",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/3fc324c1-610d-4f91-8445-d1d3dedd8a81",
-   "title": "22/05 PM - Ecole élém. Gournay - Creil - Ville en choeur- Classes de CM1 Mme Berthe - CM2 Mme Vaillant",
-   "duration_s": 672,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "3ff41884-74f7-4e38-873c-2f80da23ed3a",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/3ff41884-74f7-4e38-873c-2f80da23ed3a",
    "title": "Montage 4 : La question migratoire",
@@ -6866,16 +6724,6 @@
    "author": "webradioot",
    "channel": "Main webradioot-1 channel",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "41f591eb-4caa-451d-93cc-5337c8edcc23",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/41f591eb-4caa-451d-93cc-5337c8edcc23",
-   "title": "Brumath Concert de Noël 2025 Final",
-   "duration_s": 659,
-   "license": "CC-BY",
-   "author": "yiffer",
-   "channel": "Collège Marcel Weinum",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
    "id": "42372672-cdf1-4631-85c6-b4333ca79d50",
@@ -8188,16 +8036,6 @@
    "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
-   "id": "4eb39ecc-7ebd-4d82-b599-ab3345d6304f",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/4eb39ecc-7ebd-4d82-b599-ab3345d6304f",
-   "title": "22/05 AM - Ecole élém. Michel - Creil - Ville en choeur- Classes de CP & CM2",
-   "duration_s": 936,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "4eb7366b-90cd-4008-b9fb-00e8538901ca",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/4eb7366b-90cd-4008-b9fb-00e8538901ca",
    "title": "Le Relais",
@@ -8216,16 +8054,6 @@
    "author": "daphnebruncottan",
    "channel": "Main daphnebruncottan channel",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "4ee7c5a4-0920-46d8-9c1c-083a64ae56c7",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/4ee7c5a4-0920-46d8-9c1c-083a64ae56c7",
-   "title": "21/05 PM - Ecole prim. Philippe - Creil - Ville en choeur- CM1 Mme Delefortrie",
-   "duration_s": 664,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "4ef17c8c-103c-4c79-8853-e067202d660b",
@@ -8918,16 +8746,6 @@
    "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
-   "id": "5684b53b-95a8-4c62-98ed-dd015beb2f8b",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/5684b53b-95a8-4c62-98ed-dd015beb2f8b",
-   "title": "Comédie musicale - Voyage en Enfer",
-   "duration_s": 4372,
-   "license": "CC-BY",
-   "author": "veronique.eindor",
-   "channel": "Main veronique.eindor channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "56a08403-6e97-4025-9876-5510c3f24b35",
    "url": "https://tube-cycle-3.apps.education.fr/videos/watch/56a08403-6e97-4025-9876-5510c3f24b35",
    "title": "Webinaire Esprit critique face à l'IA  du mercredi 18 mars",
@@ -9156,16 +8974,6 @@
    "author": "ian_lettres",
    "channel": "ian_lettres_Aix-Marseille",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "58fef449-b79c-4534-b026-901cb391b39f",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/58fef449-b79c-4534-b026-901cb391b39f",
-   "title": "21/05 PM - Ecole élém. Hugo - Creil - Ville en choeur- CM2 Mmes Przadka & Colras",
-   "duration_s": 1198,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "590c436c-2db4-460f-a865-b5f62efc4c2a",
@@ -9858,16 +9666,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "5f1ad325-9e3e-4d8e-9fac-41a057dbdafb",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/5f1ad325-9e3e-4d8e-9fac-41a057dbdafb",
-   "title": "Poursuite des autres rêves - spectacle MAC déc 2025",
-   "duration_s": 3643,
-   "license": "CC-BY",
-   "author": "Ecole La Habette ",
-   "channel": "L.BESER",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "5f2a32e8-dc87-4b59-9d6f-b2fe5a2a1e44",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/5f2a32e8-dc87-4b59-9d6f-b2fe5a2a1e44",
    "title": "Projet Exploration Carte",
@@ -10148,16 +9946,6 @@
    "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
-   "id": "61be2555-cbf7-41d4-a74b-0cf3dce22442",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/61be2555-cbf7-41d4-a74b-0cf3dce22442",
-   "title": "Chorale Fernand Léger juin 2023 part3",
-   "duration_s": 994,
-   "license": "CC-BY",
-   "author": "yods",
-   "channel": "Fernand Léger",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "61ec3438-193a-4569-a340-a4c9298d6a37",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/61ec3438-193a-4569-a340-a4c9298d6a37",
    "title": "La théorie de l'évolution - ARTE_1280x720",
@@ -10346,16 +10134,6 @@
    "author": "drane.paca",
    "channel": "Chaîne drane.paca ",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "640e932d-63fb-4265-9f6d-da11c8ed0677",
-   "url": "https://tube-cycle-2.apps.education.fr/videos/watch/640e932d-63fb-4265-9f6d-da11c8ed0677",
-   "title": "Spectacle Casanova-Pasteur  2026 Mme BAESEN",
-   "duration_s": 1212,
-   "license": "CC-BY",
-   "author": "sophiebaesen",
-   "channel": "Main sophiebaesen channel",
-   "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
    "id": "6411c11a-cf75-466f-bafc-02995a31f8f3",
@@ -10628,16 +10406,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "669fa586-4dc9-48af-9544-4d8822b51527",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/669fa586-4dc9-48af-9544-4d8822b51527",
-   "title": "21/05 AM - Ecole élém. Hugo - Creil - Ville en choeur- CP Mme Baali - CP/CE1 Mme Weymeersch",
-   "duration_s": 635,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "66b89512-df0b-43d5-9532-4599112d7c31",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/66b89512-df0b-43d5-9532-4599112d7c31",
    "title": "Conflits d'usage  avec Twitter (Mickaël Laurent)",
@@ -10726,16 +10494,6 @@
    "author": "obadia_roxane",
    "channel": "Main obadia_roxane channel",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "67dde12e-3ce5-4692-8d06-972f785caaa5",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/67dde12e-3ce5-4692-8d06-972f785caaa5",
-   "title": "les Sauveterre / comédie musicale",
-   "duration_s": 3305,
-   "license": "CC-BY",
-   "author": "carribou_didier",
-   "channel": "C. Granville - Ferréols Carribou_didier channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "67de7ce5-310b-4572-bd38-a75af481e13c",
@@ -11658,16 +11416,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "7057d211-4861-4499-8ded-89cb8ffe6fe6",
-   "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/7057d211-4861-4499-8ded-89cb8ffe6fe6",
-   "title": "Spectacle ecole Langevin Wallon",
-   "duration_s": 1932,
-   "license": "CC-BY",
-   "author": "TURC Julien",
-   "channel": "Main jturc channel",
-   "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
    "id": "706ae3ec-9b83-4bfa-9122-262b388c8ac4",
    "url": "https://tube-cycle-2.apps.education.fr/videos/watch/706ae3ec-9b83-4bfa-9122-262b388c8ac4",
    "title": "04 J'apprends à lire la lettre T_2026",
@@ -12406,16 +12154,6 @@
    "author": "minutolo_christophe",
    "channel": "PNF Lille",
    "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
-   "id": "770ecc62-f70d-4f4f-9c86-a59f24960677",
-   "url": "https://tube-cycle-2.apps.education.fr/videos/watch/770ecc62-f70d-4f4f-9c86-a59f24960677",
-   "title": "Spectacle musical patois",
-   "duration_s": 615,
-   "license": "CC-BY",
-   "author": "lefrancq_cedric",
-   "channel": "Main lefrancq_cedric channel",
-   "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
    "id": "77304d24-c0a1-4c5c-af49-eb95f9e4b40b",
@@ -13768,16 +13506,6 @@
    "instance": "https://tube-sciences-technologies.apps.education.fr"
   },
   {
-   "id": "84ad3cc7-f28a-44be-9a52-9274349156f2",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/84ad3cc7-f28a-44be-9a52-9274349156f2",
-   "title": "Chorale Fernand Léger juin 2023 part5",
-   "duration_s": 619,
-   "license": "CC-BY",
-   "author": "yods",
-   "channel": "Fernand Léger",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "84b63f03-a59b-40dd-9b47-5ba594e7af50",
    "url": "https://tube-maternelle.apps.education.fr/videos/watch/84b63f03-a59b-40dd-9b47-5ba594e7af50",
    "title": "3. Webinaire - coin sciences 95",
@@ -13936,16 +13664,6 @@
    "author": "MonEspaceLitteraire",
    "channel": "MonEspaceLitteraire",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "8699d853-bb01-4110-b9fc-8d4399add4ad",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/8699d853-bb01-4110-b9fc-8d4399add4ad",
-   "title": "19/05 AM - Ecole mat. L. Pergaud - Creil - Comédie musicale \"Les super enquêteurs\" - Spectacle 2",
-   "duration_s": 2101,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "La semaine de l'éducation 2026 à Creil",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "86b4bcd5-c2bf-4216-8e5c-3dc9fc662dfa",
@@ -14226,16 +13944,6 @@
    "author": "chiarbonello_patrice",
    "channel": "Main chiarbonello_patrice channel",
    "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
-   "id": "89b82da7-4bf0-4da2-bf7f-6ccef0f0c873",
-   "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/89b82da7-4bf0-4da2-bf7f-6ccef0f0c873",
-   "title": "CHORALE AS VERDUN JUIN 2026",
-   "duration_s": 1570,
-   "license": "CC-BY",
-   "author": "lsimon2",
-   "channel": "Main lsimon2 channel",
-   "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
    "id": "89c9ea67-9d23-4596-8e03-e2f57bc7a059",
@@ -15318,16 +15026,6 @@
    "instance": "https://tube-sciences-technologies.apps.education.fr"
   },
   {
-   "id": "946e1313-8e7b-468e-b27d-038e5d05bf43",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/946e1313-8e7b-468e-b27d-038e5d05bf43",
-   "title": "Concert Chorale Pasteur - Theatre Celle Saint Cloud 2026",
-   "duration_s": 2706,
-   "license": "CC-BY",
-   "author": "gambotti_flavien",
-   "channel": "Main gambotti_flavien channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "9474e9e9-4750-4903-993f-443b572e0a1e",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/9474e9e9-4750-4903-993f-443b572e0a1e",
    "title": "Tuto1_RdS_Visuel_Page_de_garde",
@@ -15678,16 +15376,6 @@
    "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
-   "id": "98115d3e-da6b-40f7-abe4-7aa928206240",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/98115d3e-da6b-40f7-abe4-7aa928206240",
-   "title": "Chorale Fernand Léger juin 2023 part4",
-   "duration_s": 789,
-   "license": "CC-BY",
-   "author": "yods",
-   "channel": "Fernand Léger",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "984ff642-9fef-4b6d-aa32-1e4ae23ef156",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/984ff642-9fef-4b6d-aa32-1e4ae23ef156",
    "title": "TECHNIQUE ET FINANCE : LES CONDITIONS DE LA RENAISSANCE",
@@ -15858,16 +15546,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "9a06e2f2-733d-40ba-9a97-136384ce56d0",
-   "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/9a06e2f2-733d-40ba-9a97-136384ce56d0",
-   "title": "C'est Pas Sorcier - Le son en concert",
-   "duration_s": 1560,
-   "license": "CC-BY",
-   "author": "abx",
-   "channel": "ML51",
-   "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
    "id": "9a20ea99-a26a-40db-abe4-61c933c50310",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/9a20ea99-a26a-40db-abe4-61c933c50310",
    "title": "Hitler l'insaisissable cadavre",
@@ -15916,16 +15594,6 @@
    "author": "pierson_jean_charles",
    "channel": "Maths cinquièmes",
    "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
-   "id": "9a76260c-000a-4af9-a93e-67b60e15cce7",
-   "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/9a76260c-000a-4af9-a93e-67b60e15cce7",
-   "title": "Spectacle De L'école Malataverne Cendras",
-   "duration_s": 2293,
-   "license": "CC-BY",
-   "author": "TURC Julien",
-   "channel": "Main jturc channel",
-   "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
    "id": "9ab5cfc2-7b10-479f-8961-cdd712b8959d",
@@ -16848,16 +16516,6 @@
    "instance": "https://tube-institutionnel.apps.education.fr"
   },
   {
-   "id": "a4fc46cf-abb0-4dca-9a0f-2dad9016ca8c",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/a4fc46cf-abb0-4dca-9a0f-2dad9016ca8c",
-   "title": "21/05 AM - Ecoles Camus, Montaigne & Philippe  - Creil - Ville en choeur- \"Myla & l'arbre bateau\"",
-   "duration_s": 1634,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "a4fd5a10-b1e0-4544-88e8-e368037de826",
    "url": "https://tube-action-educative.apps.education.fr/videos/watch/a4fd5a10-b1e0-4544-88e8-e368037de826",
    "title": "SACSAM - Un collectionneur d'arts asiatiques. Le rémois Hugues Krafft (1853-1935) (Emmanuel Dorffer)",
@@ -17478,16 +17136,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "aa79a54e-ebc2-4e8f-a5b3-05f8b82cb674",
-   "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/aa79a54e-ebc2-4e8f-a5b3-05f8b82cb674",
-   "title": "Concert Chorale 2 Juin 2026 (V. courte)",
-   "duration_s": 3656,
-   "license": "CC0-1.0",
-   "author": "covache_olivier",
-   "channel": "Main covache_olivier channel",
-   "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
    "id": "aa832b05-dcf8-4de3-bbc5-e9caef4687ef",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/aa832b05-dcf8-4de3-bbc5-e9caef4687ef",
    "title": "Vivre sur Mars est-ce-possible ?",
@@ -17546,16 +17194,6 @@
    "author": "gessen_bernard",
    "channel": "Main gessen_bernard channel",
    "instance": "https://tube-langues-vivantes.apps.education.fr"
-  },
-  {
-   "id": "ab754890-525a-4ac3-bd73-3d595d94887f",
-   "url": "https://tube-institutionnel.apps.education.fr/videos/watch/ab754890-525a-4ac3-bd73-3d595d94887f",
-   "title": "concert TDS 20-05-26",
-   "duration_s": 808,
-   "license": "CC-BY",
-   "author": "9740909v",
-   "channel": "Main 9740909v channel",
-   "instance": "https://tube-institutionnel.apps.education.fr"
   },
   {
    "id": "ab8da79f-dda7-4d5f-8bd0-8ad72203d519",
@@ -18358,16 +17996,6 @@
    "instance": "https://tube-cycle-2.apps.education.fr"
   },
   {
-   "id": "b2ce7860-6bbe-456c-a20d-2819e278c56f",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/b2ce7860-6bbe-456c-a20d-2819e278c56f",
-   "title": "22/05 PM - Ecole élém. Freinet - Creil - Ville en choeur- Classes de CE1 Mme Godart - CE2 Mme Lecuyer - CM1 Mme Vasseur",
-   "duration_s": 1002,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "b2e99485-13bd-4c3d-994f-d47657d116f0",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/b2e99485-13bd-4c3d-994f-d47657d116f0",
    "title": "Boris Cyrulnik : Pourquoi les 1 000 premiers jours ?",
@@ -18958,16 +18586,6 @@
    "instance": "https://tube-sciences-technologies.apps.education.fr"
   },
   {
-   "id": "b8c4d0e6-2b60-431f-9ac7-8771644a6390",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/b8c4d0e6-2b60-431f-9ac7-8771644a6390",
-   "title": "Concert (12-06-2025)",
-   "duration_s": 2478,
-   "license": "CC-BY",
-   "author": "cyrillehambli",
-   "channel": "Main cyrillehambli channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "b8e5fa72-0ca2-4191-ac5c-778aaeebdb44",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/b8e5fa72-0ca2-4191-ac5c-778aaeebdb44",
    "title": "L'arrivée à la cour",
@@ -19148,16 +18766,6 @@
    "instance": "https://tube-institutionnel.apps.education.fr"
   },
   {
-   "id": "ba087550-6c82-4aaa-829a-d2a8618075d8",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/ba087550-6c82-4aaa-829a-d2a8618075d8",
-   "title": "chorale 2 juin partie 3",
-   "duration_s": 1064,
-   "license": "CC-BY",
-   "author": "fabiencontant",
-   "channel": "Main fabiencontant channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "ba4b979b-cd9b-457a-b1d7-1800b77b8f59",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/ba4b979b-cd9b-457a-b1d7-1800b77b8f59",
    "title": "Entretien entre Mathilde Saubole coordinatrice d'intimité et Odile Flon, coordinatrice de l'enseignement de cinéma.",
@@ -19308,16 +18916,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "bc4e47f7-0f1e-4998-ab6d-b159af0584cb",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/bc4e47f7-0f1e-4998-ab6d-b159af0584cb",
-   "title": "Spectacle atelier 2025 B",
-   "duration_s": 3125,
-   "license": "CC-BY",
-   "author": "belleforest",
-   "channel": "Main belleforest channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
    "id": "bc636e12-f63d-4a87-bf9d-42d9b6dbffb4",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/bc636e12-f63d-4a87-bf9d-42d9b6dbffb4",
    "title": "Pierrot ou le secret de la nuit",
@@ -19438,16 +19036,6 @@
    "instance": "https://tube-sciences-technologies.apps.education.fr"
   },
   {
-   "id": "bdc071b8-a307-40c0-adb2-3e2d9015fb57",
-   "url": "https://tube-cycle-2.apps.education.fr/videos/watch/bdc071b8-a307-40c0-adb2-3e2d9015fb57",
-   "title": "Chorale Le voyage de Nyamba",
-   "duration_s": 3148,
-   "license": "CC-BY",
-   "author": "Alexandre Duchemin",
-   "channel": "Alexandre Duchemin",
-   "instance": "https://tube-cycle-2.apps.education.fr"
-  },
-  {
    "id": "bdd0f762-9c3b-4766-9253-6ebea6d09e9e",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/bdd0f762-9c3b-4766-9253-6ebea6d09e9e",
    "title": "Merete maersk",
@@ -19516,16 +19104,6 @@
    "author": "annarelli_brice",
    "channel": "Main annarelli_brice channel",
    "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
-   "id": "be65a6c9-7461-474e-90bb-435bf2f3b88c",
-   "url": "https://tube-maternelle.apps.education.fr/videos/watch/be65a6c9-7461-474e-90bb-435bf2f3b88c",
-   "title": "Vidéo spectacle égyptien du 16 janvier 2026",
-   "duration_s": 2300,
-   "license": "CC-BY",
-   "author": "Dufaud Aurore",
-   "channel": "Aurore Dufaud Classe rose mat SMB",
-   "instance": "https://tube-maternelle.apps.education.fr"
   },
   {
    "id": "be8033de-648f-4718-b187-807a404fd79f",
@@ -20478,16 +20056,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "c8dc1095-0295-478a-8934-36d0429e5309",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/c8dc1095-0295-478a-8934-36d0429e5309",
-   "title": "Chorale 13 juin partie 1",
-   "duration_s": 1121,
-   "license": "CC-BY",
-   "author": "fabiencontant",
-   "channel": "Main fabiencontant channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "c8e0b579-32df-4aa9-b1f8-6c8df4c2a192",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/c8e0b579-32df-4aa9-b1f8-6c8df4c2a192",
    "title": "Les super pouvoirs de la musique _ ARTE",
@@ -20746,16 +20314,6 @@
    "author": "teddypatin",
    "channel": "Main teddypatin channel",
    "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
-   "id": "cb25df7b-12bf-4f8a-952c-0b599807f96f",
-   "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/cb25df7b-12bf-4f8a-952c-0b599807f96f",
-   "title": "Spectacle danse final",
-   "duration_s": 738,
-   "license": "CC-BY",
-   "author": "cremona_myriam",
-   "channel": "Main cremona_myriam channel",
-   "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
    "id": "cb284d38-cb17-459a-af87-a1035c5567d6",
@@ -21528,16 +21086,6 @@
    "instance": "https://tube-langues-vivantes.apps.education.fr"
   },
   {
-   "id": "d1beddf5-3e93-465d-9d2d-c8c76284eab8",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/d1beddf5-3e93-465d-9d2d-c8c76284eab8",
-   "title": "19/05 AM - Ecole mat. L. Pergaud - Creil - Comédie musicale \"Les super enquêteurs\" - Spectacle 1",
-   "duration_s": 2664,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "La semaine de l'éducation 2026 à Creil",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "d1c94496-48f1-4f80-859c-87261d5a56d1",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/d1c94496-48f1-4f80-859c-87261d5a56d1",
    "title": "5M0 - 2 - Calculer l'aire de polygones usuels",
@@ -22098,16 +21646,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "d7993973-c5d0-42e9-b66e-c17a7b785709",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/d7993973-c5d0-42e9-b66e-c17a7b785709",
-   "title": "18/05 PM - Ecole élém. G. de Nerval - Creil - Comédie musicale \"Nerval autour du monde\"",
-   "duration_s": 2159,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "La semaine de l'éducation 2026 à Creil",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "d7b94ca4-94d9-45eb-b9ec-955ccbd9590c",
    "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/d7b94ca4-94d9-45eb-b9ec-955ccbd9590c",
    "title": "Modelage Version 1",
@@ -22246,16 +21784,6 @@
    "author": "drichardeau",
    "channel": "2nde physique chimie",
    "instance": "https://tube-sciences-technologies.apps.education.fr"
-  },
-  {
-   "id": "d8ea0571-7a3c-41ee-910b-b3c9000c0d37",
-   "url": "https://tube-maternelle.apps.education.fr/videos/watch/d8ea0571-7a3c-41ee-910b-b3c9000c0d37",
-   "title": "Chorale 2026",
-   "duration_s": 1243,
-   "license": "CC-BY",
-   "author": "mliebaux",
-   "channel": "Main mliebaux channel",
-   "instance": "https://tube-maternelle.apps.education.fr"
   },
   {
    "id": "d8f102b2-b286-49ae-bbf9-cc5828a14891",
@@ -22526,16 +22054,6 @@
    "author": "joan.oliveira",
    "channel": "Main joan.oliveira channel",
    "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
-   "id": "db7b73ce-1365-43b2-ae51-7f5bd9faf4bb",
-   "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/db7b73ce-1365-43b2-ae51-7f5bd9faf4bb",
-   "title": "Spectacle théatre, danse et chorale - Cité scolaire de Vouziers - Collège Paul Drouot - Lycée Masaryk - 4 juin 2026",
-   "duration_s": 5012,
-   "license": "CC-BY",
-   "author": "braquet_jacques",
-   "channel": "Main braquet_jacques channel",
-   "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
    "id": "db87dfd6-aa2f-4ea9-9c2e-7e4ccab91d1d",
@@ -23038,16 +22556,6 @@
    "instance": "https://tube-numerique-educatif.apps.education.fr"
   },
   {
-   "id": "df916397-f2ea-44f6-adf9-38939bfd5d69",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/df916397-f2ea-44f6-adf9-38939bfd5d69",
-   "title": "spectacle fin d'année 2026",
-   "duration_s": 3123,
-   "license": "CC-BY",
-   "author": "minot_tinelli_delphine",
-   "channel": "Main minot_tinelli_delphine channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
-  },
-  {
    "id": "df9566b7-3fe5-4480-8c6d-81f927a2288a",
    "url": "https://tube-arts-lettres-sciences-humaines.apps.education.fr/videos/watch/df9566b7-3fe5-4480-8c6d-81f927a2288a",
    "title": "Dictée 40, George Sand, Histoire de ma vie",
@@ -23426,16 +22934,6 @@
    "author": "font_yvan",
    "channel": "Main font_yvan channel",
    "instance": "https://tube-cycle-2.apps.education.fr"
-  },
-  {
-   "id": "e32d0f7c-0361-4366-b0cc-f79b31e43789",
-   "url": "https://tube-maternelle.apps.education.fr/videos/watch/e32d0f7c-0361-4366-b0cc-f79b31e43789",
-   "title": "Vidéo spectacle chinois du 3 avril 2026",
-   "duration_s": 1676,
-   "license": "CC-BY",
-   "author": "Dufaud Aurore",
-   "channel": "Aurore Dufaud Classe rose mat SMB",
-   "instance": "https://tube-maternelle.apps.education.fr"
   },
   {
    "id": "e32d3569-4585-4d1c-98b2-ab0ef989a1e6",
@@ -24918,16 +24416,6 @@
    "instance": "https://tube-institutionnel.apps.education.fr"
   },
   {
-   "id": "f0c12dba-d9c8-4343-945f-d7b65dbdfc37",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/f0c12dba-d9c8-4343-945f-d7b65dbdfc37",
-   "title": "21/05 AM - Ecole élém. Michel - Creil - Ville en choeur- CE1Mme Le Perff - CE1 M Boitel",
-   "duration_s": 739,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
-  },
-  {
    "id": "f0da87a6-ed98-41de-9eab-b9f219b023d0",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/f0da87a6-ed98-41de-9eab-b9f219b023d0",
    "title": "Petits d'Homme France3 1 sur 2",
@@ -25058,16 +24546,6 @@
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
   },
   {
-   "id": "f26935aa-b26d-4ffc-a77a-1a2bae44cac0",
-   "url": "https://tube-numerique-educatif.apps.education.fr/videos/watch/f26935aa-b26d-4ffc-a77a-1a2bae44cac0",
-   "title": "Spectacle De Marionnettes Brouzet les Ales",
-   "duration_s": 5357,
-   "license": "CC-BY",
-   "author": "TURC Julien",
-   "channel": "Chaine de la circonscription Ales 2",
-   "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
    "id": "f2796b48-1469-46aa-b151-5666b38ed218",
    "url": "https://tube-sciences-technologies.apps.education.fr/videos/watch/f2796b48-1469-46aa-b151-5666b38ed218",
    "title": "1Ere Spe - Energie De Liaison-1",
@@ -25146,16 +24624,6 @@
    "author": "Webradio Orléans-Tours",
    "channel": "Emissions de l'Eure et Loir",
    "instance": "https://tube-numerique-educatif.apps.education.fr"
-  },
-  {
-   "id": "f32384cd-6f09-4dc8-b1f2-159d6773bd13",
-   "url": "https://tube-action-educative.apps.education.fr/videos/watch/f32384cd-6f09-4dc8-b1f2-159d6773bd13",
-   "title": "21/05 PM - Ecole élém. Montaigne - Creil - Ville en choeur- CM1 Mme Ponchel & CM2 Mme Diogo",
-   "duration_s": 735,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Ville en choeur 2026",
-   "instance": "https://tube-action-educative.apps.education.fr"
   },
   {
    "id": "f325012c-b512-4349-8dd7-9123f7ce705b",
@@ -25796,16 +25264,6 @@
    "author": "franck.digonnet",
    "channel": "Main franck.digonnet channel",
    "instance": "https://tube-education-physique-et-sportive.apps.education.fr"
-  },
-  {
-   "id": "f8f155b7-9ab7-4332-95c3-3a87713b7fcc",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/f8f155b7-9ab7-4332-95c3-3a87713b7fcc",
-   "title": "Chorale 2 juin partie 1",
-   "duration_s": 1226,
-   "license": "CC-BY",
-   "author": "fabiencontant",
-   "channel": "Main fabiencontant channel",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "f9142154-2b2f-4d10-ba98-cef088b5325f",
@@ -26516,16 +25974,6 @@
    "author": "daphnebruncottan",
    "channel": "Main daphnebruncottan channel",
    "instance": "https://tube-arts-lettres-sciences-humaines.apps.education.fr"
-  },
-  {
-   "id": "ffb29981-f37a-4965-a88f-ade9fd7968c5",
-   "url": "https://tube-cycle-3.apps.education.fr/videos/watch/ffb29981-f37a-4965-a88f-ade9fd7968c5",
-   "title": "15 mai 2025 - CM1/CM2 école Hugo & CM2 école Philippe - Creil Ville en chœur 2025 - CHAM",
-   "duration_s": 966,
-   "license": "CC-BY",
-   "author": "geindreau_pascal",
-   "channel": "Creil Ville en chœur 2025",
-   "instance": "https://tube-cycle-3.apps.education.fr"
   },
   {
    "id": "ffc07f87-1dae-4b39-ab03-8664ad5fe9e5",

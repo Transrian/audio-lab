@@ -643,16 +643,16 @@ catalogue's, and model labels instead of a transcript somebody published.
   The eleven instances are committed in `src/audiolab/data/peertube_edu.py`: they
   are the hosts the PeerTube instance index (`instances.joinpeertube.org`) lists
   under that domain (checked 2026-11-08); the ministry's own `tube-test` instance is
-  left out. The listing of 2026-11-08 holds **2 652 videos, 1 511.1 h** — every
-  instance is in it, the shortest video is 600 s and the median 1 198 s. The videos
+  left out. The listing of 2026-11-08 holds **2 595 videos, 1 481.2 h** — every
+  instance is in it, the shortest video is 600 s and the median 1 192 s. The videos
   and the hours per instance, which the table at the end of this card holds, are
-  lopsided: the largest instance (`tube-arts-lettres-sciences-humaines`) holds 658
-  of the 2 652 videos, which is why a seeded selection spreads over the instance and
+  lopsided: the largest instance (`tube-arts-lettres-sciences-humaines`) holds 649
+  of the 2 595 videos, which is why a seeded selection spreads over the instance and
   not over the listing.
 - **License and attribution**: per video, as each uploader declared it: PeerTube
   licence id 1 ("Attribution") is recorded as `CC-BY` and id 7 ("Public Domain
   Dedication") as `CC0-1.0` — PeerTube names a licence without a version, so the
-  manifest records none. 2 488 videos are CC BY and 164 CC0. Every clip carries its
+  manifest records none. 2 433 videos are CC BY and 162 CC0. Every clip carries its
   own video's `source_url`, `source_title`, `source_author` (the PeerTube account)
   and `license`; the channel — a teacher's channel, a mission, a discipline — is the
   collection the video sits in.
@@ -661,12 +661,16 @@ catalogue's, and model labels instead of a transcript somebody published.
   Debian one, whose card says how that is handled), and a video another instance
   tagged in another language is not this source's.
 - **What the filter leaves out**: videos shorter than ten minutes, videos the
-  instance does not host itself, videos under another licence, and channels whose
+  instance does not host itself, videos under another licence, channels whose
   name holds a word of music, song or the stage (`NON_SPEECH_WORDS` in
-  `src/audiolab/data/peertube_edu.py`). Those words are matched whole, so `Éducation
-  musicale et chant choral` and `La Chorale de Jean Zay !` are left out where `Main
-  chantallayoussaint channel` is not; ten minutes of music is rare anyway, and a
-  music video yields no clips, the two labelling models not agreeing on music. The
+  `src/audiolab/data/peertube_edu.py`), and videos whose title names a performance
+  (`PERFORMANCE_WORDS`: a concert, a choir, a show, a musical). Those words are
+  matched whole, so `Éducation musicale et chant choral` and `Ville en choeur 2026`
+  are left out where `Main chantallayoussaint channel` is not. The title words are
+  the fewer of the two because a lesson is often about music or the stage (`Le
+  professeur de musique`, `Interview radio théâtre`), and a teacher's own channel
+  holds the lesson and the end-of-year concert alike. What escapes both lists
+  yields few clips, the two labelling models not agreeing on music. The
   classes, the staff meetings and the teachers explaining a lesson are what the
   source keeps — the ministry's videos are lessons and webinars, not conference
   talks only.
@@ -675,12 +679,6 @@ catalogue's, and model labels instead of a transcript somebody published.
   talks of a preparation cover all eleven catalogues instead of the biggest one.
   Audio comes from the smallest file the instance serves for a video, converted to
   16 kHz mono WAV; the video is deleted once its sound is out.
-- **Prepared audio**: before the labelling run, the first 65 h of the reading
-  order — 120 talks — were downloaded and kept as 16 kHz mono WAV, 7.2 GiB in the
-  pipeline's cache (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored;
-  the video file of a talk is deleted once its sound is out). The first attempt
-  lost 33 of them to a file the instance still listed and no longer served, which
-  `smallest_file_url` now checks for; asking again recovered all 33.
 - **Why it is here**: it is the French arm that is neither a conference nor a
   published corpus — teachers and the ministry speaking French, on every school
   subject, in a register no evaluation set of this repository has. It is the French
@@ -694,17 +692,17 @@ Per instance, as the listing of 2026-11-08 holds them:
 
 | instance | videos | hours |
 | --- | --- | --- |
-| `tube-action-educative` | 254 | 168.8 |
-| `tube-arts-lettres-sciences-humaines` | 658 | 430.3 |
-| `tube-cycle-2` | 100 | 44.9 |
-| `tube-cycle-3` | 126 | 60.4 |
+| `tube-action-educative` | 236 | 163.4 |
+| `tube-arts-lettres-sciences-humaines` | 649 | 423.8 |
+| `tube-cycle-2` | 96 | 42.8 |
+| `tube-cycle-3` | 113 | 53.5 |
 | `tube-education-physique-et-sportive` | 28 | 17.4 |
 | `tube-enseignement-professionnel` | 84 | 41.4 |
-| `tube-institutionnel` | 121 | 83.1 |
+| `tube-institutionnel` | 120 | 82.9 |
 | `tube-langues-vivantes` | 29 | 18.5 |
-| `tube-maternelle` | 89 | 58.5 |
-| `tube-numerique-educatif` | 523 | 317.9 |
-| `tube-sciences-technologies` | 640 | 270.0 |
+| `tube-maternelle` | 85 | 56.7 |
+| `tube-numerique-educatif` | 518 | 313.4 |
+| `tube-sciences-technologies` | 637 | 267.5 |
 
 ### `debconf-en-train` — DebConf talks on the Debian instance
 

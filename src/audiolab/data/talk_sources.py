@@ -57,6 +57,7 @@ SOURCES: dict[str, TalkSource] = {
             "local": True,
             "min_duration_s": peertube_edu.MIN_TALK_SECONDS,
             "channel_words_left_out": list(peertube_edu.NON_SPEECH_WORDS),
+            "title_words_left_out": list(peertube_edu.PERFORMANCE_WORDS),
         },
         lister=peertube_edu.list_talks,
         audio_url=peertube.smallest_file_url,

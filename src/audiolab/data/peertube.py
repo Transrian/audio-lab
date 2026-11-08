@@ -53,7 +53,9 @@ class Filter:
     ``name_must_not_hold`` are whole words of a channel or account display name
     ("debconf" keeps a conference, "musique" drops a music channel); a word
     never matches inside another one, so ``es`` drops ``DebConf ES`` and not
-    ``Andreas``.
+    ``Andreas``. ``title_must_not_hold`` are whole words of the video's own
+    title, for what a channel that also publishes talks puts online
+    ("concert").
     """
 
     language: str
@@ -62,6 +64,7 @@ class Filter:
     min_duration_s: int = 0
     name_must_hold: str = ""
     name_must_not_hold: tuple[str, ...] = ()
+    title_must_not_hold: tuple[str, ...] = ()
 
 
 def usable(row: dict, instance: str, filter: Filter) -> bool:
@@ -78,11 +81,13 @@ def usable(row: dict, instance: str, filter: Filter) -> bool:
     words = words_of(row["channel"]["displayName"]) | words_of(row["account"]["displayName"])
     if filter.name_must_hold and filter.name_must_hold not in words:
         return False
+    if words_of(row["name"]).intersection(filter.title_must_not_hold):
+        return False
     return not words.intersection(filter.name_must_not_hold)
 
 
 def words_of(name: str) -> set[str]:
-    """The words of a channel or account name, lowercased, accented letters kept.
+    """The words of a name or a title, lowercased, accented letters kept.
 
     A word is a run of letters, digits and underscores, so ``théâtre`` stays one
     word and ``nikkojazz`` is not ``jazz``: the filter compares whole words.

@@ -17,13 +17,17 @@ short.
 
 The music and stage channels are dropped by name because their videos are of
 music, dance or theatre, not of anyone explaining something: the licence and the
-language say nothing about that, and the instances publish songs, dances and stage
-performances next to their lessons. The words are matched as whole words of a
-channel or account display name, so "Education Musicale" is dropped and "Main
-chantallayoussaint channel" is not. A channel that glues a music word into a
-longer name ("nikkojazz") escapes the filter; ten minutes of it is rare — two
-videos of the listing — and a music video yields no clips anyway, because the two
-labelling models do not agree on music.
+language say nothing about that, and the instances publish songs, choirs, dances
+and stage performances next to their lessons. The words are matched as whole
+words of a channel or account display name, so "Education Musicale" is dropped
+and "Main chantallayoussaint channel" is not. A teacher's own channel holds
+lessons and the school concert alike, so a title that names a performance
+("Concert Chorale 2 Juin 2026", "Spectacle de Noël") is dropped as well; the
+title words are fewer, because a lesson is often about music or theatre ("Le
+professeur de musique", "Interview radio théâtre"). A channel that glues a music
+word into a longer name ("nikkojazz") escapes the filter; ten minutes of it is
+rare, and a music video yields no clips anyway, because the two labelling models
+do not agree on music.
 """
 
 from __future__ import annotations
@@ -56,6 +60,10 @@ MIN_TALK_SECONDS = 600
 NON_SPEECH_WORDS = (
     "chant",
     "chants",
+    "choeur",
+    "choeurs",
+    "chœur",
+    "chœurs",
     "chorale",
     "chorales",
     "comptine",
@@ -64,7 +72,8 @@ NON_SPEECH_WORDS = (
     "concerts",
     "danse",
     "jazz",
-    "karaok",
+    "karaoke",
+    "karaoké",
     "musicale",
     "music",
     "musique",
@@ -77,10 +86,26 @@ NON_SPEECH_WORDS = (
     "théâtre",
 )
 
+# Whole words of a video title that name a performance rather than a lesson.
+PERFORMANCE_WORDS = (
+    "choeur",
+    "chœur",
+    "chorale",
+    "chorales",
+    "concert",
+    "concerts",
+    "karaoke",
+    "karaoké",
+    "musicale",
+    "spectacle",
+    "spectacles",
+)
+
 FILTER = peertube.Filter(
     language="fr",
     min_duration_s=MIN_TALK_SECONDS,
     name_must_not_hold=NON_SPEECH_WORDS,
+    title_must_not_hold=PERFORMANCE_WORDS,
 )
 
 

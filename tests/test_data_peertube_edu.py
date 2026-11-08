@@ -59,11 +59,30 @@ def test_the_instance_list_is_the_ministry_s_instances():
         ("Les comptines de Maitresse Charlotte", False),
         ("Creil fait son théâtre 2026", False),
         ("Éducation musicale et chant choral", False),
+        ("Ville en choeur 2026", False),
+        ("Creil Ville en chœur 2025", False),
+        ("Karaoké du CM2", False),
         ("nikkojazz YT", True),  # a word glued into a longer one escapes the filter
     ],
 )
 def test_channels_that_are_not_speech_are_left_out(name, kept):
     row = api_row("v1", channel={"displayName": name}, account={"displayName": name})
+    assert peertube.usable(row, INSTANCE, peertube_edu.FILTER) is kept
+
+
+@pytest.mark.parametrize(
+    ("title", "kept"),
+    [
+        ("Le professeur de musique", True),
+        ("Interview radio théâtre", True),
+        ("Concert Chorale 2 Juin 2026", False),
+        ("SPECTACLE DE NOEL V2", False),
+        ("Comédie musicale - Voyage en Enfer", False),
+        ("Concert du 26 mai 2026 - En choeur, plus fort", False),
+    ],
+)
+def test_a_title_that_names_a_performance_is_left_out(title, kept):
+    row = api_row("v1", name=title)
     assert peertube.usable(row, INSTANCE, peertube_edu.FILTER) is kept
 
 
@@ -119,4 +138,8 @@ def test_the_pinned_listing_holds_the_ministry_s_own_long_french_videos():
     assert all(talk.license in SOURCE.allowed_licenses for talk in talks)
     assert all(talk.title and talk.author and talk.channel for talk in talks)
     assert len({talk.instance for talk in talks}) == len(peertube_edu.INSTANCES)
+    left_out = set(peertube_edu.NON_SPEECH_WORDS)
+    assert not any(peertube.words_of(f"{talk.channel} {talk.author}") & left_out for talk in talks)
+    performances = set(peertube_edu.PERFORMANCE_WORDS)
+    assert not any(peertube.words_of(talk.title) & performances for talk in talks)
     assert SOURCE.listing_filter["channel_words_left_out"] == list(peertube_edu.NON_SPEECH_WORDS)
