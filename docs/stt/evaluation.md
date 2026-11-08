@@ -15,13 +15,16 @@ room for a few gigabytes:
 ```bash
 export AUDIOLAB_DATA=/mnt/data/audio-lab/data
 audiolab data list                      # what can be prepared
-audiolab data fetch                     # everything, or: audiolab data fetch fleurs-fr
+audiolab data fetch                     # every dataset, or: audiolab data fetch fleurs-fr
 audiolab data panels fleurs-fr          # freeze fast/full/sealed id lists
 audiolab data panels fleurs-fr --check  # the panels still match this data
 ```
 
-`data fetch` is idempotent: a prepared dataset whose audio still matches the
-hashes in its manifest is left alone, and `--force` prepares it again. Each
+`data fetch` with no name prepares everything this version can prepare, the
+large training sources of the per-source screening included, so naming what you
+need is the cheaper habit. It is idempotent: a prepared dataset whose audio still
+matches the hashes in its manifest is left alone, and `--force` prepares it
+again. Each
 prepared dataset is a `manifest.jsonl` plus 16 kHz mono 16-bit WAV files; the
 manifest holds the reference text, the speaker (or sentence) a clip belongs to
 and the license. `docs/stt/datasets.md` has one card per dataset.

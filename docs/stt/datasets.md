@@ -28,6 +28,9 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 applies, while every clip of the set also holds English words: those are the two
 code-switched datasets, which exist to measure exactly that.
 
+Datasets whose name ends in `-train` do not belong to that table: they hold
+training data, they are never scored, and they have their own section below.
+
 ## Panels and their groups
 
 A **group** is the unit the bootstrap resamples: utterances of one group share a
@@ -68,6 +71,11 @@ dataset under a frozen panel.
 | `voxpopuli-en-french-accent` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
 | `servicenow-codeswitched-en-fr`, `-en-fr-ca` | `ServiceNow-AI/asr_codeswitched` | revision `82bf4b49499bcaa6f4cf6a67bebfab3ee2affcbb` | sha256 of each configuration's Parquet file (`src/audiolab/data/codeswitched.py`) |
 | `cs-fleurs-fr-en` | `byan/cs-fleurs` | revision `0cdbf166c5517ae4b6eb1c54248522eedec53017` | sha256 of each `metadata.jsonl` in the code, and of every WAV from the checksum the Hub publishes (`src/audiolab/data/csfleurs.py`) |
+| `granary-fr-train` | `espnet/yodas-granary` | revision `969944574ea3f37890beaf67ea651e160cfaf043` | sha256 published by the Hub for every shard of `data/fr000/asr_only` (`src/audiolab/data/granary.py`) |
+| `voxpopuli-fr-train` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 published by the Hub for every `fr/train-*.parquet` (`src/audiolab/data/voxpopuli_train.py`) |
+| `mls-fr-train` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for the train metadata and every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
+| `african-accented-fr-train` | OpenSLR SLR57 | `African_Accented_French.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it (`src/audiolab/data/african_french.py`) |
+| `librispeech-en-train` | OpenSLR SLR12 | `train-clean-100.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
 
 A cached file is trusted once it has been verified: re-preparing a dataset does
 not download it again, so the check happens when the file arrives.
@@ -265,6 +273,217 @@ Three kinds of clip that must stay silent, 300 in total:
   chosen; one reader for the real audio; the synthetic subset dominates the
   panel by size.
 
+## Training sources
+
+Datasets whose name ends in `-train` hold training data. No panel is drawn from
+them, no run scores them, and `audiolab data panels` is never run on them: a
+source that is both trained on and evaluated stops measuring anything. They exist
+for one experiment, the **per-source screening**: fine-tune Parakeet TDT 0.6B v3
+once per source, with the same number of clips and the same number of updates, to
+see what each source brings by itself. How that screening is run is not here;
+this section says what a prepared source is.
+
+Every source is prepared the same way, so a difference between two arms of the
+screening is a difference between corpora and not between recipes:
+
+- **The source's own train split**, recorded as each clip's `source_split`. No
+  evaluation split is read to build a training source.
+- **The source's own order**, taken until the cap of `TRAIN_CLIP_CAP` clips
+  (`src/audiolab/data/train.py`, 12 000). Nothing is drawn and nothing is
+  shuffled, so a pinned revision prepares the same clips twice. The price is that
+  the first 12 000 clips of a corpus ordered by speaker or by recording are not a
+  uniform sample of it; the group count in the table says what a cap covers.
+- **At most `CLIP_CAP_PER_GROUP` clips from one group** (200,
+  `src/audiolab/data/train.py`). Several corpora publish their train split one
+  speaker after another, and taking the first 12 000 clips in that order spends
+  the whole cap on a handful of readers (MLS: 19 speakers, one of them 5 859
+  clips). A reader that already holds its share is not read further, and a
+  fetcher skips its remaining archives instead of downloading them. The rule
+  changes nothing for a source whose groups are already smaller than the share —
+  Granary (154 clips for its largest video), SLR57 (156 for its largest speaker)
+  and `librispeech-en-train` (165) are below it — and it is what makes the 12 000
+  clips of `mls-fr-train` cover 138 readers instead of 19.
+- **Filters**: 0.5 s to 20 s of audio, text that is not empty, and audio that
+  decodes at all — the point where a damaged file would otherwise show up. A clip
+  the filters drop is counted in the fetch report and read past, so a source is
+  read until the cap or its end, and a source with fewer usable clips than the cap
+  is prepared with what it has.
+- **Groups**: the speaker wherever the corpus publishes one, the recording
+  otherwise, which `group_kind` records. A screening result is a confidence
+  interval over groups like every other number here.
+- **The text the source publishes**, which each card records. Casing and
+  punctuation are not added back: three of the five sources are lowercased or
+  uppercased and unpunctuated (MLS, SLR57, LibriSpeech), so their arms teach the
+  model to drop what it already writes; VoxPopuli is cased and punctuated human
+  text, and Granary is cased, punctuated model output that nobody verified. That
+  difference is part of what the screening measures, so nothing was rewritten to
+  make the arms look alike.
+- **No overlap with the evaluation sets** ([decision
+  0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
+  below.
+
+| dataset | language | license | split | clips | groups | hours | prepared | downloaded |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `granary-fr-train` | fr | audio CC-BY-3.0, labels CC-BY-4.0 | asr_only | 12 000 | 2 725 | 8.3 | 0.9 GiB | 1.8 GiB |
+| `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 229 | 29.0 | 3.1 GiB | 8.6 GiB |
+| `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
+| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 435 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
+| `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
+
+`prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
+read from the network; the cache keeps those bytes, so preparing a source again
+costs nothing and a fresh clone downloads all of it again.
+
+### `granary-fr-train` — pseudo-labelled YouTube French
+
+- **Source**: `espnet/yodas-granary`, `data/fr000/asr_only/*.parquet` on Hugging
+  Face (the corpus's second pass over French, `fr100` to `fr103`, is not used).
+- **License**: audio CC-BY-3.0, labels CC-BY-4.0.
+- **Text**: the pseudo-label itself, with casing and punctuation, but written by a
+  model: rows are often fragments rather than sentences, and nothing verified
+  them.
+- **Group**: the recording (`group_kind: recording`) — the YouTube video a row was
+  cut from. The corpus publishes no speaker identity, and the rows of one video
+  share a speaker, a microphone and a topic. **2 725 videos for 12 000 clips**,
+  so this source is a sample of about 2 700 videos rather than of thousands of
+  independent utterances; a screening result on it is an interval over 2 725
+  groups, and clip-level intervals would be far too narrow.
+- **What a cap covers**: the shards in the Hub's order are read until the cap, so
+  the preparation covers the beginning of the corpus (98 of 315 shards, 1.8 GiB)
+  and the rest was never downloaded.
+- **Clips are short**: the median row of this corpus lasts 1.5 s (mean 4.3 s,
+  p90 9.2 s, and 13 % of its rows fall outside the 0.5-20 s window), which is what
+  8.3 h for 12 000 clips means next to MLS's 14.8 s median. That is the corpus and
+  not the shards this preparation happened to read: the rows of the 98 shards read
+  and the rows of eight shards sampled further in the split (positions 110 to 314)
+  have the same distribution (median 1.5 s and 1.5 s, mean 4.3 s and 3.8 s), and
+  the clips written keep exactly the duration distribution of the rows that passed
+  the window (mean 2.49 s, p10 0.68 s, median 1.50 s, p90 5.18 s for both), so the
+  cap takes rows in order without preferring short ones.
+- **Why it is here**: the widest variety of French in the register — real YouTube
+  speech, in several registers — and the only pseudo-labelled source of the
+  screening, so its arms can compare model labels with human ones.
+
+### `voxpopuli-fr-train` — European Parliament French
+
+- **Source**: `facebook/voxpopuli`, config `fr`, `train-*.parquet`.
+- **License**: CC0-1.0 for the data (the corpus's code and models are not used).
+- **Text**: the `raw_text` field, which is the human-edited transcript with casing
+  and punctuation (the corpus also publishes an unpunctuated `text`, not used).
+  The corpus marks its rows as gold or not; all 15 646 rows read were gold, and 562
+  of them had no text, so they were passed over.
+- **Group**: the speaker (`group_kind: speaker`), 229 of them. VoxPopuli does
+  not name the reader of 2 130 rows of this split (13 % of the rows read): its
+  `speaker_id` column holds the string `None` for them. A clip whose reader is
+  unknown can neither be resampled by reader nor checked against an evaluation
+  set, so those rows are left out and counted rather than kept under one made-up
+  group.
+- **Why it is here**: parliamentary French with human transcripts, a different
+  register from the audiobooks and the read Wikipedia sentences, and a source the
+  earlier project trained on.
+- **What it costs**: 29.0 h for 12 000 clips; the shards are large (about 3.0 GiB
+  each), so a cap of 12 000 clips reads three of the thirteen — 8.6 GiB of Parquet.
+
+### `mls-fr-train` — read audiobook French
+
+- **Source**: `facebook/multilingual_librispeech`,
+  `data/mls_french/train/{audio_filenames.txt,segments.txt,transcripts.txt}` and
+  `data/mls_french/train/audio/*.tar.gz`, read in the published order until the
+  cap: 28 479 rows from 184 of the 600 archives, 8.6 GiB in the cache. The file
+  list is ordered by book and then by reader — the first entries are all one book
+  read by different people — so reading it straight through spends the cap on 19
+  readers; the per-group share below is what spreads it, and it left 400 further
+  archives of readers that already held their share unread and undownloaded (16
+  archives were never reached).
+- **License**: CC-BY-4.0.
+- **Group**: the speaker (`group_kind: speaker`), carried by the utterance id,
+  **138 of them**, at most 200 clips each. A screening result on this source is
+  an interval over 138 groups.
+- **Text**: lowercase and unpunctuated as the corpus publishes it. **It is also
+  damaged in places, and that is the corpus's own defect**: 531 of the 12 000
+  clips (4.4 %) hold no accented letter at all, and the loss is concentrated in
+  one book — `9061` writes 72 % of its clips that way (`encaiss` for `encaissé`,
+  `immdiatement` for `immédiatement`, `rpondit` for `répondit`), while the other
+  56 books lose an accent in 1 to 11 % of theirs (names and loan words). Every one
+  of the 12 000 texts is byte-identical to its line in the corpus's own
+  `transcripts.txt` (checked clip by clip), so nothing here was dropped by the
+  preparation; a reader who compares with the evaluation split sees that split
+  keeping its accents (98.8 % of its clips hold one), which is a property of the
+  published files of the two splits, not of how they are read. Nothing was
+  filtered, corrected or replaced: the screening has to train on the source as it
+  is, and a model trained on this arm is expected to write `immdiatement`.
+- **Why it is here**: the register closest to the target use, read audiobook
+  French, with enough volume for a cap — and the source the earlier project
+  measured as harmful in a mix ([sources.md](sources.md#abandoned--tried-then-withdrawn)),
+  which the screening tests again with this source alone. Its clips are the longest
+  of the screening (median 14.8 s, at least 10 s).
+
+### `african-accented-fr-train` — African accented French
+
+- **Source**: OpenSLR SLR57, `African_Accented_French/speech/train` with the three
+  transcript files under `transcripts/train`.
+- **License**: Apache-2.0.
+- **Text**: lowercase, unpunctuated, and it is the reference the corpus published:
+  a few lines keep a word split in two (`il y en a plus  il y en a encore`). No
+  cleanup was applied, because the screening has to score what the corpus says.
+- **Group**: the speaker (`group_kind: speaker`), 190 of them, read from the
+  directory above the recording. One speaker appears in both the read and the
+  answer recordings of the Yaoundé part, so the group is the directory and not the
+  subdirectory.
+- **What a cap covers**: the whole train part is smaller than the cap. Its 14 394
+  recordings hold 11 460 with a transcript, of which 25 are longer than 20 s, so
+  the source is 11 435 clips: **the screening's arms do not all have the same number
+  of clips**, and this one is 4.7 % short of the cap. Nothing was padded or
+  repeated to close the gap.
+- **Why it is here**: African accents are otherwise absent from open French ASR
+  data. Its transcripts are also the least punctuated of the screening, which is
+  the confound below.
+
+### `librispeech-en-train` — read audiobook English
+
+- **Source**: OpenSLR SLR12, `train-clean-100.tar.gz` (6.0 GiB), the corpus's
+  clean training audio, read in the archive's own order (speaker, then chapter,
+  then utterance) until the cap.
+- **License**: CC-BY-4.0.
+- **Text**: uppercase and unpunctuated, as the corpus publishes it.
+- **Group**: the speaker (`group_kind: speaker`), 108 of them, at most 165 clips
+  each, which is below the per-group share, so this source is untouched by it.
+  Its clips are long and close to the cap (median 14.1 s, 1.4 s to 17.3 s).
+- **Why it is here**: the English arm of the screening — the same register as
+  `mls-fr-train` in the other language, and the corpus the English evaluation
+  panel comes from, with its test speakers left out.
+
+### No overlap with the evaluation sets
+
+[Decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)
+freezes the evaluation sets of a campaign: a clip that was trained on can no
+longer measure a model. A training source therefore leaves out every group of an
+evaluation dataset that comes from the same corpus — the whole group, not the clip
+that happens to repeat, because the clips of one speaker or one sentence are not
+independent.
+
+`evaluation_groups()` (`src/audiolab/data/train.py`) reads the prepared manifests
+of the evaluation datasets and returns their groups; a fetcher whose corpus also
+feeds an evaluation set passes them to its `Take`, which counts what it left out
+in the fetch report. The evaluation dataset must be prepared (`audiolab data
+fetch`) before the training source is, because the check reads its manifest.
+
+| training source | evaluation set checked | left out |
+| --- | --- | --- |
+| `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
+| `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
+| `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
+| `granary-fr-train` | none: no evaluation set comes from this corpus | — |
+| `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
+
+No other source of the screening shares a corpus with an evaluation set: FLEURS
+is not used for training, and the two French sources that are not evaluation sets
+at all (SLR57, Granary) publish no other split here.
+
+The voxpopuli check is the one that bites. The camera-ready way to break decision
+0002 would be to train on French parliamentary speech and then score the same
+people reading English with a French accent: the exclusion is by speaker, and the
+prepared French source holds 229 speakers, none of them one of the 27.
 ## Known overlap with what models were trained on
 
 These splits are test sets, but a test set is not automatically data the model

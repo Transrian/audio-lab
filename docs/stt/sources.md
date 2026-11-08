@@ -57,6 +57,23 @@ Only what the repository settles is used here as a criterion.
   they are fixed before a training campaign starts, so a new source is checked
   against them before it is acquired.
 
+## Prepared 2026-11-08 for the per-source screening
+
+The per-source screening fine-tunes Parakeet TDT 0.6B v3 once per training
+source, with the same number of clips and the same number of updates, to see what
+each source brings by itself. On 2026-11-08 the training sources of six corpora
+were prepared for it with `audiolab data fetch`, as the datasets whose name ends
+in `-train`; [Training sources](datasets.md#training-sources) has one card per
+dataset.
+
+**Preparing a source is not training on it.** No status in this register changes
+because of this preparation: what a source becomes depends on what the screening
+shows, and that result is not in yet. The statuses stay as they are, including
+for MLS, whose train split is prepared for the screening even though it is the
+source the earlier project abandoned for training — re-testing that finding, one
+source at a time, is what the screening is for (see its row in
+[Abandoned](#abandoned--tried-then-withdrawn)).
+
 ## Used — trained on here
 
 **None.** Phase 1 of the [roadmap](../roadmap.md) evaluates existing models, and
@@ -140,7 +157,7 @@ Belgian Chamber, [Cameroon French](https://huggingface.co/datasets/africanspeech
 | # | Source | Language | License | Reason / note |
 | --- | --- | --- | --- | --- |
 | 1 | [FOSDEM](https://video.fosdem.org) | en | **CC-BY-2.0-BE**, publishable; the slides are not covered (2026-11-05) | Developer conferences: real technical vocabulary and varied English accents, French ones included. No human transcripts — the subtitles are machine output with no guarantee — so labels would be ours, and the room audio has an audience. |
-| 2 | [GLOBE V2](https://huggingface.co/datasets/MushanW/GLOBE_V2) | en | **CC0** (2026-11-05) | Acoustic adaptation to English spoken by French speakers, which is the case this project cares about. It derives from Common Voice 14, so its speakers and sentences must be excluded from the protected sets, and it is read speech, not technical. |
+| 2 | [GLOBE V2](https://huggingface.co/datasets/MushanW/GLOBE_V2) | en | **CC0** (2026-11-05) | Acoustic adaptation to English spoken by French speakers, which is the case this project cares about. It derives from Common Voice 14, so its speakers and sentences must be excluded from the protected sets, and it is read speech, not technical. **Inspected 2026-11-08 and not prepared**: its accent labels are free text, not a vocabulary — five of its 164 train shards (3 % of the split) hold four rows that mention French at all, none of them as an accent, so a French-accented subset cannot be built from it without reading the whole train split (164 shards, 69.7 GiB). Taking English generally was possible and was not done: it would have repeated the LibriSpeech source in the same screening. |
 | 3 | [media.ccc.de](https://media.ccc.de) | en (+ de) | per video, typically CC-BY-4.0, announced in the recording | Hacker, security and systems conferences with **human subtitles**. Check the licence video by video and exclude the German ones. |
 | 4 | [Granary / YODAS EN](https://huggingface.co/datasets/espnet/yodas-granary) | en | as the French side; the English side to recheck (2026-11-05) | English volume that can be filtered by technical vocabulary, through the pipeline already worked out for French. Pseudo-labels. |
 | 5 | [DebConf](https://meetings.debian.net) | en | a free licence is announced; the exact one was **not verified** (site unreachable 2026-11-05) | Debian and free-software conferences, hundreds of hours. Confirm the licence first; no human transcripts. |
@@ -189,7 +206,7 @@ cannot be checked in this repository, because the data and the runs are private.
 
 | Source | Language | License | Reason it was withdrawn |
 | --- | --- | --- | --- |
-| [MLS FR](https://www.openslr.org/94/) | fr | CC-BY-4.0 (2026-11-05) | Earlier private project (2026-11-01): measured to hurt in training — a 10 % share of a mix degraded one panel by 8–14 % relative — and abandoned there for good; not reproduced here. This repository uses the **test** split for evaluation only, which is a separate decision ([evaluation only](#evaluation-only--used-here-to-evaluate)). |
+| [MLS FR](https://www.openslr.org/94/) | fr | CC-BY-4.0 (2026-11-05) | Earlier private project (2026-11-01): measured to hurt in training — a 10 % share of a mix degraded one panel by 8–14 % relative — and abandoned there for good; not reproduced here. This repository uses the **test** split for evaluation only, which is a separate decision ([evaluation only](#evaluation-only--used-here-to-evaluate)). Its **train** split was prepared 2026-11-08 for the per-source screening, which trains on that source alone and changes no status here ([above](#prepared-2026-11-08-for-the-per-source-screening)). |
 | An unofficial Hugging Face mirror of Common Voice FR | fr | CC0 announced (2026-11-05) | Version inconsistency (16.1 files in a set announced as 17) with no attestable checksum: withdrawn by decision in the earlier project and never used here. Replaced by the official MDC release, a candidate above. |
 | Synthetic speech from Voxtral-4B-TTS FR-IT | fr, it | **model and preset voices CC-BY-NC-4.0**; the rights on the output were not established (2026-11-05) | Personal and non-commercial scope only, so unusable for a model that could be published: withdrawn by decision. The candidate list of permissive text-to-speech models replaces it. |
 | [CEFC-ORFEO](https://huggingface.co/datasets/datasets-CNRS/CEFC-ORFEO) | fr | **CC-BY-NC-SA** — 4.0 on the card, 3.0 in the individual notices; contradiction kept, not resolved (2026-10-15) | Tried as a mechanical pipeline test in the earlier project, then withdrawn: the version contradiction and the NC/SA clause are unresolved, and NC plus SA are a poor fit for a model meant to be published. License as recorded, recheck the version question before any use. |
