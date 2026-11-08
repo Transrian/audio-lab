@@ -415,3 +415,90 @@ def test_serving_a_config_without_a_serve_block_says_what_to_do(tmp_path, capsys
     )
     assert main(["serve", "--model", str(path)]) == 2
     assert "no 'serve' block" in capsys.readouterr().err
+
+
+# --- the two learning rates, checked before training starts -----------------------
+
+
+class FakeParameter:
+    """Something an optimizer group can hold; the check only compares identities."""
+
+
+class FakeModule:
+    def __init__(self, parameters):
+        self._parameters = list(parameters)
+
+    def parameters(self):
+        return self._parameters
+
+
+class FakeModel:
+    def __init__(self, groups, **parts):
+        self._optimizer = type("Optimizer", (), {"param_groups": groups})()
+        for name, module in parts.items():
+            setattr(self, name, module)
+
+
+# The two rates of the example config: the encoder, then the heads.
+RATES = {"encoder": 1.0e-5, "decoder": 3.0e-5, "joint": 3.0e-5}
+
+
+def fake_model(rates: dict | None = None, weightless: tuple = ()) -> FakeModel:
+    """A model whose named parts sit in one group each, at the rate given.
+
+    ``weightless`` names parts that carry no parameters, which the feature
+    extractor of this family is.
+    """
+    groups, parts = [], {}
+    for part, rate in (rates or RATES).items():
+        parameter = FakeParameter()
+        groups.append({"params": [parameter], "lr": rate})
+        parts[part] = FakeModule([parameter])
+    for part in weightless:
+        parts[part] = FakeModule([])
+    return FakeModel(groups, **parts)
+
+
+def test_the_rate_check_accepts_a_model_grouped_the_way_the_run_asks():
+    from audiolab.train.settings import check_rates
+
+    check_rates(fake_model(weightless=("preprocessor",)), config())
+
+
+def test_a_part_without_weights_is_allowed_to_have_an_empty_group():
+    """The feature extractor of this family computes its filters, so it has none."""
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    model._optimizer.param_groups.insert(0, {"params": [], "lr": 3.0e-5})
+    check_rates(model, config())
+
+
+def test_a_rate_that_landed_on_the_wrong_part_is_refused():
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    # The encoder's parameters end up in a group that carries the heads' rate.
+    encoder = {id(p) for p in model.encoder.parameters()}
+    for group in model._optimizer.param_groups:
+        if encoder & {id(p) for p in group["params"]}:
+            group["lr"] = 3.0e-5
+    with pytest.raises(ValueError, match="train at"):
+        check_rates(model, config())
+
+
+def test_a_model_without_one_of_the_named_parts_is_refused():
+    from audiolab.train.settings import check_rates
+
+    model = fake_model({"encoder": 1.0e-5, "joint": 3.0e-5}, weightless=("preprocessor",))
+    with pytest.raises(ValueError, match="no part named 'decoder'"):
+        check_rates(model, config())
+
+
+def test_a_third_rate_in_the_optimizer_is_refused():
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    model._optimizer.param_groups.append({"params": [FakeParameter()], "lr": 1.0})
+    with pytest.raises(ValueError, match="did not ask for"):
+        check_rates(model, config())
