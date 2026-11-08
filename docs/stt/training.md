@@ -120,7 +120,11 @@ against).
    `accumulate_grad_batches=grad_accumulation`, `max_steps=updates`, the
    precision and gradient clipping of the config, and a constant schedule with
    `warmup_updates` warmup steps — or a warmup followed by a cosine decay to
-   `min_lr` when `schedule: cosine`.
+   `min_lr` when `schedule: cosine`. Batch normalization keeps the base model's
+   statistics: its layers stay in evaluation mode, and only their scale and
+   shift train. Updating the statistics from a few padded clips per batch
+   shifted them enough to wreck inference while the training loss kept falling
+   ([screening](screening.md#the-batch-normalization-bug)).
 5. Every `log_every` updates a line goes to `train-log.jsonl` (the update, the
    loss, and the seconds since the run started) and to the terminal. The loss of
    a line is the **mean of the batch losses seen since the previous line**.

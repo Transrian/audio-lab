@@ -280,8 +280,9 @@ them, no run scores them, and `audiolab data panels` is never run on them: a
 source that is both trained on and evaluated stops measuring anything. They exist
 for one experiment, the **per-source screening**: fine-tune Parakeet TDT 0.6B v3
 once per source, with the same number of clips and the same number of updates, to
-see what each source brings by itself. How that screening is run is not here;
-this section says what a prepared source is.
+see what each source brings by itself. How that screening is run, and what it
+found, is in [per-source screening](screening.md); this section says what a
+prepared source is.
 
 Every source is prepared the same way, so a difference between two arms of the
 screening is a difference between corpora and not between recipes:

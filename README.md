@@ -75,7 +75,8 @@ what a run writes, how a stopped run resumes, and what it does not do.
 every metric and what they do not cover;
 [datasets](docs/stt/datasets.md) has one card per dataset, with its license, and
 [sources](docs/stt/sources.md) registers every data source considered, with its
-status.
+status; the [per-source screening](docs/stt/screening.md) fine-tunes on each
+training source alone and reports what it changes.
 
 ## How this repository is built
 
