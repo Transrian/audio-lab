@@ -75,9 +75,9 @@ five are `used` below; its results are in [per-source screening](screening.md).
 GLOBE V2 was not prepared (no accent labels to select French speakers by), and
 its row stays a candidate.
 
-Later the same day, three more were prepared and are not screened yet:
-`librispeech-pc-en-train`, `pxcorpus-fr-train` and `ami-fr-speakers-en-train`
-(rows below); and the text of `african-accented-fr-train` was cleaned, so its
+Later the same day, five more were prepared and are not screened yet:
+`librispeech-pc-en-train`, `pxcorpus-fr-train`, `ami-fr-speakers-en-train`,
+`icsi-en-train` and `notsofar-en-train` (rows below); and the text of `african-accented-fr-train` was cleaned, so its
 screening result describes the uncleaned text.
 
 ## Used — trained on here
@@ -190,8 +190,8 @@ speakers (none found).
 | 6 | [AMI](https://groups.inf.ed.ac.uk/ami/corpus/), the French-L1 participants | en | **CC-BY-4.0** for the corpus and its annotations ([licence page](https://groups.inf.ed.ac.uk/ami/corpus/license.shtml), 2026-11-08); this register recorded it as NC-SA until then, which was wrong | Meetings in English: 41 participants give French as their first language, about 10.8 h of their manually transcribed speech, cased and punctuated, one headset microphone each. The base model trained on AMI. Prepared as `ami-fr-speakers-en-train` (2026-11-08): only 20 of the 41 appear in a meeting with recordings, so 3 971 clips, 4.3 h. |
 | 7 | [LibriSpeech-PC](https://www.openslr.org/145/) | en | **CC-BY-4.0**, text and audio (2026-11-08) | LibriSpeech with its casing and punctuation restored: the English guard of a mix, in place of the uppercase LibriSpeech text that failed the screening. The base model very likely trained on it. Prepared as `librispeech-pc-en-train` (2026-11-08): 12 000 clips, 42.8 h, 119 speakers, the evaluation speakers left out. |
 | 9 | [NASA podcasts](https://www.nasa.gov/podcasts/houston-we-have-a-podcast/) (Houston We Have a Podcast and others) | en | **US government work**, "generally not subject to copyright" ([media guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/), 2026-11-08) | Conversational technical English, 444 episodes of the main show (about 350 h, estimated), each with a near-verbatim transcript on its page: needs aligning to the audio. Public domain is allowed ([D-019](../owner/directives.md)). |
-| 10 | [ICSI Meeting Corpus](https://groups.inf.ed.ac.uk/ami/icsi/) | en | **CC-BY-4.0** (2026-11-08) | About 70 h of real research meetings with human transcripts. The base model trained on AMI; ICSI is not cited. |
-| 11 | [NOTSOFAR-1](https://github.com/microsoft/NOTSOFAR1-Challenge) | en | **CC-BY-4.0** (README, 2026-11-08) | About 31 h of real meetings with human transcripts (and 1 000 h simulated), released in 2024, after the base model's data. |
+| 10 | [ICSI Meeting Corpus](https://groups.inf.ed.ac.uk/ami/icsi/) | en | **CC-BY-4.0** (2026-11-08) | About 70 h of real research meetings with human transcripts. The base model trained on AMI; ICSI is not cited. Prepared as `icsi-en-train` (2026-11-08): 8 752 clips, 7.7 h, 52 speakers; the per-speaker share and its short utterances keep it far below its 70 h. |
+| 11 | [NOTSOFAR-1](https://github.com/microsoft/NOTSOFAR1-Challenge) | en | **CC-BY-4.0** (README, 2026-11-08) | About 31 h of real meetings with human transcripts (and 1 000 h simulated), released in 2024, after the base model's data. Prepared as `notsofar-en-train` (2026-11-08) from the recorded train meetings only: 2 330 clips, 2.1 h, 12 speakers, so prone to overfitting in a run alone. |
 | 12 | English **PeerTube**, CC-BY or public domain | en | per video, declared by the uploader | At least 2 187 h in Science & Tech (2026-11-08), noisy (crypto and distribution channels), so a whitelist as for French. |
 | 8 | [LibriTTS-R](https://www.openslr.org/141/), [Hi-Fi TTS](https://www.openslr.org/109/) | en | **CC-BY-4.0** (2026-11-08) | Cased and punctuated read English: alternatives to LibriSpeech-PC (LibriTTS-R is the same LibriVox audio; Hi-Fi TTS has only ten speakers). |
 
