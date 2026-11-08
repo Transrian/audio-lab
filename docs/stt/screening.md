@@ -109,6 +109,31 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   non-speech from 5.0 % to 1.1–2.5 %. Whether that comes from the data or from
   fine-tuning at all, this screening cannot tell.
 
+### What the base model already saw
+
+No source made the main French panel better: the best change on fleurs-fr is
+−0.21 [−0.45, +0.02], which does not exclude zero. One likely reason is that the
+base model has seen most of this data already. Its
+[model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) says it was
+trained on about 660 000 hours of Granary, its main training set, and 10 000
+hours of human-transcribed speech, and cites among its sources YODAS and
+YouTube-Commons (where `granary-fr-train` comes from), MOSEL (pseudo-labels over
+VoxPopuli audio), MLS, FLEURS and CoVoST 2. The card does not list the exact
+corpora per language, so the overlap is likely, not checked. Of the five sources,
+only African-accented French is not among those cited.
+
+Two consequences:
+
+- **Gains in French need data the base model has not seen**: the target use of
+  D-009 (a developer dictating, French with English words and technical terms)
+  rather than more of the same corpora. The candidates are in the
+  [source register](sources.md).
+- **Granary as an anchor in a mix.** Because Granary is close to what the model
+  learned, and harms nothing alone, it could hold the scores in a mix: a new
+  source that improves one panel and degrades another would be trained together
+  with a share of Granary, so that the model keeps what it knew. That is a
+  hypothesis for the mix phase; this screening does not test it.
+
 ## The batch normalization bug
 
 The first two runs (Granary, LibriSpeech) came back broken, and the way they
