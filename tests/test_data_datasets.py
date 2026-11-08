@@ -38,7 +38,7 @@ from audiolab.data.nonspeech import (  # noqa: E402
     low_level_noise,
 )
 from audiolab.data.store import Clip, read_manifest, verify_clips, write_manifest  # noqa: E402
-from audiolab.data.voxpopuli import fetch_voxpopuli_french_accent  # noqa: E402
+from audiolab.data.voxpopuli import fetch_voxpopuli_nonnative  # noqa: E402
 
 
 @pytest.fixture
@@ -424,11 +424,12 @@ def make_manifest_clip(clip_id: str, audio: str, sha256: str = "0" * 64) -> Clip
     )
 
 
-def fake_voxpopuli_cache(cache: Path, name: str = "voxpopuli-en-french-accent") -> None:
+def fake_voxpopuli_cache(cache: Path, name: str = "voxpopuli-en-nonnative") -> None:
     """A cache that looks like a downloaded VoxPopuli accent subset.
 
     The subset is one split in two Parquet shards holding the audio in a column
-    and fifteen accents between them: only the French one is kept.
+    and fifteen accents between them: only the rows the corpus labels ``en_fr``
+    are kept.
     """
     directory = cache / name
     tone = write_tone(directory / "tone.wav", seconds=0.3)
@@ -453,38 +454,38 @@ def fake_voxpopuli_cache(cache: Path, name: str = "voxpopuli-en-french-accent") 
 VOXPOPULI_SHARDS = ("test-00000-of-00002.parquet", "test-00001-of-00002.parquet")
 
 
-def test_voxpopuli_keeps_only_the_french_accent(dirs):
-    """Fifteen accents share the subset; the panel must hold only the French one."""
+def test_voxpopuli_keeps_only_the_en_fr_accent(dirs):
+    """Fifteen accents share the subset; the panel must hold only the ``en_fr`` rows."""
     data, cache = dirs
     fake_voxpopuli_cache(cache)
     assert (
-        fetch_voxpopuli_french_accent(
-            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        fetch_voxpopuli_nonnative(
+            "voxpopuli-en-nonnative", cache, data / "voxpopuli-en-nonnative", verbose=False
         )
         == 2
     )
 
-    clips = read_manifest(data / "voxpopuli-en-french-accent")
-    first = {clip.id: clip for clip in clips}["voxpopuli-en-french-accent:PLENARY-1-en_1"]
+    clips = read_manifest(data / "voxpopuli-en-nonnative")
+    first = {clip.id: clip for clip in clips}["voxpopuli-en-nonnative:PLENARY-1-en_1"]
     assert first.text == "So this means the quite relevant change"
     assert first.language == "en"
     # The speaker is the group: one accent is spoken by several people.
-    assert first.group == "voxpopuli-en-french-accent:124746"
+    assert first.group == "voxpopuli-en-nonnative:124746"
     assert first.group_kind == "speaker"
     # The corpus's transcripts carry no punctuation, so there is no formatted view.
     assert first.text_has_casing_punct is False
     assert first.license.startswith("CC0-1.0")
     assert first.source_split == "test"
     assert len({clip.group for clip in clips}) == 2
-    assert verify_clips(data / "voxpopuli-en-french-accent", clips) == []
+    assert verify_clips(data / "voxpopuli-en-nonnative", clips) == []
 
 
 def test_voxpopuli_refuses_a_transcript_that_is_not_gold(dirs):
     """The point of this set is human-edited transcripts; the flag says which are."""
     data, cache = dirs
     fake_voxpopuli_cache(cache)
-    shard = cache / "voxpopuli-en-french-accent" / VOXPOPULI_SHARDS[0]
-    tone = cache / "voxpopuli-en-french-accent" / "tone.wav"
+    shard = cache / "voxpopuli-en-nonnative" / VOXPOPULI_SHARDS[0]
+    tone = cache / "voxpopuli-en-nonnative" / "tone.wav"
     write_parquet(
         shard,
         {
@@ -496,8 +497,8 @@ def test_voxpopuli_refuses_a_transcript_that_is_not_gold(dirs):
         },
     )
     with pytest.raises(DownloadError, match="not a gold transcript"):
-        fetch_voxpopuli_french_accent(
-            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        fetch_voxpopuli_nonnative(
+            "voxpopuli-en-nonnative", cache, data / "voxpopuli-en-nonnative", verbose=False
         )
 
 
@@ -506,8 +507,8 @@ def test_voxpopuli_refuses_a_split_that_is_not_the_published_size(dirs, monkeypa
     fake_voxpopuli_cache(cache)
     monkeypatch.setattr("audiolab.data.voxpopuli.EXPECTED_CLIPS", 5)
     with pytest.raises(DownloadError, match="prepared 2 clips but 5 were expected"):
-        fetch_voxpopuli_french_accent(
-            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        fetch_voxpopuli_nonnative(
+            "voxpopuli-en-nonnative", cache, data / "voxpopuli-en-nonnative", verbose=False
         )
 
 
