@@ -351,6 +351,7 @@ screening is a difference between corpora and not between recipes:
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
+| `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -616,6 +617,87 @@ costs nothing and a fresh clone downloads all of it again.
   `mls-fr-train` in the other language, and the corpus the English evaluation
   panel comes from, with its test speakers left out.
 
+The sources below, like `peertube-fr-train`, are **talks** rather than corpora: a
+pinned listing of videos, read in a seeded order, whose audio is labelled by two
+speech models where they agree. One module holds that machinery for all of them
+(`src/audiolab/data/talks.py` and `talk_clips.py`), and each source is a listing
+module plus one entry in `src/audiolab/data/talk_sources.py`, which says what the
+listing must hold, in which language the talks are labelled, where a talk's audio
+comes from and what a seeded selection spreads over. What is specific to a
+source — its catalogue, its licence, its selection, its size — is in its card;
+everything else is the same for the four and is described in the card of
+`peertube-fr-train`. All of them depart from the rules above for the same three
+reasons: no splits (a video platform has none), a seeded order instead of the
+catalogue's, and model labels instead of a transcript somebody published.
+
+### `peertube-edu-fr-train` — the education ministry's French videos
+
+- **Source**: the eleven PeerTube instances the French ministry of education runs on
+  `apps.education.fr`, one per teaching area or school level, each with its own
+  catalogue and its own REST API. `audiolab data list-talks peertube-edu-fr-train`
+  asks every instance for its own videos in French under licence CC BY (PeerTube
+  licence id 1) or CC0 (id 7) and writes the answer to
+  [`peertube_edu_listing.json`](../../src/audiolab/data/peertube_edu_listing.json).
+  The eleven instances are committed in `src/audiolab/data/peertube_edu.py`: they
+  are the hosts the PeerTube instance index (`instances.joinpeertube.org`) lists
+  under that domain (checked 2026-11-08); the ministry's own `tube-test` instance is
+  left out. The listing of 2026-11-08 holds **2 652 videos, 1 511.1 h** — every
+  instance is in it, the shortest video is 600 s and the median 1 198 s. The videos
+  and the hours per instance, which the table at the end of this card holds, are
+  lopsided: the largest instance (`tube-arts-lettres-sciences-humaines`) holds 658
+  of the 2 652 videos, which is why a seeded selection spreads over the instance and
+  not over the listing.
+- **License and attribution**: per video, as each uploader declared it: PeerTube
+  licence id 1 ("Attribution") is recorded as `CC-BY` and id 7 ("Public Domain
+  Dedication") as `CC0-1.0` — PeerTube names a licence without a version, so the
+  manifest records none. 2 488 videos are CC BY and 164 CC0. Every clip carries its
+  own video's `source_url`, `source_title`, `source_author` (the PeerTube account)
+  and `license`; the channel — a teacher's channel, a mission, a discipline — is the
+  collection the video sits in.
+- **Language**: French, from the video's own language tag, and the tag is required:
+  an untagged video is not listed. These instances tag their videos (unlike the
+  Debian one, whose card says how that is handled), and a video another instance
+  tagged in another language is not this source's.
+- **What the filter leaves out**: videos shorter than ten minutes, videos the
+  instance does not host itself, videos under another licence, and channels whose
+  name holds a word of music, song or the stage (`NON_SPEECH_WORDS` in
+  `src/audiolab/data/peertube_edu.py`). Those words are matched whole, so `Éducation
+  musicale et chant choral` and `La Chorale de Jean Zay !` are left out where `Main
+  chantallayoussaint channel` is not; ten minutes of music is rare anyway, and a
+  music video yields no clips, the two labelling models not agreeing on music. The
+  classes, the staff meetings and the teachers explaining a lesson are what the
+  source keeps — the ministry's videos are lessons and webinars, not conference
+  talks only.
+- **Split and order**: `source_split` is `listing`; the listing is written in uuid
+  order and read in a seeded shuffle (`SEED`) spread over the instance, so the first
+  talks of a preparation cover all eleven catalogues instead of the biggest one.
+  Audio comes from the smallest file the instance serves for a video, converted to
+  16 kHz mono WAV; the video is deleted once its sound is out.
+- **Why it is here**: it is the French arm that is neither a conference nor a
+  published corpus — teachers and the ministry speaking French, on every school
+  subject, in a register no evaluation set of this repository has. It is the French
+  counterpart of the conference sources with a wider vocabulary: one speaker per
+  video, on arithmetic as well as on physics.
+- **Group**: the recording (`group_kind: recording`, the video uuid). A video
+  usually holds one speaker; the listing names none, and a video that records a
+  class holds the pupils' voices as well.
+
+Per instance, as the listing of 2026-11-08 holds them:
+
+| instance | videos | hours |
+| --- | --- | --- |
+| `tube-action-educative` | 254 | 168.8 |
+| `tube-arts-lettres-sciences-humaines` | 658 | 430.3 |
+| `tube-cycle-2` | 100 | 44.9 |
+| `tube-cycle-3` | 126 | 60.4 |
+| `tube-education-physique-et-sportive` | 28 | 17.4 |
+| `tube-enseignement-professionnel` | 84 | 41.4 |
+| `tube-institutionnel` | 121 | 83.1 |
+| `tube-langues-vivantes` | 29 | 18.5 |
+| `tube-maternelle` | 89 | 58.5 |
+| `tube-numerique-educatif` | 523 | 317.9 |
+| `tube-sciences-technologies` | 640 | 270.0 |
+
 ### No overlap with the evaluation sets
 
 [Decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)
@@ -641,6 +723,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
+| `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the two French sources that are not evaluation sets

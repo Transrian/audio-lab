@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from audiolab.data import peertube
+from audiolab.data import peertube, peertube_edu
 from audiolab.data.datasets import DATASETS
 from audiolab.data.talks import PreparedAudio, Talk, TalkSource, fetch_talks, prepare_audio
 
@@ -45,6 +45,24 @@ SOURCES: dict[str, TalkSource] = {
             filter=peertube.Filter(language="fr"),
         ),
         audio_url=peertube.smallest_file_url,
+    ),
+    "peertube-edu-fr-train": TalkSource(
+        name="peertube-edu-fr-train",
+        language="fr",
+        allowed_licenses=PEERTUBE_LICENSES,
+        split="listing",
+        listing_path=DATA / "peertube_edu_listing.json",
+        listing_filter={
+            "instances": list(peertube_edu.INSTANCES),
+            "licence_ids": list(peertube_edu.FILTER.licence_ids),
+            "language": peertube_edu.FILTER.language,
+            "local": True,
+            "min_duration_s": peertube_edu.MIN_TALK_SECONDS,
+            "channel_words_left_out": list(peertube_edu.NON_SPEECH_WORDS),
+        },
+        lister=peertube_edu.list_talks,
+        audio_url=peertube.smallest_file_url,
+        spread_by=peertube_edu.spread_key,
     ),
 }
 
