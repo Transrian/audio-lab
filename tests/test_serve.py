@@ -20,7 +20,12 @@ from audiolab.core.checkpoint import file_sha256  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
 from audiolab.serve.config import ServeConfigError, ServeSpec  # noqa: E402
 from audiolab.serve.http import TranscriptionServer, parse_multipart  # noqa: E402
-from audiolab.serve.launcher import serve_command, serving, start_server  # noqa: E402
+from audiolab.serve.launcher import (  # noqa: E402
+    reported_identity,
+    serve_command,
+    serving,
+    start_server,
+)
 
 FAKE_WAV = b"RIFF\x00\x00\x00\x00WAVEfmt "
 
@@ -69,6 +74,33 @@ def test_models_lists_the_served_checkpoint(tmp_path):
         answer = httpx.get(f"{server.base_url}/v1/models")
         assert answer.status_code == 200
         assert [entry["id"] for entry in answer.json()["data"]] == ["my-checkpoint"]
+
+
+def test_models_reports_what_the_server_holds(tmp_path):
+    """A run that started this server compares this with what it asked for."""
+    checkpoint = checkpoint_file(tmp_path)
+    spec = ServeSpec(checkpoint=str(checkpoint))
+    with TranscriptionServer(fake_backend(), "my-checkpoint", identity=spec.identity()) as server:
+        entry = httpx.get(f"{server.base_url}/v1/models").json()["data"][0]
+        assert entry["identity"] == spec.identity()
+        assert entry["identity"]["checkpoint"] == f"sha256={file_sha256(checkpoint)}"
+    # A server that cannot identify its checkpoint reports no identity at all,
+    # rather than one the caller would trust.
+    with TranscriptionServer(fake_backend(), "my-checkpoint") as server:
+        assert "identity" not in httpx.get(f"{server.base_url}/v1/models").json()["data"][0]
+
+
+def test_reported_identity_reads_the_server_or_nothing(tmp_path):
+    """The reader never invents an identity: an unusable answer is no identity."""
+    spec = ServeSpec(checkpoint=str(checkpoint_file(tmp_path)))
+    with TranscriptionServer(fake_backend(), "m", identity=spec.identity()) as server:
+        assert reported_identity(server.base_url) == spec.identity()
+    with TranscriptionServer(fake_backend(), "m") as server:
+        base_url = server.base_url
+        assert reported_identity(base_url) is None
+    # Nothing listening there any more, and nothing that answers the endpoint.
+    assert reported_identity(base_url, timeout_s=2) is None
+    assert reported_identity("http://127.0.0.1:9", timeout_s=2) is None
 
 
 def test_the_server_root_and_the_version_root_answer_the_same():

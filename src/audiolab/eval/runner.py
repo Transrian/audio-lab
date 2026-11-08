@@ -59,7 +59,7 @@ from audiolab.eval.records import (
 )
 from audiolab.eval.report import score_run
 from audiolab.serve.config import ServeSpec
-from audiolab.serve.launcher import serving
+from audiolab.serve.launcher import reported_identity, serving
 
 DEFAULT_CONCURRENCY = 1
 SEALED_WARNING = (
@@ -135,21 +135,50 @@ def run_suite(context: RunContext, *, client_factory=None) -> Path:
     _refuse_sealed_without_flag(context)
     spec = context.serving_spec()
     if spec is None:
+        # An endpoint the run was pointed at, not a checkpoint it serves: what its
+        # answers belong to is the address, and the config's ``serve`` block, if it
+        # has one, describes a server this run never started.
         return _answer_and_score(
             context, context.base_url or base_url_from_env(context.model), client_factory
         )
     with serving(spec, context.model.model) as base_url:
-        return _answer_and_score(context, base_url, client_factory)
+        _refuse_foreign_server(base_url, spec)
+        return _answer_and_score(context, base_url, client_factory, served=spec)
 
 
-def _answer_and_score(context: RunContext, base_url: str, client_factory=None) -> Path:
+def _refuse_foreign_server(base_url: str, spec: ServeSpec) -> None:
+    """Stop before an answer is recorded if the server is not the checkpoint asked for.
+
+    The server is asked what it holds rather than believed. A stale port, a child
+    that loaded other weights, or a server that says nothing would all fill the
+    cache with answers attributed to the wrong checkpoint, and the cache is what
+    every later run trusts (D-017).
+    """
+    wanted = spec.identity()
+    reported = reported_identity(base_url)
+    if reported != wanted:
+        raise RunError(
+            f"the server started at {base_url} reports {_identity_words(reported)}, not "
+            f"{_identity_words(wanted)} as this config asks; stopping instead of recording "
+            "answers as another checkpoint's"
+        )
+
+
+def _identity_words(identity: dict | None) -> str:
+    """One identity, in a message: what it is, or that there is none."""
+    return "no identity" if identity is None else json.dumps(identity, sort_keys=True)
+
+
+def _answer_and_score(
+    context: RunContext, base_url: str, client_factory=None, *, served: ServeSpec | None = None
+) -> Path:
     """Send what is not cached, then rebuild and score the run directory."""
     items_by_panel = {
         panel: load_panel_items(panel, context.panels_dir, context.data_dir)
         for panel in context.suite.panels
     }
     key_bytes = identity_key(Path(context.runs_root))
-    fingerprint = identity_fingerprint(_endpoint_identity(context), key_bytes)
+    fingerprint = identity_fingerprint(_endpoint_identity(served, base_url), key_bytes)
     key = transcript_key(context.model, fingerprint)
     cache_path = cache_file(Path(context.runs_root), key)
     open_cache(cache_path, key)
@@ -158,7 +187,7 @@ def _answer_and_score(context: RunContext, base_url: str, client_factory=None) -
     if pending:
         factory = client_factory or _default_client
         _transcribe_pending(context, pending, cache_path, base_url, factory)
-    run_dir = _write_run(context, items_by_panel, cache_path)
+    run_dir = _write_run(context, items_by_panel, cache_path, served)
     failed = _announce(context, run_dir, cache_path, sent=len(pending))
     score_run(run_dir, context.panels_dir, context.data_dir)
     if failed:
@@ -171,18 +200,20 @@ def _answer_and_score(context: RunContext, base_url: str, client_factory=None) -
     return run_dir
 
 
-def _endpoint_identity(context: RunContext) -> str:
+def _endpoint_identity(served: ServeSpec | None, base_url: str) -> str:
     """What the answers of a run belong to.
 
-    For a remote server it is the server root. For a checkpoint served here it
-    is the checkpoint itself - its content hash, or its Hub id - with the
-    backend and the decoding settings, because a temporary server listens on a
-    port that changes on every run, and a key that followed the port would ask
-    the same checkpoint every clip of every run (D-017).
+    For a server the run was pointed at, it is that server's root. For a
+    checkpoint the run served itself it is the checkpoint - its content hash, or
+    its Hub id - with the backend and the decoding settings, because the
+    temporary server listens on a port that changes on every run, and a key that
+    followed the port would ask the same checkpoint again for every clip of every
+    run (D-017). ``served`` says which of the two this run is: a config may name
+    a ``serve`` block and still be pointed somewhere else for one run.
     """
-    if context.model.serve is not None:
-        return json.dumps(context.model.serve.identity(), sort_keys=True)
-    return server_root(context.base_url or base_url_from_env(context.model))
+    if served is not None:
+        return json.dumps(served.identity(), sort_keys=True)
+    return server_root(base_url)
 
 
 def _default_client(context: RunContext, base_url: str):
@@ -205,7 +236,12 @@ def _refuse_sealed_without_flag(context: RunContext) -> None:
         print(f"warning: {SEALED_WARNING}")
 
 
-def _identity(context: RunContext, panels: list[str], cache_path: Path) -> dict:
+def _identity(
+    context: RunContext,
+    panels: list[str],
+    cache_path: Path,
+    served: ServeSpec | None = None,
+) -> dict:
     """What a run directory describes: the model, the panels, the code, the cache.
 
     It is rewritten on every run, so it always matches the records next to it.
@@ -214,7 +250,7 @@ def _identity(context: RunContext, panels: list[str], cache_path: Path) -> dict:
     meant to be shared and a URL names a host.
     """
     return {
-        "model": context.model.identity(),
+        "model": context.model.identity(include_serve=served is not None),
         "panels": panel_hashes(panels, context.panels_dir),
         "suite": context.suite.name,
         "audiolab_version": __version__,
@@ -263,7 +299,10 @@ def identity_key(runs_root: Path) -> bytes:
 
 
 def _write_run(
-    context: RunContext, items_by_panel: dict[str, list[Item]], cache_path: Path
+    context: RunContext,
+    items_by_panel: dict[str, list[Item]],
+    cache_path: Path,
+    served: ServeSpec | None = None,
 ) -> Path:
     """Rebuild the suite's run directory from the cache: identity and records.
 
@@ -279,7 +318,7 @@ def _write_run(
         for panel, items in items_by_panel.items()
         for item in items
     ]
-    identity = _identity(context, list(items_by_panel), cache_path)
+    identity = _identity(context, list(items_by_panel), cache_path, served)
     _warn_if_replacing_another_run(context, run_dir, identity)
     (run_dir / IDENTITY_NAME).write_text(
         json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8"

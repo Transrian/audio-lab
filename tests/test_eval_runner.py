@@ -848,7 +848,7 @@ def fake_serving(calls: list, text: str = "bonjour tout le monde"):
 
     @contextmanager
     def serving(spec, model_id):
-        server = TranscriptionServer(transcribe, model_id).start()
+        server = TranscriptionServer(transcribe, model_id, identity=spec.identity()).start()
         try:
             yield server.base_url
         finally:
@@ -923,7 +923,7 @@ def test_a_served_run_that_fails_still_stops_its_server(workspace, tmp_path, mon
 
     @contextmanager
     def serving(spec, model_id):
-        server = TranscriptionServer(failing, model_id).start()
+        server = TranscriptionServer(failing, model_id, identity=spec.identity()).start()
         used.append(server.base_url)
         try:
             yield server.base_url
@@ -943,3 +943,95 @@ def test_a_served_run_that_fails_still_stops_its_server(workspace, tmp_path, mon
     assert len(used) == 1
     with pytest.raises(httpx.TransportError):
         httpx.get(f"{used[0]}/v1/models", timeout=2)
+
+
+def test_a_serve_config_pointed_at_a_server_belongs_to_that_server(workspace, tmp_path):
+    """With ``--base-url`` the run talks to an endpoint, not to the checkpoint in its config.
+
+    A run that was pointed somewhere else must key its answers on the address it
+    used, must not describe a checkpoint it never loaded - and must not need that
+    file to exist.
+    """
+    never_served = tmp_path / "never-served.nemo"
+    runs_root = tmp_path / "runs"
+    calls: list = []
+
+    def transcribe(audio: bytes, language: str = "") -> str:
+        calls.append(audio)
+        return "bonjour tout le monde"
+
+    first = TranscriptionServer(transcribe, "parakeet-tdt-0.6b-v3").start()
+    second = TranscriptionServer(transcribe, "parakeet-tdt-0.6b-v3").start()
+    try:
+        spec = ServeSpec(checkpoint=str(never_served))
+
+        def endpoint(base_url: str):
+            changed = served_context(workspace, spec, runs_root, name="endpoint")
+            changed.base_url = base_url
+            return changed
+
+        run_dir = run_suite(endpoint(first.base_url))
+        assert len(calls) == panel_size(workspace)
+
+        # The same address is the same endpoint: nothing is sent twice.
+        run_suite(endpoint(first.base_url))
+        assert len(calls) == panel_size(workspace)
+
+        # Another address is another endpoint: every clip is a new question.
+        run_suite(endpoint(second.base_url))
+        assert len(calls) == 2 * panel_size(workspace)
+    finally:
+        first.stop()
+        second.stop()
+
+    assert len(list((runs_root / "transcripts").glob("*.jsonl"))) == 2
+    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    assert identity["model"]["serve"] is None
+
+
+def test_a_server_that_reports_another_checkpoint_is_refused(workspace, tmp_path, monkeypatch):
+    """A server holding other weights would poison the cache; the run stops first."""
+    checkpoint = tmp_path / "asked-for.nemo"
+    checkpoint.write_bytes(b"the weights the config asks for")
+    calls: list = []
+
+    @contextmanager
+    def lying_serving(spec, model_id):
+        server = TranscriptionServer(
+            lambda audio, language="": calls.append(audio) or "bonjour tout le monde",
+            model_id,
+            # A checkpoint that is not the one the config asks for.
+            identity={**spec.identity(), "checkpoint": "sha256=" + "0" * 64},
+        ).start()
+        try:
+            yield server.base_url
+        finally:
+            server.stop()
+
+    monkeypatch.setattr(runner, "serving", lying_serving)
+    changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
+    with pytest.raises(RunError, match="as this config asks"):
+        run_suite(changed)
+    assert calls == []
+
+
+def test_a_server_that_reports_no_identity_is_refused(workspace, tmp_path, monkeypatch):
+    """An answer that cannot be attributed to a checkpoint is not worth keeping."""
+    checkpoint = tmp_path / "asked-for.nemo"
+    checkpoint.write_bytes(b"the weights the config asks for")
+
+    @contextmanager
+    def silent_serving(spec, model_id):
+        def silent(audio: bytes, language: str = "") -> str:
+            return "bonjour tout le monde"
+
+        server = TranscriptionServer(silent, model_id).start()
+        try:
+            yield server.base_url
+        finally:
+            server.stop()
+
+    monkeypatch.setattr(runner, "serving", silent_serving)
+    changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
+    with pytest.raises(RunError, match="reports no identity"):
+        run_suite(changed)

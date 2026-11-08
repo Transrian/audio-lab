@@ -19,7 +19,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from queue import Empty, Queue
 
+import httpx
+
 from audiolab.serve.config import ServeConfigError, ServeSpec
+from audiolab.serve.http import MODELS_PATH
 from audiolab.serve.runtime import DEFAULT_HOST, READY_PREFIX
 
 # Where to look for the interpreter that can load a checkpoint.
@@ -30,6 +33,8 @@ READY_TIMEOUT_S = 900.0
 # How long a server may take to stop, first when asked nicely (its standard
 # input closes), then when told to terminate, before it is killed.
 STOP_TIMEOUT_S = 30.0
+# How long a server that is up may take to say which checkpoint it holds.
+IDENTITY_TIMEOUT_S = 30.0
 
 
 def serving_python() -> str:
@@ -69,6 +74,23 @@ def serve_command(
     ]
     command += ["--checkpoint", str(checkpoint)]
     return command
+
+
+def reported_identity(base_url: str, *, timeout_s: float = IDENTITY_TIMEOUT_S) -> dict | None:
+    """The identity the server at ``base_url`` reports, or ``None`` when it reports none.
+
+    A server that answers nothing usable is treated like one that reports no
+    identity: the caller refuses answers it cannot attribute, rather than
+    recording them as the checkpoint it asked for.
+    """
+    try:
+        answer = httpx.get(f"{base_url}{MODELS_PATH}", timeout=timeout_s)
+        answer.raise_for_status()
+        entry = answer.json()["data"][0]
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
+        return None
+    identity = entry.get("identity") if isinstance(entry, dict) else None
+    return identity if isinstance(identity, dict) else None
 
 
 class ServingProcess:

@@ -111,12 +111,16 @@ class ModelConfig:
             serve=serve,
         )
 
-    def identity(self) -> dict:
+    def identity(self, *, include_serve: bool = True) -> dict:
         """What makes a run this model: the config, without any secret value.
 
         Only the *names* of the environment variables are recorded, so a run
         identity can be committed or shared safely. A served checkpoint appears
         as its content, never as the path it was read from.
+
+        ``include_serve`` is for a run that was pointed at a running server
+        instead of being served its own: it must not describe a checkpoint it
+        never loaded, and must not need that file to exist to be recorded.
         """
         return {
             "name": self.name,
@@ -127,7 +131,7 @@ class ModelConfig:
             "send_language": self.send_language,
             "server_label": self.server_label,
             "request": self.request,
-            "serve": self.serve.identity() if self.serve else None,
+            "serve": self.serve.identity() if (self.serve and include_serve) else None,
         }
 
 

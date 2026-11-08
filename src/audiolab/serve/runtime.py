@@ -53,6 +53,22 @@ def build_transcriber(
     return transcriber(spec)
 
 
+def served_identity(spec: ServeSpec) -> dict | None:
+    """What this server holds, for ``GET /v1/models``.
+
+    It is read from the checkpoint itself rather than assumed, so whoever started
+    this server can compare it with the checkpoint that was meant to be served. A
+    checkpoint that cannot be identified - a test double, or a file that moved
+    between the two processes - is served without one: the side that started the
+    server knows what it asked for, and it refuses an identity it cannot check
+    instead of trusting the port.
+    """
+    try:
+        return spec.identity()
+    except ServeConfigError:
+        return None
+
+
 def announce(base_url: str) -> None:
     """Tell whoever started this process which address is being served."""
     payload = {"base_url": base_url}
@@ -74,7 +90,9 @@ def run_foreground(
     announced; nothing has to be guessed or checked in advance.
     """
     handler = build_transcriber(spec, transcribe)
-    server = TranscriptionServer(handler, model_id, host=host, port=port)
+    server = TranscriptionServer(
+        handler, model_id, host=host, port=port, identity=served_identity(spec)
+    )
     stop = threading.Event()
     _watch_signals(stop)
     if stop_when_stdin_closes:

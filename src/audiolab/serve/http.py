@@ -59,6 +59,11 @@ class TranscriptionServer:
     Everything the server knows about the model comes from that function, so the
     HTTP layer is testable without a model, and a new backend changes nothing
     here.
+
+    ``identity`` is what ``GET /v1/models`` reports the server holds: a run that
+    started this server compares it with the checkpoint it meant to serve before
+    it records an answer, which is what makes a stale port or a child holding
+    other weights impossible to mistake for the model a run asked for.
     """
 
     def __init__(
@@ -67,9 +72,11 @@ class TranscriptionServer:
         model_id: str,
         host: str = "127.0.0.1",
         port: int = 0,
+        identity: dict | None = None,
     ):
         self.transcribe = transcribe
         self.model_id = model_id
+        self.identity = identity
         self.host = host
         # A model holds a GPU and is not reentrant, so requests are serialised
         # here rather than inside every backend. The socket is bound now, in the
@@ -177,7 +184,10 @@ class TranscriptionServer:
         return Handler
 
     def _model_entry(self) -> dict:
-        return {"id": self.model_id, "object": "model", "owned_by": "audiolab"}
+        entry = {"id": self.model_id, "object": "model", "owned_by": "audiolab"}
+        if self.identity is not None:
+            entry["identity"] = self.identity
+        return entry
 
     def _transcribe(self, audio: bytes, language: str) -> str:
         with self._lock:

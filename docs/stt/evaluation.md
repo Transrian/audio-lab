@@ -136,6 +136,16 @@ The decoding it imposes is recorded in the run identity: greedy, batched
 (`greedy_batch`), `max_symbols` from the config, with the fused batch fast paths
 that an archive carries for training turned off.
 
+A server answers `GET /v1/models` with the identity of the checkpoint it holds —
+its content, its backend and its decoding settings. `audiolab eval` reads it back
+from the server it started and stops if it is not the checkpoint the config asks
+for, so a port still answering in the name of another model can never fill the
+cache with answers attributed to the wrong one.
+
+With `--base-url`, or with a config that has no `serve:` block, the run talks to
+an endpoint instead: the cache key is then that server's address, and the
+checkpoint a config may also name is never read.
+
 ## 4. Run and read the result
 
 ```bash
