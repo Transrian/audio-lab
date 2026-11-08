@@ -37,6 +37,10 @@ LICENSES = {1: "CC-BY", 7: "CC0-1.0"}
 PAGE_SIZE = 100
 PAUSE_S = 1.0
 RETRIES = 6
+# What an instance answers when it is busy, not when the request is wrong: a 500
+# from a large instance is a query that timed out under load, and the same page
+# answers a minute later.
+RETRY_STATUSES = (429, 500, 502, 503, 504)
 
 
 @dataclass(frozen=True)
@@ -159,7 +163,7 @@ def get_json(http: httpx.Client, url: str, params: dict | None = None) -> dict:
             if attempt == RETRIES:
                 raise DownloadError(f"cannot reach {url}: {failure}") from failure
             continue
-        if response.status_code in (429, 503):
+        if response.status_code in RETRY_STATUSES:
             time.sleep(retry_after_s(response.headers.get("retry-after"), 5.0 * attempt))
             continue
         if response.status_code >= 400:

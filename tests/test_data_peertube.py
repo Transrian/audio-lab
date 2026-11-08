@@ -133,6 +133,28 @@ def test_a_request_the_instance_refuses_is_asked_again_after_the_wait_it_names(m
     assert 7.0 in waits
 
 
+def test_a_server_error_is_asked_again_and_survives_a_large_instance(monkeypatch):
+    waits = []
+    monkeypatch.setattr(peertube.time, "sleep", waits.append)
+    answers = iter(
+        [
+            httpx.Response(500),
+            httpx.Response(502),
+            httpx.Response(200, json={"total": 5827}),
+        ]
+    )
+    with httpx.Client(transport=httpx.MockTransport(lambda request: next(answers))) as http:
+        assert peertube.get_json(http, f"{INSTANCE}/api/v1/videos")["total"] == 5827
+    assert [wait for wait in waits if wait > 1.0] == [5.0, 10.0], "backing off, then answering"
+
+
+def test_an_instance_that_keeps_failing_is_reported_and_not_read_on(monkeypatch):
+    monkeypatch.setattr(peertube.time, "sleep", lambda seconds: None)
+    with httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(503))) as http:
+        with pytest.raises(DownloadError, match="still refused after"):
+            peertube.get_json(http, f"{INSTANCE}/api/v1/videos")
+
+
 def test_the_smallest_file_of_a_talk_is_asked_for_at_download_time():
     details = {
         "files": [{"size": 900, "fileUrl": f"{INSTANCE}/big.mp4"}],
