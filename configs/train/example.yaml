@@ -31,10 +31,14 @@ clips: 4000
 updates: 5000
 
 # Clips per update, and how many updates one forward-backward pass is split
-# over. grad_accumulation: 2 halves the memory of an update without changing
-# how many clips it sees; the batch size stays what the model sees per step.
-batch_size: 16
-# grad_accumulation: 1
+# over. These two are a pair with max_clip_seconds below: the loss this model
+# trains with needs memory that grows much faster than the number of clips, so
+# a long clip window wants a small batch. 8 clips of up to 15 s and 16 clips of
+# up to 10 s both fit in 26 GiB; 8 clips of up to 20 s already does not.
+# grad_accumulation keeps the effective batch without the memory: 8 x 2 is the
+# batch of 16 at the memory cost of 8, and twice the time per update.
+batch_size: 8
+grad_accumulation: 2
 
 # Two learning rates: the encoder (with its preprocessor) and the heads
 # (decoder and joint). A fine-tune usually moves the heads faster than the
@@ -54,7 +58,8 @@ precision: bf16-mixed
 grad_clip: 1.0
 
 # Clips longer than this are left out, so an update has a predictable cost.
-max_clip_seconds: 20.0
+# Raising it makes every update need more memory, not fewer clips.
+max_clip_seconds: 15.0
 # Data loading processes, and which GPU (index or UUID prefix).
 workers: 4
 gpu: "0"

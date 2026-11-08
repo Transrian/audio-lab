@@ -73,7 +73,67 @@ ignored. Only one `/v1` ever ends up in the request path: a value that is only
 `/v1` names no server and is refused with that message rather than being turned
 into `/v1/v1/audio/transcriptions`.
 
-## 3. Run and read the result
+## 3. Serve the checkpoint yourself
+
+An endpoint needs a server. For a model this project trained or downloaded, the
+config names one instead of a URL: `serve:` says which checkpoint to load, and
+`audiolab eval` starts a small OpenAI-compatible server for it, waits until it
+answers, runs the suite and stops it again. Nothing else changes — the suite, the
+records and the report are the same as for a remote server.
+
+```yaml
+# configs/models/parakeet-tdt-0.6b-v3-nemo.yaml
+name: parakeet-tdt-0.6b-v3-nemo
+model: parakeet-tdt-0.6b-v3
+api: transcriptions
+send_language: true
+server_label: local NeMo
+serve:
+  backend: nemo                            # the NeMo backend is the only one so far
+  checkpoint: nvidia/parakeet-tdt-0.6b-v3  # as published: a Hub id, or a .nemo path
+  checkpoint_env: AUDIOLAB_PARAKEET_NEMO   # optional: a variable holding a local copy
+  gpu: "0"                                 # `audiolab eval --gpu 1` overrides it
+  max_symbols: 10                          # greedy decoding stops after this many
+```
+
+```bash
+export AUDIOLAB_NEMO_PYTHON=$PWD/.venv-nemo/bin/python   # the interpreter that has NeMo
+export AUDIOLAB_PARAKEET_NEMO=/path/to/parakeet-tdt-0.6b-v3.nemo
+audiolab eval --model configs/models/parakeet-tdt-0.6b-v3-nemo.yaml \
+    --suite configs/suites/fast.yaml
+```
+
+The server needs NeMo and PyTorch, which the project itself does not depend on
+(see [fine-tuning](training.md#1-the-environment-it-needs) for the environment
+that has them). `audiolab eval` starts it with the interpreter
+`AUDIOLAB_NEMO_PYTHON` names, and its own interpreter when that variable is
+unset — so a light environment with no `.venv-nemo` fails with a message saying
+which variable to set rather than with an import error.
+
+`audiolab serve --model <config>` runs the same server in the foreground, on the
+host and port you choose, for a client you drive yourself:
+
+```bash
+.venv-nemo/bin/audiolab serve --model configs/models/parakeet-tdt-0.6b-v3-nemo.yaml \
+    --port 8080
+curl -s localhost:8080/v1/models
+curl -s -F file=@clip.wav -F model=parakeet-tdt-0.6b-v3 \
+    localhost:8080/v1/audio/transcriptions
+```
+
+It answers `POST /v1/audio/transcriptions` with `{"text": "..."}` (multipart
+`file`, plus `model`, an optional `language` and `response_format` of `json` or
+`text`) and `GET /v1/models`. Requests are decoded one at a time, whatever the
+suite's `--concurrency` is: one GPU decodes one clip at a time, and the server
+queues the rest. The fields of the OpenAI request that this server does not use
+are ignored, and a request it cannot serve is answered with an explicit error
+rather than an empty transcript.
+
+The decoding it imposes is recorded in the run identity: greedy, batched
+(`greedy_batch`), `max_symbols` from the config, with the fused batch fast paths
+that an archive carries for training turned off.
+
+## 4. Run and read the result
 
 ```bash
 audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.yaml
@@ -96,6 +156,7 @@ file as `<key>.key.json`:
 | --- | --- |
 | served model id, `api`, `request` options, `send_language` | config `name`, `server_label`, environment variable names |
 | the server, as a keyed fingerprint (below) | the API key |
+| a served checkpoint's **content** (the sha256 of its file, or its Hub id), its backend and its decoding settings | the path the file sits at, the host and port the server listened on |
 | the clip id, the sha256 of its audio, the language asked | the panel or suite the clip is in |
 | `CACHE_FORMAT` of `eval/cache.py`, bumped when the client changes what it sends | the git commit, the normalizer version, the metrics |
 
@@ -111,7 +172,18 @@ that refused the language field (the client then asks without it, and those
 answers are cached like any other; the report counts them per panel). After
 such a change, rerun with `--fresh`.
 
-The server is recorded as a **keyed fingerprint** of its root URL: HMAC-SHA256
+For a config with a `serve:` block the fingerprint is not about a URL at all: the
+server is started for the run and its port is new every time, so what the
+fingerprint covers is the checkpoint itself — the sha256 of the `.nemo` file, or
+the Hub id when there is no local file — together with the backend and the
+decoding settings. Two runs of the same file therefore reuse each other's
+answers, on whatever port they listened, and a different checkpoint never reuses
+them. A path is not part of it: moving or copying the file changes nothing, and a
+rewritten file is a different model. What this cannot see: a Hub id is resolved
+when the model loads, so the same id can mean different weights on different
+days; keep a local `.nemo` when a score has to be pinned to exact bytes.
+
+Otherwise the server is recorded as a **keyed fingerprint** of its root URL: HMAC-SHA256
 with a random per-machine key in `<runs dir>/.identity-key` (created on first
 use, mode `0600`). The URL and the API key are never stored, and the
 fingerprint cannot be reversed by guessing the shape of a private address. It
@@ -156,7 +228,7 @@ B); the report shows the reasons and up to twenty ids, and `--json` holds every
 id. A run whose panel holds nothing but failures cannot be compared at all, and
 says so.
 
-## 4. Text normalization (three views)
+## 5. Text normalization (three views)
 
 Model output and reference text never match character for character. Both sides
 go through the same function, so a difference in a score always comes from the
@@ -262,7 +334,7 @@ that every view of both languages answers something for any input and that the
 `normalized` view is idempotent — normalizing a text twice gives the same words
 twice. A failure is reproducible from the seed alone.
 
-## 5. What each number means
+## 6. What each number means
 
 Per utterance, the tokens of the hypothesis are aligned with the tokens of the
 reference (Levenshtein), giving substitutions, deletions and insertions.
@@ -319,7 +391,7 @@ Non-speech panels (the hallucination battery):
 | top hypotheses | the ten most frequent normalized outputs with their counts |
 | by category | the same rate per `category` (silence, noise, ESC-50 class group) |
 
-## 6. Confidence intervals
+## 7. Confidence intervals
 
 Intervals come from a bootstrap that resamples **groups**, not utterances
 (`B = 10 000`, seed 20261107). Utterances of one speaker share an accent, a
@@ -342,7 +414,7 @@ matters here, 4 groups on its sealed panel and 14 on the others, so a French
 interval is an indication of spread between speakers rather than a precise
 bound.
 
-## 7. What this does not measure
+## 8. What this does not measure
 
 - noise and reverberation;
 - long-form audio (more than one utterance per request);

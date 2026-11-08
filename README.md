@@ -8,8 +8,8 @@ NVIDIA Parakeet with a rigorous evaluation method: frozen test sets, per-dataset
 results with confidence intervals, and train/test leakage checks. Other problem
 families (text-to-speech, full-duplex speech) may follow.
 
-**Status:** phase 0 (foundation) is done; phase 1 (evaluation) is in progress.
-See the [roadmap](docs/roadmap.md).
+**Status:** phases 0 (foundation) and 1 (evaluation) are done; phase 3 (baseline
+training) has started, ahead of phase 2 (data). See the [roadmap](docs/roadmap.md).
 
 ## Quickstart
 
@@ -46,6 +46,30 @@ uv run audiolab score runs/eval/example/fast     # rewrite the summary from the 
 uv run audiolab compare runs/eval/model-a/full runs/eval/model-b/full
 ```
 
+A model this project holds as a checkpoint needs no server of its own: give the
+config a `serve:` block and `audiolab eval` starts one for it, waits for it, and
+stops it again ([how](docs/stt/evaluation.md#3-serve-the-checkpoint-yourself)).
+
+## Fine-tune a model
+
+`audiolab train` fine-tunes one checkpoint on one dataset, from one config file,
+and keeps exactly one rolling resume slot so a stopped run goes on where it
+stopped:
+
+```bash
+bash scripts/nemo-venv.sh                        # an environment with NeMo and PyTorch
+.venv-nemo/bin/audiolab train --config configs/train/example.yaml
+.venv-nemo/bin/audiolab train --config configs/train/example.yaml   # goes on
+uv run audiolab eval --model $AUDIOLAB_RUNS/train/example/model.yaml \
+    --suite configs/suites/fast.yaml
+```
+
+Training needs NeMo, PyTorch and a CUDA compiler, which are never installed by
+`uv sync` and are never imported by the tests: they live in their own environment
+([requirements/nemo.txt](requirements/nemo.txt)) and in
+[fine-tuning a model](docs/stt/training.md), which explains the config fields,
+what a run writes, how a stopped run resumes, and what it does not do.
+
 [Evaluating a speech-to-text model](docs/stt/evaluation.md) explains the panels,
 every metric and what they do not cover;
 [datasets](docs/stt/datasets.md) has one card per dataset, with its license, and
@@ -74,7 +98,9 @@ src/audiolab/     the Python package (one command: audiolab)
   core/           shared building blocks: configuration, GPU selection, audio
   data/           dataset preparation and frozen panels
   eval/           text normalization, metrics, statistics, runs and reports
-configs/          one file per experiment: models, suites, frozen panels
+  serve/          the OpenAI-compatible server for a local checkpoint
+  train/          fine-tuning: config, clips, NeMo settings, the training loop
+configs/          one file per experiment: models, suites, panels, training runs
 tests/            fast CPU tests
 docs/             roadmap, owner directives, decisions, how-to pages
 scripts/          repository checks
