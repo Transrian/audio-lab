@@ -5,28 +5,42 @@
 # virtual environment (scripts/nemo-venv.sh does exactly this):
 #
 #   uv venv --python 3.12 .venv-nemo
-#   uv pip install --python .venv-nemo/bin/python -e . -r requirements/nemo.txt
+#   uv pip install --index-strategy unsafe-best-match \
+#       --python .venv-nemo/bin/python -e . -r requirements/nemo.txt
 #
 # Then `.venv-nemo/bin/audiolab serve --model configs/models/<name>.yaml` runs a
-# local checkpoint, and `AUDIOLAB_NEMO_PYTHON=$PWD/.venv-nemo/bin/python`
-# lets `audiolab eval`, run from the light environment, start that server by
-# itself. See docs/stt/training.md for why the pins are separated this way.
+# local checkpoint, and `AUDIOLAB_NEMO_PYTHON=$PWD/.venv-nemo/bin/python` lets
+# `audiolab eval`, run from the light environment, start that server by itself.
+# See docs/stt/training.md for why the pins are separated this way.
+#
+# `--index-strategy unsafe-best-match` is needed because uv takes a package from
+# the first index that carries it, and the PyTorch index also carries stale
+# copies of unrelated packages (an old torchmetrics), which would then hide the
+# PyPI ones. Every version here is pinned exactly and both indexes are the
+# projects' official ones, so the dependency-confusion risk the flag's name
+# warns about does not apply.
 
-# NeMo and the training stack. The versions are the ones verified on the
-# training and serving GPUs; NeMo 2.6.1 is the last release that works with
-# Python 3.12 and these NumPy/Numba versions.
+# NeMo and the training stack. These are the versions verified on the training
+# and serving GPUs; NeMo 2.6.1 is a release that installs on Python 3.12 with
+# these NumPy and Numba versions.
 nemo_toolkit[asr]==2.6.1
 torch==2.8.0
 torchaudio==2.8.0
 lightning==2.4.0
 torchmetrics==1.6.1
 
-# The TDT loss is a Numba CUDA kernel, compiled at the first training step: it
-# needs these versions and a CUDA toolkit, which is why training runs inside the
-# CUDA devel image the container script names.
+# The TDT loss is a Numba CUDA kernel, compiled at the first training step, so
+# these three versions go together; the compiler it needs is below.
 numba==0.61.2
 numba-cuda==0.15.1
 cuda-python==12.8.0
 
-# PyTorch 2.8.0 built for CUDA 12.8, the build the GPUs need.
+# The CUDA compiler that kernel needs. A machine with a system CUDA toolkit
+# already has one; these wheels carry nvcc and the CUDA headers (about 100 MB)
+# so that a machine without one can still fine-tune. Numba finds them inside
+# this environment, and nothing else uses them.
+nvidia-cuda-nvcc-cu12==12.8.93
+nvidia-cuda-cccl-cu12==12.8.90
+
+# PyTorch 2.8.0 built for CUDA 12.8: the build the GPUs need.
 --extra-index-url https://download.pytorch.org/whl/cu128
