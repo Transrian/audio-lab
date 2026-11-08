@@ -122,9 +122,10 @@ against).
    `warmup_updates` warmup steps — or a warmup followed by a cosine decay to
    `min_lr` when `schedule: cosine`. Batch normalization keeps the base model's
    statistics: its layers stay in evaluation mode, and only their scale and
-   shift train. Updating the statistics from a few padded clips per batch
-   shifted them enough to wreck inference while the training loss kept falling
-   ([screening](screening.md#the-batch-normalization-bug)).
+   shift train. Updated from batches of a few padded clips, the statistics
+   drifted enough to wreck inference while the training loss kept falling
+   ([screening](screening.md#the-batch-normalization-bug)); the test
+   `tests/test_train_batch_norm.py` runs in the NeMo environment only.
 5. Every `log_every` updates a line goes to `train-log.jsonl` (the update, the
    loss, and the seconds since the run started) and to the terminal. The loss of
    a line is the **mean of the batch losses seen since the previous line**.

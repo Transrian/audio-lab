@@ -4,8 +4,9 @@ Before mixing training data, each source is tried **on its own**: one short
 fine-tune of the base model per source, all with the same budget and the same
 recipe, then every final checkpoint is scored on the full suite against the base
 model served the same way. The question is what one source brings by itself,
-measured against the goal of the project (D-005): better French, with English
-and French-accented English kept.
+measured against the target use of
+[D-009](../owner/directives.md): better French, with English and
+French-accented English kept.
 
 This is a screening, not a recipe search. It gives a *feel* for each source; it
 does not choose the final mix ([roadmap](../roadmap.md), phase 4) and it is not
@@ -24,15 +25,16 @@ RTX 5090 in parallel, code at commit `7aede77`.
 | Updates | 2 000 | the same for every source |
 | Clips per update | 16 (2 per step × 8 accumulated) | 4 clips of up to 20 s of dense read speech already overflow 32 GB |
 | Clip length | 0.5–20 s | the window the sources were prepared with |
-| Learning rate | 1e-5 encoder, 3e-5 decoder and joint, constant | the rates of an earlier per-source screening of this model; constant as in decision 0004 |
+| Learning rate | 1e-5 encoder, 3e-5 decoder and joint, constant | the rates of a per-source screening of this model in the earlier private project; constant as in decision 0004 |
 | Optimizer | AdamW, weight decay 1e-3, gradient clip 1.0 | |
 | Precision | bf16-mixed | |
 
-**Same clips, same updates.** Every source is seen 32 000 times (3.2 passes over
-its 10 000 clips) and its weights move by the same number of optimizer steps, so
-a difference in the scores comes from the data. Adam's step is close to the
-learning rate whatever the batch, so 2 000 updates at these rates move the
-weights about as far as 2 000 updates of the earlier screening.
+**Same clips, same updates.** Every source gets 32 000 clip presentations
+(2 000 updates × 16 clips, 3.2 passes over its 10 000 clips) and the same number
+of optimizer steps, so a difference in the scores comes from the data. As a rule
+of thumb, Adam's step is close to the learning rate whatever the batch, so 2 000
+updates at these rates should move the weights about as far as 2 000 updates of
+the earlier screening.
 
 **The rates were not searched.** They are a reasonable fine-tuning rate for this
 model, not a tuned one; a source that looks harmful here could look different at
@@ -42,9 +44,12 @@ another rate or length.
 
 Normalized WER on the full suite (hallucination rate for `nonspeech`). The base
 column is the base model served by `audiolab serve`, exactly like the five
-fine-tunes; each other cell is the change against it in points, with its 95 %
-confidence interval, and **bold** when the interval excludes zero. Negative is
-better.
+fine-tunes, in %; each other cell is the change against it in points, with its
+95 % confidence interval, and **bold** when the interval excludes zero. Negative
+is better. "servicenow en-fr" and "en-fr-ca" are the panels
+`servicenow-codeswitched-en-fr` and `servicenow-codeswitched-en-fr-ca`. The
+mls-fr intervals rest on fewer than 20 groups, and `audiolab compare` marks them
+approximate.
 
 | panel | base | Granary | VoxPopuli FR | MLS FR | African-accented FR | LibriSpeech EN |
 |---|---|---|---|---|---|---|
@@ -74,13 +79,13 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
 ### What each source does alone
 
 - **Granary** is the only source with no measurable harm anywhere. It gains a
-  little on read French (MLS) and on the Québec code-switched panel, and keeps
-  English and formatting intact.
+  little on the Québec code-switched panel and, by an approximate interval, on
+  read French (MLS), and keeps English and formatting intact.
 - **VoxPopuli FR** is neutral to slightly better on French, including the
   code-switched panels, but costs **4.7 points on English spoken with a French
-  accent**, the panel closest to it (same Parliament, other speakers): after
-  training on French parliament speech, the model hears more of that English as
-  French.
+  accent**, the panel closest to it (same Parliament, other speakers). It does
+  not answer in French there; it drops words: 22 of the 600 clips come back
+  empty, against none for the base model, and more answers are cut short.
 - **MLS FR** hurts the main French panel (+0.97) and accented English, and does
   not even improve its own corpus's panel. Its lowercase, unpunctuated text
   doubles the formatted WER on fleurs-fr. This matches what the earlier project
@@ -89,9 +94,11 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   write a space after an apostrophe (`j' ai`, `d' accord`), the model learns it,
   and the scorer counts two words. Re-scoring its answers with that space
   removed (a diagnostic, not the official score) leaves fleurs-fr at +1.03
-  [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], and still a real cost on the
-  code-switched panels (+7.7 and +12.3) and on accented English (+5.0). The
-  source would need its text fixed before any mix.
+  [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], fleurs-en at +0.46
+  [+0.12, +0.82], and still a real cost on code-switched speech
+  (servicenow en-fr-ca +7.66, en-fr +12.25, cs-fleurs-fr-en +2.06) and on accented
+  English (+5.03, with 46 empty answers out of 600). The source would need its
+  text fixed before any mix.
 - **LibriSpeech EN** is unusable as it is prepared: its transcripts are all
   uppercase, the model learns to write in capitals (`HE HOPED THERE WOULD BE
   STEW FOR DINNER`), which this tokenizer spells poorly, and it gets worse even
@@ -115,22 +122,33 @@ were broken pointed at the cause:
 
 A run trained on LibriSpeech got *worse* on LibriSpeech while its training loss
 kept falling: the model was fine in training mode and wrong in evaluation mode.
-The data was checked first: the base model transcribes the Granary training
+The data was checked first: the base model transcribes six Granary training
 clips close to their reference texts. The weights themselves had moved very
 little (0.17 % on an attention matrix). The 24 batch normalization layers of the
 encoder had not: their running variance had dropped by up to a third. In
 training mode these layers update the statistics that inference uses, from each
-batch, and a batch of two clips padded to the longer one feeds them padding
-frames as if they were audio.
+batch. The likely reason they drifted is the batch itself: two clips padded to
+the longer one, so the padding frames count as audio.
 
-The proof was to put the base model's statistics back into the broken Granary
-checkpoint, weights unchanged: fleurs-en went from 98.6 % to 11.6 % and
-LibriSpeech from 84.0 % to 2.5 % on the fast suite. The fix keeps those layers in
-evaluation mode for the whole run (`FrozenBatchNormStatistics` in
+The test was to put the base model's statistics back into the broken Granary
+checkpoint, weights unchanged, and score it on the fast suite:
+
+| Normalized WER, fast suite | base | broken Granary run, base statistics restored |
+|---|---|---|
+| fleurs-en | 5.94 % | 11.62 % |
+| librispeech-en | 2.30 % | 2.53 % |
+| fleurs-fr | 6.31 % | 6.31 % |
+| mls-fr | 5.73 % | 5.65 % |
+
+The statistics explain most of the damage, not all of it: fleurs-en stayed twice
+as bad, so the weights trained against the drifting statistics had moved too.
+The fix keeps those layers in evaluation mode for the whole run
+(`FrozenBatchNormStatistics` in
 [`finetune.py`](../../src/audiolab/train/finetune.py)); their scale and shift
 still train. A 300-update Granary run with the fix landed on or below the base
-model on every fast panel (fleurs-en 5.69 % against 5.94 %, mls-fr 5.20 %
-against 5.73 %), and every run below was trained with it.
+model on the five fast panels the base was scored on (fleurs-en 5.69 % against
+5.94 %, mls-fr 5.20 % against 5.73 %), and every run in [Results](#results) was
+trained with it.
 
 ## What these numbers do not say
 

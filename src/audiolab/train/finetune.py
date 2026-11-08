@@ -83,14 +83,13 @@ class LossLog(Callback):
 class FrozenBatchNormStatistics(Callback):
     """Keep the batch normalization statistics of the base model during training.
 
-    The encoder's convolution blocks normalize with statistics that the model
-    learned on large batches, and that inference uses as they are. In training
-    mode each batch would replace them, a little at every step, with its own:
-    with a few clips per batch, padded to the longest, the padding frames pull
-    them away from what real audio looks like. A run measured on 2026-11-08 lost
-    its English that way while its training loss kept falling. Holding the
-    layers in evaluation mode keeps the statistics; their scale and shift still
-    train like every other weight.
+    The encoder's convolution blocks normalize with running statistics that
+    inference uses as they are. In training mode every batch updates them; with
+    a few clips per batch, padded to the longest, they drifted far enough to
+    break inference while the training loss kept falling
+    (docs/stt/screening.md, "The batch normalization bug"). Holding the layers
+    in evaluation mode keeps the statistics; their scale and shift still train
+    like every other weight.
     """
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:

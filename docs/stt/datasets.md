@@ -415,7 +415,7 @@ costs nothing and a fresh clone downloads all of it again.
   is, and a model trained on this arm is expected to write `immdiatement`.
 - **Why it is here**: the register closest to the target use, read audiobook
   French, with enough volume for a cap — and the source the earlier project
-  measured as harmful in a mix ([sources.md](sources.md#abandoned--tried-then-withdrawn)),
+  measured as harmful in a mix ([sources.md](sources.md#used--trained-on-here)),
   which the screening tests again with this source alone. Its clips are the longest
   of the screening (median 14.8 s, at least 10 s).
 

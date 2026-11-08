@@ -44,3 +44,7 @@ nvidia-cuda-cccl-cu12==12.8.90
 
 # PyTorch 2.8.0 built for CUDA 12.8: the build the GPUs need.
 --extra-index-url https://download.pytorch.org/whl/cu128
+
+# The tests that need this stack (tests/test_train_batch_norm.py) run here; same
+# pytest as uv.lock.
+pytest==9.2.0

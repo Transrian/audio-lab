@@ -66,7 +66,7 @@ uv run audiolab eval --model $AUDIOLAB_RUNS/train/example/model.yaml \
 ```
 
 Training needs NeMo, PyTorch and a CUDA compiler, which are never installed by
-`uv sync` and are never imported by the tests: they live in their own environment
+`uv sync` and that the tests skip without: they live in their own environment
 ([requirements/nemo.txt](requirements/nemo.txt)) and in
 [fine-tuning a model](docs/stt/training.md), which explains the config fields,
 what a run writes, how a stopped run resumes, and what it does not do.
