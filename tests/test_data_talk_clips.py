@@ -8,8 +8,10 @@ import numpy as np
 import pytest
 
 from audiolab.core.audio import SAMPLE_RATE, Audio
-from audiolab.data import peertube_clips
-from audiolab.data.peertube_clips import Answers, Segment
+from audiolab.data import talk_clips
+from audiolab.data.talk_clips import Answers, Segment
+
+FRENCH = "fr"
 
 
 def silence(seconds: float) -> Audio:
@@ -41,7 +43,7 @@ def test_a_talk_is_sent_in_chunks_that_restart_after_the_last_whole_segment(tmp_
         return {"segments": [whisper_row(0.0, 5.0, "trois"), whisper_row(5.0, 100.0, "quatre")]}
 
     answers = Answers(tmp_path / "whisper.jsonl")
-    segments = peertube_clips.segment_audio(silence(390.0), whisper, answers)
+    segments = talk_clips.segment_audio(silence(390.0), whisper, answers)
 
     assert sent == [300.0, 100.0], "the second chunk starts at 290 s, where 'deux' ended"
     assert [(s.start_s, s.end_s, s.text) for s in segments] == [
@@ -54,7 +56,7 @@ def test_a_talk_is_sent_in_chunks_that_restart_after_the_last_whole_segment(tmp_
     def unreachable(wav: bytes) -> dict:
         raise AssertionError("every chunk is in the cache")
 
-    again = peertube_clips.segment_audio(silence(390.0), unreachable, Answers(answers.path))
+    again = talk_clips.segment_audio(silence(390.0), unreachable, Answers(answers.path))
     assert again == segments, "the raw answers are cached and read again"
 
 
@@ -67,7 +69,7 @@ def test_a_chunk_without_a_whole_segment_moves_on_by_a_full_chunk(tmp_path):
         return next(answers)
 
     cache = Answers(tmp_path / "whisper.jsonl")
-    assert peertube_clips.segment_audio(silence(400.0), whisper, cache) == []
+    assert talk_clips.segment_audio(silence(400.0), whisper, cache) == []
     assert len(sent) == 2
 
 
@@ -93,7 +95,7 @@ def test_a_torn_last_line_is_asked_again_and_never_glued_to(tmp_path):
     ],
 )
 def test_a_segment_without_words_or_duration_is_doubtful(candidate, reason):
-    assert peertube_clips.doubt(candidate) == reason
+    assert talk_clips.doubt(candidate, FRENCH) == reason
 
 
 def texts(clips: list[Segment]) -> list[str]:
@@ -107,7 +109,7 @@ def test_phrases_are_joined_up_to_a_full_stop_once_the_clip_lasts_five_seconds()
         segment("Oui.", 6.2, 6.5),
         segment("Mais pas comme le Play Store ?", 6.5, 12.0),
     ]
-    assert texts(peertube_clips.candidates(phrases, Counter())) == [
+    assert texts(talk_clips.candidates(phrases, FRENCH, Counter())) == [
         "Alors, F-Droid, c'est un magasin d'applications.",
         "Oui. Mais pas comme le Play Store ?",
     ]
@@ -122,7 +124,7 @@ def test_a_long_pause_a_doubtful_segment_or_the_length_limit_end_a_clip():
         segment("et on reprend", 6.0, 7.0),
         segment("une phrase sans fin", 7.0, 26.0),
     ]
-    assert texts(peertube_clips.candidates(phrases, tally)) == [
+    assert texts(talk_clips.candidates(phrases, FRENCH, tally)) == [
         "avant la pause",
         "après la pause",
         "et on reprend",
@@ -134,7 +136,7 @@ def test_a_long_pause_a_doubtful_segment_or_the_length_limit_end_a_clip():
 def test_a_clip_whose_text_loops_is_dropped_whole():
     tally = Counter()
     phrases = [segment("c'est un test", 0.0, 2.0), segment("merci " * 20, 2.0, 6.0)]
-    assert peertube_clips.candidates(phrases, tally) == []
+    assert talk_clips.candidates(phrases, FRENCH, tally) == []
     assert tally == Counter({"clips in a repetition loop": 1})
 
 
@@ -148,7 +150,7 @@ def test_a_segment_loses_the_words_it_repeats_from_the_one_before():
         segment("Non.", 5.0, 5.5),
         segment("Oui.", 5.5, 6.0),
     ]
-    assert texts(peertube_clips.without_echoes(phrases, tally)) == [
+    assert texts(talk_clips.without_echoes(phrases, tally)) == [
         "Merci à vous.",
         "",
         "Chaque membre...",
@@ -161,16 +163,16 @@ def test_a_segment_loses_the_words_it_repeats_from_the_one_before():
 
 def test_a_clip_is_padded_by_at_most_half_the_gap_to_its_neighbours():
     clip = segment("bonjour", 1.0, 3.0)
-    assert peertube_clips.padded(clip, previous_end=0.5, next_start=3.1) == segment(
+    assert talk_clips.padded(clip, previous_end=0.5, next_start=3.1) == segment(
         "bonjour", 0.8, 3.05
     )
-    assert peertube_clips.padded(clip, previous_end=1.2, next_start=2.0) == clip, (
+    assert talk_clips.padded(clip, previous_end=1.2, next_start=2.0) == clip, (
         "a neighbour that overlaps leaves the edge where it is"
     )
 
 
 def test_padding_never_takes_a_clip_past_the_server_limit():
     clip = segment("une longue phrase", 10.0, 28.9)
-    widened = peertube_clips.padded(clip, previous_end=0.0, next_start=float("inf"))
+    widened = talk_clips.padded(clip, previous_end=0.0, next_start=float("inf"))
     assert widened == segment("une longue phrase", 9.9, 28.9)
-    assert widened.end_s - widened.start_s == pytest.approx(peertube_clips.MAX_CLIP_SECONDS)
+    assert widened.end_s - widened.start_s == pytest.approx(talk_clips.MAX_CLIP_SECONDS)

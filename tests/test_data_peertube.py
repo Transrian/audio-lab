@@ -1,28 +1,25 @@
-"""The PeerTube listing of ``peertube-fr-train``, without the network or ffmpeg.
+"""The PeerTube API of a talk source, without the network.
 
-The API and ffmpeg are replaced by fakes, so these tests check which videos the
-listing keeps, the order they are read in, and how a talk becomes audio.
+The API is replaced by a fake transport, so these tests check which videos a
+listing keeps, how an instance is paged, and how the file of a talk is found.
 """
 
 from __future__ import annotations
 
 import email.utils
-import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
+from audiolab.data import peertube, talk_sources
+from audiolab.data.download import DownloadError
+from audiolab.data.peertube import Filter
+from audiolab.data.talks import read_listing
 
-from helpers import write_tone  # noqa: E402
-
-from audiolab.data import peertube  # noqa: E402
-from audiolab.data.download import DownloadError  # noqa: E402
-
-INSTANCE = peertube.INSTANCE
+INSTANCE = "https://videos.capitoledulibre.org"
+FR = Filter(language="fr")
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +28,7 @@ def no_pause(monkeypatch):
     monkeypatch.setattr(peertube.time, "sleep", lambda seconds: None)
 
 
-def api_row(uuid: str, *, licence: int = 1, language: str = "fr", **fields) -> dict:
+def api_row(uuid: str, *, licence: int = 1, language: str | None = "fr", **fields) -> dict:
     """One video as the PeerTube API lists it, with only the fields this source reads."""
     row = {
         "uuid": uuid,
@@ -48,19 +45,19 @@ def api_row(uuid: str, *, licence: int = 1, language: str = "fr", **fields) -> d
     return row
 
 
-def video(uuid: str = "v1", licence_id: int = 1) -> peertube.Video:
-    return peertube.Video(
-        uuid=uuid,
-        url=f"{INSTANCE}/videos/watch/{uuid}",
-        title=f"Talk {uuid}",
-        duration_s=600,
-        licence_id=licence_id,
-        channel="Capitole du Libre",
-        account="Capitole du Libre",
-    )
+def instance_client(rows: list[dict], pages: int = 3) -> tuple[httpx.Client, list]:
+    """An HTTP client for a fake instance serving ``rows``, and the requests it will get."""
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.params)
+        start = int(request.url.params["start"])
+        return httpx.Response(200, json={"total": len(rows), "data": rows[start : start + pages]})
+
+    return httpx.Client(transport=httpx.MockTransport(answer)), asked
 
 
-def test_list_videos_reads_every_page_and_keeps_only_usable_videos():
+def test_only_the_videos_a_source_may_use_are_listed_and_every_page_is_read():
     rows = [
         api_row("c"),
         api_row("a", licence=7),
@@ -71,22 +68,58 @@ def test_list_videos_reads_every_page_and_keeps_only_usable_videos():
         api_row("elsewhere", url="https://other.example/videos/watch/elsewhere"),
         api_row("b"),
     ]
-    asked = []
+    http, asked = instance_client(rows)
+    with http:
+        talks = peertube.list_instance(http, INSTANCE, FR)
 
-    def answer(request: httpx.Request) -> httpx.Response:
-        asked.append(request.url.params)
-        start = int(request.url.params["start"])
-        return httpx.Response(200, json={"total": len(rows), "data": rows[start : start + 3]})
-
-    with httpx.Client(transport=httpx.MockTransport(answer)) as http:
-        videos = peertube.list_videos(http)
-
-    assert [v.uuid for v in videos] == ["a", "b", "c"]
+    assert [talk.id for talk in talks] == ["a", "b", "c"]
     assert [params["start"] for params in asked] == ["0", "3", "6"]
     assert asked[0].get_list("licenceOneOf") == ["1", "7"]
     assert asked[0]["languageOneOf"] == "fr"
-    assert videos[0].license == "CC0-1.0" and videos[1].license == "CC-BY"
-    assert videos[2].title == "Talk c" and videos[2].account == "Capitole du Libre"
+    assert talks[0].license == "CC0-1.0" and talks[1].license == "CC-BY"
+    assert talks[2].title == "Talk c" and talks[2].author == "Capitole du Libre"
+    assert talks[2].instance == INSTANCE and talks[2].url == f"{INSTANCE}/videos/watch/c"
+
+
+def test_a_filter_says_what_may_be_listed():
+    rows = {
+        "kept": api_row("kept"),
+        "short": api_row("short", duration=60),
+        "untagged": api_row("untagged", language=None),
+        "in-musique": api_row(
+            "in-musique",
+            channel={"displayName": "Education Musicale"},
+            account={"displayName": "Education Musicale"},
+        ),
+        "in-danse": api_row(
+            "in-danse",
+            channel={"displayName": "Atelier Danse"},
+            account={"displayName": "Atelier Danse"},
+        ),
+        "other-licence": api_row("other-licence", licence=3),
+    }
+
+    def listed(filter: Filter) -> list[str]:
+        return [name for name in rows if peertube.usable(rows[name], INSTANCE, filter)]
+
+    assert listed(Filter(language="fr")) == ["kept", "short", "in-musique", "in-danse"]
+    assert listed(Filter(language="fr", min_duration_s=120)) == ["kept", "in-musique", "in-danse"]
+    assert listed(Filter(language="en", language_unset_ok=True)) == ["untagged"], "tagged fr"
+    assert listed(Filter(language="fr", name_must_hold="capitole")) == ["kept", "short"]
+    assert listed(Filter(language="fr", name_must_not_hold=("musicale", "danse"))) == [
+        "kept",
+        "short",
+    ]
+
+
+def test_a_word_of_the_filter_never_matches_inside_another_word():
+    rows = {
+        # "es" is the Spanish edition, and the word must not drop an Andreas.
+        "spanish": api_row("spanish", language=None, channel={"displayName": "DebConf ES"}),
+        "andreas": api_row("andreas", language=None, account={"displayName": "Andreas @ DebConf"}),
+    }
+    filter = Filter(language="en", language_unset_ok=True, name_must_not_hold=("es",))
+    assert [row for row in rows if peertube.usable(rows[row], INSTANCE, filter)] == ["andreas"]
 
 
 def test_a_request_the_instance_refuses_is_asked_again_after_the_wait_it_names(monkeypatch):
@@ -100,70 +133,38 @@ def test_a_request_the_instance_refuses_is_asked_again_after_the_wait_it_names(m
     assert 7.0 in waits
 
 
-def test_the_listing_is_written_and_read_back_with_its_date(tmp_path):
-    path = tmp_path / "listing.json"
-    peertube.write_listing([video("a"), video("b", licence_id=7)], "2026-11-08", path)
+def test_the_smallest_file_of_a_talk_is_asked_for_at_download_time():
+    details = {
+        "files": [{"size": 900, "fileUrl": f"{INSTANCE}/big.mp4"}],
+        "streamingPlaylists": [{"files": [{"size": 100, "fileUrl": f"{INSTANCE}/small.mp4"}]}],
+    }
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=details))
+    ) as http:
+        talk = peertube.talk_of(api_row("v1"), INSTANCE)
+        assert peertube.smallest_file_url(http, talk) == f"{INSTANCE}/small.mp4"
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json={}))
+    ) as http:
+        with pytest.raises(DownloadError, match="no downloadable file"):
+            peertube.smallest_file_url(http, peertube.talk_of(api_row("v2"), INSTANCE))
 
-    listed_on, videos = peertube.read_listing(path)
 
+def test_the_committed_listing_of_the_capitole_du_libre_is_readable_and_usable():
+    source = talk_sources.SOURCES["peertube-fr-train"]
+    listed_on, talks = read_listing(source)
+    assert listed_on and len(talks) == len({talk.id for talk in talks}) > 0
+    assert all(talk.url.startswith("https://videos.capitoledulibre.org/") for talk in talks)
+    assert all(talk.instance == "https://videos.capitoledulibre.org" for talk in talks)
+
+
+def test_the_pinned_listing_holds_the_videos_of_the_day_it_was_listed():
+    """One run of ``list-talks`` wrote these 519 videos on 2026-11-08; a refresh is a change."""
+    source = talk_sources.SOURCES["peertube-fr-train"]
+    listed_on, talks = read_listing(source)
     assert listed_on == "2026-11-08"
-    assert videos == [video("a"), video("b", licence_id=7)]
-    assert json.loads(path.read_text())["filter"]["licence_ids"] == [1, 7]
-
-
-def test_a_listing_holding_another_licence_is_refused(tmp_path):
-    path = tmp_path / "listing.json"
-    peertube.write_listing([video("a", licence_id=2)], "2026-11-08", path)
-    with pytest.raises(DownloadError, match="another licence"):
-        peertube.read_listing(path)
-
-
-def test_the_committed_listing_is_readable_and_usable():
-    listed_on, videos = peertube.read_listing()
-    assert listed_on and len(videos) == len({v.uuid for v in videos}) > 0
-    assert all(v.url.startswith(INSTANCE + "/") for v in videos)
-
-
-def test_the_reading_order_depends_on_the_seed_and_not_on_the_listing_order():
-    videos = [video(f"v{index}") for index in range(20)]
-    order = peertube.reading_order(videos, seed=1)
-    assert order == peertube.reading_order(list(reversed(videos)), seed=1)
-    assert order != peertube.reading_order(videos, seed=2)
-    assert sorted(v.uuid for v in order) == sorted(v.uuid for v in videos)
-
-
-def test_fetch_audio_keeps_the_audio_and_deletes_the_video(tmp_path, monkeypatch):
-    source = tmp_path / "remote.mp4"
-    source.write_bytes(b"pixels and sound")
-    monkeypatch.setattr(peertube, "smallest_file_url", lambda http, video: str(source))
-    commands = []
-
-    def fake_ffmpeg(command, **options):
-        commands.append(command)
-        assert Path(command[command.index("-i") + 1]).is_file()
-        write_tone(Path(command[-1]), seconds=2.0)
-        return type("Finished", (), {"returncode": 0, "stderr": ""})()
-
-    monkeypatch.setattr(peertube.subprocess, "run", fake_ffmpeg)
-    audio = peertube.fetch_audio(None, video(), tmp_path / "cache" / "v1.wav")
-
-    assert audio.is_file() and audio.name == "v1.wav"
-    assert sorted(p.name for p in audio.parent.iterdir()) == ["v1.wav"]
-    assert ["-ac", "1", "-ar", "16000"] == commands[0][8:12]
-    peertube.fetch_audio(None, video(), audio)
-    assert len(commands) == 1, "an extracted talk is not downloaded again"
-
-
-def test_fetch_audio_reports_ffmpeg_failing_and_leaves_nothing_behind(tmp_path, monkeypatch):
-    source = tmp_path / "remote.mp4"
-    source.write_bytes(b"pixels and sound")
-    monkeypatch.setattr(peertube, "smallest_file_url", lambda http, video: str(source))
-    failed = type("Finished", (), {"returncode": 1, "stderr": "no audio stream"})()
-    monkeypatch.setattr(peertube.subprocess, "run", lambda command, **options: failed)
-
-    with pytest.raises(DownloadError, match="no audio stream"):
-        peertube.fetch_audio(None, video(), tmp_path / "cache" / "v1.wav")
-    assert list((tmp_path / "cache").iterdir()) == []
+    assert len(talks) == 519
+    assert Path(source.listing_path).name == "peertube_listing.json"
 
 
 def test_retry_after_reads_seconds_or_an_http_date():

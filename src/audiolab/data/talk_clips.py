@@ -1,11 +1,12 @@
-"""From one PeerTube talk to the clips worth labelling, and the answers kept on the way.
+"""From one talk to the clips worth labelling, and the answers kept on the way.
 
-Whisper answers for a whole talk with timestamped segments: phrases of about
+Nothing here knows where the talk came from: a talk is a WAV and a language.
+Whisper answers for the whole talk with timestamped segments: phrases of about
 two seconds, some of them doubtful. This module turns them into candidate
 clips — sentences of a few seconds, with a little silence on each side — and
 keeps every answer of every model in a cache, so a stopped preparation resumes
-where it was. :mod:`audiolab.data.peertube_train` runs the models over a whole
-batch of talks.
+where it was. :mod:`audiolab.data.talks` runs the models over a whole batch of
+talks.
 """
 
 from __future__ import annotations
@@ -26,7 +27,6 @@ from audiolab.core.audio import SAMPLE_RATE, Audio, to_int16
 from audiolab.data.train import MAX_SECONDS, MIN_SECONDS
 from audiolab.eval.normalize import normalize
 
-LANGUAGE = "fr"
 # Whisper is sent five minutes at a time: the server takes fifteen-minute
 # requests, and a short chunk is cheaper to retry.
 CHUNK_SECONDS = 300.0
@@ -139,7 +139,7 @@ def _segment(row: dict, offset_s: float) -> Segment:
     )
 
 
-def candidates(segments: list[Segment], tally: Counter[str]) -> list[Segment]:
+def candidates(segments: list[Segment], language: str, tally: Counter[str]) -> list[Segment]:
     """Whisper's segments joined into sentences: the clips that may be labelled.
 
     A phrase cut out of a sentence is a poor clip, so consecutive segments are
@@ -160,7 +160,7 @@ def candidates(segments: list[Segment], tally: Counter[str]) -> list[Segment]:
             first = None
 
     for index, segment in enumerate(segments):
-        reason = doubt(segment)
+        reason = doubt(segment, language)
         if reason:
             tally[f"segments {reason}"] += 1
             close(index - 1)
@@ -210,11 +210,11 @@ def _words(text: str) -> list[str]:
     return [word for word in (token.strip(".,;:!?…").lower() for token in text.split()) if word]
 
 
-def doubt(segment: Segment) -> str:
+def doubt(segment: Segment, language: str) -> str:
     """Why a segment cannot be part of a clip, or an empty string."""
     if segment.end_s <= segment.start_s:
         return "without duration"
-    if not normalize(segment.text, LANGUAGE):
+    if not normalize(segment.text, language):
         return "without words"
     return ""
 
