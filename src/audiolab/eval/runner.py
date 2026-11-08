@@ -260,11 +260,6 @@ def _identity(
     }
 
 
-def endpoint_fingerprint(base_url: str, key: bytes) -> str:
-    """A keyed fingerprint of the server a run talked to."""
-    return identity_fingerprint(server_root(base_url), key)
-
-
 def identity_fingerprint(identity: str, key: bytes) -> str:
     """A keyed fingerprint of what a run's answers belong to.
 

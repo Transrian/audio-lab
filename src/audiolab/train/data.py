@@ -13,7 +13,6 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 
-from audiolab.core.audio import SAMPLE_RATE
 from audiolab.data.store import Clip, manifest_id_sha256, read_manifest
 
 # Shorter clips are usually fragments that hurt more than they teach; a clip
@@ -108,8 +107,3 @@ def dataset_dir(name: str, data_dir: Path | None = None) -> Path:
             f"(audiolab data fetch {name})"
         )
     return directory
-
-
-def sample_rate() -> int:
-    """The rate the prepared audio is stored at, which the manifest does not say."""
-    return SAMPLE_RATE

@@ -20,7 +20,11 @@ from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
 from audiolab.eval import metrics, runner, stats  # noqa: E402
-from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
+from audiolab.eval.client import (  # noqa: E402
+    ModelConfig,
+    TranscriptionClient,
+    server_root,  # noqa: E402
+)
 from audiolab.eval.records import (  # noqa: E402
     IDENTITY_NAME,
     RECORDS_NAME,
@@ -37,7 +41,7 @@ from audiolab.eval.runner import (  # noqa: E402
     RunContext,
     RunError,
     SuiteSpec,
-    endpoint_fingerprint,
+    identity_fingerprint,
     load_suite,
     run_suite,
 )
@@ -489,8 +493,8 @@ def test_the_endpoint_fingerprint_is_keyed_and_stays_in_the_cache(workspace):
     assert len(key) == 32
     # The same URL under another key is a different fingerprint, and the same
     # key gives the same one: nothing about the URL can be read off the value.
-    assert endpoint_fingerprint(url, key) == fingerprint
-    assert endpoint_fingerprint(url, bytes(32)) != fingerprint
+    assert identity_fingerprint(server_root(url), key) == fingerprint
+    assert identity_fingerprint(server_root(url), bytes(32)) != fingerprint
 
 
 def test_a_panel_with_few_groups_says_its_interval_is_approximate(workspace):

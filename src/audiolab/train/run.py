@@ -87,11 +87,6 @@ def resume_checkpoint(directory: Path) -> Path | None:
     return path if path.is_file() else None
 
 
-def train_json(directory: Path) -> dict:
-    """The record of a finished run; the directory must hold one."""
-    return json.loads((directory / TRAIN_JSON).read_text(encoding="utf-8"))
-
-
 def write_train_json(directory: Path, payload: dict) -> Path:
     """Write the record of what ran; this file is what says the run is done."""
     path = directory / TRAIN_JSON

@@ -37,7 +37,6 @@ from audiolab.train.run import (  # noqa: E402
     refuse_finished_run,
     resume_checkpoint,
     run_dir,
-    train_json,
     write_model_config,
     write_run_config,
 )
@@ -56,6 +55,11 @@ MINIMAL = {
     "lr_encoder": 1.0e-5,
     "lr_heads": 3.0e-5,
 }
+
+
+def train_json(directory: Path) -> dict:
+    """The record of a finished run, read the way a person would read it."""
+    return json.loads((directory / TRAIN_JSON).read_text(encoding="utf-8"))
 
 
 def config(**overrides) -> TrainConfig:
