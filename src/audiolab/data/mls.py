@@ -26,7 +26,7 @@ from audiolab.data.download import (
     open_archive,
 )
 from audiolab.data.textfiles import read_records
-from audiolab.data.train import TRAIN_CLIP_CAP, Take, evaluation_groups
+from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take, evaluation_groups
 
 REPO = "facebook/multilingual_librispeech"
 # Pinned so the files a panel was built from cannot change under it.
@@ -106,12 +106,20 @@ def fetch_mls_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose
         text_has_casing_punct=False,
         excluded=evaluation_groups(EVALUATION_DATASET),
         cap=TRAIN_CLIP_CAP,
+        cap_per_group=CLIP_CAP_PER_GROUP,
     )
 
     pinned = _published_hashes(cache, filenames, TRAIN_SPLIT)
+    skipped = 0
     for index, audio_name in enumerate(filenames, start=1):
         if take.full():
             break
+        # The file list is ordered by book, so the first archives of one book
+        # carry many readers; the archives of a reader that already holds its
+        # share of the cap are not downloaded at all.
+        if take.group_full(audio_name.split("_", 1)[0]):
+            skipped += 1
+            continue
         # The name list already includes the .tar.gz suffix.
         archive = download(
             _source(f"audio/{audio_name}", TRAIN_SPLIT),
@@ -132,7 +140,7 @@ def fetch_mls_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose
             print(f"  ... archive {index}/{len(filenames)}")
 
     if verbose:
-        print(f"  {take.report()}")
+        print(f"  {take.report()}; archives not read (reader already taken): {skipped}")
     builder.write()
     return take.kept
 

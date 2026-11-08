@@ -33,6 +33,15 @@ from audiolab.data.store import MANIFEST_NAME, read_manifest
 # source is cut to; a source with fewer usable clips is prepared as it is and
 # says so.
 TRAIN_CLIP_CAP = 12_000
+# The cap is spread over at least this many groups. Several corpora publish
+# their train split one speaker after another, so taking the first 12 000 clips
+# in the published order spends the whole cap on a handful of readers (MLS: 19
+# speakers); no more than this share of the cap comes from one group, and the
+# preparation reads on until it has covered enough groups.
+MIN_GROUPS = 60
+# What one group contributes at most: the cap spread over at least MIN_GROUPS
+# groups. A fetcher passes it explicitly, so a test can lower it.
+CLIP_CAP_PER_GROUP = TRAIN_CLIP_CAP // MIN_GROUPS
 MIN_SECONDS = 0.5
 MAX_SECONDS = 20.0
 
@@ -56,16 +65,28 @@ class Take:
     group_kind: str = "speaker"
     excluded: frozenset[str] = field(default_factory=frozenset)
     cap: int = TRAIN_CLIP_CAP
+    cap_per_group: int = CLIP_CAP_PER_GROUP
     kept: int = 0
     rows_read: int = 0
     too_short: int = 0
     too_long: int = 0
     without_text: int = 0
     in_evaluation_set: int = 0
+    beyond_group_cap: int = 0
+    per_group: dict[str, int] = field(default_factory=dict)
 
     def full(self) -> bool:
         """Whether the cap is reached and the source can stop being read."""
         return self.kept >= self.cap
+
+    def group_full(self, group: str) -> bool:
+        """Whether one group already holds its share of the cap.
+
+        A fetcher asks this before reading a whole archive or shard, so that a
+        source published speaker by speaker is not downloaded for a reader that
+        is already fully represented.
+        """
+        return self.per_group.get(group, 0) >= self.cap_per_group
 
     def offer(self, source_id: str, audio: Audio, *, text: str, group: str) -> bool:
         """Offer one row of the source; it becomes a clip when it passes the filters.
@@ -82,6 +103,9 @@ class Take:
             return False
         if group in self.excluded:
             self.in_evaluation_set += 1
+            return False
+        if self.group_full(group):
+            self.beyond_group_cap += 1
             return False
         if audio.duration_s < MIN_SECONDS:
             self.too_short += 1
@@ -101,6 +125,7 @@ class Take:
             license=self.license,
         )
         self.kept += 1
+        self.per_group[group] = self.per_group.get(group, 0) + 1
         return True
 
     def report(self) -> str:
@@ -110,7 +135,8 @@ class Take:
             f"{self.name}: {self.kept} clips ({state}), {self.rows_read} rows read; left out: "
             f"{self.too_short} shorter than {MIN_SECONDS} s, {self.too_long} longer than "
             f"{MAX_SECONDS:g} s, {self.without_text} without text, "
-            f"{self.in_evaluation_set} already in an evaluation set"
+            f"{self.in_evaluation_set} already in an evaluation set, "
+            f"{self.beyond_group_cap} beyond the {self.cap_per_group}-clip share of a group"
         )
 
 

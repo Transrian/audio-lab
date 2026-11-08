@@ -26,7 +26,7 @@ from pathlib import Path
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download, huggingface_sha256_map
 from audiolab.data.parquet import audio_of, rows
-from audiolab.data.train import TRAIN_CLIP_CAP, Take
+from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take
 
 REPO = "espnet/yodas-granary"
 # Pinned so the clips a preparation takes cannot change under it.
@@ -62,6 +62,7 @@ def fetch_granary_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ver
         text_has_casing_punct=True,
         group_kind=GROUP_KIND,
         cap=TRAIN_CLIP_CAP,
+        cap_per_group=CLIP_CAP_PER_GROUP,
     )
 
     for index, (shard, sha256) in enumerate(shards.items(), start=1):

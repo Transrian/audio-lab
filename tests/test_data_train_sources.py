@@ -24,7 +24,13 @@ from helpers import (  # noqa: E402
 )
 from test_data_source import make_archive  # noqa: E402
 
-from audiolab.data import african_french, granary, mls, voxpopuli_train  # noqa: E402
+from audiolab.data import (  # noqa: E402
+    african_french,
+    granary,
+    librispeech,
+    mls,
+    voxpopuli_train,
+)
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
@@ -50,7 +56,11 @@ def listing(published: dict[str, dict[str, str]]):
 
 
 def fake_voxpopuli_cache(
-    cache: Path, rows: int = 3, accents: dict[str, str] | None = None, shards: int = 1
+    cache: Path,
+    rows: int = 3,
+    accents: dict[str, str] | None = None,
+    shards: int = 1,
+    speakers: list[str] | None = None,
 ) -> None:
     """A cache that looks like a downloaded VoxPopuli French train shard.
 
@@ -67,7 +77,7 @@ def fake_voxpopuli_cache(
         {
             "audio": [audio_cell(tone, f"rec_{index}.wav") for index in range(rows)],
             "raw_text": [f"Bonjour, numéro {index}." for index in range(rows)],
-            "speaker_id": ["10", "10", "20"][:rows],
+            "speaker_id": (speakers or ["10", "10", "20"])[:rows],
             "is_gold_transcript": [True] * rows,
         },
     )
@@ -231,7 +241,9 @@ def test_voxpopuli_fr_train_refuses_a_shard_the_hub_lists_no_checksum_for(dirs, 
         )
 
 
-def fake_mls_train_cache(cache: Path, name: str = "mls-fr-train") -> None:
+def fake_mls_train_cache(
+    cache: Path, name: str = "mls-fr-train", extra_archive: str | None = None
+) -> None:
     """A cache that looks like a downloaded MLS French train split.
 
     One archive per speaker, as the corpus publishes it, and the same three text
@@ -240,6 +252,14 @@ def fake_mls_train_cache(cache: Path, name: str = "mls-fr-train") -> None:
     directory = cache / name
     tone = write_tone(directory / "tone.flac", seconds=4.0)
     archives = {"1234_5678_000": "1234_5678_000001", "9999_1111_000": "9999_1111_000001"}
+    if extra_archive:
+        # A second archive of a reader that already appeared: the same speaker,
+        # another book, and the file list keeps it next to the first.
+        archives = {
+            "1234_5678_000": "1234_5678_000001",
+            extra_archive: f"{extra_archive.split('_')[0]}_5678_001001",
+            "9999_1111_000": "9999_1111_000001",
+        }
     for archive, utterance in archives.items():
         make_archive(directory / f"{archive}.tar.gz", {f"{archive}/{utterance}.flac": tone})
     (directory / "audio_filenames.txt").write_text(
@@ -388,8 +408,7 @@ def fake_african_french_cache(
         f"{root}/transcripts/train/ca16_read/conditioned.txt": _text_file(
             directory,
             "conditioned.txt",
-            conditioned
-            or "afc-gabon_16.06.15_048_read_0344 d' accord mais je ne connais pas\n",
+            conditioned or "afc-gabon_16.06.15_048_read_0344 d' accord mais je ne connais pas\n",
         ),
         f"{root}/transcripts/train/ca16_conv/transcripts.txt": _text_file(
             directory,
@@ -483,3 +502,125 @@ def test_african_french_refuses_a_transcript_line_without_text(dirs):
         african_french.fetch_african_accented_fr_train(
             "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
         )
+
+
+def fake_librispeech_train_cache(cache: Path, name: str = "librispeech-en-train") -> None:
+    """A cache that looks like LibriSpeech train-clean-100.
+
+    ``speaker/chapter/file.flac`` next to a ``.trans.txt`` per chapter, as the
+    corpus publishes it, with the uppercase, unpunctuated transcripts.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.flac", seconds=4.0)
+    make_archive(
+        directory / "train-clean-100.tar.gz",
+        {
+            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.flac": tone,
+            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.trans.txt": _text_file(
+                directory, "103-1240-0001.trans.txt", "103-1240-0001 CHAPTER ONE OF A BOOK\n"
+            ),
+            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.flac": tone,
+            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.trans.txt": _text_file(
+                directory, "108-1254-0001.trans.txt", "108-1254-0001 ANOTHER CHAPTER\n"
+            ),
+        },
+    )
+
+
+def test_librispeech_train_reads_the_train_archive_and_groups_by_speaker(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_train_cache(cache)
+    monkeypatch.setattr(librispeech, "PINNED_SHA256", {}, raising=True)
+
+    count = librispeech.fetch_librispeech_en_train(
+        "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
+    )
+    assert count == 2
+
+    clips = {clip.id: clip for clip in read_manifest(data / "librispeech-en-train")}
+    first = clips["librispeech-en-train:103-1240-0001"]
+    assert first.text == "CHAPTER ONE OF A BOOK"
+    # LibriSpeech publishes uppercase, unpunctuated transcripts.
+    assert first.text_has_casing_punct is False
+    assert first.group == "librispeech-en-train:103"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "train-clean-100"
+    assert first.license == "CC-BY-4.0"
+
+
+def test_librispeech_train_leaves_out_a_speaker_test_clean_scores(dirs, monkeypatch):
+    """The splits keep their speakers apart; a scored speaker is never trained on."""
+    data, cache = dirs
+    fake_librispeech_train_cache(cache)
+    monkeypatch.setattr(librispeech, "PINNED_SHA256", {}, raising=True)
+    write_manifest(
+        data / "librispeech-en",
+        [make_clip("librispeech-en:103-1240-0001", group="librispeech-en:103")],
+    )
+
+    count = librispeech.fetch_librispeech_en_train(
+        "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
+    )
+    assert count == 1
+    assert [clip.group for clip in read_manifest(data / "librispeech-en-train")] == [
+        "librispeech-en-train:108"
+    ]
+
+
+def test_librispeech_train_stops_at_the_cap(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_train_cache(cache)
+    monkeypatch.setattr(librispeech, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech, "TRAIN_CLIP_CAP", 1, raising=True)
+
+    count = librispeech.fetch_librispeech_en_train(
+        "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
+    )
+    assert count == 1
+
+
+def test_voxpopuli_fr_train_leaves_out_a_row_whose_reader_is_not_named(dirs, monkeypatch):
+    """A row the corpus does not name a reader for cannot be grouped or checked.
+
+    VoxPopuli writes the string "None" in ``speaker_id`` for 12 % of its French
+    train rows; such a clip can be neither resampled by reader nor checked
+    against the evaluation sets, so the preparation passes over it.
+    """
+    data, cache = dirs
+    fake_voxpopuli_cache(cache, rows=3, speakers=["10", "None", "20"])
+    patch_listing(monkeypatch)
+
+    count = voxpopuli_train.fetch_voxpopuli_fr_train(
+        "voxpopuli-fr-train", cache, data / "voxpopuli-fr-train", verbose=False
+    )
+    assert count == 2
+    assert {clip.group for clip in read_manifest(data / "voxpopuli-fr-train")} == {
+        "voxpopuli-fr-train:10",
+        "voxpopuli-fr-train:20",
+    }
+
+
+def test_mls_fr_train_skips_the_archives_of_a_reader_it_already_has(dirs, monkeypatch):
+    """The file list is ordered by book, so one reader can own many archives.
+
+    Reading them all would spend the whole cap on the first readers (19 speakers
+    for 12 000 clips); a reader that already holds its share is not downloaded.
+    """
+    data, cache = dirs
+    fake_mls_train_cache(cache, extra_archive="1234_5678_001")
+    monkeypatch.setattr(mls, "CLIP_CAP_PER_GROUP", 1, raising=True)
+    real_download = mls.download
+
+    def refuse(url, destination, **options):
+        if not Path(destination).is_file():
+            raise AssertionError(f"{url} would have been downloaded for a full reader")
+        return real_download(url, destination, **options)
+
+    monkeypatch.setattr(mls, "download", refuse)
+    count = mls.fetch_mls_fr_train("mls-fr-train", cache, data / "mls-fr-train", verbose=False)
+
+    assert count == 2
+    assert {clip.group for clip in read_manifest(data / "mls-fr-train")} == {
+        "mls-fr-train:1234",
+        "mls-fr-train:9999",
+    }

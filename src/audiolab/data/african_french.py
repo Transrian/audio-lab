@@ -28,7 +28,7 @@ from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive
-from audiolab.data.train import TRAIN_CLIP_CAP, Take
+from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take
 
 ARCHIVE_URL = "https://www.openslr.org/resources/57/African_Accented_French.tar.gz"
 ARCHIVE_NAME = "African_Accented_French.tar.gz"
@@ -71,6 +71,7 @@ def fetch_african_accented_fr_train(
         license=LICENSE,
         text_has_casing_punct=False,
         cap=TRAIN_CLIP_CAP,
+        cap_per_group=CLIP_CAP_PER_GROUP,
     )
 
     untranscribed = 0

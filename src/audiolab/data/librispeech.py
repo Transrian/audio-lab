@@ -1,10 +1,16 @@
-"""LibriSpeech test-clean (``librispeech-en``): read audiobook excerpts.
+"""LibriSpeech (``librispeech-en`` test-clean, ``librispeech-en-train``): audiobook excerpts.
 
-Only the test-clean archive is downloaded: test-other is harder speech and is
-left for a later phase. The archive holds FLAC files named
+Only the test-clean archive is downloaded for evaluation: test-other is harder
+speech and is left for a later phase. A training source takes the first clips of
+``train-clean-100`` instead, in the archive's own order, so it stops reading as
+soon as it has enough. The archive holds FLAC files named
 ``speaker/chapter/file.flac`` next to a ``.trans.txt`` per chapter, and a tar
 stream cannot be read backwards, so the transcripts are read in a first pass
 and the audio in a second one.
+
+LibriSpeech publishes uppercase, unpunctuated transcripts, and its speakers are
+books read aloud. The base model writes casing and punctuation, so this source
+teaches it to drop both: a known confound of the screening, recorded in its card.
 """
 
 from __future__ import annotations
@@ -13,16 +19,27 @@ from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive
+from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take, evaluation_groups
 
 ARCHIVE_URL = "https://www.openslr.org/resources/12/test-clean.tar.gz"
 ARCHIVE_NAME = "test-clean.tar.gz"
+TRAIN_ARCHIVE_URL = "https://www.openslr.org/resources/12/train-clean-100.tar.gz"
+TRAIN_ARCHIVE_NAME = "train-clean-100.tar.gz"
 LICENSE = "CC-BY-4.0"
 LANGUAGE = "en"
 SPLIT = "test-clean"
+TRAIN_SPLIT = "train-clean-100"
+# The evaluation set prepared from test-clean: LibriSpeech keeps the speakers of
+# its splits apart, so nothing should be found in common here, but a speaker
+# that is scored is never trained on (decision 0002).
+EVALUATION_DATASET = "librispeech-en"
 # OpenSLR publishes this file without a checksum, so the sha256 saw when the
 # panels were built is recorded here and checked on every fresh download.
 PINNED_SHA256 = {
     "test-clean.tar.gz": "39fde525e59672dc6d1551919b1478f724438a95aa55f874b576be21967e6c23",
+    # Recorded when this source was prepared; OpenSLR publishes md5 sums only,
+    # and the archive's md5 matches the one published for it (2a93770f...).
+    "train-clean-100.tar.gz": "d4ddd1d5a6ab303066f14971d768ee43278a5f2a0aa43dc716b0e64ecbbbf6e2",
 }
 # The published size of the archive; tests patch this to a small number.
 EXPECTED_CLIPS = 2620
@@ -51,6 +68,52 @@ def fetch_librispeech_en(name: str, cache_dir: Path, dataset_dir: Path, *, verbo
     return len(builder.clips)
 
 
+def fetch_librispeech_en_train(
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
+) -> int:
+    """Prepare the first clips of LibriSpeech train-clean-100, up to the cap."""
+    archive_path = download(
+        TRAIN_ARCHIVE_URL,
+        cache_dir / name / TRAIN_ARCHIVE_NAME,
+        sha256=PINNED_SHA256.get(TRAIN_ARCHIVE_NAME, ""),
+    )
+    # The whole archive is walked to read its transcripts, then read again for
+    # the audio of the clips taken from the beginning.
+    transcripts = _read_transcripts(name, archive_path)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    take = Take(
+        name=name,
+        builder=builder,
+        language=LANGUAGE,
+        source_split=TRAIN_SPLIT,
+        license=LICENSE,
+        text_has_casing_punct=False,
+        excluded=evaluation_groups(EVALUATION_DATASET),
+        cap=TRAIN_CLIP_CAP,
+        cap_per_group=CLIP_CAP_PER_GROUP,
+    )
+
+    with open_archive(archive_path) as handle:
+        for member in handle:
+            if take.full():
+                break
+            if not member.name.endswith(".flac"):
+                continue
+            text = transcripts.get(Path(member.name).stem)
+            if text is None:
+                raise DownloadError(f"{name}: {member.name} has no transcript in the archive")
+            take.offer(
+                Path(member.name).stem,
+                audio_from_archive(handle, member),
+                text=text,
+                group=_speaker_of(name, member),
+            )
+    if verbose:
+        print(f"  {take.report()}")
+    builder.write()
+    return take.kept
+
+
 def _read_transcripts(name: str, archive_path: Path) -> dict[str, str]:
     """First pass: every ``.trans.txt`` of the archive, keyed by utterance id."""
     transcripts: dict[str, str] = {}
@@ -70,18 +133,23 @@ def _read_member(name: str, handle, member) -> bytes:
     return data.read()
 
 
-def add_librispeech_clip(builder: ManifestBuilder, name: str, handle, member, text: str) -> None:
-    """Add one archive member; its path gives the speaker (``speaker/chapter/file``)."""
+def _speaker_of(name: str, member) -> str:
+    """The speaker of one archive member, read from ``speaker/chapter/file``."""
     parts = Path(member.name).parts
     if len(parts) < 3:
         raise DownloadError(f"{name}: unexpected path in the archive: {member.name}")
+    return parts[-3]
+
+
+def add_librispeech_clip(builder: ManifestBuilder, name: str, handle, member, text: str) -> None:
+    """Add one archive member; its path gives the speaker (``speaker/chapter/file``)."""
     builder.add(
         f"{name}:{Path(member.name).stem}",
         audio_from_archive(handle, member),
         language=LANGUAGE,
         text=text,
         text_has_casing_punct=False,
-        group=f"{name}:{parts[-3]}",
+        group=f"{name}:{_speaker_of(name, member)}",
         group_kind="speaker",
         source_split=SPLIT,
         license=LICENSE,

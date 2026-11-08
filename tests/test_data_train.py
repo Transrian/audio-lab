@@ -21,7 +21,9 @@ from audiolab.core.audio import SAMPLE_RATE, Audio  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 from audiolab.data.train import (  # noqa: E402
+    CLIP_CAP_PER_GROUP,
     MAX_SECONDS,
+    MIN_GROUPS,
     MIN_SECONDS,
     TRAIN_CLIP_CAP,
     Take,
@@ -145,3 +147,34 @@ def test_evaluation_groups_of_several_datasets_are_merged(tmp_path):
 def test_evaluation_groups_is_empty_for_a_dataset_that_is_not_prepared(tmp_path):
     """Nothing is excluded when the evaluation set is not on this machine."""
     assert evaluation_groups("voxpopuli-en-french-accent", root=tmp_path) == frozenset()
+
+
+def test_one_group_may_only_hold_its_share_of_the_cap(tmp_path):
+    """A corpus read speaker after speaker must not spend the cap on a few readers."""
+    take = make_take(tmp_path, cap=4, cap_per_group=1)
+    assert take.offer("a1", tone(3.0), text="bonjour", group="spkA") is True
+
+    assert take.offer("a2", tone(3.0), text="bonjour", group="spkA") is False
+    assert take.group_full("spkA") is True
+    assert take.group_full("spkB") is False
+    assert take.beyond_group_cap == 1
+
+    assert take.offer("b1", tone(3.0), text="bonjour", group="spkB") is True
+    assert take.kept == 2
+    assert not take.full()
+
+
+def test_the_share_of_a_group_spreads_the_cap_over_many_groups(tmp_path):
+    """The screening compares sources, so each must cover a comparable number of groups."""
+    assert MIN_GROUPS == 60
+    assert CLIP_CAP_PER_GROUP == 200
+    take = make_take(tmp_path)
+    assert take.cap_per_group == CLIP_CAP_PER_GROUP
+
+
+def test_take_report_says_what_the_share_of_a_group_left_out(tmp_path):
+    take = make_take(tmp_path, cap=4, cap_per_group=1)
+    take.offer("a1", tone(3.0), text="bonjour", group="spkA")
+    take.offer("a2", tone(3.0), text="bonjour", group="spkA")
+
+    assert "1 beyond the 1-clip share of a group" in take.report()

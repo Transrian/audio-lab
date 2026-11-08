@@ -25,7 +25,7 @@ from pathlib import Path
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download, huggingface_sha256_map
 from audiolab.data.parquet import audio_of, rows
-from audiolab.data.train import TRAIN_CLIP_CAP, Take
+from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take
 
 REPO = "facebook/voxpopuli"
 # Pinned so the clips a preparation takes cannot change under it.
@@ -45,6 +45,11 @@ COLUMNS = ["audio", "raw_text", "speaker_id", "is_gold_transcript"]
 ACCENTED_DATASET = "voxpopuli-en-french-accent"
 ACCENTED_PATH = "en_accented"
 ACCENTED_ACCENT = "en_fr"
+# VoxPopuli publishes no speaker id for part of its rows: 12 % of the French
+# train split carries the string "None". A row whose reader is unknown can
+# neither be grouped by reader nor be checked against the evaluation sets, which
+# is what a group is for, so such a row is left out and counted.
+UNNAMED_SPEAKERS = frozenset({"", "none", "nan", "null"})
 ACCENTED_COLUMNS = ["speaker_id", "accent"]
 
 
@@ -64,9 +69,11 @@ def fetch_voxpopuli_fr_train(
         text_has_casing_punct=True,
         excluded=_accented_speakers(cache_dir),
         cap=TRAIN_CLIP_CAP,
+        cap_per_group=CLIP_CAP_PER_GROUP,
     )
 
     not_gold = 0
+    unnamed = 0
     for shard, sha256 in shards.items():
         if take.full():
             break
@@ -79,6 +86,9 @@ def fetch_voxpopuli_fr_train(
             if not row["is_gold_transcript"]:
                 not_gold += 1
                 continue
+            if str(row["speaker_id"]).strip().lower() in UNNAMED_SPEAKERS:
+                unnamed += 1
+                continue
             # The recording is the clip; the speaker is the group, because the
             # segments of one speaker share a voice, an accent and a room.
             take.offer(
@@ -88,7 +98,10 @@ def fetch_voxpopuli_fr_train(
                 group=row["speaker_id"],
             )
     if verbose:
-        print(f"  {take.report()}; without a gold transcript: {not_gold}")
+        print(
+            f"  {take.report()}; without a gold transcript: {not_gold}; "
+            f"without a named speaker: {unnamed}"
+        )
     builder.write()
     return take.kept
 

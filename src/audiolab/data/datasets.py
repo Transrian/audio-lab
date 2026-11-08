@@ -63,6 +63,18 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "librispeech-en-train": DatasetInfo(
+        name="librispeech-en-train",
+        source="https://www.openslr.org/12 (train-clean-100.tar.gz)",
+        license="CC-BY-4.0",
+        split="train-clean-100",
+        reference_style="uppercase, unpunctuated",
+        grouping="speaker",
+        notes="Training data for the per-source screening: the first clips of "
+        "train-clean-100 in the archive's order, with the speakers of "
+        "librispeech-en left out (decision 0002), as documented in "
+        "docs/stt/datasets.md. No panels.",
+    ),
     "african-accented-fr-train": DatasetInfo(
         name="african-accented-fr-train",
         source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/train)",
