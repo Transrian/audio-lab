@@ -25,12 +25,13 @@ from audiolab.data.download import DownloadError
 class Talk:
     """One talk of a pinned listing: where it is, what it is, and its licence.
 
-    ``channel`` is the channel, the room or the collection the source files it
-    under, and is empty when the source has none. ``instance`` is the PeerTube
-    instance whose API serves the video files, and is empty when ``url`` already
-    is the audio file: only a PeerTube file URL changes under a talk (an
-    instance transcodes again), which is why it is asked for at download time
-    rather than pinned.
+    ``url`` is the talk's page, the one its attribution points at. ``channel``
+    is the channel, the room or the collection the source files it under, and
+    is empty when the source has none. The audio is found in one of two ways:
+    ``instance`` is the PeerTube instance whose API is asked for the video files
+    at download time, because they change under a talk (an instance transcodes
+    again); ``file`` is the file itself, when a source serves it at a fixed URL.
+    The other one is empty.
     """
 
     id: str
@@ -41,6 +42,7 @@ class Talk:
     author: str
     channel: str = ""
     instance: str = ""
+    file: str = ""
 
 
 @dataclass(frozen=True)

@@ -621,9 +621,10 @@ costs nothing and a fresh clone downloads all of it again.
 
 The sources below, like `peertube-fr-train`, are **talks** rather than corpora: a
 pinned listing of videos, read in a seeded order, whose audio is labelled by two
-speech models where they agree. One module holds that machinery for all of them
-(`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and each source is a listing
-module plus one entry in `src/audiolab/data/talk_sources.py`, which says what the
+speech models where they agree. Three modules hold that machinery for all of
+them (`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and
+each source is a listing module plus one entry in
+`src/audiolab/data/talk_sources.py`, which says what the
 listing must hold, in which language the talks are labelled, where a talk's audio
 comes from and what a seeded selection spreads over. What is specific to a
 source — its catalogue, its licence, its selection, its size — is in its card;
@@ -752,11 +753,11 @@ Per instance, as the listing of 2026-11-08 holds them:
   not use (`en`, `para`, `avec`, `mit`, …) or a letter English does not write
   (`ñ`, `ç`, `ó`, …). In the catalogue read on 2026-11-08, the miniDebConf India,
   the mini-DebConf France and the Debian-edu gatherings hold 91 videos of at least
-  ten minutes (55.4 h), and the title rule leaves out 75 more (51.8 h). A talk given in another language under an
-  English title still escapes the filter, and an English title that names a place
-  such as `Brasília` is lost to it. Videos shorter than ten minutes, videos under
-  another licence and videos the instance does not host itself are left out as in
-  the other talk sources.
+  ten minutes (55.4 h), and the title rule leaves out 75 more (51.8 h). A talk
+  given in another language under an English title still escapes the filter, and
+  an English title that names a place such as `Brasília` is lost to it. Videos
+  shorter than ten minutes, videos under another licence and videos the instance
+  does not host itself are left out as in the other talk sources.
 - **Labels are English**: this is the first source of the repository labelled in
   another language than French, so the language is not a constant any more: the
   three models are asked to transcribe in English (`send_language`), the clips are
@@ -785,29 +786,34 @@ Per instance, as the listing of 2026-11-08 holds them:
   video tree (`https://video.fosdem.org/<year>/<room>/`) is a plain HTTP directory
   of `.mp4` and `.webm` files, and a file name says nothing about who spoke. A
   talk is therefore listed when the schedule points at a file the tree **actually
-  serves** — the join is an exact match on the URL — and the schedule is where the
-  metadata comes from. The listing of 2026-11-08 holds **5 167 talks, 2 442.3 h**,
-  in 108 rooms over the seven years 2020 to 2026 ([`fosdem_listing.json`](
-  ../../src/audiolab/data/fosdem_listing.json)); the tree goes back to 2003, which
-  this source does not read: seven years already cover every devroom and topic the
-  conference has.
+  serves** — the join is a match on the URL, decoded on both sides, because the
+  tree percent-encodes a room whose name holds a space (`H.1301%20%28Cornil%29/`)
+  and the schedule does not — and the schedule is where the metadata comes from.
+  The listing of 2026-11-08 holds **5 477 talks, 2 574.3 h**, in 108 rooms over
+  the seven years 2020 to 2026 ([`fosdem_listing.json`](
+  ../../src/audiolab/data/fosdem_listing.json)). Those hours are the **lengths
+  of the schedule's slots**, not of the recordings, which the listing never
+  reads: a talk can end before its slot does, and a recording can be cut short.
+  The tree goes back to 2003, which this source does not read: seven years
+  already cover every devroom and topic the conference has.
 - **The join, year by year**: the schedule of 2020 lists 872 events, 818 of them
   with a link into the tree; 811 of those last ten minutes and are in English, and
   811 are listed, the one difference being an event whose recording the tree does
   not have. The same holds for 2021 (773 events, 644 listed), 2022 (730, 644),
-  2024 (874, 799), 2025 (1 105, 923) and 2026 (1 079, 943). **2023 is the
-  exception**: 780 events, 733 with a link, 713 of them long enough and in
-  English, of which only 403 are listed, because the tree published 22 rooms that
-  year where the other six published 28 to 58. The listing holds what a viewer
-  of the conference could watch, not what it announced.
+  2023 (780, 713), 2024 (874, 799), 2025 (1 105, 923) and 2026 (1 079, 943). The
+  listing holds what a viewer of the conference could watch, not what it
+  announced.
 - **License and attribution**: CC BY 2.0 BE, stated on the tree's own pages, whose
   footer links to <https://creativecommons.org/licenses/by/2.0/be/deed.en>
   (checked 2026-11-08, on the pages of several years). That is the one source here
   whose licence is a version of CC BY with a jurisdiction, so the manifest records
   `CC-BY-2.0-BE` rather than `CC-BY`. Every clip carries the talk's `source_url`
-  (the recording), `source_title` and `source_author` (the speakers the schedule
-  names, joined with commas); 15 of the 5 167 talks name no speaker at all — a
-  lightning-talk slot, a stand — and their lines carry no author.
+  (the event's page in the schedule, which names the talk, its speakers and the
+  recording: the `<url>` the schedule gives, or `/<year>/schedule/event/<slug>/`
+  for the years whose schedule gives none), `source_title` and `source_author`
+  (the speakers the schedule names, joined with commas); 16 of the 5 477 talks
+  name no speaker at all — a lightning-talk slot, a stand — and their lines carry
+  no author.
 - **Language**: the schedules of 2020 to 2023 tag no language at all — every
   event of those years has an empty `<language>` — and those of 2024 to 2026 tag
   every event `en`. So the language rule drops nothing over the years listed: a
@@ -823,14 +829,10 @@ Per instance, as the listing of 2026-11-08 holds them:
   and every devroom instead of the biggest one. The audio is the MP4 the listing
   pinned — preferred over the WebM because it plays everywhere, and over the AV1
   WebM, which a decoder may refuse — converted to 16 kHz mono WAV.
-- **Prepared audio**: the first 65 h of the reading order — 126 talks — were
-  downloaded and kept as 16 kHz mono WAV, 6.6 GiB in the pipeline's cache
-  (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored; the video file of
-  a talk is deleted once its sound is out). Every talk of that selection arrived.
-- **Group**: the recording (`group_kind: recording`), the talk. FOSDEM reuses a
-  devroom and a slug across years, so a talk's id starts with its year
-  (`2025-rounding-up-your-first-package`): two talks that share a slug would
-  otherwise share a cache file and a manifest group.
+- **Group**: the recording (`group_kind: recording`), the talk. Its id is the
+  year and the schedule's event id (`2025-6712`): an event id is unique within one
+  year only, and a slug — over 200 characters for some talks — would make cache
+  file names close to the length a file system allows.
 
 ### No overlap with the evaluation sets
 

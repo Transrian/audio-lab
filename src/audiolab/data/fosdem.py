@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import html
 import re
+import time
 import xml.etree.ElementTree as ET
+from urllib.parse import unquote
 
 import httpx
 
@@ -41,14 +43,25 @@ LICENSE = "CC-BY-2.0-BE"
 # The shortest recording a listing may hold, as in the other talk sources.
 MIN_TALK_SECONDS = 600
 
-ROOM_LINK = re.compile(r"^[A-Za-z0-9._-]+/$")
+# The schedule's event page of a year that does not name it (FOSDEM redirects it to
+# its archive), from the event's slug.
+EVENT_PAGE = "https://fosdem.org/{year}/schedule/event/{slug}/"
+# The tree and the schedules are read one page at a time, paced, and a page the
+# server failed on is asked again, as the PeerTube catalogues are.
+PAUSE_S = 0.5
+RETRIES = 6
+RETRY_STATUSES = (429, 500, 502, 503, 504)
+
+# A room of the tree: one path segment, which may be percent-encoded
+# (``H.1301%20%28Cornil%29/``); not the parent, not a sort link.
+ROOM_LINK = re.compile(r"^[^./?][^/?]*/$")
 VIDEO_FILE = re.compile(r"\.(mp4|webm)$")
 HREF = re.compile(r'href="([^"]+)"')
 CLOCK = re.compile(r"^(\d+):(\d{2})$")
 
 
 def list_talks(http: httpx.Client, years: tuple[int, ...] = YEARS) -> list[Talk]:
-    """Every listed talk of ``years``, by slug."""
+    """Every listed talk of ``years``, by id."""
     return sorted((talk for year in years for talk in list_year(http, year)), key=lambda t: t.id)
 
 
@@ -57,35 +70,37 @@ def list_year(http: httpx.Client, year: int) -> list[Talk]:
     present = video_files(http, year)
     talks = []
     for event in events(http, year):
-        url = next((href for href in video_links(event) if href in present), "")
-        if not url or not speaks_english(event):
+        served = [present[unquote(href)] for href in video_links(event) if unquote(href) in present]
+        if not served or not speaks_english(event):
             continue
-        talk = talk_of(event, url)
+        talk = talk_of(event, year, served[0])
         if worth_listing(talk):
             talks.append(talk)
     return talks
 
 
-def video_files(http: httpx.Client, year: int) -> set[str]:
-    """The URLs of every video file the tree serves for one year.
+def video_files(http: httpx.Client, year: int) -> dict[str, str]:
+    """Every video file the tree serves for one year, by its decoded URL.
 
     The tree is a directory listing per room, and a room is one day of one
-    track, so the rooms are asked one after the other.
+    track, so the rooms are asked one after the other. The tree percent-encodes
+    a room with a space in its name (``H.1301%20%28Cornil%29``) where the
+    schedule writes it as it is, so the two are compared decoded; the URL kept
+    is the tree's own, which is the one it serves.
     """
     index = f"{VIDEO_TREE}/{year}/"
     rooms = [href for href in links(get_text(http, index)) if ROOM_LINK.match(href)]
-    files = {
-        f"{index}{room}{href}"
-        for room in rooms
-        for href in links(get_text(http, f"{index}{room}"))
-        if VIDEO_FILE.search(href)
-    }
+    files = {}
+    for room in rooms:
+        for href in links(get_text(http, f"{index}{room}")):
+            if VIDEO_FILE.search(href):
+                files[unquote(f"{index}{room}{href}")] = f"{index}{room}{href}"
     if not files:
         raise DownloadError(f"{index} lists no video file: the tree changed shape")
     return files
 
 
-def events(http: httpx.Client, year: int) -> list[dict]:
+def events(http: httpx.Client, year: int) -> list[ET.Element]:
     """The ``<event>`` elements of one year's schedule."""
     return list(ET.fromstring(get_text(http, SCHEDULE.format(year=year))).iter("event"))
 
@@ -101,18 +116,21 @@ def video_links(event: ET.Element) -> list[str]:
     return sorted(hrefs, key=lambda url: not url.endswith(".mp4"))
 
 
-def talk_of(event: ET.Element, url: str) -> Talk:
+def talk_of(event: ET.Element, year: int, file: str) -> Talk:
     """One listed talk, with the attribution CC BY asks a clip of it to carry.
 
-    The id starts with the year: FOSDEM publishes a devroom again the next year,
-    keeps the slug, and two talks that share a slug would otherwise share a cache
-    file and a manifest group.
+    The id is the year and the schedule's own event id (``2025-6712``): an event
+    id is unique within a year only, and a slug is too long to name the cache
+    files of a talk (over 200 characters for some). The URL is the event's page, which
+    names the talk, its speakers and its licence; the file is what is
+    downloaded.
     """
+    event_id = (event.get("id") or "").strip()
     slug = (event.findtext("slug") or "").strip()
-    year, _ = recorded_in(url)
     return Talk(
-        id=f"{year}-{slug}" if slug else "",
-        url=url,
+        id=f"{year}-{event_id}" if event_id else "",
+        url=(event.findtext("url") or "").strip() or EVENT_PAGE.format(year=year, slug=slug),
+        file=file,
         title=" ".join((event.findtext("title") or "").split()),
         duration_s=slot_seconds(event.findtext("duration") or ""),
         license=LICENSE,
@@ -150,22 +168,33 @@ def links(page: str) -> list[str]:
 
 
 def get_text(http: httpx.Client, url: str) -> str:
-    """One page of the tree or of a schedule, as text."""
-    response = http.get(url)
-    if response.status_code >= 400:
-        raise DownloadError(f"{url}: HTTP {response.status_code}")
-    return response.text
+    """One page of the tree or of a schedule, as text, paced and asked again on failure."""
+    for attempt in range(1, RETRIES + 1):
+        time.sleep(PAUSE_S)
+        try:
+            response = http.get(url)
+        except httpx.TransportError as failure:
+            if attempt == RETRIES:
+                raise DownloadError(f"cannot reach {url}: {failure}") from failure
+            continue
+        if response.status_code in RETRY_STATUSES:
+            time.sleep(5.0 * attempt)
+            continue
+        if response.status_code >= 400:
+            raise DownloadError(f"{url}: HTTP {response.status_code}")
+        return response.text
+    raise DownloadError(f"{url}: still failing after {RETRIES} attempts")
 
 
 def file_url(http: httpx.Client, talk: Talk) -> str:
     """The audio file of a listed talk: the listing pins the URL the tree serves."""
-    return talk.url
+    return talk.file
 
 
-def recorded_in(url: str) -> tuple[str, str]:
+def recorded_in(file: str) -> tuple[str, str]:
     """The year and the room a talk's file URL names."""
-    _, _, _, year, room, _ = url.split("/", 5)
-    return year, room
+    _, _, _, year, room, _ = file.split("/", 5)
+    return year, unquote(room)
 
 
 def spread_key(talk: Talk) -> str:
@@ -175,4 +204,4 @@ def spread_key(talk: Talk) -> str:
     shuffle over the listing can spend a whole selection on one room of one
     year.
     """
-    return "/".join(recorded_in(talk.url))
+    return "/".join(recorded_in(talk.file))
