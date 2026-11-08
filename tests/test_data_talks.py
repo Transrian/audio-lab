@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
-from audiolab.data import talks  # noqa: E402
+from audiolab.data import talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
@@ -438,6 +438,52 @@ def test_an_english_source_is_labelled_in_english_and_says_so_in_its_clips(tmp_p
     assert clip.language == "en"
     assert log.count(WHISPER) == log.count(QWEN) == log.count(PARAKEET) == 1
     assert not list((tmp_path / "dataset").glob("*.fr*"))
+
+
+def test_the_names_peertube_fr_train_is_cached_and_labelled_under_do_not_change(
+    tmp_path, monkeypatch
+):
+    """The caches of a preparation already made are found again only under these names.
+
+    A change to the listing, its reading order, a cache file name or the clip id
+    would make the next preparation of ``peertube-fr-train`` ask the models again
+    for talks already labelled, or label other talks than the ones it started on.
+    """
+    source = talk_sources.SOURCES["peertube-fr-train"]
+    listed_on, listed = talks.read_listing(source)
+    order = talks.reading_order(listed, talks.SEED, source.spread_by)
+    assert (listed_on, len(listed)) == ("2026-11-08", 519)
+    assert [one.id for one in order[:3]] == [
+        "6a2bdc8c-970e-465f-bdc7-fe01c74de834",
+        "8950c782-ae34-4556-9693-f7acdd7f4161",
+        "8f69da0b-2d13-4f28-85df-6a174cc1a891",
+    ]
+
+    uuid = order[0].id
+    answers = {
+        WHISPER: lambda wav: {"segments": [whisper_row(0.5, 5.0, "Bonjour.")], "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    serve_fakes(monkeypatch, None, answers, [])
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 1)
+    pinned = make_source(tmp_path, [talk(uuid)], name="peertube-fr-train")
+    talks.fetch_talks(
+        pinned, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=False
+    )
+
+    cached = sorted(path.name for path in (tmp_path / "cache" / "peertube-fr-train").iterdir())
+    assert cached == [
+        f"{uuid}.stt-a-qwen3-asr-1.7B.clips.jsonl",
+        f"{uuid}.stt-c-parakeet-tdt-0.6B-v3.clips.jsonl",
+        f"{uuid}.stt-c-whisper-large-v3.300s.jsonl",
+        f"{uuid}.wav",
+    ]
+    # The clip's start in hundredths of a second, on seven digits: Whisper said
+    # 0.5 s, and the cut starts a little before what was heard.
+    assert [clip.id for clip in read_manifest(tmp_path / "dataset")] == [
+        f"peertube-fr-train:{uuid}-0000030"
+    ]
 
 
 def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
