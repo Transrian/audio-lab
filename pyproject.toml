@@ -7,7 +7,6 @@ license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "httpx>=0.28.1",
-    "huggingface-hub>=2.4.0",
     # The local model stack (requirements/nemo.txt) pins numba, which does not
     # accept numpy 2.3 or later; 2.2 is the floor the code needs and the
     # ceiling belongs to that stack, not to the default install.
