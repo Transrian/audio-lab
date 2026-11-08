@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -39,6 +41,7 @@ from audiolab.eval.runner import (  # noqa: E402
     load_suite,
     run_suite,
 )
+from audiolab.serve.config import ServeSpec  # noqa: E402
 
 PANEL = "fake-fr-fast"
 
@@ -820,3 +823,112 @@ def test_a_non_speech_panel_is_scored_for_hallucinations(tmp_path):
     assert "| silence | 4 | 100.00 %" in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
     records = read_records(run_dir / RECORDS_NAME)
     assert all(record["language_sent"] is False for record in records)
+
+
+def served_context(workspace, serve_spec, runs_root, name: str = "local-model"):
+    """A run context whose model is a checkpoint served here, not a remote server."""
+    changed = context(workspace, base_url="", runs_root=runs_root)
+    changed.model = ModelConfig(name=name, model="parakeet-tdt-0.6b-v3", serve=serve_spec)
+    return changed
+
+
+def counting_transcriber(calls: list, text: str = "bonjour tout le monde"):
+    """A stand-in backend: the tests never load NeMo nor touch a GPU."""
+
+    def transcribe(audio: bytes, language: str = "") -> str:
+        calls.append((audio, language))
+        return text
+
+    return transcribe
+
+
+def test_a_served_checkpoint_is_identified_by_its_content_not_its_port(workspace, tmp_path):
+    """Two runs of one checkpoint share their answers; another checkpoint does not.
+
+    A temporary server listens on a fresh port on every run, so a cache key that
+    followed the URL would ask the same checkpoint again for every clip of every
+    run (D-017). The identity of a served model is its checkpoint instead, and a
+    copy of that file is the same checkpoint.
+    """
+    checkpoint = tmp_path / "run-a.nemo"
+    checkpoint.write_bytes(b"first-weights")
+    copy = tmp_path / "copied.nemo"
+    copy.write_bytes(checkpoint.read_bytes())
+    other = tmp_path / "run-b.nemo"
+    other.write_bytes(b"second-weights")
+    runs_root = tmp_path / "runs"
+    calls: list = []
+    transcribe = counting_transcriber(calls)
+
+    first = run_suite(
+        served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), runs_root),
+        transcriber=transcribe,
+    )
+    assert len(calls) == panel_size(workspace)
+
+    # The same weights, another path and another port: nothing is sent again.
+    run_suite(
+        served_context(workspace, ServeSpec(checkpoint=str(copy)), runs_root),
+        transcriber=transcribe,
+    )
+    assert len(calls) == panel_size(workspace)
+
+    # Another checkpoint, on another port too: every clip is a new question.
+    run_suite(
+        served_context(workspace, ServeSpec(checkpoint=str(other)), runs_root),
+        transcriber=transcribe,
+    )
+    assert len(calls) == 2 * panel_size(workspace)
+
+    # The identity, not the port: both runs of the first checkpoint wrote the
+    # same records, and no run directory names a checkpoint path.
+    assert len({(path.name) for path in (runs_root / "transcripts").glob("*.jsonl")}) == 2
+    identity = (first / IDENTITY_NAME).read_text(encoding="utf-8")
+    assert str(tmp_path) not in identity
+    assert json.loads(identity)["model"]["serve"]["checkpoint"].startswith("sha256=")
+    assert identity.count("sha256=") == 1
+
+
+def test_serving_a_checkpoint_uses_the_port_the_server_chose(workspace, tmp_path):
+    """The run talks to the server the runner started, not to a URL from a variable."""
+    checkpoint = tmp_path / "one.nemo"
+    checkpoint.write_bytes(b"weights")
+    calls: list = []
+    changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
+    # The config names a variable that is not set: a run that needed it would fail.
+    assert not os.environ.get("UNUSED_URL")
+    run_dir = run_suite(changed, transcriber=counting_transcriber(calls))
+    assert len(calls) == panel_size(workspace)
+    identity = (run_dir / IDENTITY_NAME).read_text(encoding="utf-8")
+    # The served address is a temporary local port; it belongs in no record.
+    assert "127.0.0.1" not in identity and "http://" not in identity
+
+
+def test_a_served_run_that_fails_still_stops_its_server(workspace, tmp_path, monkeypatch):
+    """A server left behind would keep a GPU busy; the runner must always stop it."""
+    checkpoint = tmp_path / "broken.nemo"
+    checkpoint.write_bytes(b"weights")
+    ports: list[str] = []
+    real_serving = runner.serving
+
+    @contextmanager
+    def tracking(spec, model_id, *, transcribe=None):
+        with real_serving(spec, model_id, transcribe=transcribe) as base_url:
+            ports.append(base_url)
+            yield base_url
+
+    monkeypatch.setattr(runner, "serving", tracking)
+
+    def failing(audio: bytes, language: str = "") -> str:
+        raise RuntimeError("no GPU memory left")
+
+    def no_backoff(context_, base_url):
+        return TranscriptionClient(context_.model, base_url, sleep=lambda _: None)
+
+    changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
+    with pytest.raises(RunError, match="no answer"):
+        run_suite(changed, transcriber=failing, client_factory=no_backoff)
+    assert len(ports) == 1
+    # The port the run used answers nothing now: the server was stopped.
+    with pytest.raises(httpx.TransportError):
+        httpx.get(f"{ports[0]}/v1/models", timeout=2.0, trust_env=False)

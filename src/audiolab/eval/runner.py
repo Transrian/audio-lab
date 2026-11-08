@@ -58,6 +58,8 @@ from audiolab.eval.records import (
     write_records,
 )
 from audiolab.eval.report import score_run
+from audiolab.serve.config import ServeSpec
+from audiolab.serve.launcher import serving
 
 DEFAULT_CONCURRENCY = 1
 SEALED_WARNING = (
@@ -102,6 +104,8 @@ class RunContext:
     concurrency: int = DEFAULT_CONCURRENCY
     sealed: bool = False
     fresh: bool = False
+    # The GPU a locally served model uses; ``None`` keeps the config's choice.
+    gpu: str | None = None
     verbose: bool = True
 
     def __post_init__(self) -> None:
@@ -110,16 +114,43 @@ class RunContext:
         self.data_dir = Path(self.data_dir) if self.data_dir else None
         self.runs_root = Path(self.runs_root)
 
+    def serving_spec(self) -> ServeSpec | None:
+        """The serve block to run here, or ``None`` when a server already answers.
 
-def run_suite(context: RunContext, *, client_factory=None) -> Path:
-    """Answer and score every panel of the suite; returns the run directory."""
+        ``base_url`` wins: pointing the command at a server that is already
+        running (the one ``audiolab serve`` shows) must not start a second one.
+        """
+        if self.model.serve is None or self.base_url:
+            return None
+        return self.model.serve.with_gpu(self.gpu)
+
+
+def run_suite(context: RunContext, *, client_factory=None, transcriber=None) -> Path:
+    """Answer and score every panel of the suite; returns the run directory.
+
+    A model config with a ``serve`` block makes this start the server itself and
+    stop it afterwards, so evaluating a local checkpoint is one command
+    (D-016). ``transcriber`` replaces the backend, which is how the tests drive
+    the whole path without NeMo.
+    """
     _refuse_sealed_without_flag(context)
-    base_url = context.base_url or base_url_from_env(context.model)
+    spec = context.serving_spec()
+    if spec is None:
+        return _answer_and_score(
+            context, context.base_url or base_url_from_env(context.model), client_factory
+        )
+    with serving(spec, context.model.model, transcribe=transcriber) as base_url:
+        return _answer_and_score(context, base_url, client_factory)
+
+
+def _answer_and_score(context: RunContext, base_url: str, client_factory=None) -> Path:
+    """Send what is not cached, then rebuild and score the run directory."""
     items_by_panel = {
         panel: load_panel_items(panel, context.panels_dir, context.data_dir)
         for panel in context.suite.panels
     }
-    fingerprint = endpoint_fingerprint(base_url, identity_key(Path(context.runs_root)))
+    key_bytes = identity_key(Path(context.runs_root))
+    fingerprint = identity_fingerprint(_endpoint_identity(context), key_bytes)
     key = transcript_key(context.model, fingerprint)
     cache_path = cache_file(Path(context.runs_root), key)
     open_cache(cache_path, key)
@@ -139,6 +170,20 @@ def run_suite(context: RunContext, *, client_factory=None) -> Path:
             f"they are sent again on the next run (see {run_dir / RECORDS_NAME})"
         )
     return run_dir
+
+
+def _endpoint_identity(context: RunContext) -> str:
+    """What the answers of a run belong to.
+
+    For a remote server it is the server root. For a checkpoint served here it
+    is the checkpoint itself - its content hash, or its Hub id - with the
+    backend and the decoding settings, because a temporary server listens on a
+    port that changes on every run, and a key that followed the port would ask
+    the same checkpoint every clip of every run (D-017).
+    """
+    if context.model.serve is not None:
+        return json.dumps(context.model.serve.identity(), sort_keys=True)
+    return server_root(context.base_url or base_url_from_env(context.model))
 
 
 def _default_client(context: RunContext, base_url: str):
@@ -181,14 +226,20 @@ def _identity(context: RunContext, panels: list[str], cache_path: Path) -> dict:
 
 
 def endpoint_fingerprint(base_url: str, key: bytes) -> str:
-    """A keyed fingerprint of the server a run talked to.
+    """A keyed fingerprint of the server a run talked to."""
+    return identity_fingerprint(server_root(base_url), key)
 
-    A plain hash of a URL is a guess away from being reversed: a private address
-    is one of a handful of shapes, so the fingerprint would leak what it hides.
-    The key never leaves the machine and the fingerprint is only ever compared,
-    never printed, which makes it useless to whoever reads a shared run.
+
+def identity_fingerprint(identity: str, key: bytes) -> str:
+    """A keyed fingerprint of what a run's answers belong to.
+
+    A plain hash of an identity is a guess away from being reversed: a private
+    address is one of a handful of shapes, so the fingerprint would leak what it
+    hides. The key never leaves the machine and the fingerprint is only ever
+    compared, never printed, which makes it useless to whoever reads a shared
+    run.
     """
-    return hmac.new(key, server_root(base_url).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(key, identity.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def identity_key(runs_root: Path) -> bytes:

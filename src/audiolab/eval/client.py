@@ -16,6 +16,8 @@ from pathlib import Path
 import httpx
 import yaml
 
+from audiolab.serve.config import ServeSpec
+
 # Transient failures are retried; anything else is reported as it is.
 RETRY_ATTEMPTS = 3
 # What replaces the API key in a message that goes into a record: a secret that
@@ -54,7 +56,13 @@ class ConfigError(ValueError):
 
 @dataclass(frozen=True)
 class ModelConfig:
-    """One model, as described by ``configs/models/<name>.yaml``."""
+    """One model, as described by ``configs/models/<name>.yaml``.
+
+    A config describes either a server to call (``base_url_env``) or a local
+    checkpoint to serve (``serve``); see
+    [evaluation.md](../../../docs/stt/evaluation.md). The two are evaluated the
+    same way, so the rest of the code sees no difference.
+    """
 
     name: str
     model: str
@@ -67,6 +75,9 @@ class ModelConfig:
     # a URL, since a run record must not name a private endpoint.
     server_label: str = ""
     request: dict = field(default_factory=dict)
+    # Present when this machine serves the model itself (D-016). Its checkpoint
+    # is then what the answers belong to, not a port number.
+    serve: ServeSpec | None = None
 
     @classmethod
     def from_file(cls, path: str | Path) -> ModelConfig:
@@ -87,6 +98,7 @@ class ModelConfig:
                 raise ConfigError(f"{path} needs a non-empty {required!r}")
         if raw.get("api", "transcriptions") != "transcriptions":
             raise ConfigError(f"{path}: only api 'transcriptions' is supported")
+        serve = ServeSpec.from_mapping(raw["serve"], path) if raw.get("serve") else None
         return cls(
             name=str(raw["name"]),
             model=str(raw["model"]),
@@ -96,13 +108,15 @@ class ModelConfig:
             send_language=bool(raw.get("send_language", True)),
             server_label=str(raw.get("server_label", "")),
             request=dict(raw.get("request") or {}),
+            serve=serve,
         )
 
     def identity(self) -> dict:
         """What makes a run this model: the config, without any secret value.
 
         Only the *names* of the environment variables are recorded, so a run
-        identity can be committed or shared safely.
+        identity can be committed or shared safely. A served checkpoint appears
+        as its content, never as the path it was read from.
         """
         return {
             "name": self.name,
@@ -113,6 +127,7 @@ class ModelConfig:
             "send_language": self.send_language,
             "server_label": self.server_label,
             "request": self.request,
+            "serve": self.serve.identity() if self.serve else None,
         }
 
 
