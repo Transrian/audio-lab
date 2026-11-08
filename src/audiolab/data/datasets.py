@@ -101,6 +101,18 @@ DATASETS: dict[str, DatasetInfo] = {
         "which is fewer clips than the cap. The corpus has no transcript for part "
         "of its train recordings, and eight prompting lines are not speech. No panels.",
     ),
+    "pxcorpus-fr-train": DatasetInfo(
+        name="pxcorpus-fr-train",
+        source="https://zenodo.org/records/10080490 (PxCorpus.zip, PxSLU recordings)",
+        license="CC-BY-4.0",
+        split="recordings",
+        reference_style="lowercase, no punctuation",
+        grouping="speaker (group = the participant id of the recording)",
+        notes="Training data for the per-source screening: every recording of the "
+        "corpus, which is far fewer clips than the cap, so its arm of the screening "
+        "has fewer clips than the others, as documented in docs/stt/datasets.md. "
+        "Spoken drug prescriptions, one utterance per recording. No panels.",
+    ),
     "granary-fr-train": DatasetInfo(
         name="granary-fr-train",
         source="https://huggingface.co/datasets/espnet/yodas-granary (data/fr000, asr_only)",

@@ -27,15 +27,21 @@ class DownloadError(RuntimeError):
 
 
 def download(
-    url: str, destination: Path, *, client: httpx.Client | None = None, sha256: str = ""
+    url: str,
+    destination: Path,
+    *,
+    client: httpx.Client | None = None,
+    sha256: str = "",
+    md5: str = "",
 ) -> Path:
     """Download ``url`` to ``destination``, skipping it when it is already there.
 
     The file appears under its final name only once it is complete, so an
     interrupted download never looks like a finished one. A ``url`` that is
     already a local file is copied instead of fetched, which is how the tests
-    exercise preparation without network access. When ``sha256`` is given, a
-    file that was just fetched or copied must match it; a file already in the
+    exercise preparation without network access. When a checksum is given — a
+    ``sha256``, or the ``md5`` some hosts publish instead — a file that was just
+    fetched or copied must match it; a file already in the
     cache was checked when it arrived.
     """
     if destination.is_file() and destination.stat().st_size > 0:
@@ -44,7 +50,7 @@ def download(
     local = Path(url)
     if local.is_file():
         shutil.copyfile(local, destination)
-        _check(destination, sha256, url)
+        _check(destination, sha256, md5, url)
         return destination
     own_client = client is None
     http = client or httpx.Client(follow_redirects=True, timeout=120.0)
@@ -61,28 +67,44 @@ def download(
         if own_client:
             http.close()
     shutil.move(str(staged), str(destination))
-    _check(destination, sha256, url)
+    _check(destination, sha256, md5, url)
     return destination
 
 
 def sha256_file(path: Path) -> str:
     """sha256 of a file, read in blocks so a gigabyte stays a gigabyte."""
-    digest = hashlib.sha256()
+    return _digest_file(hashlib.sha256(), path)
+
+
+def md5_file(path: Path) -> str:
+    """md5 of a file, read in blocks like :func:`sha256_file`.
+
+    Zenodo, which hosts one of the sources, publishes an md5 instead of a
+    sha256. It is used to notice a changed file, not to prove who wrote it.
+    """
+    return _digest_file(hashlib.md5(usedforsecurity=False), path)
+
+
+def _digest_file(digest, path: Path) -> str:
     with path.open("rb") as handle:
         for block in iter(lambda: handle.read(HASH_CHUNK), b""):
             digest.update(block)
     return digest.hexdigest()
 
 
-def _check(path: Path, expected: str, source: str) -> None:
-    if not expected:
-        return
-    actual = sha256_file(path)
-    if actual != expected:
-        raise DownloadError(
-            f"{source} does not have the expected sha256 "
-            f"({actual[:12]}... instead of {expected[:12]}...): the source changed"
-        )
+def _check(path: Path, expected: str, expected_md5: str, source: str) -> None:
+    for digest_of, wanted, name in (
+        (sha256_file, expected, "sha256"),
+        (md5_file, expected_md5, "md5"),
+    ):
+        if not wanted:
+            continue
+        actual = digest_of(path)
+        if actual != wanted:
+            raise DownloadError(
+                f"{source} does not have the expected {name} "
+                f"({actual[:12]}... instead of {wanted[:12]}...): the source changed"
+            )
 
 
 def huggingface_sha256_map(

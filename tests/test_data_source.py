@@ -120,6 +120,50 @@ def test_download_checks_the_recorded_sha256_of_a_fresh_file(tmp_path):
         download(str(source), destination, sha256=good)
 
 
+def test_download_checks_a_recorded_md5_when_that_is_what_is_published(tmp_path):
+    """Zenodo publishes md5 checksums, and one of the sources is pinned by it."""
+    source = tmp_path / "source.zip"
+    source.write_bytes(b"a corpus")
+    good = hashlib.md5(b"a corpus").hexdigest()
+    destination = tmp_path / "cache" / "source.zip"
+
+    assert download(str(source), destination, md5=good) == destination
+
+    source.write_bytes(b"another corpus")
+    destination.unlink()
+    with pytest.raises(DownloadError, match="does not have the expected md5"):
+        download(str(source), destination, md5=good)
+
+
+def test_download_checks_the_checksum_of_a_file_it_fetched_over_http(tmp_path):
+    """The fetch path has to check too: a copied file and a fetched one are two paths."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"a corpus")
+
+    destination = tmp_path / "cache" / "source.zip"
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        assert (
+            download(
+                "https://example.invalid/source.zip",
+                destination,
+                client=client,
+                md5=hashlib.md5(b"a corpus").hexdigest(),
+            )
+            == destination
+        )
+
+    destination.unlink()
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        with pytest.raises(DownloadError, match="does not have the expected sha256"):
+            download(
+                "https://example.invalid/source.zip",
+                destination,
+                client=client,
+                sha256="0" * 64,
+            )
+
+
 def test_huggingface_sha256_map_reads_the_hub_file_listing():
     """The Hub publishes the sha256 of every large file at a pinned revision."""
 

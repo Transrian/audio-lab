@@ -66,6 +66,7 @@ dataset under a frozen panel.
 | `fleurs-fr`, `fleurs-en` | `google/fleurs` | revision `70bb2e84b976b7e960aa89f1c648e09c59f894dd` | sha256 of `test.tsv` and `test.tar.gz`, per language (`src/audiolab/data/fleurs.py`) |
 | `mls-fr` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `librispeech-en` | OpenSLR SLR12 | `test-clean.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
+| `pxcorpus-fr-train` | Zenodo record 10080490 | `PxCorpus.zip` | md5 published by Zenodo for the file (`src/audiolab/data/pxcorpus.py`) |
 | `nonspeech` | generated here | fixed seed per clip | nothing to verify: the same seed rebuilds the same samples (`src/audiolab/data/nonspeech.py`) |
 | `nonspeech` | `karolpiczak/ESC-50` | commit `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6` | sha256 of `meta/esc50.csv` (`src/audiolab/data/esc50.py`) |
 | `voxpopuli-en-french-accent` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
@@ -335,6 +336,7 @@ screening is a difference between corpora and not between recipes:
 | `african-accented-fr-train` | fr | Apache-2.0 | train | 11 427 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
+| `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -453,6 +455,36 @@ costs nothing and a fresh clone downloads all of it again.
   restored text and 54 with a heading were dropped on the way. Same per-group
   share as `librispeech-en-train`.
 
+### `pxcorpus-fr-train` — spoken French drug prescriptions
+
+- **Source**: Zenodo, record 10080490, `PxCorpus.zip` (376 MB): the `PxSLU`
+  recordings of the corpus, 1 981 WAV files of 16 kHz mono speech under
+  `recordings/<session>/`, with the three parallel text files that describe them
+  (`paths.txt`, `metadata.txt`, `seq.in`).
+- **License**: CC-BY-4.0.
+- **Text**: lowercase and unpunctuated, taken as published. 110 of the
+  recordings end in a word the recording button cut off (`qu/`), which is left
+  as it is; the corpus's semantic labels (a spoken-language-understanding task)
+  are not read.
+- **Group**: the speaker (`group_kind: speaker`), read from `metadata.txt`. A
+  session holds one participant, so the session directory is the speaker id; the
+  corpus numbers its participants per experiment day, and that is why its 55
+  participants appear as 54 groups. 54 groups over 1 912 clips is 35 clips per
+  group, above the smallest groups of the other sources and far below their
+  thousands.
+- **What a cap covers**: the corpus is much smaller than the cap. All 1 981
+  recordings are offered; 1 is shorter than 0.5 s and 68 are longer than 20 s, so
+  the source is **1 912 clips** — 16.7 passes over the cap's worth of updates
+  instead of the 3.2 of a 10 000-clip arm. The screening compares sources at an
+  equal number of clips, so this arm cannot match the others on that axis; its
+  config says so next to `clips: 1912`, and its numbers are to be read as what
+  this corpus brings when it is all a run has, not as a per-clip comparison.
+- **Why it is here**: the only source of the screening that is spoken dialogue
+  with an application rather than read or prompted speech — short turns, real
+  disfluencies (`euh`), drug names and dosages, and 55 speakers of one accent
+  region. It is also the only one whose transcripts were checked by hand against
+  the recordings by its authors.
+
 ### `african-accented-fr-train` — African accented French
 
 - **Source**: OpenSLR SLR57, `African_Accented_French/speech/train` with the three
@@ -523,6 +555,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
+| `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,7 @@ from audiolab.data import (  # noqa: E402
     librispeech,
     librispeech_pc,
     mls,
+    pxcorpus,
     voxpopuli_train,
 )
 from audiolab.data.download import DownloadError  # noqa: E402
@@ -728,6 +730,113 @@ def test_librispeech_pc_refuses_an_unreadable_manifest_line(dirs):
     make_archive(directory / "manifests.tar.gz", {"train-clean-100.json": bad})
     with pytest.raises(DownloadError, match="unreadable line"):
         librispeech_pc.read_texts("librispeech-pc-en-train", directory / "manifests.tar.gz")
+
+
+def fake_pxcorpus_cache(
+    cache: Path, name: str = "pxcorpus-fr-train", non_audio: bool = False
+) -> None:
+    """A cache that looks like the zip PxCorpus publishes.
+
+    One recording per utterance, and the three parallel files the corpus lists
+    them in: the path, the participant and the transcript.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    # Three recordings and three participants: the corpus's files are parallel.
+    paths = "00MYcyVK0t/recording_0.wav\n02Qp6ICj9Q/recording_1.wav\n02Qp6ICj9Q/recording_2.wav\n"
+    if non_audio:
+        paths = paths.replace("recording_2.wav", "readme.md")
+    members = {
+        f"{root}/paths.txt": _text_file(directory, "paths.txt", paths),
+        f"{root}/metadata.txt": _text_file(
+            directory,
+            "metadata.txt",
+            "24,18-28,F,doctor\n48,60+,F,non-expert\n48,60+,F,non-expert\n",
+        ),
+        f"{root}/seq.in": _text_file(
+            directory,
+            "seq.in",
+            "flagyl 500 milligrammes euh qu/ en cachet pendant 8 jours\n"
+            "3 comprimés par jour matin midi et soir pendant 10 jours\n"
+            "and this line has no audio\n",
+        ),
+        f"{root}/recordings/00MYcyVK0t/recording_0.wav": tone,
+        f"{root}/recordings/02Qp6ICj9Q/recording_1.wav": tone,
+        f"{root}/recordings/02Qp6ICj9Q/recording_2.wav": tone,
+        f"{root}/readme.md": _text_file(directory, "readme.md", "PxCorpus\n"),
+    }
+    make_zip(directory / "PxCorpus.zip", members)
+
+
+def make_zip(path: Path, members: dict[str, Path]) -> Path:
+    """A zip holding the given files, built the way PxCorpus publishes its own."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as handle:
+        for name, source in members.items():
+            handle.write(str(source), arcname=name)
+    return path
+
+
+def test_pxcorpus_takes_every_recording_and_groups_by_participant(dirs):
+    data, cache = dirs
+    fake_pxcorpus_cache(cache)
+
+    count = pxcorpus.fetch_pxcorpus_fr_train(
+        "pxcorpus-fr-train", cache, data / "pxcorpus-fr-train", verbose=False
+    )
+    assert count == 3
+
+    clips = {clip.id: clip for clip in read_manifest(data / "pxcorpus-fr-train")}
+    assert set(clips) == {
+        "pxcorpus-fr-train:00MYcyVK0t/recording_0",
+        "pxcorpus-fr-train:02Qp6ICj9Q/recording_1",
+        "pxcorpus-fr-train:02Qp6ICj9Q/recording_2",
+    }
+    first = clips["pxcorpus-fr-train:00MYcyVK0t/recording_0"]
+    # The transcript is kept as the corpus published it, cut-off word included.
+    assert first.text == "flagyl 500 milligrammes euh qu/ en cachet pendant 8 jours"
+    assert first.text_has_casing_punct is False
+    assert first.group == "pxcorpus-fr-train:24"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "recordings"
+    assert first.license == "CC-BY-4.0"
+
+
+def test_pxcorpus_refuses_parallel_files_that_do_not_line_up(dirs):
+    """The three files describe the same recordings, so a short one is a defect."""
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    make_zip(
+        directory / "PxCorpus.zip",
+        {
+            f"{root}/paths.txt": _text_file(directory, "paths.txt", "s/recording_0.wav\n"),
+            f"{root}/metadata.txt": _text_file(directory, "metadata.txt", "24,18-28,F,doctor\n"),
+            f"{root}/seq.in": _text_file(directory, "seq.in", "une phrase\nune autre phrase\n"),
+            f"{root}/recordings/s/recording_0.wav": tone,
+        },
+    )
+    with pytest.raises(DownloadError, match="the corpus's own files disagree"):
+        pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
+
+
+def test_pxcorpus_refuses_a_paths_file_naming_something_that_is_not_audio(dirs):
+    data, cache = dirs
+    fake_pxcorpus_cache(cache, non_audio=True)
+    with pytest.raises(DownloadError, match="names a file that is not audio"):
+        pxcorpus.fetch_pxcorpus_fr_train(
+            "pxcorpus-fr-train", cache, data / "pxcorpus-fr-train", verbose=False
+        )
+
+
+def test_pxcorpus_refuses_an_archive_without_its_files(dirs):
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    make_zip(directory / "PxCorpus.zip", {})
+    with pytest.raises(DownloadError, match="holds no PxCorpus/PxSLU/paths.txt"):
+        pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
 
 
 def test_voxpopuli_fr_train_leaves_out_a_row_whose_reader_is_not_named(dirs, monkeypatch):
