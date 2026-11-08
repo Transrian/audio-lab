@@ -67,10 +67,7 @@ def serve_command(
         # cleaning up must not leave a checkpoint holding the GPU.
         "--stop-when-stdin-closes",
     ]
-    if checkpoint.path:
-        command += ["--checkpoint", checkpoint.path]
-    else:
-        command += ["--hf-id", checkpoint.hf_id]
+    command += ["--checkpoint", str(checkpoint)]
     return command
 
 

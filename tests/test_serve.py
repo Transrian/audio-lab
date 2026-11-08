@@ -16,12 +16,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 import httpx  # noqa: E402
 import pytest  # noqa: E402
 
+from audiolab.core.checkpoint import file_sha256  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
-from audiolab.serve.config import (  # noqa: E402
-    ServeConfigError,
-    ServeSpec,
-    file_sha256,
-)
+from audiolab.serve.config import ServeConfigError, ServeSpec  # noqa: E402
 from audiolab.serve.http import TranscriptionServer, parse_multipart  # noqa: E402
 from audiolab.serve.launcher import serve_command, serving, start_server  # noqa: E402
 
@@ -225,7 +222,7 @@ def test_server_commands_name_the_checkpoint_and_the_interpreter(tmp_path, monke
     command = serve_command(spec, "my-id")
     assert command[0] == "/opt/nemo/python"
     assert command[1:3] == ["-m", "audiolab.serve"]
-    assert "--checkpoint" in command and str(checkpoint) in command
+    assert command[command.index("--checkpoint") + 1] == str(checkpoint)
     assert command[command.index("--gpu") + 1] == "GPU-abc"
     assert command[command.index("--max-symbols") + 1] == "7"
     assert command[command.index("--model-id") + 1] == "my-id"
@@ -266,7 +263,7 @@ def test_a_serve_block_is_read_and_its_unknown_keys_refused(tmp_path):
 
 
 def test_a_serve_block_needs_a_checkpoint():
-    with pytest.raises(ServeConfigError, match="needs one of"):
+    with pytest.raises(ServeConfigError, match="needs a 'checkpoint'"):
         ServeSpec.from_mapping({"backend": "nemo"})
     with pytest.raises(ServeConfigError, match="unknown serve backend"):
         ServeSpec.from_mapping({"backend": "vllm", "checkpoint": "/tmp/a.nemo"})
@@ -306,7 +303,7 @@ def test_the_identity_follows_the_decoding_settings(tmp_path):
 
 
 def test_a_hugging_face_id_is_an_identity_of_its_own():
-    spec = ServeSpec(hf_id="nvidia/parakeet-tdt-0.6b-v3")
+    spec = ServeSpec(checkpoint="nvidia/parakeet-tdt-0.6b-v3")
     assert spec.identity()["checkpoint"] == "hf=nvidia/parakeet-tdt-0.6b-v3"
     assert spec.resolved().hf_id == "nvidia/parakeet-tdt-0.6b-v3"
     assert spec.resolved().path == ""

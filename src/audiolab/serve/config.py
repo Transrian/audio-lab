@@ -10,11 +10,11 @@ the file: the repository keeps the shape of the block, not a path (see
 
 from __future__ import annotations
 
-import hashlib
 import os
 from dataclasses import dataclass, replace
-from functools import lru_cache
 from pathlib import Path
+
+from audiolab.core.checkpoint import Checkpoint, CheckpointError
 
 # Backends this version can serve. Supporting a model family means adding one
 # name here and one module next to this file; that is the point of D-016.
@@ -23,14 +23,7 @@ DEFAULT_GPU = "0"
 # Greedy decoding stops after this many symbols without a blank. The value is
 # recorded, because it is one of the things that decides an answer.
 DEFAULT_MAX_SYMBOLS = 10
-SERVE_FIELDS = (
-    "backend",
-    "checkpoint",
-    "checkpoint_env",
-    "hf_id",
-    "gpu",
-    "max_symbols",
-)
+SERVE_FIELDS = ("backend", "checkpoint", "checkpoint_env", "gpu", "max_symbols")
 
 
 class ServeConfigError(ValueError):
@@ -38,44 +31,16 @@ class ServeConfigError(ValueError):
 
 
 @dataclass(frozen=True)
-class Checkpoint:
-    """The weights a server loads: a local file, or a repository id on the Hub."""
-
-    path: str = ""
-    hf_id: str = ""
-
-    def identity(self) -> str:
-        """What these weights are, as text that never names a local path.
-
-        A file is identified by its content, so two copies of it are the same
-        checkpoint and a rewritten file is a different one. A Hub id names the
-        repository only: NeMo resolves it when it loads, at whatever the
-        repository's default branch holds then, so a run that must be
-        reproducible from its identity serves a local file (see
-        [training.md](../../../docs/stt/training.md)).
-        """
-        if self.path:
-            if not os.path.isfile(self.path):
-                raise ServeConfigError(
-                    f"serve: checkpoint {self.path} does not exist; "
-                    "fetch it, or set the variable named by checkpoint_env"
-                )
-            return f"sha256={file_sha256(self.path)}"
-        return f"hf={self.hf_id}"
-
-
-@dataclass(frozen=True)
 class ServeSpec:
     """The ``serve:`` block: which checkpoint to expose, and how."""
 
     backend: str = "nemo"
-    # A local ``.nemo`` file. A config meant to work on another machine names
-    # ``checkpoint_env`` instead, and the machine holding the file sets it.
+    # A local ``.nemo`` file, or a Hugging Face repository id. A config meant to
+    # work on another machine names a public model here and sets
+    # ``checkpoint_env``; the machine that holds a local copy sets that variable
+    # and serves the copy instead.
     checkpoint: str = ""
     checkpoint_env: str = ""
-    # A Hugging Face repository id, downloaded on first use. The base model of a
-    # public fine-tune is named this way.
-    hf_id: str = ""
     gpu: str = DEFAULT_GPU
     max_symbols: int = DEFAULT_MAX_SYMBOLS
 
@@ -96,13 +61,13 @@ class ServeSpec:
             backend=backend,
             checkpoint=str(raw.get("checkpoint") or ""),
             checkpoint_env=str(raw.get("checkpoint_env") or ""),
-            hf_id=str(raw.get("hf_id") or ""),
             gpu=str(raw.get("gpu", DEFAULT_GPU)),
             max_symbols=int(raw.get("max_symbols", DEFAULT_MAX_SYMBOLS)),
         )
-        if not (spec.checkpoint or spec.checkpoint_env or spec.hf_id):
+        if not (spec.checkpoint or spec.checkpoint_env):
             raise ServeConfigError(
-                f"{source}: 'serve' needs one of 'checkpoint', 'checkpoint_env' or 'hf_id'"
+                f"{source}: 'serve' needs a 'checkpoint' (a .nemo path or a Hub id), "
+                "or a 'checkpoint_env' naming the variable that holds one"
             )
         if spec.max_symbols < 1:
             raise ServeConfigError(f"{source}: serve.max_symbols must be at least 1")
@@ -115,16 +80,15 @@ class ServeSpec:
     def resolved(self) -> Checkpoint:
         """The weights to load, after the override a committed config cannot hold.
 
-        Order: the variable named by ``checkpoint_env`` when it is set, then the
-        path written in the config, then the Hub id. That is what lets a
-        committed file name a public model while this machine serves a local
-        copy of it.
+        The variable named by ``checkpoint_env`` wins when it is set, which is
+        what lets a committed file name a public model while this machine serves
+        a local copy of it.
         """
-        override = (os.environ.get(self.checkpoint_env, "") if self.checkpoint_env else "").strip()
-        path = override or self.checkpoint
-        if path:
-            return Checkpoint(path=str(Path(path).expanduser()))
-        return Checkpoint(hf_id=self.hf_id)
+        reference = (os.environ.get(self.checkpoint_env, "") if self.checkpoint_env else "").strip()
+        try:
+            return Checkpoint.from_reference(reference or self.checkpoint)
+        except CheckpointError as failure:
+            raise ServeConfigError(f"serve: {failure}") from failure
 
     def identity(self) -> dict:
         """What this checkpoint is, for a cache key or a run record.
@@ -133,29 +97,12 @@ class ServeSpec:
         stays shareable, and two machines holding the same file agree on the
         identity of the model they scored.
         """
+        try:
+            checkpoint = self.resolved().identity()
+        except CheckpointError as failure:
+            raise ServeConfigError(f"serve: {failure}") from failure
         return {
             "backend": self.backend,
-            "checkpoint": self.resolved().identity(),
+            "checkpoint": checkpoint,
             "decoding": {"strategy": "greedy", "max_symbols": self.max_symbols},
         }
-
-
-def file_sha256(path: str | Path) -> str:
-    """Hash of a file's content, read once per (path, size, modification time).
-
-    A checkpoint is gigabytes, and both the cache key and the run record ask for
-    its hash, so the answer is kept for the process. The size and the
-    modification time are part of the memo key, so a file rewritten under the
-    same name is hashed again.
-    """
-    stat = os.stat(path)
-    return _file_sha256(str(path), stat.st_size, stat.st_mtime_ns)
-
-
-@lru_cache(maxsize=8)
-def _file_sha256(path: str, size: int, mtime_ns: int) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(4 * 1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()

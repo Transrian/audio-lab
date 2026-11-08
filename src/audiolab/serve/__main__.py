@@ -24,9 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--model-id", required=True, help="the id GET /v1/models reports")
     parser.add_argument("--backend", default="nemo", help="backend to load the checkpoint with")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--checkpoint", help="path to a local .nemo file")
-    source.add_argument("--hf-id", help="Hugging Face repository id of a .nemo")
+    parser.add_argument("--checkpoint", required=True, help="a .nemo path or a Hub id")
     parser.add_argument("--gpu", default="0", help="GPU to load the model on: index or UUID prefix")
     parser.add_argument("--max-symbols", type=int, default=10, help="greedy decoding symbol budget")
     parser.add_argument("--host", default=DEFAULT_HOST, help="address to listen on")
@@ -43,8 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     spec = ServeSpec(
         backend=args.backend,
-        checkpoint=args.checkpoint or "",
-        hf_id=args.hf_id or "",
+        checkpoint=args.checkpoint,
         gpu=args.gpu,
         max_symbols=args.max_symbols,
     )
