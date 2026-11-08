@@ -102,9 +102,10 @@ def fine_tune(
         model.cfg.train_ds = OmegaConf.create(dataset_config(config, manifest_path))
         model.cfg.optim = OmegaConf.create(optim_config(config))
         model.cfg.optim_param_groups = OmegaConf.create(optim_param_groups(config))
-        # No validation loop: a few hundred held-out clips of one dataset say
-        # little about a model (decision 0008). What decides anything is measured
-        # by 'audiolab eval' on frozen panels.
+        # No validation loop: a short run does not need one, and a held-out WER
+        # of one dataset would not decide anything. What decides is measured by
+        # 'audiolab eval' on frozen panels, and monitoring inside training is
+        # allowed when it is useful (decision 0008).
         model.cfg.validation_ds = {}
     model.setup_training_data(model.cfg.train_ds)
 

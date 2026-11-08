@@ -88,14 +88,19 @@ other field has a default and may be left out: `base_model_env` (`""`),
 than the file says. `clips` must be at least `batch_size`, `warmup_updates` must
 be smaller than `updates`, and the two learning rates must be positive.
 
-`base_model_env` is how a machine keeps a local copy of a checkpoint without
-putting a path in the repository ([D-015](../owner/directives.md)): the variable
-wins over `base_model` when it is set. The checkpoint is identified by the
+`base_model_env` is how a machine keeps a local copy of a checkpoint while the
+config names the public one: the variable wins over `base_model` when it is set,
+so no committed file holds a path of this machine. Nothing a run reads or writes
+enters the repository — no voice recordings or transcripts
+([D-013](../owner/directives.md)), and no datasets, weights or run outputs. The
+checkpoint is identified by the
 sha256 of its file, or by its Hub id when it is not a local file, so `train.json`
 says which weights the run started from without naming a machine.
 
-`gpu` accepts an index (`1`) or a UUID prefix (`GPU-1a2b`); `--gpu` overrides it.
-`audiolab gpus` lists what the machine has.
+`gpu` accepts an index (`1`) or a UUID prefix (`GPU-1a2b`); `audiolab gpus` lists
+what the machine has. `audiolab train` has no `--gpu`: the GPU is part of the run,
+so it belongs in the config (and in `config.json`, which a resume is checked
+against).
 
 ## 3. What a run does
 
@@ -126,11 +131,10 @@ says which weights the run started from without naming a machine.
    gradients over the batches, but never scales the number it reports. Averaging
    over the batches of the interval is the loss the run is at, on the same scale
    whether or not the config accumulates. That is the whole progress a run
-   reports: this recipe watches the loss and nothing else.
-   Training monitoring and official evaluation are separate things
-   ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md)),
-   and a validation WER inside the training process can be added here later
-   without touching how results are measured.
+   reports: this recipe watches the loss and nothing else. A validation WER
+   inside the training process is allowed — it is monitoring, not a result
+   ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md))
+   — and would be added here.
 6. At the end it saves the model, writes `train.json` and a ready-to-use
    `model.yaml`, and deletes the resume slot.
 
@@ -148,9 +152,9 @@ says which weights the run started from without naming a machine.
 | `train.json` | what the run did: the config, the dataset, the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory and the device name |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
-`audiolab train` on a finished run refuses to start and says so. `--fresh`
-trains it again from the base model, keeping the old files until the new run
-writes over them.
+`audiolab train` on a finished run refuses to start and says so.
+`audiolab train --fresh` deletes that directory first — its resume slot, its log
+and its checkpoint — and trains the config again from the base model.
 
 A run directory is written outside the repository, and it names the machine it
 ran on twice: the device in `train.json` and the audio paths in the manifest.
@@ -211,11 +215,14 @@ values, and steady for real ones.
 
 ## 7. What a run does not do
 
-- **No validation loop and no WER during training**: the loss curve is the only
-  signal, and a loss is not a measure of quality. Score the checkpoint with
-  `audiolab eval` — that is what the generated `model.yaml` is for. Training
-  monitoring stays inside the training process
-  ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md)).
+- **No validation loop and no WER during training**: this is a choice for the
+  short runs the project needs, not a rule. A held-out WER inside the training
+  process is monitoring, and stays as simple as possible
+  ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md));
+  it can be added later without touching how results are measured. Until then the
+  loss curve is the only signal while a run goes, and a loss is not a measure of
+  quality: score the checkpoint with `audiolab eval` — that is what the generated
+  `model.yaml` is for.
 - **No checkpoint selection or early stopping.** A run trains the number of
   updates its config names and saves the model it ends with.
 - **No dataset mixing.** One run reads one dataset; combining datasets, and
