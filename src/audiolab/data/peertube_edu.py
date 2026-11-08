@@ -10,15 +10,16 @@ keeps its instance, which is what the card counts the hours per instance with.
 The filter keeps what a training set may hold (D-019): the instance's own videos
 under CC BY or CC0, in French, at least ten minutes long, from channels that are
 not music or stage performances. Ten minutes is the floor the other talk sources
-use too: at the yield measured on peertube-fr-train (about three kept clips per
-minute of talk), a shorter video cannot carry the clips a batch wants, and the
-download costs the same for every talk.
+use too: at the yield the pipeline expects of a talk
+(:data:`audiolab.data.talks.EXPECTED_CLIPS_PER_TALK`), a video much shorter than
+that cannot fill a batch, and every talk costs a download whether it is long or
+short.
 
 The music and stage channels are dropped by name because their videos are of
 music, dance or theatre, not of anyone explaining something: the licence and the
-language say nothing about that, and the instances publish songs, dances and
-stage performances next to their lessons. The words are matched as whole words of a channel
-or account display name, so "Education Musicale" is dropped and "Main
+language say nothing about that, and the instances publish songs, dances and stage
+performances next to their lessons. The words are matched as whole words of a
+channel or account display name, so "Education Musicale" is dropped and "Main
 chantallayoussaint channel" is not. A channel that glues a music word into a
 longer name ("nikkojazz") escapes the filter; ten minutes of it is rare — two
 videos of the listing — and a music video yields no clips anyway, because the two
