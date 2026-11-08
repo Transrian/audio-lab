@@ -76,6 +76,7 @@ dataset under a frozen panel.
 | `mls-fr-train` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for the train metadata and every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `african-accented-fr-train` | OpenSLR SLR57 | `African_Accented_French.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it (`src/audiolab/data/african_french.py`) |
 | `librispeech-en-train` | OpenSLR SLR12 | `train-clean-100.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
+| `librispeech-pc-en-train` | OpenSLR SLR145 | `manifests.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it; the audio is `librispeech-en-train`'s own archive, checked against its sha256 (`src/audiolab/data/librispeech_pc.py`) |
 
 A cached file is trusted once it has been verified: re-preparing a dataset does
 not download it again, so the check happens when the file arrives.
@@ -333,6 +334,7 @@ screening is a difference between corpora and not between recipes:
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
 | `african-accented-fr-train` | fr | Apache-2.0 | train | 11 427 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
+| `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -421,6 +423,35 @@ costs nothing and a fresh clone downloads all of it again.
   measured as harmful in a mix ([sources.md](sources.md#used--trained-on-here)),
   which the screening tests again with this source alone. Its clips are the longest
   of the screening (median 14.8 s, at least 10 s).
+
+### `librispeech-pc-en-train` — read audiobook English with restored casing
+
+- **Source**: OpenSLR SLR145 (`manifests.tar.gz`, 25 MiB) for the text, over the
+  audio of SLR12's `train-clean-100.tar.gz`, which is the archive
+  `librispeech-en-train` prepares. The two sources read the same clips in the
+  same order and share one download.
+- **License**: CC-BY-4.0, both halves.
+- **Text**: the restored text of LibriSpeech-PC — casing and punctuation — in
+  place of the corpus's uppercase, unpunctuated transcripts. The restoration
+  dropped 2 498 of the split's 28 539 utterances (8.8 %): those clips are left
+  out rather than labelled with the original text. It also keeps a chapter title
+  in capitals at the start of an utterance's first sentence
+  (`THE PEOPLE MARCH He became aware ...`) for 0.6 % of them; the preparation
+  leaves those 54 utterances out of the first rows too, because a dictation
+  model should not learn to write a heading in capitals.
+- **Group**: the speaker (`group_kind: speaker`), 119 of them in the prepared
+  clips.
+- **Why it is here**: it is the English arm of the screening with the text the
+  other sources lack — and the reason not to expect gains from it. The base
+  model very likely trained on this audio with this text: NeMo's ASR Set 3.0
+  lists LibriSpeech and keeps punctuation and casing, so this source mostly
+  repeats what the model already knows. It is the English guard of a mix, and
+  its value in the screening is to show that mixing in English this way does not
+  have to cost French, unlike `librispeech-en-train`, whose uppercase text moved
+  every French panel by 7 to 52 points.
+- **What a cap covers**: the cap was reached after 13 243 rows: 1 243 without
+  restored text and 54 with a heading were dropped on the way. Same per-group
+  share as `librispeech-en-train`.
 
 ### `african-accented-fr-train` — African accented French
 
