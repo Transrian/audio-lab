@@ -166,6 +166,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
     pages = {
         "spoken": page("<strong>Transcript</strong>", words),
         "noticed": page(words, "Song courtesy of a label. © 2024 Some Records"),
+        "credited": page(words, "Clips from a 1993 interview are used courtesy of an archive."),
+        "said": page(words, "Host: So it's not a copyright of the government? Courtesy of Nate."),
         "live": page("Video with captions:", "A short caption."),
     }
     for slug, text in pages.items():
@@ -177,6 +179,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
     assert reasons == {
         "spoken": "",
         "noticed": "page with a copyright notice",
+        "credited": "page with a copyright notice",
+        "said": "",
         "live": "page without a transcript",
     }
 

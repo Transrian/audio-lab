@@ -93,8 +93,16 @@ MIN_WORDS_PER_MINUTE = 60
 # NASA's media guidelines: third-party material NASA uses is "identified as
 # copyright protected with the name of the copyright holder". An episode whose
 # page carries such a notice is left out whole, since the notice does not say
-# which minutes of the episode it covers.
-NOTICE = re.compile(r"©|\bcopyright\b|\ball rights reserved\b", re.IGNORECASE)
+# which minutes of the episode it covers. A notice, not a word: guests say
+# "copyright" and "licensed" in passing, and a credit names its source as
+# "used courtesy of" or "used with permission". The credit of the shows' music
+# library ("Music … comes from Universal Production Music") is not a notice: the
+# music is not what a clip's label transcribes.
+NOTICE = re.compile(
+    r"©|\ball rights reserved\b|\bcopyright(?:ed)? (?:by |\d{4})"
+    r"|\bused (?:courtesy of|with permission)\b",
+    re.IGNORECASE,
+)
 ENCORE = re.compile(r"\bencore\b", re.IGNORECASE)
 # Pages come from one public website: three at a time, as the audio downloads.
 PAGE_WORKERS = 3
