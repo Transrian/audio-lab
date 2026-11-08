@@ -15,13 +15,16 @@ room for a few gigabytes:
 ```bash
 export AUDIOLAB_DATA=/mnt/data/audio-lab/data
 audiolab data list                      # what can be prepared
-audiolab data fetch                     # everything, or: audiolab data fetch fleurs-fr
+audiolab data fetch                     # every dataset, or: audiolab data fetch fleurs-fr
 audiolab data panels fleurs-fr          # freeze fast/full/sealed id lists
 audiolab data panels fleurs-fr --check  # the panels still match this data
 ```
 
-`data fetch` is idempotent: a prepared dataset whose audio still matches the
-hashes in its manifest is left alone, and `--force` prepares it again. Each
+`data fetch` with no name prepares everything this version can prepare, the
+large training sources of the per-source screening included, so naming what you
+need is the cheaper habit. It is idempotent: a prepared dataset whose audio still
+matches the hashes in its manifest is left alone, and `--force` prepares it
+again. Each
 prepared dataset is a `manifest.jsonl` plus 16 kHz mono 16-bit WAV files; the
 manifest holds the reference text, the speaker (or sentence) a clip belongs to
 and the license. `docs/stt/datasets.md` has one card per dataset.
@@ -412,13 +415,22 @@ and in the comparison. Groups are counted per dataset and per panel in
 [datasets.md](datasets.md#panels-and-their-groups); `mls-fr` is the one that
 matters here, 4 groups on its sealed panel and 14 on the others, so a French
 interval is an indication of spread between speakers rather than a precise
-bound.
+bound. The two `servicenow-codeswitched-*` datasets have only two synthetic
+voices each, so their group is the clip: their intervals have enough groups but
+are optimistic, since clips of one voice are not independent.
 
 ## 8. What this does not measure
 
 - noise and reverberation;
 - long-form audio (more than one utterance per request);
-- term recall, named entities and accents;
+- other accents than English read with a French accent: the accent of
+  `voxpopuli-en-french-accent` is measured, no other one is;
+- which word a code switch or an accent cost, and term recall and named
+  entities: the switches and the vocabulary are scored inside the sentence, not
+  as a list of words that had to be right;
+- dictation itself: the code-switched panels are text written first and read or
+  spoken afterwards, so a person thinking out loud and switching language
+  mid-sentence is still not measured;
 - a semantic score from a language model;
 - local models on our own GPUs (phase 1b);
 - music: the non-speech battery covers silence, noise and everyday ESC-50

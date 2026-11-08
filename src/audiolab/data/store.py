@@ -17,7 +17,7 @@ from audiolab.core.audio import pcm_sha256
 MANIFEST_NAME = "manifest.jsonl"
 
 LANGUAGES = ("fr", "en", "none")
-GROUP_KINDS = ("speaker", "sentence", "clip")
+GROUP_KINDS = ("speaker", "recording", "sentence", "clip")
 
 
 @dataclass(frozen=True)

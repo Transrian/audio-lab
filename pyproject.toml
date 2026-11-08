@@ -12,6 +12,7 @@ dependencies = [
     # accept numpy 2.3 or later; 2.2 is the floor the code needs and the
     # ceiling belongs to that stack, not to the default install.
     "numpy>=2.2,<3",
+    "pyarrow>=26.0.1",
     "pyyaml>=6.0.3",
     "soundfile>=0.14.0",
     "soxr>=1.1.0",

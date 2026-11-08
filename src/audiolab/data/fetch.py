@@ -11,19 +11,34 @@ import shutil
 from pathlib import Path
 
 from audiolab.core.paths import cache_dir, data_dir
+from audiolab.data.african_french import fetch_african_accented_fr_train
+from audiolab.data.codeswitched import fetch_servicenow_codeswitched
+from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fleurs import fetch_fleurs
-from audiolab.data.librispeech import fetch_librispeech_en
-from audiolab.data.mls import fetch_mls_fr
+from audiolab.data.granary import fetch_granary_fr_train
+from audiolab.data.librispeech import fetch_librispeech_en, fetch_librispeech_en_train
+from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
 from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.store import read_manifest, verify_clips
+from audiolab.data.voxpopuli import fetch_voxpopuli_french_accent
+from audiolab.data.voxpopuli_train import fetch_voxpopuli_fr_train
 
 FETCHERS = {
+    "african-accented-fr-train": fetch_african_accented_fr_train,
     "fleurs-fr": fetch_fleurs,
     "fleurs-en": fetch_fleurs,
+    "granary-fr-train": fetch_granary_fr_train,
     "mls-fr": fetch_mls_fr,
+    "mls-fr-train": fetch_mls_fr_train,
     "librispeech-en": fetch_librispeech_en,
+    "librispeech-en-train": fetch_librispeech_en_train,
     "nonspeech": fetch_nonspeech,
+    "voxpopuli-en-french-accent": fetch_voxpopuli_french_accent,
+    "servicenow-codeswitched-en-fr": fetch_servicenow_codeswitched,
+    "servicenow-codeswitched-en-fr-ca": fetch_servicenow_codeswitched,
+    "cs-fleurs-fr-en": fetch_cs_fleurs_fr_en,
+    "voxpopuli-fr-train": fetch_voxpopuli_fr_train,
 }
 
 

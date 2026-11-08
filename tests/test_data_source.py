@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import write_tone  # noqa: E402
+from helpers import audio_cell, write_parquet, write_tone  # noqa: E402
 
 from audiolab.data.download import (  # noqa: E402
     DownloadError,
@@ -19,6 +19,7 @@ from audiolab.data.download import (  # noqa: E402
     open_archive,
     sha256_file,
 )
+from audiolab.data.parquet import audio_of, rows  # noqa: E402
 from audiolab.data.textfiles import read_fields, read_records  # noqa: E402
 
 
@@ -150,3 +151,57 @@ def test_huggingface_sha256_map_reports_an_unusable_answer():
             huggingface_sha256_map(
                 "facebook/multilingual_librispeech", "abc", "data/x", client=client
             )
+
+
+def test_huggingface_sha256_map_follows_a_long_listing_page_by_page():
+    """One answer holds a thousand files: the rest is behind a Link header."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("cursor") == "page2":
+            return httpx.Response(
+                200, json=[{"path": "data/x/two.tar.gz", "lfs": {"oid": "b" * 64}}]
+            )
+        return httpx.Response(
+            200,
+            headers={"link": '<https://hub.example/tree/abc?cursor=page2>; rel="next"'},
+            json=[{"path": "data/x/one.tar.gz", "lfs": {"oid": "a" * 64}}],
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        hashes = huggingface_sha256_map("byan/cs-fleurs", "abc", "data/x", client=client)
+    assert hashes == {"one.tar.gz": "a" * 64, "two.tar.gz": "b" * 64}
+
+
+def test_parquet_rows_come_back_one_dictionary_per_row(tmp_path):
+    tone = write_tone(tmp_path / "tone.wav", seconds=0.2)
+    path = write_parquet(
+        tmp_path / "test.parquet",
+        {"ID": ["a", "b"], "audio": [audio_cell(tone), audio_cell(tone, "other.wav")]},
+    )
+    read = list(rows(path, ["ID", "audio"]))
+    assert [row["ID"] for row in read] == ["a", "b"]
+    assert read[0]["audio"]["path"] == "clip.wav"
+
+
+def test_parquet_audio_is_decoded_like_any_other_file(tmp_path):
+    """The Hub stores the encoded file in the row, not samples."""
+    tone = write_tone(tmp_path / "tone.wav", seconds=0.5)
+    path = write_parquet(
+        tmp_path / "test.parquet", {"audio": [audio_cell(tone)], "accent": ["en_fr"]}
+    )
+    row = next(iter(rows(path, ["audio", "accent"])))
+    audio = audio_of(row["audio"])
+    assert audio.sample_rate == 16_000
+    assert audio.duration_s == pytest.approx(0.5, abs=1e-3)
+
+
+def test_parquet_audio_refuses_a_row_without_audio():
+    with pytest.raises(DownloadError, match="holds no audio"):
+        audio_of({"bytes": b"", "path": "clip.wav"})
+
+
+def test_parquet_rows_report_a_file_that_is_not_parquet(tmp_path):
+    path = tmp_path / "broken.parquet"
+    path.write_bytes(b"not a parquet file")
+    with pytest.raises(DownloadError, match="cannot read"):
+        list(rows(path, ["audio"]))

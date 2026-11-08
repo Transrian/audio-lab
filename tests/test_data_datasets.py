@@ -7,19 +7,22 @@ on files that look like the upstream ones.
 
 import csv
 import hashlib
+import json
 import math
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import write_tone  # noqa: E402
+from helpers import audio_cell, write_parquet, write_tone  # noqa: E402
 from test_data_source import make_archive  # noqa: E402
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
+from audiolab.data.codeswitched import fetch_servicenow_codeswitched  # noqa: E402
+from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en  # noqa: E402
 from audiolab.data.datasets import DATASETS  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.esc50 import selected_clips  # noqa: E402
@@ -35,6 +38,7 @@ from audiolab.data.nonspeech import (  # noqa: E402
     low_level_noise,
 )
 from audiolab.data.store import Clip, read_manifest, verify_clips, write_manifest  # noqa: E402
+from audiolab.data.voxpopuli import fetch_voxpopuli_french_accent  # noqa: E402
 
 
 @pytest.fixture
@@ -60,8 +64,21 @@ def dirs(tmp_path, monkeypatch):
     monkeypatch.setattr(librispeech, "EXPECTED_CLIPS", 1, raising=True)
     monkeypatch.setattr(librispeech, "PINNED_SHA256", {}, raising=True)
     monkeypatch.setattr(nonspeech, "EXPECTED_CLIPS", 300, raising=True)
+    import audiolab.data.codeswitched as codeswitched
+    import audiolab.data.csfleurs as csfleurs
     import audiolab.data.esc50 as esc50
+    import audiolab.data.voxpopuli as voxpopuli
 
+    monkeypatch.setattr(voxpopuli, "EXPECTED_CLIPS", 2, raising=True)
+    monkeypatch.setattr(voxpopuli, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(codeswitched, "EXPECTED_CLIPS", {"en_fr": 4, "en_fr_ca": 4}, raising=True)
+    monkeypatch.setattr(codeswitched, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(
+        csfleurs,
+        "SUBSETS",
+        (("read/test", "read", 2, ""), ("xtts/test1", "xtts", 2, "")),
+        raising=True,
+    )
     monkeypatch.setattr(esc50, "EXPECTED_CSV_SHA256", "", raising=True)
     return data, cache
 
@@ -405,3 +422,279 @@ def make_manifest_clip(clip_id: str, audio: str, sha256: str = "0" * 64) -> Clip
         source_split="test",
         license="CC-BY-4.0",
     )
+
+
+def fake_voxpopuli_cache(cache: Path, name: str = "voxpopuli-en-french-accent") -> None:
+    """A cache that looks like a downloaded VoxPopuli accent subset.
+
+    The subset is one split in two Parquet shards holding the audio in a column
+    and fifteen accents between them: only the French one is kept.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.wav", seconds=0.3)
+    rows = [
+        ("PLENARY-1-en_1", "en_fr", "124746", "So this means the quite relevant change", True),
+        ("PLENARY-2-en_1", "en_fr", "1472", "there has also been a remark on it", True),
+        ("PLENARY-3-en_1", "en_de", "99999", "a German accented remark", True),
+    ]
+    for shard, part in zip(VOXPOPULI_SHARDS, (rows[:2], rows[2:]), strict=True):
+        write_parquet(
+            directory / shard,
+            {
+                "audio": [audio_cell(tone, f"{row[0]}.wav") for row in part],
+                "accent": [row[1] for row in part],
+                "speaker_id": [row[2] for row in part],
+                "raw_text": [row[3] for row in part],
+                "is_gold_transcript": [row[4] for row in part],
+            },
+        )
+
+
+VOXPOPULI_SHARDS = ("test-00000-of-00002.parquet", "test-00001-of-00002.parquet")
+
+
+def test_voxpopuli_keeps_only_the_french_accent(dirs):
+    """Fifteen accents share the subset; the panel must hold only the French one."""
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    assert (
+        fetch_voxpopuli_french_accent(
+            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        )
+        == 2
+    )
+
+    clips = read_manifest(data / "voxpopuli-en-french-accent")
+    first = {clip.id: clip for clip in clips}["voxpopuli-en-french-accent:PLENARY-1-en_1"]
+    assert first.text == "So this means the quite relevant change"
+    assert first.language == "en"
+    # The speaker is the group: one accent is spoken by several people.
+    assert first.group == "voxpopuli-en-french-accent:124746"
+    assert first.group_kind == "speaker"
+    # The corpus's transcripts carry no punctuation, so there is no formatted view.
+    assert first.text_has_casing_punct is False
+    assert first.license.startswith("CC0-1.0")
+    assert first.source_split == "test"
+    assert len({clip.group for clip in clips}) == 2
+    assert verify_clips(data / "voxpopuli-en-french-accent", clips) == []
+
+
+def test_voxpopuli_refuses_a_transcript_that_is_not_gold(dirs):
+    """The point of this set is human-edited transcripts; the flag says which are."""
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    shard = cache / "voxpopuli-en-french-accent" / VOXPOPULI_SHARDS[0]
+    tone = cache / "voxpopuli-en-french-accent" / "tone.wav"
+    write_parquet(
+        shard,
+        {
+            "audio": [audio_cell(tone, "PLENARY-1-en_1.wav")],
+            "accent": ["en_fr"],
+            "speaker_id": ["124746"],
+            "raw_text": ["not a gold transcript"],
+            "is_gold_transcript": [False],
+        },
+    )
+    with pytest.raises(DownloadError, match="not a gold transcript"):
+        fetch_voxpopuli_french_accent(
+            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        )
+
+
+def test_voxpopuli_refuses_a_split_that_is_not_the_published_size(dirs, monkeypatch):
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    monkeypatch.setattr("audiolab.data.voxpopuli.EXPECTED_CLIPS", 5)
+    with pytest.raises(DownloadError, match="prepared 2 clips but 5 were expected"):
+        fetch_voxpopuli_french_accent(
+            "voxpopuli-en-french-accent", cache, data / "voxpopuli-en-french-accent", verbose=False
+        )
+
+
+def fake_codeswitched_cache(cache: Path, clips: int = 4) -> None:
+    """A cache that looks like both downloaded ServiceNow configurations."""
+    for name, config in CONFIGS.items():
+        directory = cache / name
+        tone = write_tone(directory / "tone.wav", seconds=0.3)
+        write_parquet(
+            directory / "test-00000-of-00001.parquet",
+            {
+                "ID": [f"{config}_codeswitched_{index:04d}" for index in range(clips)],
+                "audio": [
+                    audio_cell(tone, f"audio_response_id_{config}_codeswitched_{index:04d}.wav")
+                    for index in range(clips)
+                ],
+                "utterance": [
+                    f"Je viens de rebooter mon laptop après un update {index}."
+                    for index in range(clips)
+                ],
+                "voice": [
+                    "F-Marine" if index % 2 == 0 else "M-Denis Landrieu" for index in range(clips)
+                ],
+            },
+        )
+
+
+CONFIGS = {
+    "servicenow-codeswitched-en-fr": "en_fr",
+    "servicenow-codeswitched-en-fr-ca": "en_fr_ca",
+}
+
+
+def test_servicenow_is_prepared_as_two_french_framed_datasets(dirs):
+    """Each configuration is its own dataset, so Québec French has its own numbers."""
+    data, cache = dirs
+    fake_codeswitched_cache(cache)
+    for name in CONFIGS:
+        assert fetch_servicenow_codeswitched(name, cache, data / name, verbose=False) == 4
+
+    clips = read_manifest(data / "servicenow-codeswitched-en-fr-ca")
+    first = {clip.id: clip for clip in clips}[
+        "servicenow-codeswitched-en-fr-ca:en_fr_ca_codeswitched_0000"
+    ]
+    assert first.text == "Je viens de rebooter mon laptop après un update 0."
+    # French frames every utterance of the corpus, in both configurations.
+    assert first.language == "fr"
+    assert first.text_has_casing_punct is True
+    # Two synthetic voices are too few groups: the clip is the group, the voice
+    # its category.
+    assert first.group == "servicenow-codeswitched-en-fr-ca:en_fr_ca_codeswitched_0000"
+    assert first.group_kind == "clip"
+    assert first.category == "voice/F-Marine"
+    assert len({clip.group for clip in clips}) == len(clips)
+    assert "evaluation only" in first.license
+    # The two configurations are two datasets: their clips never share an id.
+    other = read_manifest(data / "servicenow-codeswitched-en-fr")
+    assert {clip.id for clip in other} & {clip.id for clip in clips} == set()
+    assert all(clip.id.startswith("servicenow-codeswitched-en-fr:") for clip in other)
+    assert verify_clips(data / "servicenow-codeswitched-en-fr-ca", clips) == []
+
+
+def test_servicenow_refuses_a_configuration_that_is_not_the_published_size(dirs, monkeypatch):
+    data, cache = dirs
+    fake_codeswitched_cache(cache, clips=3)
+    with pytest.raises(DownloadError, match="prepared 3 clips but 4 were expected"):
+        fetch_servicenow_codeswitched(
+            "servicenow-codeswitched-en-fr",
+            cache,
+            data / "servicenow-codeswitched-en-fr",
+            verbose=False,
+        )
+
+
+def fake_cs_fleurs_cache(cache: Path, name: str = "cs-fleurs-fr-en") -> None:
+    """A cache that looks like the two downloaded CS-FLEURS subsets.
+
+    Each subset ships one metadata file naming its clips and one WAV per clip;
+    both subsets hold French-English rows next to pairs in other languages.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.wav", seconds=0.3)
+    subsets = {
+        "read": [
+            {
+                "id": "fra_1660_MW",
+                "file_name": "audio/fra/fra_1660_MW.wav",
+                "text": "Je viens de rebooter mon laptop.",
+                "language": "fra-eng",
+            },
+            {
+                "id": "fra_1661_MW",
+                "file_name": "audio/fra/fra_1661_MW.wav",
+                "text": "Le ticket ID7824956 est fermé.",
+                "language": "fra-eng",
+            },
+            {
+                "id": "deu_1660_AB",
+                "file_name": "audio/deu/deu_1660_AB.wav",
+                "text": "Ich habe mein Laptop neu gestartet.",
+                "language": "deu-eng",
+            },
+        ],
+        "xtts": [
+            {
+                "id": "1660_fra-spk0_sample0",
+                "file_name": "audio/0/1660_fra-spk0_sample0.resamp.wav",
+                "text": "Je viens de rebooter mon laptop.",
+                "language": "fra-eng",
+            },
+            {
+                "id": "1661_fra-spk0_sample0",
+                "file_name": "audio/0/1661_fra-spk0_sample0.resamp.wav",
+                "text": "Le ticket ID7824956 est fermé.",
+                "language": "fra-eng",
+            },
+        ],
+    }
+    for category, records in subsets.items():
+        for record in records:
+            audio = directory / category / PurePosixPath(record["file_name"]).name
+            audio.parent.mkdir(parents=True, exist_ok=True)
+            audio.write_bytes(tone.read_bytes())
+        (directory / f"{category}-metadata.jsonl").write_text(
+            "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+        )
+
+
+def test_cs_fleurs_keeps_the_french_english_pairs_of_both_subsets(dirs):
+    """Real audio and synthetic audio are both kept, told apart by category."""
+    data, cache = dirs
+    fake_cs_fleurs_cache(cache)
+    assert (
+        fetch_cs_fleurs_fr_en("cs-fleurs-fr-en", cache, data / "cs-fleurs-fr-en", verbose=False)
+        == 4
+    )
+
+    clips = read_manifest(data / "cs-fleurs-fr-en")
+    by_id = {clip.id: clip for clip in clips}
+    read = by_id["cs-fleurs-fr-en:fra_1660_MW"]
+    assert read.text == "Je viens de rebooter mon laptop."
+    assert read.language == "fr"  # the corpus's own field is "fra-eng"
+    assert read.category == "read"
+    assert read.source_split == "read/test"
+    assert read.text_has_casing_punct is True
+    # Both subsets are the same FLEURS sentence read twice: one group each.
+    assert read.group == "cs-fleurs-fr-en:1660"
+    assert by_id["cs-fleurs-fr-en:1660_fra-spk0_sample0"].group == "cs-fleurs-fr-en:1660"
+    assert by_id["cs-fleurs-fr-en:1660_fra-spk0_sample0"].category == "xtts"
+    assert by_id["cs-fleurs-fr-en:1660_fra-spk0_sample0"].source_split == "xtts/test1"
+    assert {clip.group_kind for clip in clips} == {"sentence"}
+    assert len({clip.group for clip in clips}) == 2
+    assert "decision 0009" in read.license
+    assert verify_clips(data / "cs-fleurs-fr-en", clips) == []
+
+
+def test_cs_fleurs_refuses_a_subset_that_is_not_the_published_size(dirs, monkeypatch):
+    data, cache = dirs
+    fake_cs_fleurs_cache(cache)
+    monkeypatch.setattr(
+        "audiolab.data.csfleurs.SUBSETS",
+        (("read/test", "read", 7, ""), ("xtts/test1", "xtts", 2, "")),
+    )
+    with pytest.raises(DownloadError, match="prepared 2 clips but 7 were expected"):
+        fetch_cs_fleurs_fr_en("cs-fleurs-fr-en", cache, data / "cs-fleurs-fr-en", verbose=False)
+
+
+def test_cs_fleurs_refuses_an_audio_file_the_hub_publishes_no_checksum_for(tmp_path, monkeypatch):
+    """A file that still has to be downloaded is checked against the Hub's listing."""
+    import audiolab.data.csfleurs as csfleurs
+
+    subset = csfleurs.Subset("read/test", "read", 1, "")
+    wanted = [{"file_name": "audio/fra/fra_1660_MW.wav"}]
+    monkeypatch.setattr(csfleurs, "huggingface_sha256_map", lambda *args, **kwargs: {})
+    with pytest.raises(DownloadError, match="lists no checksum"):
+        csfleurs._published_checksums("cs-fleurs-fr-en", subset, wanted, tmp_path)
+
+    monkeypatch.setattr(
+        csfleurs, "huggingface_sha256_map", lambda *args, **kwargs: {"fra_1660_MW.wav": "a" * 64}
+    )
+    assert csfleurs._published_checksums("cs-fleurs-fr-en", subset, wanted, tmp_path) == {
+        "fra_1660_MW.wav": "a" * 64
+    }
+
+
+def test_cs_fleurs_refuses_an_id_that_does_not_name_its_sentence(dirs):
+    import audiolab.data.csfleurs as csfleurs
+
+    with pytest.raises(DownloadError, match="does not name its FLEURS sentence"):
+        csfleurs._sentence("cs-fleurs-fr-en", "concat.17")

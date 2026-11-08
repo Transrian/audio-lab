@@ -27,7 +27,10 @@ from audiolab.eval.records import (
 SUMMARY_NAME = "summary.json"
 REPORT_NAME = "report.md"
 
-# 1a measures none of this; saying so beats letting a reader assume it does.
+# What a report does not measure, which 1a measured none of when this list was
+# written. The panels of accented and code-switched speech changed that: what
+# they leave out is said below rather than dropped, because a reader who sees a
+# French-accented panel scored must not be told that accents are not measured.
 # How many excluded ids the comparison prints before it points at the JSON.
 EXCLUDED_IDS_SHOWN = 20
 # Said in the report whenever a panel has too few groups for its interval.
@@ -36,7 +39,10 @@ FEW_GROUPS_CAUTION = "few groups (n < 20): interval approximate"
 GAPS = (
     "noise and reverberation: not measured in 1a",
     "long-form audio (more than one utterance per request): not measured",
-    "term recall, named entities, accents: not measured",
+    "other accents than English read with a French accent: not measured",
+    "which word an accent or a code switch cost, and term recall: not measured",
+    "dictation itself: the code-switched panels are text written first and read or spoken "
+    "afterwards",
     "semantic score from a language model: not measured",
     "local models on our own GPUs: not measured in 1a",
     "music: the non-speech battery covers silence, noise and everyday sounds only",

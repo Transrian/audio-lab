@@ -1,0 +1,68 @@
+# panel: servicenow-codeswitched-en-fr-sealed
+# dataset: servicenow-codeswitched-en-fr (298 clips in 298 groups; test 298)
+# items: 60  (clip ids below, one per line)
+# clips_sha256: facbb4972f95b16b41217f9189efb97e6b1c978cd1293932b629b61652d03b46  (sha256 of the sorted id/audio hashes)
+# manifest_sha256: c0ee6281f44f4edea0a3415c8cd8a13e061e6f89f624278003db0e68a8ac44aa  (sha256 of the sorted manifest ids)
+# seed: 20261107
+# built: 2026-11-08  (date the panel was frozen; never rebuilt)
+# audio and reference text live under $AUDIOLAB_DATA
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0004
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0008
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0015
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0021
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0024
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0036
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0038
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0049
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0050
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0068
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0073
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0081
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0083
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0086
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0093
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0094
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0099
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0106
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0117
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0123
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0126
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0127
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0133
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0140
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0150
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0154
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0168
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0172
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0173
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0176
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0183
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0189
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0192
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0197
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0200
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0203
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0206
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0207
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0211
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0220
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0229
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0232
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0234
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0235
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0243
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0261
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0263
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0264
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0267
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0279
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0284
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0290
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0292
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0294
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0303
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0308
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0313
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0314
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0319
+servicenow-codeswitched-en-fr:fr_en_codeswitched_0320

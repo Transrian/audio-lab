@@ -29,13 +29,14 @@ UUID prefix (`--gpu GPU-1a2b`). The default is GPU 0; one GPU is always enough.
 ## Score a model
 
 `audiolab` scores any model served through an OpenAI-compatible transcription
-API on frozen French, English and non-speech panels, and reports honest numbers
-(grouped confidence intervals, a paired comparison, a repeatable summary).
+API on frozen panels of French, English, code-switched, accented and non-speech
+audio, and reports honest numbers (grouped confidence intervals, a paired
+comparison, a repeatable summary).
 
 ```bash
 export AUDIOLAB_DATA=/mnt/data/audio-lab/data    # datasets live outside the repo
 export AUDIOLAB_RUNS=/mnt/data/audio-lab/runs    # runs too
-uv run audiolab data fetch                       # prepare the five datasets
+uv run audiolab data fetch fleurs-fr             # prepare one dataset (no name: all of them)
 uv run audiolab data panels fleurs-fr            # freeze one dataset's panels
 
 export STT_BASE_URL=https://server.example/v1    # never written to disk

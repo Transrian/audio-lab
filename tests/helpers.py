@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 
 import numpy as np
+import pyarrow
+import pyarrow.parquet as pq
 import soundfile as sf
 
 from audiolab.core.audio import SAMPLE_RATE
@@ -18,6 +20,28 @@ def write_tone(path, seconds: float = 1.0, rate: int = SAMPLE_RATE, frequency: i
     samples = (0.3 * np.sin(2 * np.pi * frequency * time)).astype(np.float32)
     sf.write(str(path), samples, rate, subtype="PCM_16")
     return path
+
+
+def write_parquet(path, columns: dict) -> object:
+    """A Parquet file shaped like the ones the Hub serves, with the audio in it.
+
+    Each key of ``columns`` is a column name and its value is the list of that
+    column's values. An ``audio`` column takes ``{"bytes": ..., "path": ...}``
+    dictionaries, the shape the Hub gives an audio feature inside Parquet.
+    """
+    audio_type = pyarrow.struct([("bytes", pyarrow.binary()), ("path", pyarrow.string())])
+    arrays = {
+        name: pyarrow.array(values, type=audio_type if name == "audio" else None)
+        for name, values in columns.items()
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pyarrow.table(arrays), str(path))
+    return path
+
+
+def audio_cell(path, name: str = "clip.wav") -> dict:
+    """The ``audio`` cell of a Parquet row holding the file at ``path``."""
+    return {"bytes": path.read_bytes(), "path": name}
 
 
 def make_clip(clip_id: str, language: str = "fr", group: str = "", **fields) -> Clip:
