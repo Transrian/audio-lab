@@ -362,26 +362,6 @@ def _add_compare_command(
     compare.set_defaults(func=cmd_compare)
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not hasattr(args, "func"):
-        parser.print_help()
-        return 0
-    if args.data_dir:
-        # One place decides where data lives, so every command agrees (paths.data_dir reads this).
-        os.environ["AUDIOLAB_DATA"] = args.data_dir
-    try:
-        return args.func(args)
-    except (ConfigError, RunError, ValueError, FileNotFoundError, FileExistsError) as failure:
-        print(f"{parser.prog}: {failure}", file=sys.stderr)
-        return 2
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-
-
 def _add_serve_command(commands: argparse._SubParsersAction) -> None:
     """``serve``: expose a local checkpoint, for evaluation or for another program."""
     serve = _command(
@@ -423,3 +403,23 @@ def _add_train_command(commands: argparse._SubParsersAction) -> None:
         "--fresh", action="store_true", help="start over, discarding a previous run of this config"
     )
     train.set_defaults(func=cmd_train)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not hasattr(args, "func"):
+        parser.print_help()
+        return 0
+    if args.data_dir:
+        # One place decides where data lives, so every command agrees (paths.data_dir reads this).
+        os.environ["AUDIOLAB_DATA"] = args.data_dir
+    try:
+        return args.func(args)
+    except (ConfigError, RunError, ValueError, FileNotFoundError, FileExistsError) as failure:
+        print(f"{parser.prog}: {failure}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
