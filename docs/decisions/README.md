@@ -57,3 +57,4 @@ Never invent alternatives after the fact.
 | [0008](accepted/0008-training-monitoring-vs-official-evaluation.md) | stt | accepted | Training monitoring is direct; official evaluation goes through the API |
 | [0009](accepted/0009-non-commercial-datasets-for-testing-only.md) | stt | accepted | Non-commercial datasets may be used for testing only |
 | [0010](proposed/0010-stt-evaluation-core.md) | stt | proposed | STT evaluation core (phase 1a) |
+| [0011](proposed/0011-unlicensed-datasets-for-private-evaluation.md) | stt | proposed | A dataset with no license may be used for evaluation only |
