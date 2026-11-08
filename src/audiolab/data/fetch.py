@@ -20,6 +20,7 @@ from audiolab.data.mls import fetch_mls_fr
 from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.voxpopuli import fetch_voxpopuli_french_accent
+from audiolab.data.voxpopuli_train import fetch_voxpopuli_fr_train
 
 FETCHERS = {
     "fleurs-fr": fetch_fleurs,
@@ -31,6 +32,7 @@ FETCHERS = {
     "servicenow-codeswitched-en-fr": fetch_servicenow_codeswitched,
     "servicenow-codeswitched-en-fr-ca": fetch_servicenow_codeswitched,
     "cs-fleurs-fr-en": fetch_cs_fleurs_fr_en,
+    "voxpopuli-fr-train": fetch_voxpopuli_fr_train,
 }
 
 

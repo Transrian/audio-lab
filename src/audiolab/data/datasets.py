@@ -63,6 +63,18 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "voxpopuli-fr-train": DatasetInfo(
+        name="voxpopuli-fr-train",
+        source="https://huggingface.co/datasets/facebook/voxpopuli (config fr, split train)",
+        license="CC0-1.0 (data only)",
+        split="train",
+        reference_style="raw_text: casing and punctuation kept",
+        grouping="speaker (group = VoxPopuli speaker id)",
+        notes="Training data for the per-source screening: a capped number of clips "
+        "of the train split, selected and filtered as documented in "
+        "docs/stt/datasets.md. Speakers of the French-accented English "
+        "evaluation subset are left out. No panels.",
+    ),
     "nonspeech": DatasetInfo(
         name="nonspeech",
         source="generated here (silence, noise) + https://github.com/karolpiczak/ESC-50",
