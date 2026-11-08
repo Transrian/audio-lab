@@ -201,9 +201,9 @@ def row(text: str = "bonjour", start: float = 0.0, end: float = 3.0, speaker: st
     return Row(text=text, start=start, end=end, speaker=speaker, id=f"{speaker}.{start}")
 
 
-def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation():
+def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation(tmp_path):
     """A source that must read its whole annotation first decides from that alone."""
-    take = make_take(Path("/tmp"), cap=10, cap_per_group=2)
+    take = make_take(tmp_path, cap=10, cap_per_group=2)
     rows = [
         row("bonjour"),
         row("", speaker="spkB"),
@@ -227,8 +227,8 @@ def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation():
     assert take.kept == 2
 
 
-def test_planning_clips_stops_at_the_cap_and_keeps_the_source_order():
-    take = make_take(Path("/tmp"), cap=2, cap_per_group=2)
+def test_planning_clips_stops_at_the_cap_and_keeps_the_source_order(tmp_path):
+    take = make_take(tmp_path, cap=2, cap_per_group=2)
     rows = [row(speaker=speaker) for speaker in ("spkA", "spkB", "spkC")]
 
     planned = plan_clips(take, rows)

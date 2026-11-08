@@ -328,7 +328,12 @@ screening is a difference between corpora and not between recipes:
   microphone) ends the clip being built, so no clip carries audio its own text
   does not describe. The rule is `src/audiolab/data/meeting.py`, shared by the
   three meeting sources, and it is why a "Yeah." of 0.4 s is a clip only when it
-  has nothing to join.
+  has nothing to join. Ending a clip at a sentence costs speech — ICSI gives 7.7 h
+  with that rule and 8.9 h without it, because a short "Yeah." after a sentence is
+  dropped as too short instead of being folded into the clip before it — and it is
+  kept because AMI is cut that way: the three meeting arms are compared with each
+  other, and a rule of its own for one corpus would show in the comparison rather
+  than in the corpus.
 - **Filters**: 0.5 s to 20 s of audio, text that is not empty, and audio that
   decodes at all — the point where a damaged file would otherwise show up. A clip
   the filters drop is counted in the fetch report and read past, so a source is
@@ -565,8 +570,11 @@ costs nothing and a fresh clone downloads all of it again.
   (`how much w- how easy`) and their own spellings, except for one mark of how a
   word was written: a token written letter by letter is read as the word it
   spells, the way the AMI source reads its own words — `O_K` is "OK", `S_R_I` is
-  "SRI", `T_V_s` is "TVs", and a lone `L_` is the letter "L" — while `Mm-hmm`
-  stays as the annotators wrote it.
+  "SRI", `T_V_s` is "TVs", and a lone `L_` is the letter "L" — while nothing else
+  is touched: `Mm-hmm` stays as the annotators wrote it, and a token that carries
+  a letter sequence and something else (`J_RASTA`, `E_commerce`) keeps its
+  underscore, because joining it would write a word nobody said (26 tokens in the
+  prepared clips).
   The annotation elements between the words are taken out, all the way down:
   `VocalSound` (29 779 of them), `NonVocalSound` (3 708), `Comment` (12 283) and
   `Pause` (7 213) carry no words to transcribe and go with what they hold, while
