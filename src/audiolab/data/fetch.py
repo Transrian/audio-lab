@@ -11,12 +11,15 @@ import shutil
 from pathlib import Path
 
 from audiolab.core.paths import cache_dir, data_dir
+from audiolab.data.codeswitched import fetch_servicenow_codeswitched
+from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fleurs import fetch_fleurs
 from audiolab.data.librispeech import fetch_librispeech_en
 from audiolab.data.mls import fetch_mls_fr
 from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.store import read_manifest, verify_clips
+from audiolab.data.voxpopuli import fetch_voxpopuli_french_accent
 
 FETCHERS = {
     "fleurs-fr": fetch_fleurs,
@@ -24,6 +27,10 @@ FETCHERS = {
     "mls-fr": fetch_mls_fr,
     "librispeech-en": fetch_librispeech_en,
     "nonspeech": fetch_nonspeech,
+    "voxpopuli-en-french-accent": fetch_voxpopuli_french_accent,
+    "servicenow-codeswitched-en-fr": fetch_servicenow_codeswitched,
+    "servicenow-codeswitched-en-fr-ca": fetch_servicenow_codeswitched,
+    "cs-fleurs-fr-en": fetch_cs_fleurs_fr_en,
 }
 
 

@@ -73,4 +73,52 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Hallucination battery: 50 silences, 50 low-level noises, 200 ESC-50 "
         "clips. No music (known gap).",
     ),
+    "voxpopuli-en-french-accent": DatasetInfo(
+        name="voxpopuli-en-french-accent",
+        source="https://huggingface.co/datasets/facebook/voxpopuli (config en_accented)",
+        license="CC0-1.0 (data; the repository's code and models are CC-BY-NC and unused here)",
+        split="test (accent en_fr only)",
+        reference_style="editor's transcript, no punctuation; every clip is a gold transcript",
+        grouping="speaker (group = VoxPopuli speaker id)",
+        notes="English read in the European Parliament by French speakers, in the accented "
+        "English subset of VoxPopuli. The whole config is downloaded and the 737 clips of "
+        "the French accent are kept.",
+    ),
+    "servicenow-codeswitched-en-fr": DatasetInfo(
+        name="servicenow-codeswitched-en-fr",
+        source="https://huggingface.co/datasets/ServiceNow-AI/asr_codeswitched (config en_fr)",
+        license="no license on the card: evaluation only, never trained on "
+        "(proposed decision 0011)",
+        split="test",
+        reference_style="corpus transcript of the code-switched sentence: casing "
+        "and punctuation kept",
+        grouping="voice (group = the TTS voice that reads the clip)",
+        notes="Synthetic IT-support speech switching between French and English inside a "
+        "sentence. French frames every utterance; the source labels each word with its "
+        "language. Never redistributed.",
+    ),
+    "servicenow-codeswitched-en-fr-ca": DatasetInfo(
+        name="servicenow-codeswitched-en-fr-ca",
+        source="https://huggingface.co/datasets/ServiceNow-AI/asr_codeswitched (config en_fr_ca)",
+        license="no license on the card: evaluation only, never trained on "
+        "(proposed decision 0011)",
+        split="test",
+        reference_style="corpus transcript of the code-switched sentence: casing "
+        "and punctuation kept",
+        grouping="voice (group = the TTS voice that reads the clip)",
+        notes="Québec French side of the same corpus: same sentences as en_fr, told in "
+        "Québec French. Never redistributed.",
+    ),
+    "cs-fleurs-fr-en": DatasetInfo(
+        name="cs-fleurs-fr-en",
+        source="https://huggingface.co/datasets/byan/cs-fleurs "
+        "(read/test and xtts/test1, French-English pairs)",
+        license="CC-BY-NC-4.0 (testing only, decision 0009)",
+        split="read/test + xtts/test1",
+        reference_style="code-switched sentence: casing and punctuation kept",
+        grouping="sentence (group = the FLEURS sentence it was built from)",
+        notes="FLEURS sentences with part of their words replaced by the other language. "
+        "The read subset is real audio, the xtts one is synthetic; category tells them "
+        "apart.",
+    ),
 }
