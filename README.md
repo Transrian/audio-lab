@@ -36,8 +36,7 @@ comparison, a repeatable summary).
 ```bash
 export AUDIOLAB_DATA=/mnt/data/audio-lab/data    # datasets live outside the repo
 export AUDIOLAB_RUNS=/mnt/data/audio-lab/runs    # runs too
-uv run audiolab data fetch                       # prepare the nine datasets
-uv run audiolab data fetch                       # prepare every dataset it can, or name one
+uv run audiolab data fetch fleurs-fr             # prepare one dataset (no name: all of them)
 uv run audiolab data panels fleurs-fr            # freeze one dataset's panels
 
 export STT_BASE_URL=https://server.example/v1    # never written to disk

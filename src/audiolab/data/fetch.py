@@ -11,9 +11,9 @@ import shutil
 from pathlib import Path
 
 from audiolab.core.paths import cache_dir, data_dir
+from audiolab.data.african_french import fetch_african_accented_fr_train
 from audiolab.data.codeswitched import fetch_servicenow_codeswitched
 from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
-from audiolab.data.african_french import fetch_african_accented_fr_train
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fleurs import fetch_fleurs
 from audiolab.data.granary import fetch_granary_fr_train

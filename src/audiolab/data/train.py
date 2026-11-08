@@ -11,9 +11,10 @@ plus a manifest under `$AUDIOLAB_DATA/<name>` — with two differences:
 - no panel is built. Panels are the frozen id lists a model is scored on
   (decision 0002), and a training source is not scored on.
 
-Two rules from the owner's directives shape the filters: a clip must carry
-text (a clip without a reference teaches nothing), and it must last 0.5 to 20
-seconds, which is what the target use produces and what the recipes train on.
+Two filters, chosen for the screening (not owner directives): a clip must
+carry text (a clip without a reference teaches nothing), and it must last 0.5
+to 20 seconds, the length of a dictated sentence and what the training recipe
+batches comfortably.
 Nothing here decides what a source is worth — it only makes the prepared set
 comparable between sources.
 """
