@@ -208,6 +208,18 @@ def test_a_file_the_instance_no_longer_serves_is_not_taken():
             peertube.smallest_file_url(http, talk)
 
 
+def test_a_server_that_ignores_the_range_is_not_read_to_the_end():
+    """A server that answers the whole video to a one-byte range is taken on its status."""
+
+    class WholeVideo(httpx.SyncByteStream):
+        def __iter__(self):
+            raise AssertionError("the body of a probed file is never read")
+
+    answer = httpx.MockTransport(lambda request: httpx.Response(200, stream=WholeVideo()))
+    with httpx.Client(transport=answer) as http:
+        assert peertube.serves(http, f"{INSTANCE}/whole.mp4")
+
+
 def test_the_committed_listing_of_the_capitole_du_libre_is_readable_and_usable():
     source = talk_sources.SOURCES["peertube-fr-train"]
     listed_on, talks = read_listing(source)

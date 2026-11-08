@@ -164,12 +164,16 @@ def smallest_file_url(http: httpx.Client, talk: Talk) -> str:
 
 
 def serves(http: httpx.Client, url: str) -> bool:
-    """Whether the instance answers for a file URL, asked for its first byte only."""
+    """Whether the instance answers for a file URL, asked for its first byte only.
+
+    The answer is streamed and its body never read: a server that ignores the
+    range answers 200 with the whole video, and the status is all that is wanted.
+    """
     try:
-        response = http.get(url, headers={"Range": "bytes=0-0"})
+        with http.stream("GET", url, headers={"Range": "bytes=0-0"}) as response:
+            return response.status_code in (200, 206)
     except httpx.TransportError:
         return False
-    return response.status_code in (200, 206)
 
 
 def get_json(http: httpx.Client, url: str, params: dict | None = None) -> dict:
