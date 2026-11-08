@@ -83,11 +83,16 @@ def select_gpu(spec: str, gpus: list[Gpu] | None = None) -> Gpu:
     return gpu
 
 
-def add_gpu_argument(parser: argparse.ArgumentParser) -> None:
-    """Add the standard ``--gpu`` option to a command."""
+def add_gpu_argument(parser: argparse.ArgumentParser, default: str | None = DEFAULT_GPU) -> None:
+    """Add the standard ``--gpu`` option to a command.
+
+    ``default=None`` leaves the choice to the config file the command is given,
+    which is what a command that may start a server wants: the config says which
+    GPU serves the model unless the person overrides it.
+    """
     parser.add_argument(
         "--gpu",
-        default=DEFAULT_GPU,
+        default=default,
         help="GPU to use: an index or a UUID prefix (default: %(default)s). "
         "Run 'audiolab gpus' to list them.",
     )

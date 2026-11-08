@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from audiolab import __version__
-from audiolab.core.gpu import list_gpus
+from audiolab.core.gpu import add_gpu_argument, list_gpus
 from audiolab.core.paths import data_dir, runs_dir
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fetch import fetch_dataset
@@ -34,6 +34,9 @@ from audiolab.eval.report import (
     score_run,
 )
 from audiolab.eval.runner import RunContext, RunError, load_suite, run_suite
+from audiolab.serve.runtime import run_foreground
+from audiolab.train.config import TrainConfig
+from audiolab.train.runner import run_training
 
 
 def cmd_gpus(args: argparse.Namespace) -> int:
@@ -111,10 +114,44 @@ def cmd_eval(args: argparse.Namespace) -> int:
         concurrency=args.concurrency,
         sealed=args.sealed,
         fresh=args.fresh,
+        gpu=args.gpu,
     )
     run_dir = run_suite(context)
     print(f"summary: {run_dir / 'summary.json'}")
     print(f"report: {run_dir / REPORT_NAME}")
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Serve one local checkpoint through the same API a remote server speaks."""
+    model = ModelConfig.from_file(args.model)
+    if model.serve is None:
+        raise ConfigError(
+            f"{args.model} has no 'serve' block: this command serves a local checkpoint, "
+            "and a config that names a server is evaluated with 'audiolab eval --base-url'"
+        )
+    spec = model.serve.with_gpu(args.gpu)
+    print(f"serving {model.model} from {spec.resolved()}")
+    return run_foreground(
+        spec, model.model, host=args.host, port=args.port, stop_when_stdin_closes=True
+    )
+
+
+def cmd_train(args: argparse.Namespace) -> int:
+    """Fine-tune one model on our own data, from one config file."""
+    config = TrainConfig.from_file(args.config)
+    directory = run_training(
+        config,
+        data_dir=Path(args.data_dir) if args.data_dir else None,
+        runs_root=Path(args.runs_dir) if args.runs_dir else None,
+        fresh=args.fresh,
+    )
+    print(f"checkpoint: {directory / 'model.nemo'}")
+    print(f"record: {directory / 'train.json'}")
+    print(
+        f"eval it with: audiolab eval --model {directory / 'model.yaml'} "
+        "--suite configs/suites/fast.yaml"
+    )
     return 0
 
 
@@ -233,6 +270,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_data_commands(commands)
     _add_eval_commands(commands)
+    _add_serve_command(commands)
+    _add_train_command(commands)
 
     return parser
 
@@ -283,6 +322,9 @@ def _add_eval_command(
     evaluate.add_argument(
         "--base-url", default="", help="endpoint URL; normally from the config's env var"
     )
+    # For a model config with a 'serve' block, which GPU serves it; the config's
+    # own choice stands unless this is given.
+    add_gpu_argument(evaluate, default=None)
     evaluate.set_defaults(func=cmd_eval)
 
 
@@ -338,3 +380,46 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def _add_serve_command(commands: argparse._SubParsersAction) -> None:
+    """``serve``: expose a local checkpoint, for evaluation or for another program."""
+    serve = _command(
+        commands,
+        "serve",
+        "serve one local checkpoint through an OpenAI-compatible API",
+        "Reads the model config's 'serve' block, loads the checkpoint it names and "
+        "answers requests itself until it is stopped. This is the server 'audiolab "
+        "eval' starts for such a config; run it by hand to use the model from "
+        "another program.",
+        "audiolab serve --model configs/models/parakeet-tdt-0.6b-v3-nemo.yaml",
+    )
+    serve.add_argument("--model", required=True, help="model config with a 'serve' block")
+    serve.add_argument("--host", default="127.0.0.1", help="address to listen on")
+    serve.add_argument("--port", type=int, default=8000, help="port to listen on")
+    add_gpu_argument(serve, default=None)
+    serve.set_defaults(func=cmd_serve)
+
+
+def _add_train_command(commands: argparse._SubParsersAction) -> None:
+    """``train``: fine-tune one model on the clips a config asks for."""
+    train = _command(
+        commands,
+        "train",
+        "fine-tune one model on our own data",
+        "Trains the checkpoint the config names on clips drawn from a prepared "
+        "dataset, for the number of updates the config asks for, and writes the "
+        "result into $AUDIOLAB_RUNS/train/<config name>/. A run that stopped is "
+        "continued, not restarted; a finished run needs --fresh.",
+        "audiolab train --config configs/train/example.yaml",
+    )
+    train.add_argument(
+        "--config", required=True, help="training config, for example configs/train/example.yaml"
+    )
+    train.add_argument(
+        "--runs-dir", default=None, help="root for run outputs (default: $AUDIOLAB_RUNS or ./runs)"
+    )
+    train.add_argument(
+        "--fresh", action="store_true", help="start over, discarding a previous run of this config"
+    )
+    train.set_defaults(func=cmd_train)

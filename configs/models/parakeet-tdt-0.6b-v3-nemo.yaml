@@ -1,0 +1,29 @@
+# The public Parakeet TDT 0.6B v3 checkpoint (multilingual, French included),
+# served by this project itself rather than by an external server: `audiolab
+# eval` starts the server, and `audiolab serve` runs it by hand.
+#
+#   audiolab eval --model configs/models/parakeet-tdt-0.6b-v3-nemo.yaml \
+#       --suite configs/suites/fast.yaml
+#
+# `checkpoint` names the model the way it is published, so this file works on
+# any machine. A machine that keeps a local copy of the .nemo file sets the
+# variable below to that file and serves the copy instead:
+#
+#   export AUDIOLAB_PARAKEET_NEMO=/path/to/parakeet-tdt-0.6b-v3.nemo
+#
+# A local file is identified by its content, so two runs of it share their
+# cached answers (D-017); a repository id is resolved when the model loads.
+name: parakeet-tdt-0.6b-v3-nemo
+model: parakeet-tdt-0.6b-v3
+api: transcriptions
+send_language: true
+server_label: local NeMo
+serve:
+  backend: nemo
+  checkpoint: nvidia/parakeet-tdt-0.6b-v3
+  checkpoint_env: AUDIOLAB_PARAKEET_NEMO
+  # 0 unless another GPU is chosen: `audiolab eval --gpu ...` overrides it.
+  gpu: "0"
+  # Greedy decoding stops after this many symbols without a blank. Recorded in
+  # the run identity, because it decides answers.
+  max_symbols: 10

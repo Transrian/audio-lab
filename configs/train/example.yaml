@@ -1,0 +1,67 @@
+# Template for a fine-tune. Copy it, set `base_model` and `dataset`, then:
+#
+#   audiolab train --config configs/train/example.yaml
+#
+# The file's name is the run's name: results go to
+# $AUDIOLAB_RUNS/train/example/, and the run writes its own
+# $AUDIOLAB_RUNS/train/example/model.yaml to evaluate itself with. Every value
+# below is explained in docs/stt/training.md; the commented ones are the
+# defaults, so a config can leave them out.
+#
+# A run is one config file, and it never writes outside its own run directory.
+
+# What to start from: a local .nemo file, or a Hugging Face repository id. This
+# file names the public model, so it works anywhere; a machine that keeps a
+# local copy of the .nemo sets the variable below and trains from the copy.
+#
+#   export AUDIOLAB_PARAKEET_NEMO=/path/to/parakeet-tdt-0.6b-v3.nemo
+base_model: nvidia/parakeet-tdt-0.6b-v3
+base_model_env: AUDIOLAB_PARAKEET_NEMO
+
+# A dataset prepared into $AUDIOLAB_DATA (audiolab data list, audiolab data fetch).
+dataset: fleurs-fr
+
+# How many clips the run trains on, drawn once at random with `seed` below and
+# written to the run's manifest.jsonl. The same config always draws the same
+# clips, so two runs of it are comparable.
+clips: 4000
+
+# Updates, not epochs: this is what stops the run. One update is one optimizer
+# step, whatever the batch size and accumulation.
+updates: 5000
+
+# Clips per update, and how many updates one forward-backward pass is split
+# over. grad_accumulation: 2 halves the memory of an update without changing
+# how many clips it sees; the batch size stays what the model sees per step.
+batch_size: 16
+# grad_accumulation: 1
+
+# Two learning rates: the encoder (with its preprocessor) and the heads
+# (decoder and joint). A fine-tune usually moves the heads faster than the
+# encoder, which is already a good feature extractor.
+lr_encoder: 1.0e-5
+lr_heads: 3.0e-5
+weight_decay: 1.0e-3
+
+# "constant": warm up, then hold the rate. "cosine": warm up, then decay to
+# zero by the last update. A short run usually wants constant.
+schedule: constant
+# warmup_updates: 0
+
+# Training precision. bf16 is what a modern GPU wants.
+precision: bf16-mixed
+# Gradients are clipped to this norm; 0 disables clipping.
+grad_clip: 1.0
+
+# Clips longer than this are left out, so an update has a predictable cost.
+max_clip_seconds: 20.0
+# Data loading processes, and which GPU (index or UUID prefix).
+workers: 4
+gpu: "0"
+
+# Fixed, so the same config trains on the same clips in the same order.
+seed: 20261107
+# How often the single resume slot is rewritten, and how often a loss line is
+# appended to the run's train-log.jsonl.
+resume_every: 500
+log_every: 50
