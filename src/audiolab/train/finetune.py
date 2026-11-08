@@ -19,7 +19,6 @@ loss) is left exactly as the checkpoint carries it.
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +31,8 @@ from omegaconf import OmegaConf, open_dict
 
 from audiolab.core.checkpoint import Checkpoint
 from audiolab.train.config import TrainConfig
-from audiolab.train.run import MODEL_NAME, RESUME_NAME, log_line
+from audiolab.train.loss import UpdateLoss, batch_loss, last_logged_loss, write_loss_line
+from audiolab.train.run import MODEL_NAME, RESUME_NAME
 from audiolab.train.settings import (
     check_rates,
     dataset_config,
@@ -57,39 +57,23 @@ class LossLog(Callback):
 
     A JSON line per interval rather than a terminal plot: the log survives the
     process, can be read while the run goes, and is what ``train.json`` reports
-    the final loss from.
+    the final loss from. Which number a line holds is decided in `loss.py`, which
+    needs no PyTorch - here it is only Lightning's spelling of that rule.
     """
 
     def __init__(self, path: Path, every: int, print_line=print) -> None:
         self.path = path
-        self.every = every
         self.print_line = print_line
-        self.logged = 0
+        self.updates = UpdateLoss(every)
         self.started = time.monotonic()
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        update = int(trainer.global_step)
-        # With gradient accumulation, several batches belong to one update.
-        if update == self.logged or update % self.every:
+        logged = self.updates.batch(int(trainer.global_step), batch_loss(outputs))
+        if logged is None:
             return
-        loss = outputs.get("loss") if isinstance(outputs, dict) else outputs
-        if loss is None:
-            return
-        value = float(loss.detach().float().cpu())
-        self.logged = update
-        seconds = time.monotonic() - self.started
-        log_line(self.path, {"update": update, "loss": value, "seconds": round(seconds, 3)})
+        update, value = logged
+        write_loss_line(self.path, update, value, time.monotonic() - self.started)
         self.print_line(f"update {update}: loss {value:.4f}")
-
-
-def last_logged_loss(log_path: Path) -> float:
-    """The loss of the last logged update: what the run ended at."""
-    last = float("nan")
-    if log_path.is_file():
-        for line in log_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                last = float(json.loads(line)["loss"])
-    return last
 
 
 def fine_tune(

@@ -115,8 +115,15 @@ says which weights the run started from without naming a machine.
    `warmup_updates` warmup steps — or a warmup followed by a cosine decay to
    `min_lr` when `schedule: cosine`.
 5. Every `log_every` updates a line goes to `train-log.jsonl` (the update, the
-   loss, and the seconds since the run started) and to the terminal. That is the
-   whole progress a run reports: this recipe watches the loss and nothing else.
+   loss, and the seconds since the run started) and to the terminal. The loss of
+   a line is the **mean of the batch losses seen since the previous line**: a
+   training step returns the loss of one batch, and with
+   `accumulate_grad_batches` above 1 that is not what the update optimised —
+   PyTorch Lightning divides the value for the backward pass and averages the
+   gradients over the batches, but never scales the number it reports. Averaging
+   over the batches of the interval is the loss the run is at, on the same scale
+   whether or not the config accumulates. That is the whole progress a run
+   reports: this recipe watches the loss and nothing else.
    Training monitoring and official evaluation are separate things
    ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md)),
    and a validation WER inside the training process can be added here later
@@ -131,7 +138,7 @@ says which weights the run started from without naming a machine.
 | file | what it is |
 |---|---|
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
-| `train-log.jsonl` | one line per logged update: `update`, `loss`, `seconds` since the run started |
+| `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
 | `train.json` | what the run did: the config, the dataset, the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory and the device name |
