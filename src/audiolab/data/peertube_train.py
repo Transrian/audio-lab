@@ -2,40 +2,51 @@
 
 The videos come from the pinned listing of :mod:`audiolab.data.peertube`:
 free-software talks in French, full of English technical terms, under CC BY or
-CC0. Nobody transcribed them, so the labels are made here, by two served models
-that are not the one being fine-tuned:
+CC0. Nobody transcribed them, so the labels are made here by served models, in
+three passes:
 
-1. ``stt-c-whisper-large-v3`` transcribes the whole talk in chunks and answers
+1. ``stt-c-whisper-large-v3`` transcribes each whole talk in chunks and answers
    with timestamped segments, which are joined into sentences: the candidate
    clips. Segments Whisper itself marks as doubtful — a repetition loop, or
    silence it filled with text — are left out.
-2. ``stt-a-qwen3-asr-1.7B`` transcribes every candidate clip on its own.
-3. A clip is kept when the two texts agree (:data:`MAX_DISAGREEMENT`), and its
-   label is the Qwen text, which is cased and punctuated.
+2. ``stt-a-qwen3-asr-1.7B`` transcribes every candidate clip on its own. A clip
+   is kept when the two texts agree (:data:`MAX_DISAGREEMENT`), and its label is
+   the Qwen text, which is cased and punctuated. The agreement test checks the
+   cut as well as the words: a clip whose timestamps miss a word is heard
+   differently by the model that only gets the clip.
+3. ``stt-c-parakeet-tdt-0.6B-v3``, the base model of the fine-tune, transcribes
+   every kept clip, and the manifest records its word error rate against the
+   label (``base_wer``). It does not vote: a clip the base model already gets
+   right teaches it nothing, so the clips it gets wrong are the ones a training
+   mix wants, and the field lets the mix find them.
 
-The agreement test checks the cut as well as the words: a clip whose timestamps
-miss a word is heard differently by the model that only gets the clip.
-
-Videos are read in a seeded order (:func:`~audiolab.data.peertube.reading_order`)
-until the clip cap, with at most ``CLIP_CAP_PER_GROUP`` clips per video, so the
-preparation needs about seventy talks and leaves the rest of the catalogue alone.
-Everything slow is cached per video under ``$AUDIOLAB_CACHE/<name>``: the audio,
-the segments and each label as it arrives, under file names that hold the model
-that produced them. An interrupted preparation resumes where it stopped.
+The server holds one model at a time and swaps it in on demand, so a pass sends
+all its requests for a batch of talks before the next pass starts; the models
+never alternate clip by clip. A batch is as many talks as could still fill the
+cap if each gave its full share (``CLIP_CAP_PER_GROUP``), so no talk is
+transcribed that the cap could not use. Videos are read in a seeded order
+(:func:`~audiolab.data.peertube.reading_order`), and each pass caches its answers
+per video under ``$AUDIOLAB_CACHE/<name>``, in files named after the model, so
+an interrupted preparation resumes where it stopped.
 """
 
 from __future__ import annotations
 
 import io
 import json
+import math
 import time
 import zlib
 from collections import Counter
-from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict, dataclass
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
+from dataclasses import asdict, dataclass, field
+from functools import partial
+from itertools import islice
 from pathlib import Path
 
+import httpx
 import numpy as np
 import soundfile
 
@@ -58,6 +69,7 @@ SPLIT = "listing"
 SEED = 1
 SEGMENT_MODEL = "stt-c-whisper-large-v3"
 LABEL_MODEL = "stt-a-qwen3-asr-1.7B"
+BASE_MODEL = "stt-c-parakeet-tdt-0.6B-v3"
 # Whisper is sent five minutes at a time: the server takes fifteen-minute
 # requests, and a short chunk is cheaper to retry.
 CHUNK_SECONDS = 300.0
@@ -82,9 +94,11 @@ LOW_LOGPROB = -1.0
 MAX_PAUSE_S = 1.0
 CLIP_TARGET_S = 5.0
 SENTENCE_ENDS = (".", "?", "!", "…")
-# The two counts the agreement rejection rate is made of.
+# The counts the report is made of.
 LABELLED = "clips labelled"
-DISAGREED = "clips where the two models disagree"
+DISAGREED = "clips where Whisper and Qwen disagree"
+KEPT = "clips kept"
+BASE_WRONG = "kept clips the base model gets wrong"
 
 # A Python callable that sends one WAV to one model and returns its JSON answer.
 Transcribe = Callable[[bytes], dict]
@@ -106,6 +120,16 @@ class Segment:
         return f"{self.start_s:.2f}-{self.end_s:.2f}"
 
 
+@dataclass
+class Talk:
+    """One video on its way through the passes: its audio, segments and kept clips."""
+
+    video: Video
+    audio_path: Path
+    segments: list[Segment]
+    agreed: list[tuple[Segment, str]] = field(default_factory=list)
+
+
 def fetch_peertube_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare the pinned PeerTube talks up to the cap, returning the clip count."""
     listed_on, videos = peertube.read_listing()
@@ -122,7 +146,7 @@ def fetch_peertube_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
         cap=TRAIN_CLIP_CAP,
         cap_per_group=CLIP_CAP_PER_GROUP,
     )
-    left_out: Counter[str] = Counter()
+    tally: Counter[str] = Counter()
     if verbose:
         print(f"  listing of {listed_on}: {len(videos)} videos")
     order = peertube.reading_order(videos, SEED)
@@ -130,80 +154,128 @@ def fetch_peertube_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
         peertube.http_client() as http,
         _client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
         _client(LABEL_MODEL) as qwen,
-        ThreadPoolExecutor(max_workers=1) as downloads,
+        _client(BASE_MODEL) as parakeet,
+        closing(prefetched(order, partial(_audio_file, http, cache))) as audio_files,
     ):
-        # The next talk downloads while this one is labelled: both take minutes.
-        def download(video: Video) -> Future:
-            return downloads.submit(peertube.fetch_audio, http, video, cache / f"{video.uuid}.wav")
-
-        next_audio = download(order[0])
-        for number, video in enumerate(order, start=1):
-            if take.full():
+        while not take.full():
+            # As many talks as could still fill the cap, if each gave its full share.
+            needed = math.ceil((take.cap - take.kept) / take.cap_per_group)
+            batch = list(islice(audio_files, needed))
+            if not batch:
                 break
-            started = time.monotonic()
-            audio = load_audio(next_audio.result())
-            if number < len(order):
-                next_audio = download(order[number])
-            segments = cached_segments(audio, _answer(whisper), cache / segments_file(video))
-            labels = Labels(cache / f"{video.uuid}.{LABEL_MODEL}.jsonl")
-            kept = offer_video(video, audio, segments, labels, _answer(qwen), take, left_out)
+            timing = prepare_batch(
+                batch, cache, _answer(whisper), _answer(qwen), _answer(parakeet), take, tally
+            )
             if verbose:
-                print(
-                    f"  [{number}] {video.uuid}: {kept} clips from {audio.duration_s / 60:.0f} "
-                    f"min in {time.monotonic() - started:.0f} s; {take.kept} clips so far"
-                )
+                print(f"  {timing}; {take.kept} clips so far")
     if verbose:
-        print(f"  {report(left_out)}")
+        print(f"  {report(tally)}")
         print(f"  {take.report()}")
     builder.write()
     return take.kept
 
 
-def offer_video(
-    video: Video,
-    audio: Audio,
-    segments: list[Segment],
-    labels: Labels,
-    transcribe: Transcribe,
+def prepare_batch(
+    batch: list[tuple[Video, Path]],
+    cache: Path,
+    whisper: Transcribe,
+    qwen: Transcribe,
+    parakeet: Transcribe,
     take: Take,
-    left_out: Counter[str],
-) -> int:
-    """Label the candidate clips of one video in order and offer those that agree.
+    tally: Counter[str],
+) -> str:
+    """Run the three passes over a batch of talks, one model after the other.
 
-    Stops at the video's share of the cap, so the end of a long talk is not
-    labelled for nothing. Returns the number of clips kept.
+    Returns a line saying how long each pass took.
     """
-    kept = 0
-    for candidate in candidates(segments, left_out):
-        if take.full() or take.group_full(video.uuid):
+    started = time.monotonic()
+    talks = [
+        Talk(video, path, cached_segments(path, whisper, cache / segments_file(video)))
+        for video, path in batch
+    ]
+    segmented = time.monotonic()
+    room = take.cap - take.kept
+    for talk in talks:
+        labels = ClipTexts(cache / clip_texts_file(talk.video, LABEL_MODEL))
+        talk.agreed = agreeing(talk, labels, qwen, min(take.cap_per_group, room), tally)
+        room -= len(talk.agreed)
+    labelled = time.monotonic()
+    for talk in talks:
+        offer_talk(
+            talk, ClipTexts(cache / clip_texts_file(talk.video, BASE_MODEL)), parakeet, take, tally
+        )
+    hours = sum(talk.video.duration_s for talk in talks) / 3600
+    return (
+        f"{len(talks)} talks ({hours:.1f} h): segments in {segmented - started:.0f} s, "
+        f"labels in {labelled - segmented:.0f} s, base model in {time.monotonic() - labelled:.0f} s"
+    )
+
+
+def prefetched(videos: list[Video], fetch: Callable[[Video], Path]) -> Iterator[tuple[Video, Path]]:
+    """Each video with its audio file, the next one downloading while this one is used."""
+    with ThreadPoolExecutor(max_workers=1) as downloads:
+        upcoming = downloads.submit(fetch, videos[0]) if videos else None
+        for position, video in enumerate(videos):
+            path = upcoming.result()
+            if position + 1 < len(videos):
+                upcoming = downloads.submit(fetch, videos[position + 1])
+            yield video, path
+
+
+def agreeing(
+    talk: Talk, labels: ClipTexts, transcribe: Transcribe, share: int, tally: Counter[str]
+) -> list[tuple[Segment, str]]:
+    """Label the candidate clips of one talk in order, keeping those the models agree on.
+
+    Stops at ``share`` kept clips, so the end of a long talk is not labelled for
+    nothing. Returns each kept clip with its label.
+    """
+    audio = load_audio(talk.audio_path)
+    agreed: list[tuple[Segment, str]] = []
+    for candidate in candidates(talk.segments, tally):
+        if len(agreed) >= share:
             break
         duration = candidate.end_s - candidate.start_s
         if not MIN_SECONDS <= duration <= MAX_CLIP_SECONDS:
-            left_out[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += 1
+            tally[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += 1
             continue
-        clip = cut(audio, candidate)
-        label = labels.get(candidate.key)
-        if label is None:
-            label = " ".join(str(transcribe(wav_bytes(clip.samples))["text"]).split())
-            labels.put(candidate.key, label)
-        left_out[LABELLED] += 1
+        label = labels.text(candidate, audio, transcribe)
+        tally[LABELLED] += 1
         if disagreement(candidate.text, label) > MAX_DISAGREEMENT:
-            left_out[DISAGREED] += 1
+            tally[DISAGREED] += 1
             continue
-        kept += take.offer(
+        agreed.append((candidate, label))
+    return agreed
+
+
+def offer_talk(
+    talk: Talk, base: ClipTexts, transcribe: Transcribe, take: Take, tally: Counter[str]
+) -> int:
+    """Offer the kept clips of one talk, each with the base model's WER on it."""
+    audio = load_audio(talk.audio_path)
+    video = talk.video
+    kept = 0
+    for candidate, label in talk.agreed:
+        heard = base.text(candidate, audio, transcribe)
+        base_wer = counts(label, heard, LANGUAGE, "normalized").wer
+        offered = take.offer(
             f"{video.uuid}-{round(candidate.start_s * 100):07d}",
-            clip,
+            cut(audio, candidate),
             text=label,
             group=video.uuid,
             license=video.license,
             source_url=video.url,
             source_title=video.title,
             source_author=video.account,
+            base_wer=round(base_wer, 4),
         )
+        kept += offered
+        tally[BASE_WRONG] += offered and base_wer > 0
+    tally[KEPT] += kept
     return kept
 
 
-def candidates(segments: list[Segment], left_out: Counter[str]) -> list[Segment]:
+def candidates(segments: list[Segment], tally: Counter[str]) -> list[Segment]:
     """Whisper's segments joined into sentences: the clips that may be labelled.
 
     Whisper answers in phrases (a median of 1.4 s on a talk), and a phrase cut
@@ -223,7 +295,7 @@ def candidates(segments: list[Segment], left_out: Counter[str]) -> list[Segment]
     for segment in segments:
         reason = doubt(segment)
         if reason:
-            left_out[f"segments {reason}"] += 1
+            tally[f"segments {reason}"] += 1
             close()
             continue
         if sentence and (
@@ -248,11 +320,11 @@ def segments_file(video: Video) -> str:
     return f"{video.uuid}.{SEGMENT_MODEL}.{CHUNK_SECONDS:g}s.json"
 
 
-def cached_segments(audio: Audio, transcribe: Transcribe, path: Path) -> list[Segment]:
-    """The segments of one video, asked once and kept in the cache."""
+def cached_segments(audio_path: Path, transcribe: Transcribe, path: Path) -> list[Segment]:
+    """The segments of one video, asked once and kept in the cache at ``path``."""
     if path.is_file():
         return [Segment(**row) for row in json.loads(path.read_text(encoding="utf-8"))]
-    segments = segment_audio(audio, transcribe)
+    segments = segment_audio(load_audio(audio_path), transcribe)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = [asdict(segment) for segment in segments]
     path.write_text(json.dumps(rows, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -330,8 +402,16 @@ def wav_bytes(samples: np.ndarray) -> bytes:
     return buffer.getvalue()
 
 
-class Labels:
-    """The labels of one video, one JSON line per segment, appended as they arrive."""
+def clip_texts_file(video: Video, model: str) -> str:
+    return f"{video.uuid}.{model}.jsonl"
+
+
+class ClipTexts:
+    """What one model heard in the clips of one video, appended as it arrives.
+
+    One JSON line per clip, keyed by the stretch of audio the text was heard in,
+    so a clip cut differently is transcribed again.
+    """
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -341,25 +421,32 @@ class Labels:
                 row = json.loads(line)
                 self.texts[row["segment"]] = row["text"]
 
-    def get(self, key: str) -> str | None:
-        return self.texts.get(key)
+    def text(self, clip: Segment, audio: Audio, transcribe: Transcribe) -> str:
+        """The cached text of a clip, or the model's answer, cached on the way."""
+        if clip.key not in self.texts:
+            answer = transcribe(wav_bytes(cut(audio, clip).samples))
+            self.texts[clip.key] = " ".join(str(answer["text"]).split())
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            row = {"segment": clip.key, "text": self.texts[clip.key]}
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return self.texts[clip.key]
 
-    def put(self, key: str, text: str) -> None:
-        self.texts[key] = text
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"segment": key, "text": text}, ensure_ascii=False) + "\n")
 
-
-def report(left_out: Counter[str]) -> str:
-    """One line on the labelling: the agreement rejection rate and what was left out."""
-    labelled, rejected = left_out[LABELLED], left_out[DISAGREED]
-    share = rejected / labelled if labelled else 0.0
-    others = [f"{count} {reason}" for reason, count in sorted(left_out.items())]
+def report(tally: Counter[str]) -> str:
+    """One line on the labelling: the rejection rate, the base model, the rest."""
+    labelled, rejected = tally[LABELLED], tally[DISAGREED]
+    kept, wrong = tally[KEPT], tally[BASE_WRONG]
+    others = [f"{count} {reason}" for reason, count in sorted(tally.items())]
     return (
-        f"{labelled} clips labelled, {rejected} ({share:.1%}) rejected because the two "
-        f"models disagree; counts: {', '.join(others)}"
+        f"{labelled} clips labelled, {rejected} ({rejected / max(labelled, 1):.1%}) rejected "
+        f"because Whisper and Qwen disagree; the base model gets {wrong} of the {kept} kept "
+        f"clips wrong ({wrong / max(kept, 1):.1%}); counts: {', '.join(others)}"
     )
+
+
+def _audio_file(http: httpx.Client, cache: Path, video: Video) -> Path:
+    return peertube.fetch_audio(http, video, cache / f"{video.uuid}.wav")
 
 
 def _client(model: str, request: dict | None = None) -> TranscriptionClient:
