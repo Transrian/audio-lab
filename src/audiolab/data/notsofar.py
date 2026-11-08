@@ -43,7 +43,13 @@ from pathlib import Path
 from audiolab.core.audio import Audio, load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download, huggingface_entries
-from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take, plan_clips
+from audiolab.data.train import (
+    CLIP_CAP_PER_GROUP,
+    TRAIN_CLIP_CAP,
+    Take,
+    plan_clips,
+    write_clips,
+)
 
 REPO = "microsoft/NOTSOFAR"
 # A pinned revision makes the repository immutable, which is what lets every
@@ -74,9 +80,6 @@ SPACED_PUNCTUATION = re.compile(r"\s+([,.;:!?])")
 # How many files are downloaded at the same time: the work waits for the
 # network, not for the CPU.
 WORKERS = 8
-# A close-talking recording is one meeting long, so a clip that reaches past the
-# end of it is a mistake in the annotation rather than something to clamp.
-END_TOLERANCE_S = 1.0
 
 
 @dataclass(frozen=True)
@@ -127,33 +130,20 @@ def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
     # written: 12 speakers allow 2 400 clips at most, so a meeting has to be read
     # knowing what another meeting has already taken. A meeting is then read in
     # one piece — its recordings are downloaded at the same time — and only the
-    # rows the plan kept are offered again with their audio, which is what
-    # writes them.
-    planned, counts = plan_clips(
+    # rows the plan kept are written, from the recording each of them is on.
+    planned = plan_clips(
         take, [utterance for meeting in meetings for utterance in meeting.utterances]
     )
     for meeting in meetings:
-        if take.full():
-            break
         rows = [utterance for utterance in planned if utterance.meeting == meeting.meeting]
         if not rows:
             continue
         audio = release.recordings(meeting, rows)
+        by_recording: dict[str, list[Utterance]] = {}
         for utterance in rows:
-            samples = audio[utterance.recording]
-            if utterance.end > samples.duration_s + END_TOLERANCE_S:
-                raise DownloadError(
-                    f"{utterance.id} ends at {utterance.end:.2f} s but {utterance.recording} is "
-                    f"{samples.duration_s:.2f} s long: the annotation is not of this recording"
-                )
-            if not take.offer(
-                utterance.id,
-                samples.cut(utterance.start, utterance.end),
-                text=utterance.text,
-                group=utterance.speaker,
-            ):
-                raise DownloadError(f"{utterance.id} was planned as a clip but was not taken")
-    take.absorb(counts)
+            by_recording.setdefault(utterance.recording, []).append(utterance)
+        for recording, group in by_recording.items():
+            write_clips(take, recording, audio[recording], group)
     if verbose:
         print(f"  {take.report()}")
     builder.write()

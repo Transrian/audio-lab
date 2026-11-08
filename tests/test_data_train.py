@@ -20,6 +20,7 @@ from helpers import make_clip  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE, Audio  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
+from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 from audiolab.data.train import (  # noqa: E402
     CLIP_CAP_PER_GROUP,
@@ -30,6 +31,7 @@ from audiolab.data.train import (  # noqa: E402
     Take,
     evaluation_groups,
     plan_clips,
+    write_clips,
 )
 
 
@@ -184,16 +186,19 @@ def test_take_report_says_what_the_share_of_a_group_left_out(tmp_path):
 
 @dataclass(frozen=True)
 class Row:
-    """One row of a source as its own plan sees it: what it says, when, and whose."""
+    """One row of an annotation: what it says, when, whose, and what it is called."""
 
     text: str
     start: float
     end: float
     speaker: str
+    id: str = "row"
+
+    recording: str = "rec"
 
 
 def row(text: str = "bonjour", start: float = 0.0, end: float = 3.0, speaker: str = "spkA"):
-    return Row(text=text, start=start, end=end, speaker=speaker)
+    return Row(text=text, start=start, end=end, speaker=speaker, id=f"{speaker}.{start}")
 
 
 def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation():
@@ -208,50 +213,49 @@ def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation():
         row("bonjour", speaker="spkA"),
         row("bonjour", speaker="spkA"),
     ]
-    planned, counts = plan_clips(take, rows)
+    planned = plan_clips(take, rows)
 
     assert [planned_row.speaker for planned_row in planned] == ["spkA", "spkA"]
-    assert counts.rows_read == 7
-    assert counts.without_text == 1
-    assert counts.too_short == 1
-    assert counts.too_long == 1
-    assert counts.beyond_group_cap == 2
-    assert counts.per_group == {"spkA": 2}
+    assert take.rows_read == 7
+    assert take.without_text == 1
+    assert take.too_short == 1
+    assert take.too_long == 1
+    assert take.beyond_group_cap == 2
+    assert take.per_group == {"spkA": 2}
+    # The clips are counted when they are planned, so the plan can stop at the cap
+    # without the audio having been read at all.
+    assert take.kept == 2
 
 
 def test_planning_clips_stops_at_the_cap_and_keeps_the_source_order():
     take = make_take(Path("/tmp"), cap=2, cap_per_group=2)
     rows = [row(speaker=speaker) for speaker in ("spkA", "spkB", "spkC")]
 
-    planned, counts = plan_clips(take, rows)
+    planned = plan_clips(take, rows)
 
     assert [planned_row.speaker for planned_row in planned] == ["spkA", "spkB"]
     # The rows after the cap are not read at all: the preparation stops there.
-    assert counts.rows_read == 2
+    assert take.rows_read == 2
 
 
-def test_the_report_of_a_planned_source_says_what_a_one_pass_source_says(tmp_path):
-    """The plan counted the rows without reading them, and the run adds those counts.
-
-    The plan only reads the annotation, so it cannot know whether a row is really
-    usable; the audio is offered afterwards and ``absorb`` adds what the plan
-    decided about the rows the run never got to.
-    """
+def test_a_planned_row_is_decided_once_however_many_times_its_audio_is_read(tmp_path):
+    """The plan and the run's own pass count the row once, so the report is honest."""
     take = make_take(tmp_path, cap=4, cap_per_group=4)
     rows = [row(), row(end=0.4), row("", speaker="spkB"), row(speaker="spkC")]
-    planned, counts = plan_clips(take, rows)
-    assert len(planned) == 2
 
-    for planned_row in planned:
-        assert take.offer(
-            planned_row.speaker,
-            tone(planned_row.end - planned_row.start),
-            text=planned_row.text,
-            group=planned_row.speaker,
-        )
-    take.absorb(counts)
+    planned = plan_clips(take, rows)
+    write_clips(take, "rec", tone(3.0), planned)
 
     assert take.kept == 2
     assert "4 rows read" in take.report()
     assert "1 shorter than 0.5 s" in take.report()
     assert "1 without text" in take.report()
+
+
+def test_a_clip_that_reaches_past_its_recording_is_refused(tmp_path):
+    """Times that do not describe the recording mean the wrong file was read."""
+    take = make_take(tmp_path, cap=4, cap_per_group=4)
+    planned = plan_clips(take, [row(start=1.0, end=5.0)])
+
+    with pytest.raises(DownloadError, match="the annotation is not of this recording"):
+        write_clips(take, "close_talk/CT_1.wav", tone(3.0), planned)

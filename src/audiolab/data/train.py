@@ -29,6 +29,7 @@ from typing import Protocol
 from audiolab.core.audio import Audio
 from audiolab.core.paths import data_dir
 from audiolab.data.build import ManifestBuilder
+from audiolab.data.download import DownloadError
 from audiolab.data.store import MANIFEST_NAME, read_manifest
 
 # The most clips one training source is prepared with. The screening fine-tunes
@@ -47,6 +48,11 @@ MIN_GROUPS = 60
 CLIP_CAP_PER_GROUP = TRAIN_CLIP_CAP // MIN_GROUPS
 MIN_SECONDS = 0.5
 MAX_SECONDS = 20.0
+# How far past the end of a recording an annotation may reach before the
+# preparation refuses it: a segment that ends slightly after the file is a
+# rounding away from its end, one that ends well past it means the file is not
+# the recording the annotation describes.
+END_TOLERANCE_S = 1.0
 
 
 @dataclass
@@ -91,31 +97,39 @@ class Take:
         """
         return self.per_group.get(group, 0) >= self.cap_per_group
 
-    def offer(self, source_id: str, audio: Audio, *, text: str, group: str) -> bool:
-        """Offer one row of the source; it becomes a clip when it passes the filters.
+    def decide(self, *, text: str, group: str, seconds: float) -> str | None:
+        """Count one row against the filters of the cap, and say why it is not a clip.
 
         ``group`` is the id the source itself uses for what the row belongs to
         (a speaker, a recording), without the dataset name: it is what the
-        evaluation sets are checked against.
+        evaluation sets are checked against. ``None`` means the row is a clip:
+        the clip and its group are counted for it, and the caller writes its
+        audio with :meth:`write_clip` without deciding anything again. The
+        filters live here alone, so a preparation that reads its rows twice — the
+        annotation first, then the audio — decides once and counts once.
         """
-        if self.full():
-            return False
         self.rows_read += 1
         if not text.strip():
             self.without_text += 1
-            return False
+            return "without text"
         if group in self.excluded:
             self.in_evaluation_set += 1
-            return False
+            return "in an evaluation set"
         if self.group_full(group):
             self.beyond_group_cap += 1
-            return False
-        if audio.duration_s < MIN_SECONDS:
+            return "beyond the share of its group"
+        if seconds < MIN_SECONDS:
             self.too_short += 1
-            return False
-        if audio.duration_s > MAX_SECONDS:
+            return f"shorter than {MIN_SECONDS} s"
+        if seconds > MAX_SECONDS:
             self.too_long += 1
-            return False
+            return f"longer than {MAX_SECONDS:g} s"
+        self.kept += 1
+        self.per_group[group] = self.per_group.get(group, 0) + 1
+        return None
+
+    def write_clip(self, source_id: str, audio: Audio, *, text: str, group: str) -> None:
+        """Write the clip of a row :meth:`decide` took."""
         self.builder.add(
             f"{self.name}:{source_id}",
             audio,
@@ -127,28 +141,19 @@ class Take:
             source_split=self.source_split,
             license=self.license,
         )
-        self.kept += 1
-        self.per_group[group] = self.per_group.get(group, 0) + 1
-        return True
 
-    def absorb(self, counts: Counts) -> None:
-        """Take the counts of the source's own plan, which read the same rows first.
+    def offer(self, source_id: str, audio: Audio, *, text: str, group: str) -> bool:
+        """Offer one row of a source whose audio is on hand; it becomes a clip if it passes.
 
-        A preparation that has to read a whole annotation before it knows which
-        audio to download looks at its rows twice: once in the plan, to decide
-        what to download, and once here, when the audio it downloaded is offered.
-        The second pass sees only the rows the plan kept, so a count of its own
-        rows would count those twice; the plan looked at the source, so its count
-        is the one the report gives. The rows the plan left out are added to what
-        the second pass found, and a row the plan did not keep is never offered,
-        so no row is counted twice either way.
+        Whose rows are read as the source is read, one after another, this is the
+        whole path: decide, and write when the decision takes the row.
         """
-        self.rows_read = counts.rows_read
-        self.too_short += counts.too_short
-        self.too_long += counts.too_long
-        self.without_text += counts.without_text
-        self.in_evaluation_set += counts.in_evaluation_set
-        self.beyond_group_cap += counts.beyond_group_cap
+        if self.full():
+            return False
+        if self.decide(text=text, group=group, seconds=audio.duration_s) is not None:
+            return False
+        self.write_clip(source_id, audio, text=text, group=group)
+        return True
 
     def report(self) -> str:
         """One line saying what was taken and what was left out."""
@@ -186,71 +191,55 @@ def evaluation_groups(*datasets: str, root: Path | None = None) -> frozenset[str
     return frozenset(groups)
 
 
-@dataclass
-class Counts:
-    """What a plan decided about a source's rows, counted the way ``Take`` counts.
-
-    A preparation that has to read a whole annotation before it knows which
-    audio to download filters its rows twice: once on the annotation, to decide
-    what to download, and once on the audio it then reads. Only the second pass
-    can end. The plan counts the rows it decided about without reading any audio
-    and :meth:`Take.absorb` adds those counts, so the report of such a source
-    says what the report of a one-pass source says.
-    """
-
-    rows_read: int = 0
-    too_short: int = 0
-    too_long: int = 0
-    without_text: int = 0
-    in_evaluation_set: int = 0
-    beyond_group_cap: int = 0
-    per_group: dict[str, int] = field(default_factory=dict)
-
-
 class Plannable(Protocol):
-    """What :func:`plan_clips` reads of one row: what the annotation alone says."""
+    """What the clip machinery reads of one row of an annotation."""
 
+    id: str
     text: str
     start: float
     end: float
     speaker: str
 
 
-def plan_clips[Row: Plannable](take: Take, rows: Iterable[Row]) -> tuple[list[Row], Counts]:
-    """The rows that become clips, and why the others did not.
+def plan_clips[Row: Plannable](take: Take, rows: Iterable[Row]) -> list[Row]:
+    """The rows of an annotation that become clips, counted as they are decided.
 
-    The filters are the ones :meth:`Take.offer` applies, in the same order and
-    from the annotation rather than from the decoded audio, so a preparation that
-    needs the whole annotation before it can decide what to download decides
-    once — and downloads only what it keeps, which is the point for a corpus
-    that serves one file per microphone. The cap is the source's and the share
-    is the speaker's, so which rows are planned does not depend on the order the
-    audio happens to be downloaded in; the planned rows are then offered with
-    their audio, and a planned row that is refused there is a bug the fetcher
-    reports.
+    A source that serves one file per microphone must decide with the annotation
+    alone which rows it will read, so that it downloads only what it keeps; and
+    the decision is :meth:`Take.decide`, the one a source whose audio is already
+    on hand makes, counted on the same :class:`Take`. The rows this returns are
+    written afterwards by :func:`write_clips` and are not decided again.
     """
-    counts = Counts()
     planned: list[Row] = []
     for row in rows:
-        if len(planned) >= take.cap:
+        if take.full():
             break
-        counts.rows_read += 1
-        if not row.text.strip():
-            counts.without_text += 1
-            continue
-        if row.speaker in take.excluded:
-            counts.in_evaluation_set += 1
-            continue
-        if counts.per_group.get(row.speaker, 0) >= take.cap_per_group:
-            counts.beyond_group_cap += 1
-            continue
-        seconds = row.end - row.start
-        if seconds < MIN_SECONDS:
-            counts.too_short += 1
-            continue
-        if seconds > MAX_SECONDS:
-            counts.too_long += 1
-            continue
-        counts.per_group[row.speaker] = counts.per_group.get(row.speaker, 0) + 1
-        planned.append(row)
-    return planned, counts
+        if take.decide(text=row.text, group=row.speaker, seconds=row.end - row.start) is None:
+            planned.append(row)
+    return planned
+
+
+def write_clips[Row: Plannable](
+    take: Take,
+    recording: str,
+    audio: Audio,
+    rows: Iterable[Row],
+    *,
+    tolerance_s: float = END_TOLERANCE_S,
+) -> None:
+    """Write the clips one recording holds, from the rows a plan took on it.
+
+    ``audio`` is the whole recording — a channel of a meeting, the close-talking
+    recording of one participant — and every row is a span of it, already decided
+    and counted by :func:`plan_clips`. A row that reaches past the end of the
+    recording is refused rather than clamped: times that do not describe this
+    file mean the wrong file was read, and clamping would train on the wrong
+    speech under the right words.
+    """
+    for row in rows:
+        if row.end > audio.duration_s + tolerance_s:
+            raise DownloadError(
+                f"{row.id} ends at {row.end:.2f} s but {recording} is {audio.duration_s:.2f} s "
+                "long: the annotation is not of this recording"
+            )
+        take.write_clip(row.id, audio.cut(row.start, row.end), text=row.text, group=row.speaker)

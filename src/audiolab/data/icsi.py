@@ -57,7 +57,13 @@ import soundfile as sf
 from audiolab.core.audio import Audio, load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
-from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take, plan_clips
+from audiolab.data.train import (
+    CLIP_CAP_PER_GROUP,
+    TRAIN_CLIP_CAP,
+    Take,
+    plan_clips,
+    write_clips,
+)
 
 TRANSCRIPTS_URL = (
     "https://groups.inf.ed.ac.uk/ami/ICSICorpusAnnotations/ICSI_original_transcripts.zip"
@@ -135,23 +141,14 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
     # it first downloads the 105 channels a full preparation slices instead of
     # the 469 the corpus has.
     segments = read_segments(transcripts)
-    planned, counts = plan_clips(take, segments)
+    planned = plan_clips(take, segments)
     by_channel: dict[tuple[str, str], list[Segment]] = {}
     for segment in planned:
         by_channel.setdefault((segment.meeting, segment.channel), []).append(segment)
     if verbose:
         print(f"  {len(by_channel)} channels of audio to decode for {len(planned)} clips")
     for (meeting, channel), rows in sorted(by_channel.items()):
-        audio = load_recording(name, cache_dir, meeting, channel)
-        for segment in rows:
-            if not take.offer(
-                segment.id,
-                audio.cut(segment.start, segment.end),
-                text=segment.text,
-                group=segment.speaker,
-            ):
-                raise DownloadError(f"{segment.id} was planned as a clip but was not taken")
-    take.absorb(counts)
+        write_clips(take, channel, load_recording(name, cache_dir, meeting, channel), rows)
     if verbose:
         print(f"  {take.report()}")
     builder.write()
