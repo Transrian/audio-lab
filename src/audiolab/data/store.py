@@ -50,12 +50,24 @@ class Clip:
     base_wer: float | None = None
 
     def manifest_line(self) -> str:
-        return json.dumps(asdict(self), ensure_ascii=False, sort_keys=True)
+        """The clip as one JSON line, without the per-recording fields it does not use.
+
+        So the manifests of the sources that have none read as they always did.
+        """
+        fields = asdict(self)
+        for name in PER_RECORDING_FIELDS:
+            if fields[name] == Clip.__dataclass_fields__[name].default:
+                del fields[name]
+        return json.dumps(fields, ensure_ascii=False, sort_keys=True)
+
+
+# The fields only some sources fill in, left out of a manifest line when unset.
+PER_RECORDING_FIELDS = ("source_url", "source_title", "source_author", "base_wer")
 
 
 def clip_from_dict(data: dict) -> Clip:
     """Rebuild a clip, refusing unknown or missing fields instead of guessing."""
-    optional = {"category", "source_url", "source_title", "source_author", "base_wer"}
+    optional = {"category", *PER_RECORDING_FIELDS}
     unknown = set(data) - set(Clip.__dataclass_fields__)
     if unknown:
         raise ValueError(f"manifest line has unknown fields: {sorted(unknown)}")

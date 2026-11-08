@@ -126,7 +126,8 @@ class Take:
             group=f"{self.name}:{group}",
             group_kind=self.group_kind,
             source_split=self.source_split,
-            **{"license": self.license, **extra_fields},
+            license=extra_fields.pop("license", self.license),
+            **extra_fields,
         )
         self.kept += 1
         self.per_group[group] = self.per_group.get(group, 0) + 1
