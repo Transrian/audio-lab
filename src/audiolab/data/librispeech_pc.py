@@ -13,12 +13,14 @@ Some utterances were dropped when the text was restored (2 498 of the 28 539
 left out rather than labelled with the original uppercase text.
 
 The restored text keeps a chapter title in capitals at the start of the first
-sentence of an utterance (``THE PEOPLE MARCH He became aware ...``), which is
-0.6 % of them. A run of three or more all-caps words marks such an utterance,
-and the preparation leaves those out: the base model very likely trained on this
-audio with this text (NeMo's ASR Set 3.0 lists LibriSpeech and keeps punctuation
-and casing), so this source guards English in a mix rather than bringing gains,
-and a heading in capitals is not the text a dictation model should write.
+sentence of an utterance (``THE PEOPLE MARCH He became aware ...``). A run of
+three or more words in capitals marks such an utterance — punctuation is stripped
+from a word first, so ``MARCH,`` and ``MIXER'S`` count — and 144 of the split's
+26 041 utterances match it. The preparation leaves those out, because a heading
+in capitals is not the text a dictation model should write. The base model very
+likely trained on this audio with this text (NeMo's ASR Set 3.0 lists LibriSpeech
+and keeps punctuation and casing), so this source guards English in a mix rather
+than bringing gains.
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ PINNED_AUDIO_SHA256 = LIBRISPEECH_SHA256[TRAIN_ARCHIVE_NAME]
 # A run of this many words written in capitals is a heading, not speech.
 TITLE_RUN = 3
 _CAPITAL_WORD = re.compile(r"[A-ZÀ-Þ]+")
+_NOT_A_LETTER = re.compile(r"[^A-Za-zÀ-Þà-ÿ]")
 
 
 def fetch_librispeech_pc_en_train(
@@ -78,7 +81,7 @@ def fetch_librispeech_pc_en_train(
         archive,
         builder,
         text_for_clip=_restored(texts, dropped),
-        text_style="cased",
+        text_has_casing_punct=True,
     )
     if verbose:
         left_out = ", ".join(f"{count} {what}" for what, count in dropped.items())
@@ -106,7 +109,7 @@ def read_texts(name: str, archive: Path) -> dict[str, str]:
 def _restored(texts: dict[str, str], dropped: dict[str, int]):
     """The ``text_for_clip`` callback of this source: label a clip or drop it."""
 
-    def text_for_clip(utterance: str, _published: str) -> str | None:
+    def text_for_clip(utterance: str) -> str | None:
         text = texts.get(utterance)
         if text is None:
             dropped["without restored text"] += 1
@@ -140,10 +143,15 @@ def _parse_manifest(name: str, data: bytes) -> dict[str, str]:
 
 
 def title_run(text: str) -> int:
-    """The longest run of words written in capitals, in a text."""
+    """The longest run of words written in capitals, in a text.
+
+    The rest of a word is dropped before it is looked at, so a heading that
+    carries punctuation (``MARCH,``, ``MIXER'S``) counts like any other word in
+    capitals; a word with a lowercase letter in it never does.
+    """
     longest = current = 0
     for word in text.split():
-        if _CAPITAL_WORD.fullmatch(word):
+        if _CAPITAL_WORD.fullmatch(_NOT_A_LETTER.sub("", word)):
             current += 1
             longest = max(longest, current)
         else:

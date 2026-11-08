@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
 
 from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import DownloadError, audio_from_archive, download, open_archive
@@ -92,17 +91,17 @@ def prepare_train_audio(
     archive_path: Path,
     builder: ManifestBuilder,
     *,
-    text_for_clip: Callable[[str, str], str | None] | None = None,
-    text_style: Literal["lowercase", "cased"] = "lowercase",
+    text_for_clip: Callable[[str], str | None] | None = None,
+    text_has_casing_punct: bool = False,
 ) -> Take:
     """Prepare the clips of ``train-clean-100``, in the archive's published order.
 
     A clip's text and speaker are read from the archive itself, and a source
     that has better text for the same audio (``librispeech-pc-en-train``) passes
-    ``text_for_clip``: it receives an utterance id and the text LibriSpeech
-    publishes for it, and returns the label to use, or ``None`` for a clip it
-    cannot label. Such a source counts what it drops itself, in its own closure,
-    and only it knows what its text looks like, hence ``text_style``.
+    ``text_for_clip``: it receives the utterance id, returns the label to use in
+    place of the published text, or ``None`` for a clip it cannot label. Such a
+    source counts what it drops itself, in its own closure, and only it knows
+    what its text looks like, hence ``text_has_casing_punct``.
 
     The whole archive is read once for its transcripts, then again for the audio
     of the clips taken from its beginning.
@@ -114,7 +113,7 @@ def prepare_train_audio(
         language=LANGUAGE,
         source_split=TRAIN_SPLIT,
         license=LICENSE,
-        text_has_casing_punct=text_style == "cased",
+        text_has_casing_punct=text_has_casing_punct,
         excluded=evaluation_groups(EVALUATION_DATASET),
         cap=TRAIN_CLIP_CAP,
         cap_per_group=CLIP_CAP_PER_GROUP,
@@ -131,9 +130,10 @@ def prepare_train_audio(
             if text is None:
                 raise DownloadError(f"{name}: {member.name} has no transcript in the archive")
             if text_for_clip is not None:
-                text = text_for_clip(utterance, text)
-                if text is None:
+                restored = text_for_clip(utterance)
+                if restored is None:
                     continue
+                text = restored
             take.offer(
                 utterance,
                 audio_from_archive(handle, member),

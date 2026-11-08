@@ -440,9 +440,16 @@ costs nothing and a fresh clone downloads all of it again.
   dropped 2 498 of the split's 28 539 utterances (8.8 %): those clips are left
   out rather than labelled with the original text. It also keeps a chapter title
   in capitals at the start of an utterance's first sentence
-  (`THE PEOPLE MARCH He became aware ...`) for 0.6 % of them; the preparation
-  leaves those 54 utterances out of the first rows too, because a dictation
-  model should not learn to write a heading in capitals.
+  (`THE PEOPLE MARCH He became aware ...`), and a run of three or more words in
+  capitals — punctuation stripped from the word, so `MARCH,` counts — matches 144
+  of the split's 26 041 rows (0.55 %); the preparation leaves those utterances
+  out of the first rows too, because a dictation model should not learn to write
+  a heading in capitals. The text is what the restorer wrote, not what the reader
+  read: 6 160 of the 12 000 prepared clips begin with a lowercase word, in the
+  middle of a sentence. None of them holds a double quote — the raw transcription
+  quotes speech in 29 % of the split's rows and the restoration dropped the marks
+  — so 4.6 % of the prepared clips carry a quotation mark as a lone apostrophe
+  (`'tis`, `'We sound every chord ...`), and 5.1 % of the split's rows do.
 - **Group**: the speaker (`group_kind: speaker`), 119 of them in the prepared
   clips.
 - **Why it is here**: it is the English arm of the screening with the text the
@@ -450,11 +457,11 @@ costs nothing and a fresh clone downloads all of it again.
   model very likely trained on this audio with this text: NeMo's ASR Set 3.0
   lists LibriSpeech and keeps punctuation and casing, so this source mostly
   repeats what the model already knows. It is the English guard of a mix, and
-  its value in the screening is to show that mixing in English this way does not
-  have to cost French, unlike `librispeech-en-train`, whose uppercase text moved
-  every French panel by 7 to 52 points.
-- **What a cap covers**: the cap was reached after 13 243 rows: 1 243 without
-  restored text and 54 with a heading were dropped on the way. Same per-group
+  its value in the screening is to test whether mixing in English this way costs
+  French, unlike `librispeech-en-train`, whose uppercase text moved every French
+  panel by 7 to 52 points.
+- **What a cap covers**: the cap was reached after 13 315 rows: 1 243 without
+  restored text and 72 with a heading were dropped on the way. Same per-group
   share as `librispeech-en-train`.
 
 ### `ami-fr-speakers-en-train` — English meetings spoken by French-L1 participants
@@ -611,7 +618,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
-| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips, for the same reason as `librispeech-en-train`: it reads the same clips and leaves out the same speakers |
+| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |

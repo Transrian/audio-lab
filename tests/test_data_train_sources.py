@@ -710,6 +710,11 @@ def test_librispeech_pc_counts_the_longest_run_of_capitalised_words():
     assert librispeech_pc.title_run("The MR JONES report is ready.") == 2
     assert librispeech_pc.title_run("THE LONG ROAD She walked home.") == 3
     assert librispeech_pc.title_run("THE LONG ROAD She went to AMI HQ TODAY.") == 3
+    # A heading keeps its punctuation, and a capitalised word that is not a
+    # heading does not become one.
+    assert librispeech_pc.title_run("THE MARCH, THE MIXER'S AHEAD He went.") == 5
+    assert librispeech_pc.title_run("The MR. JONES report is ready.") == 2
+    assert librispeech_pc.title_run("THE MR JONES He went home.") == 3
 
 
 def test_librispeech_pc_refuses_a_manifest_archive_without_its_split(dirs, monkeypatch):
