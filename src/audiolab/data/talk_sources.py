@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from audiolab.data import debconf, fosdem, peertube, peertube_edu
+from audiolab.data import debconf, fosdem, nasa, peertube, peertube_edu
 from audiolab.data.datasets import DATASETS
 from audiolab.data.talk_listing import Talk, TalkSource
 from audiolab.data.talks import PreparedAudio, fetch_talks, prepare_audio
@@ -102,6 +102,10 @@ SOURCES: dict[str, TalkSource] = {
         audio_url=fosdem.file_url,
         spread_by=fosdem.spread_key,
     ),
+    # NASA's podcasts are labelled from their own transcripts, not by a model, so
+    # `audiolab data fetch` prepares them with `nasa.fetch_nasa_en_train`; they
+    # are listed here for `list-talks` and `fetch-audio`, which they share.
+    nasa.NAME: nasa.SOURCE,
 }
 
 

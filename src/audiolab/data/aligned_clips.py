@@ -28,7 +28,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
-from audiolab.data.talk_clips import Segment
+from audiolab.data.talk_clips import MAX_CLIP_SECONDS, Segment
 from audiolab.eval.normalize import normalize
 
 # What a kept clip needs (a choice for the training data, not an owner
@@ -156,8 +156,8 @@ def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) 
     is the one between the pairs of the clip's first and last words, and the two
     must agree closely:
 
-    - the clip lasts :data:`MIN_CLIP_SECONDS` at least (the longest clip is
-      what the candidates allow);
+    - the clip lasts :data:`MIN_CLIP_SECONDS` to
+      :data:`audiolab.data.talk_clips.MAX_CLIP_SECONDS`;
     - the first and last words Whisper heard are in the transcript, and the
       transcript has no word of its own just outside its stretch: such a word
       may have been said inside the clip, or not, and nothing says which;
@@ -167,8 +167,8 @@ def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) 
     - :data:`MIN_MATCHED_SHARE` of the words of each side are paired, and no
       side has more than :data:`MAX_UNMATCHED_RUN` unpaired words in a row.
     """
-    if clip.end_s - clip.start_s < MIN_CLIP_SECONDS:
-        return "", f"shorter than {MIN_CLIP_SECONDS:g} s"
+    if not MIN_CLIP_SECONDS <= clip.end_s - clip.start_s <= MAX_CLIP_SECONDS:
+        return "", f"outside {MIN_CLIP_SECONDS:g}-{MAX_CLIP_SECONDS:g} s"
     if not heard or alignment.whisper[heard[0]] < 0 or alignment.whisper[heard[-1]] < 0:
         return "", "an edge word is not in the transcript"
     first, last = alignment.whisper[heard[0]], alignment.whisper[heard[-1]]

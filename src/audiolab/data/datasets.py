@@ -197,6 +197,21 @@ DATASETS: dict[str, DatasetInfo] = {
         "clip carries the attribution CC BY asks for (speakers, title, URL, license). "
         "No panels.",
     ),
+    "nasa-en-train": DatasetInfo(
+        name="nasa-en-train",
+        source="https://www.nasa.gov/podcasts/ (five shows' RSS feeds and the episode pages; "
+        "the pinned list of episodes is src/audiolab/data/nasa_listing.json)",
+        license="public domain (US government work)",
+        split="listing",
+        reference_style="NASA's own transcript of each episode, cased and punctuated, "
+        "aligned to the audio by Whisper large-v3; speaker labels and notes removed",
+        grouping="recording (group = episode page slug)",
+        notes="Training data for the per-source screening: conversational technical "
+        "English from NASA's podcasts, labelled from human transcripts as described in "
+        "docs/stt/datasets.md. Shows and episodes that name another copyright holder "
+        "are left out. Every clip carries its attribution (NASA and the show, episode "
+        "title, page URL). No panels.",
+    ),
     "peertube-fr-train": DatasetInfo(
         name="peertube-fr-train",
         source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "

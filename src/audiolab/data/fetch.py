@@ -21,6 +21,7 @@ from audiolab.data.granary import fetch_granary_fr_train
 from audiolab.data.librispeech import fetch_librispeech_en, fetch_librispeech_en_train
 from audiolab.data.librispeech_pc import fetch_librispeech_pc_en_train
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
+from audiolab.data.nasa import fetch_nasa_en_train
 from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
 from audiolab.data.store import read_manifest, verify_clips
@@ -39,6 +40,7 @@ FETCHERS = {
     "librispeech-en": fetch_librispeech_en,
     "librispeech-en-train": fetch_librispeech_en_train,
     "librispeech-pc-en-train": fetch_librispeech_pc_en_train,
+    "nasa-en-train": fetch_nasa_en_train,
     "nonspeech": fetch_nonspeech,
     "peertube-fr-train": fetch_talk_dataset,
     "peertube-edu-fr-train": fetch_talk_dataset,

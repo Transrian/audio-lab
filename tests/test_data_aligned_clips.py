@@ -159,5 +159,5 @@ def test_a_clip_shorter_than_a_second_or_heard_without_the_transcript_is_left_ou
     labels, tally = label(clips, lines)
 
     assert labels == ["Now let us move on to the next question about the launch."]
-    assert tally["clips left out: shorter than 1 s"] == 1
+    assert tally["clips left out: outside 1-19 s"] == 1
     assert tally["clips left out: an edge word is not in the transcript"] == 1
