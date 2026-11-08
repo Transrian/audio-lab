@@ -19,8 +19,12 @@
    "brazil",
    "brasil",
    "es",
+   "france",
+   "gatherings",
+   "india",
    "portugal"
-  ]
+  ],
+  "titles_left_out": "a title in another script, or holding a word or a letter of debconf.NON_ENGLISH_WORDS or debconf.NON_ENGLISH_LETTERS"
  },
  "talks": [
   {
@@ -144,16 +148,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "022b0ab7-e3aa-4343-8019-aeb0d3a1c9a4",
-   "url": "https://peertube.debian.social/videos/watch/022b0ab7-e3aa-4343-8019-aeb0d3a1c9a4",
-   "title": "Cómo aprovisionar, instalar, configurar y mantener actualizados miles de sistemas Debian y basados en Debian",
-   "duration_s": 2037,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "02387913-2e0b-4b50-8571-78a7cac20523",
    "url": "https://peertube.debian.social/videos/watch/02387913-2e0b-4b50-8571-78a7cac20523",
    "title": "Scaling piuparts.debian.org to multiple architectures",
@@ -271,16 +265,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "mini-DebConf Switzerland",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "0475c6dd-8b5f-4b4d-a0af-1167f2107d1c",
-   "url": "https://peertube.debian.social/videos/watch/0475c6dd-8b5f-4b4d-a0af-1167f2107d1c",
-   "title": "跨社群合作：LibreOffice 宣傳動畫幕後花絮",
-   "duration_s": 2309,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 18",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -424,16 +408,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "06422682-3bb7-4147-bf7a-9a9d06f935b7",
-   "url": "https://peertube.debian.social/videos/watch/06422682-3bb7-4147-bf7a-9a9d06f935b7",
-   "title": "Keynotes",
-   "duration_s": 1980,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "06434619-b0e2-461e-a383-36323ae0a37f",
    "url": "https://peertube.debian.social/videos/watch/06434619-b0e2-461e-a383-36323ae0a37f",
    "title": "Meet the Technical Committee",
@@ -461,16 +435,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "066a0aa7-10a3-4365-a204-1fcf37db3e02",
-   "url": "https://peertube.debian.social/videos/watch/066a0aa7-10a3-4365-a204-1fcf37db3e02",
-   "title": "¿Por qué contribuir a Debian?",
-   "duration_s": 2482,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -704,16 +668,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "0976ac0f-0221-432c-ba23-c1708848b939",
-   "url": "https://peertube.debian.social/videos/watch/0976ac0f-0221-432c-ba23-c1708848b939",
-   "title": "當 TangleID 遇上台北市政府: 自由軟體如何改善公部門處理流程",
-   "duration_s": 3044,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 18",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "099a051c-3149-48b2-aae2-7d633aa42a1b",
    "url": "https://peertube.debian.social/videos/watch/099a051c-3149-48b2-aae2-7d633aa42a1b",
    "title": "Debian",
@@ -814,16 +768,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "0a86867c-d3ac-441a-ae06-5e23e8e6f71e",
-   "url": "https://peertube.debian.social/videos/watch/0a86867c-d3ac-441a-ae06-5e23e8e6f71e",
-   "title": "ActivityPub and the federated social networks",
-   "duration_s": 1597,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "0a8dc73b-5228-4a57-bad3-94fcd9040acf",
    "url": "https://peertube.debian.social/videos/watch/0a8dc73b-5228-4a57-bad3-94fcd9040acf",
    "title": "State Of The Coffee Cup",
@@ -874,16 +818,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "0b53adc1-0aba-4581-92fd-19fc8b9f1960",
-   "url": "https://peertube.debian.social/videos/watch/0b53adc1-0aba-4581-92fd-19fc8b9f1960",
-   "title": "എന്താണ് ഡെബിയൻ ?",
-   "duration_s": 1218,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "0b6b6e06-ac49-4909-a4a7-2f4b7f729e01",
    "url": "https://peertube.debian.social/videos/watch/0b6b6e06-ac49-4909-a4a7-2f4b7f729e01",
    "title": "Resurrecting \"cruft\"",
@@ -891,16 +825,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 7",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "0b7dd3f0-1f23-498f-aaf0-0a96684d4958",
-   "url": "https://peertube.debian.social/videos/watch/0b7dd3f0-1f23-498f-aaf0-0a96684d4958",
-   "title": "O Projeto Debian quer você!",
-   "duration_s": 2270,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -921,16 +845,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 22",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "0bcbeceb-0e05-4f23-9331-94ef9c3b7311",
-   "url": "https://peertube.debian.social/videos/watch/0bcbeceb-0e05-4f23-9331-94ef9c3b7311",
-   "title": "బాల స్వేచ్ఛ ప్రాజెక్టు - కంప్యూటర్ ఆధారిత విద్యలో ఒక కొత్త ఒరవడి",
-   "duration_s": 1722,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1014,16 +928,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "0cd898a0-ba8b-48d5-b78c-09e3ca5dc594",
-   "url": "https://peertube.debian.social/videos/watch/0cd898a0-ba8b-48d5-b78c-09e3ca5dc594",
-   "title": "Presentacion del mastermovil master1 una lucha contra la obsolescencia programada",
-   "duration_s": 982,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "0cdb9abb-030f-4a70-9c40-84d9d915ae45",
    "url": "https://peertube.debian.social/videos/watch/0cdb9abb-030f-4a70-9c40-84d9d915ae45",
    "title": "Bate-papo entre DDs brasileiros sobre a DebConf20",
@@ -1071,16 +975,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "0d82ea91-3737-4537-984f-64e3b41ae194",
-   "url": "https://peertube.debian.social/videos/watch/0d82ea91-3737-4537-984f-64e3b41ae194",
-   "title": "കേരളത്തിലൊരു ഡെബ്കോൺഫ് (DebConf in Kerala)",
-   "duration_s": 2834,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1274,16 +1168,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "0fb2dbc4-f43d-477e-8b14-20c426f970de",
-   "url": "https://peertube.debian.social/videos/watch/0fb2dbc4-f43d-477e-8b14-20c426f970de",
-   "title": "Advanced JavaScript packaging tips",
-   "duration_s": 6181,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "0febb625-aba6-4d8c-a517-008d58d40910",
    "url": "https://peertube.debian.social/videos/watch/0febb625-aba6-4d8c-a517-008d58d40910",
    "title": "DebConf 101",
@@ -1324,26 +1208,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "104fc6b4-bebe-4683-b8bc-a9e80a7e0fa3",
-   "url": "https://peertube.debian.social/videos/watch/104fc6b4-bebe-4683-b8bc-a9e80a7e0fa3",
-   "title": "Construindo máquinas virtuais com KVM, QEMU e LibVirt",
-   "duration_s": 5934,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "10661c5b-bd6c-4a9e-b1f8-967c86f3a3bd",
-   "url": "https://peertube.debian.social/videos/watch/10661c5b-bd6c-4a9e-b1f8-967c86f3a3bd",
-   "title": "Desarrollo de Software en el entorno de la Universidad Pública Centroamericana",
-   "duration_s": 3654,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "106f6313-8376-4514-9528-73b6e9dc5cf0",
    "url": "https://peertube.debian.social/videos/watch/106f6313-8376-4514-9528-73b6e9dc5cf0",
    "title": "How Ubuntu and Debian packages are structured in Launchpad Git",
@@ -1361,16 +1225,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "10fb7d95-1eeb-4760-8c7e-c3d39a7228b2",
-   "url": "https://peertube.debian.social/videos/watch/10fb7d95-1eeb-4760-8c7e-c3d39a7228b2",
-   "title": "Shell ZSH en Debian",
-   "duration_s": 2502,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1431,16 +1285,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 14",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "11b497bb-2d22-41bb-9ce9-63b12566df92",
-   "url": "https://peertube.debian.social/videos/watch/11b497bb-2d22-41bb-9ce9-63b12566df92",
-   "title": "Upgrading a thousand Debian hosts in less than an hour",
-   "duration_s": 1836,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1544,16 +1388,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "12a57708-9f81-4266-8e3e-2315f1ccdb1f",
-   "url": "https://peertube.debian.social/videos/watch/12a57708-9f81-4266-8e3e-2315f1ccdb1f",
-   "title": "Debian-edu.de meeting September 2007",
-   "duration_s": 2085,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "12b595bd-6140-495b-ad09-7d4c82ed1fe5",
    "url": "https://peertube.debian.social/videos/watch/12b595bd-6140-495b-ad09-7d4c82ed1fe5",
    "title": "A Practical Introduction to using sq, Sequoia PGP's CLI",
@@ -1611,16 +1445,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "1360962c-236a-4a09-813f-7d4b78089df9",
-   "url": "https://peertube.debian.social/videos/watch/1360962c-236a-4a09-813f-7d4b78089df9",
-   "title": "Fighting for Internet Freedom using FOSS [Hindi]",
-   "duration_s": 1220,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1734,16 +1558,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "15854986-8e48-4468-bee5-a062b4be4ec4",
-   "url": "https://peertube.debian.social/videos/watch/15854986-8e48-4468-bee5-a062b4be4ec4",
-   "title": "Migration to testing and visualization",
-   "duration_s": 2250,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "15932a1a-aaf8-48b0-acd8-877aeaee52bf",
    "url": "https://peertube.debian.social/videos/watch/15932a1a-aaf8-48b0-acd8-877aeaee52bf",
    "title": "How Can We, Help You, Help Us, Help You...Help Us...Help You?",
@@ -1771,16 +1585,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 15",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "160423cd-d176-47f7-b555-2c437b507047",
-   "url": "https://peertube.debian.social/videos/watch/160423cd-d176-47f7-b555-2c437b507047",
-   "title": "Using debusine to automate your QA",
-   "duration_s": 2419,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1821,16 +1625,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "16977b2b-c532-482e-a1d4-2e614815ed65",
-   "url": "https://peertube.debian.social/videos/watch/16977b2b-c532-482e-a1d4-2e614815ed65",
-   "title": "Empaquetando software para Debian",
-   "duration_s": 2608,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -1884,16 +1678,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "172a45e2-70a9-4be2-b156-7c97520754f0",
-   "url": "https://peertube.debian.social/videos/watch/172a45e2-70a9-4be2-b156-7c97520754f0",
-   "title": "Trabalho das comunidades brasileiras na tradução de softwares livres",
-   "duration_s": 6213,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "17336350-4226-40d3-83d5-c811c0cdef37",
    "url": "https://peertube.debian.social/videos/watch/17336350-4226-40d3-83d5-c811c0cdef37",
    "title": "Beyond Yocto: Exploring Debian for Embedded Linux Development",
@@ -1921,16 +1705,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 11",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "17838d2a-a61f-4dc2-889f-539da75bf4c7",
-   "url": "https://peertube.debian.social/videos/watch/17838d2a-a61f-4dc2-889f-539da75bf4c7",
-   "title": "Welcome from the School Band",
-   "duration_s": 1710,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -2004,16 +1778,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "1874c5b3-1bca-426b-9333-f78d4decdda7",
-   "url": "https://peertube.debian.social/videos/watch/1874c5b3-1bca-426b-9333-f78d4decdda7",
-   "title": "Discussion on my research work on sustainability of Debian OS",
-   "duration_s": 2416,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "188565ed-4350-4b8f-935e-e5377726852b",
    "url": "https://peertube.debian.social/videos/watch/188565ed-4350-4b8f-935e-e5377726852b",
    "title": "LSB for Debian BoF",
@@ -2021,16 +1785,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 14",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "1887d001-8de9-4a27-9033-880162f04dcc",
-   "url": "https://peertube.debian.social/videos/watch/1887d001-8de9-4a27-9033-880162f04dcc",
-   "title": "Mass Campaigns to increase Debian adoption in India",
-   "duration_s": 2913,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -2311,16 +2065,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 16",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "1bed7fd3-1cf0-49a2-bbaa-014838b7839e",
-   "url": "https://peertube.debian.social/videos/watch/1bed7fd3-1cf0-49a2-bbaa-014838b7839e",
-   "title": "Adaptación de Debian a un entorno corporativo",
-   "duration_s": 1374,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -2694,36 +2438,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "207a617a-69a6-467e-b6e9-887082db2946",
-   "url": "https://peertube.debian.social/videos/watch/207a617a-69a6-467e-b6e9-887082db2946",
-   "title": "GnuPG and web of trust [Malayalam]",
-   "duration_s": 1432,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "2083ebba-35e5-4489-af16-4f58e48c951f",
-   "url": "https://peertube.debian.social/videos/watch/2083ebba-35e5-4489-af16-4f58e48c951f",
-   "title": "共享試用不是真自由 - 從 DFSG 論如何認識及做好自由軟體著作權標示",
-   "duration_s": 3888,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 18",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "20c6f8ae-de30-45a0-8b77-0e0a5c059b73",
-   "url": "https://peertube.debian.social/videos/watch/20c6f8ae-de30-45a0-8b77-0e0a5c059b73",
-   "title": "ప్రజా ఆరోగ్యం కోసం డెబియన్ మెడ్",
-   "duration_s": 1224,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "20cfda41-60d7-499c-9b39-cd3c34c60e24",
    "url": "https://peertube.debian.social/videos/watch/20cfda41-60d7-499c-9b39-cd3c34c60e24",
    "title": "Understanding Debian",
@@ -2731,26 +2445,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "20e2ab6a-d450-4321-aa6b-7eda1722d0ce",
-   "url": "https://peertube.debian.social/videos/watch/20e2ab6a-d450-4321-aa6b-7eda1722d0ce",
-   "title": "Retour d'expérience : utilisation de Debian chez Evolix",
-   "duration_s": 3075,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "212ea019-76c8-4c59-8129-bfef3590814a",
-   "url": "https://peertube.debian.social/videos/watch/212ea019-76c8-4c59-8129-bfef3590814a",
-   "title": "autoforwardportergit, automating the merging of downstream changes",
-   "duration_s": 2286,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -2771,16 +2465,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 5",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "2140e0ad-5770-45c5-b15d-82da6fd1741d",
-   "url": "https://peertube.debian.social/videos/watch/2140e0ad-5770-45c5-b15d-82da6fd1741d",
-   "title": "Salsa CI - డెబియన్ ప్యాకేజీలు ఆటోమేట్ చేయడం ఎలాగో అని తెలుగులో తెలుసుకుందాము.",
-   "duration_s": 1215,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -3021,26 +2705,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 25",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "243804b2-e615-407c-ac8d-0e965f494e85",
-   "url": "https://peertube.debian.social/videos/watch/243804b2-e615-407c-ac8d-0e965f494e85",
-   "title": "¡A darle átomos a Debian!",
-   "duration_s": 2133,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "243c2ec9-e934-4158-87c3-c14fcbe59c60",
-   "url": "https://peertube.debian.social/videos/watch/243c2ec9-e934-4158-87c3-c14fcbe59c60",
-   "title": "Abertura da trilha português",
-   "duration_s": 2601,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -3344,16 +3008,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "282e1729-4adf-4680-b4b7-f0f5f9346a4e",
-   "url": "https://peertube.debian.social/videos/watch/282e1729-4adf-4680-b4b7-f0f5f9346a4e",
-   "title": "Licencias de Software Libre en Debian",
-   "duration_s": 2977,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "28360360-5a40-4229-91d6-943c5be00b82",
    "url": "https://peertube.debian.social/videos/watch/28360360-5a40-4229-91d6-943c5be00b82",
    "title": "R packaging BoF",
@@ -3361,16 +3015,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "283e13ca-e9be-403c-be5a-d114cd981330",
-   "url": "https://peertube.debian.social/videos/watch/283e13ca-e9be-403c-be5a-d114cd981330",
-   "title": "Introducción al Software Libre",
-   "duration_s": 2747,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -3494,16 +3138,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "29cf3257-b2da-4f0b-aa6a-48a56d14e922",
-   "url": "https://peertube.debian.social/videos/watch/29cf3257-b2da-4f0b-aa6a-48a56d14e922",
-   "title": "Debian in Retro Computers [పాత కంప్యూటర్లలో డెబియన్]",
-   "duration_s": 1163,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "29d0c577-01d8-442e-a177-8992d861577b",
    "url": "https://peertube.debian.social/videos/watch/29d0c577-01d8-442e-a177-8992d861577b",
    "title": "New Member BOF",
@@ -3551,16 +3185,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "2a9cc9a6-9060-47d5-9ddf-9be9362e8ed2",
-   "url": "https://peertube.debian.social/videos/watch/2a9cc9a6-9060-47d5-9ddf-9be9362e8ed2",
-   "title": "What's new in the Linux kernel (and what's missing in Debian)",
-   "duration_s": 2387,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -3624,16 +3248,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "2aefdc0d-ff1e-443e-b72b-fc7b2d29e714",
-   "url": "https://peertube.debian.social/videos/watch/2aefdc0d-ff1e-443e-b72b-fc7b2d29e714",
-   "title": "Debian in Indian Institutions",
-   "duration_s": 1116,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "2b03210d-f58b-40ba-b3d6-8c161591181e",
    "url": "https://peertube.debian.social/videos/watch/2b03210d-f58b-40ba-b3d6-8c161591181e",
    "title": "Python BoF",
@@ -3644,26 +3258,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "2b21c084-9522-4c8c-98c7-985c06d3b9d5",
-   "url": "https://peertube.debian.social/videos/watch/2b21c084-9522-4c8c-98c7-985c06d3b9d5",
-   "title": "An Introduction to free software communication tools [Hindi]",
-   "duration_s": 1157,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "2b2734f2-d2b2-4c5f-97bb-7f808a94f226",
-   "url": "https://peertube.debian.social/videos/watch/2b2734f2-d2b2-4c5f-97bb-7f808a94f226",
-   "title": "pristine-lfs: a robust replacement for pristine-tar",
-   "duration_s": 2109,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "2b5b3091-95b5-44e8-89ad-2aee63ce925e",
    "url": "https://peertube.debian.social/videos/watch/2b5b3091-95b5-44e8-89ad-2aee63ce925e",
    "title": "Debian Science - umbrella for scientific packages or dustbin for scientific code?",
@@ -3671,16 +3265,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 17",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "2b74fdd2-b745-451d-84ae-118c3b03a30a",
-   "url": "https://peertube.debian.social/videos/watch/2b74fdd2-b745-451d-84ae-118c3b03a30a",
-   "title": "സ്വതന്ത്ര സോഫ്റ്റ്‌വെയറിൽ കേരളത്തിലെ സ്ത്രീകളുടെ പങ്കാളിത്തം",
-   "duration_s": 2736,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -4134,26 +3718,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "311998f7-b852-4329-86b2-1280161ec0e3",
-   "url": "https://peertube.debian.social/videos/watch/311998f7-b852-4329-86b2-1280161ec0e3",
-   "title": "State of Development",
-   "duration_s": 1399,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3137b7e7-5cf9-46b6-b8b7-5c83aadf2b64",
-   "url": "https://peertube.debian.social/videos/watch/3137b7e7-5cf9-46b6-b8b7-5c83aadf2b64",
-   "title": "Trixie on mobile: are we there yet?",
-   "duration_s": 1841,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "313a2dd3-9610-4cde-aedb-3a54ecc2a1be",
    "url": "https://peertube.debian.social/videos/watch/313a2dd3-9610-4cde-aedb-3a54ecc2a1be",
    "title": "preserving *other* build artifacts",
@@ -4404,16 +3968,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "33eab802-acba-4dfe-bc6c-0e73013e01fb",
-   "url": "https://peertube.debian.social/videos/watch/33eab802-acba-4dfe-bc6c-0e73013e01fb",
-   "title": "Caninos Loucos: a plataforma nacional de Single Board Computers para IoT",
-   "duration_s": 1835,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "33fcfe41-27f7-40eb-b5b2-151d5d7d8a7a",
    "url": "https://peertube.debian.social/videos/watch/33fcfe41-27f7-40eb-b5b2-151d5d7d8a7a",
    "title": "Rust BoF",
@@ -4501,16 +4055,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 8",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "354ab880-8aac-4822-9dd3-2be196957599",
-   "url": "https://peertube.debian.social/videos/watch/354ab880-8aac-4822-9dd3-2be196957599",
-   "title": "(Por qué|Quién|Dónde) Rust",
-   "duration_s": 2373,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -4814,16 +4358,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "3a39bb13-2d7d-45a5-8f02-d5aec032841d",
-   "url": "https://peertube.debian.social/videos/watch/3a39bb13-2d7d-45a5-8f02-d5aec032841d",
-   "title": "డెబియన్ ప్రాజెక్ట్ - అంతర్జాతీయ ఆపరేటింగ్ సిస్టంగా దాని రూపాంతరం",
-   "duration_s": 1129,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "3ac77591-0b59-4d57-a42d-f8bc805f8e8f",
    "url": "https://peertube.debian.social/videos/watch/3ac77591-0b59-4d57-a42d-f8bc805f8e8f",
    "title": "Docker + Debian = ♥",
@@ -4841,16 +4375,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3af5c2c6-4c01-4c68-9dec-6f753a61d215",
-   "url": "https://peertube.debian.social/videos/watch/3af5c2c6-4c01-4c68-9dec-6f753a61d215",
-   "title": "Empaquetando colaborativamente con git y collab-maint",
-   "duration_s": 2615,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -4881,26 +4405,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3b21b393-639b-4702-961d-73254d4acb9e",
-   "url": "https://peertube.debian.social/videos/watch/3b21b393-639b-4702-961d-73254d4acb9e",
-   "title": "Making Debian for everybody",
-   "duration_s": 2866,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3b319253-14ba-4189-8d6b-bdac260b81b5",
-   "url": "https://peertube.debian.social/videos/watch/3b319253-14ba-4189-8d6b-bdac260b81b5",
-   "title": "ഡെബിയന്‍ പാക്കേജിങ്ങ് ബാലപാഠങ്ങള്‍ പഠിയ്ക്കാം (Simple Packaging Tutorial with debmake)",
-   "duration_s": 6315,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5064,16 +4568,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "3cc5a5a8-5859-4392-a411-cf64f994cc3d",
-   "url": "https://peertube.debian.social/videos/watch/3cc5a5a8-5859-4392-a411-cf64f994cc3d",
-   "title": "BoF: OpenStreetMaps in India",
-   "duration_s": 2772,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "3cf16107-ee56-4dc0-9681-340f100d9c02",
    "url": "https://peertube.debian.social/videos/watch/3cf16107-ee56-4dc0-9681-340f100d9c02",
    "title": "Ruby team BoF",
@@ -5161,16 +4655,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3de31882-7bdc-427c-8a57-6fbab576f4bb",
-   "url": "https://peertube.debian.social/videos/watch/3de31882-7bdc-427c-8a57-6fbab576f4bb",
-   "title": "5 years of Debian LTS funding, what's next?",
-   "duration_s": 1952,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5281,16 +4765,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "mini-DebConf Germany",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "3f19d37f-f085-4846-bf72-9115fde5bb39",
-   "url": "https://peertube.debian.social/videos/watch/3f19d37f-f085-4846-bf72-9115fde5bb39",
-   "title": "Workshop: CI/CD essentials from scratch with Gitlab.",
-   "duration_s": 3549,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5414,16 +4888,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "411364a6-ef98-489e-be19-67b9b2e4277b",
-   "url": "https://peertube.debian.social/videos/watch/411364a6-ef98-489e-be19-67b9b2e4277b",
-   "title": "The story of how my love for free software turned me into a designer",
-   "duration_s": 1167,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "411d325c-7445-49e2-98e7-fff8dbba6dac",
    "url": "https://peertube.debian.social/videos/watch/411d325c-7445-49e2-98e7-fff8dbba6dac",
    "title": "Debian CD workshop",
@@ -5431,16 +4895,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 18",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "411f01af-940d-4cf1-a07b-09ca4d90bc12",
-   "url": "https://peertube.debian.social/videos/watch/411f01af-940d-4cf1-a07b-09ca4d90bc12",
-   "title": "Situation Skolelinux an Schulen",
-   "duration_s": 2053,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5461,26 +4915,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 5",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "417bd62c-cce1-494a-b96c-b0e39741cb09",
-   "url": "https://peertube.debian.social/videos/watch/417bd62c-cce1-494a-b96c-b0e39741cb09",
-   "title": "BoF: Digital privacy in Indian context and some Free software tools and services to the rescue [Hindi]",
-   "duration_s": 2807,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "41941b24-470e-4736-aea9-e4e65cceb029",
-   "url": "https://peertube.debian.social/videos/watch/41941b24-470e-4736-aea9-e4e65cceb029",
-   "title": "(Automate Debian installation) നെറ്റ്‌വര്‍ക്ക് വഴി കുറേ കമ്പ്യൂട്ടറുകളില്‍ എളുപ്പത്തില്‍ ഡെബിയന്‍ ഇന്‍സ്റ്റോള്‍ ചെയ്യാം",
-   "duration_s": 2141,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5534,16 +4968,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "42bfd033-64e2-4966-b9a3-471e5100806f",
-   "url": "https://peertube.debian.social/videos/watch/42bfd033-64e2-4966-b9a3-471e5100806f",
-   "title": "ഗ്നു/ലിനക്സും ഗെയ്മിങ്ങും (Introduction and Overview of the Gaming ecosystem on GNU/Linux)",
-   "duration_s": 2714,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "42cd1c57-662d-4e20-add2-508182f888be",
    "url": "https://peertube.debian.social/videos/watch/42cd1c57-662d-4e20-add2-508182f888be",
    "title": "Deploying webapps on Jelastic / Weird uses of Docker",
@@ -5551,26 +4975,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "mini-DebConf Switzerland",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "42ea9293-1282-479b-94e4-2026095b9e96",
-   "url": "https://peertube.debian.social/videos/watch/42ea9293-1282-479b-94e4-2026095b9e96",
-   "title": "BoF: FOSS Telugu Localisation",
-   "duration_s": 2733,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "42f647c9-5e90-4bd8-b9b8-9519e910ab09",
-   "url": "https://peertube.debian.social/videos/watch/42f647c9-5e90-4bd8-b9b8-9519e910ab09",
-   "title": "Workshop: Making your own Debian Distro",
-   "duration_s": 3572,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -5744,16 +5148,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "4642b507-c250-4c7d-a1cb-7c4c8c8baa10",
-   "url": "https://peertube.debian.social/videos/watch/4642b507-c250-4c7d-a1cb-7c4c8c8baa10",
-   "title": "Ask Anything about Debian / Tout savoir sur Debian",
-   "duration_s": 2105,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 17",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "46a57214-9159-4f36-94e8-e89dcff18c00",
    "url": "https://peertube.debian.social/videos/watch/46a57214-9159-4f36-94e8-e89dcff18c00",
    "title": "DebConf13 Switzerland",
@@ -5811,16 +5205,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 26",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "47234933-7ed2-4b23-b968-b239225b9ef0",
-   "url": "https://peertube.debian.social/videos/watch/47234933-7ed2-4b23-b968-b239225b9ef0",
-   "title": "State of the javascript",
-   "duration_s": 1262,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -6031,16 +5415,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "miniDebConf Regensburg 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "4928e803-b6c7-41c6-a403-d6418f18307f",
-   "url": "https://peertube.debian.social/videos/watch/4928e803-b6c7-41c6-a403-d6418f18307f",
-   "title": "BoF: Rust-Lang",
-   "duration_s": 2780,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -6424,16 +5798,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "4eb33f23-0f7f-4cb2-ab0c-81b719bc7ac3",
-   "url": "https://peertube.debian.social/videos/watch/4eb33f23-0f7f-4cb2-ab0c-81b719bc7ac3",
-   "title": "DebConf 25",
-   "duration_s": 1214,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "4eb352f4-493c-4320-99ab-73214d4ba15e",
    "url": "https://peertube.debian.social/videos/watch/4eb352f4-493c-4320-99ab-73214d4ba15e",
    "title": "Lightning Talks",
@@ -6604,16 +5968,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "50c9ac9b-d05b-4935-9427-76555c1ab921",
-   "url": "https://peertube.debian.social/videos/watch/50c9ac9b-d05b-4935-9427-76555c1ab921",
-   "title": "Trusting your computer and system",
-   "duration_s": 2556,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "511a2f67-4407-42ed-a350-2696e9e1ca28",
    "url": "https://peertube.debian.social/videos/watch/511a2f67-4407-42ed-a350-2696e9e1ca28",
    "title": "Welcome Talk",
@@ -6651,16 +6005,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "524f6907-0d3a-4571-aa61-ee9de852275f",
-   "url": "https://peertube.debian.social/videos/watch/524f6907-0d3a-4571-aa61-ee9de852275f",
-   "title": "Skolelinux in Aktion",
-   "duration_s": 1955,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -6711,16 +6055,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 16",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "5303b13d-1870-4dc4-878e-268ba539f068",
-   "url": "https://peertube.debian.social/videos/watch/5303b13d-1870-4dc4-878e-268ba539f068",
-   "title": "Debian France presentation",
-   "duration_s": 765,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -6894,16 +6228,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "5610cf2c-dd8a-462b-a00a-b29546b25c48",
-   "url": "https://peertube.debian.social/videos/watch/5610cf2c-dd8a-462b-a00a-b29546b25c48",
-   "title": "An Introduction to Wikidata, worlds largest open data repository, and Abstract Wikipedia. [Malayalam]",
-   "duration_s": 1260,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "56478760-75de-450e-8362-c527bfb6d12f",
    "url": "https://peertube.debian.social/videos/watch/56478760-75de-450e-8362-c527bfb6d12f",
    "title": "Surprise, you're a manager!",
@@ -6941,16 +6265,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 16",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "56f42808-2add-41e8-8acd-d5a36fd69d31",
-   "url": "https://peertube.debian.social/videos/watch/56f42808-2add-41e8-8acd-d5a36fd69d31",
-   "title": "ഒരു ഡെബിയന്‍ പാക്കേജിന്റെ സോഴ്സ് ഡൌണ്‍ലോഡ് ചെയ്ത് ‍ഡെബ് ഫയല്‍ (.deb) ഉണ്ടാക്കുന്നതു് കാണാം",
-   "duration_s": 3610,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -7041,16 +6355,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "58bb07bc-7e01-4b47-8172-ab86757617f4",
-   "url": "https://peertube.debian.social/videos/watch/58bb07bc-7e01-4b47-8172-ab86757617f4",
-   "title": "Portable and repeatable Linux kernel builds with TuxMake",
-   "duration_s": 2354,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -7254,16 +6558,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "5a4caf3c-94a4-46ad-81d1-82bc7ea60a41",
-   "url": "https://peertube.debian.social/videos/watch/5a4caf3c-94a4-46ad-81d1-82bc7ea60a41",
-   "title": "Introduction to Debian [Hindi]",
-   "duration_s": 1193,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "5a76969d-f75e-4bc6-b737-d34b17b66044",
    "url": "https://peertube.debian.social/videos/watch/5a76969d-f75e-4bc6-b737-d34b17b66044",
    "title": "Web and wiki BoF",
@@ -7301,16 +6595,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 17",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "5afe763e-2272-43c0-a177-6577dc7d4841",
-   "url": "https://peertube.debian.social/videos/watch/5afe763e-2272-43c0-a177-6577dc7d4841",
-   "title": "Debian Diversity BoF",
-   "duration_s": 2890,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -7554,16 +6838,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "5f79c59d-04f4-4ce7-8b54-d7d089c52e27",
-   "url": "https://peertube.debian.social/videos/watch/5f79c59d-04f4-4ce7-8b54-d7d089c52e27",
-   "title": "State of writing Malayalam on GNU/Linux : ഗ്നു/ലിനക്സിലെ മലയാളമെഴുത്തു്‌",
-   "duration_s": 1227,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "5fa40ec0-3092-4c9f-98f3-151920a73707",
    "url": "https://peertube.debian.social/videos/watch/5fa40ec0-3092-4c9f-98f3-151920a73707",
    "title": "Closing ceremony",
@@ -7671,16 +6945,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 17",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "61452c18-f467-495e-854c-bcba4d07788d",
-   "url": "https://peertube.debian.social/videos/watch/61452c18-f467-495e-854c-bcba4d07788d",
-   "title": "BoF: GNU Emacs: Will it survive another 35 years?",
-   "duration_s": 2767,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -7864,16 +7128,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "63afa0a8-185e-4dcf-9b17-7125c9ad5dc9",
-   "url": "https://peertube.debian.social/videos/watch/63afa0a8-185e-4dcf-9b17-7125c9ad5dc9",
-   "title": "Reproducible Builds - rebuilding what is distributed from ftp.debian.org",
-   "duration_s": 2069,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "63e447dc-66f2-4d71-ba43-194dceec63f1",
    "url": "https://peertube.debian.social/videos/watch/63e447dc-66f2-4d71-ba43-194dceec63f1",
    "title": "Bits from the DPL",
@@ -8001,16 +7255,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 18",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "65743c35-33fe-4812-b6ea-3722d1d5e076",
-   "url": "https://peertube.debian.social/videos/watch/65743c35-33fe-4812-b6ea-3722d1d5e076",
-   "title": "BoF: FOSS in  Cloud Native Landscape",
-   "duration_s": 2882,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -8184,16 +7428,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "67f9b7d0-56a7-437b-91c0-5e5c572b2da9",
-   "url": "https://peertube.debian.social/videos/watch/67f9b7d0-56a7-437b-91c0-5e5c572b2da9",
-   "title": "బాల స్వేచ్ఛ ప్రాజెక్టు - కంప్యూటర్ ఆధారిత విద్యలో ఒక కొత్త ఒరవడి",
-   "duration_s": 603,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "6804836e-0cf8-44a5-85f7-cf903455d6b4",
    "url": "https://peertube.debian.social/videos/watch/6804836e-0cf8-44a5-85f7-cf903455d6b4",
    "title": "Infrastructure updates - can we change anything in less than 2 years?",
@@ -8354,16 +7588,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "694929c2-3607-4881-8bbd-18ee4ca26e48",
-   "url": "https://peertube.debian.social/videos/watch/694929c2-3607-4881-8bbd-18ee4ca26e48",
-   "title": "Bits from DPL",
-   "duration_s": 1893,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "696d4aaa-deed-45ff-86d8-b8561c9a81f8",
    "url": "https://peertube.debian.social/videos/watch/696d4aaa-deed-45ff-86d8-b8561c9a81f8",
    "title": "Could we make desktop users need their local Debian geeks less?",
@@ -8401,16 +7625,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 22",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "6a031dd9-7281-4b70-805c-cb4f1f0e92fc",
-   "url": "https://peertube.debian.social/videos/watch/6a031dd9-7281-4b70-805c-cb4f1f0e92fc",
-   "title": "Como obter ajuda de forma eficiente sobre Debian",
-   "duration_s": 2454,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -8551,26 +7765,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "QA Meetings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "6c6d89fe-19bd-4c97-90e4-dc8992e4b52a",
-   "url": "https://peertube.debian.social/videos/watch/6c6d89fe-19bd-4c97-90e4-dc8992e4b52a",
-   "title": "Construcciones reproducibles en Debian (Debian Reproducible Builds): Un camino verificable desde el origen hasta el bin…",
-   "duration_s": 2508,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "6c7c9e03-4e03-4dc9-bd59-b950688f0ef2",
-   "url": "https://peertube.debian.social/videos/watch/6c7c9e03-4e03-4dc9-bd59-b950688f0ef2",
-   "title": "डेबियन में योगदान कैसे करें",
-   "duration_s": 1261,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -8744,26 +7938,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "6e9673cb-1c32-4f9c-93ea-0c5982478933",
-   "url": "https://peertube.debian.social/videos/watch/6e9673cb-1c32-4f9c-93ea-0c5982478933",
-   "title": "DebConf9 Cáceres",
-   "duration_s": 1565,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 8",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "6ec5c9c7-2395-4e0b-919f-e793893a1a03",
-   "url": "https://peertube.debian.social/videos/watch/6ec5c9c7-2395-4e0b-919f-e793893a1a03",
-   "title": "डेबियन समुदाय आणि डेबियन सोबत माझा अनुभव",
-   "duration_s": 1198,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "6ec9c40d-ee8a-48ca-9e4b-d5580dccf038",
    "url": "https://peertube.debian.social/videos/watch/6ec9c40d-ee8a-48ca-9e4b-d5580dccf038",
    "title": "Modernized packaging tutorial and practical challenge of DEP-5",
@@ -8874,16 +8048,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "6ff9745f-cc42-453c-83eb-83e06f4a461d",
-   "url": "https://peertube.debian.social/videos/watch/6ff9745f-cc42-453c-83eb-83e06f4a461d",
-   "title": "Matrix Setup",
-   "duration_s": 1233,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "702f1ffd-1409-4f8a-8160-35326ef81cb0",
    "url": "https://peertube.debian.social/videos/watch/702f1ffd-1409-4f8a-8160-35326ef81cb0",
    "title": "Seasons of Debian - Summer of Code and Winter of Outreachy",
@@ -8964,26 +8128,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "70e2a13c-375b-402f-ab16-8c5870235008",
-   "url": "https://peertube.debian.social/videos/watch/70e2a13c-375b-402f-ab16-8c5870235008",
-   "title": "Desmitificando la instalación de Debian",
-   "duration_s": 3501,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "70eb192a-02ee-4cbb-81ac-d94b1f8ebe03",
-   "url": "https://peertube.debian.social/videos/watch/70eb192a-02ee-4cbb-81ac-d94b1f8ebe03",
-   "title": "O Profissional da Educação e o Debian: pelo uso de softwares livres nas escolas",
-   "duration_s": 2762,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "70fddc1b-3e92-4665-b4cb-bd1cbd184b9d",
    "url": "https://peertube.debian.social/videos/watch/70fddc1b-3e92-4665-b4cb-bd1cbd184b9d",
    "title": "Why DoudouLinux matters",
@@ -9011,16 +8155,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 22",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "713fbb52-6a43-4637-85ae-854cc6024cbc",
-   "url": "https://peertube.debian.social/videos/watch/713fbb52-6a43-4637-85ae-854cc6024cbc",
-   "title": "Why Point Releases are important and how you can help prepare them?",
-   "duration_s": 1275,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -9524,16 +8658,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "77dd0da2-c704-469e-8161-e56a0e7753e6",
-   "url": "https://peertube.debian.social/videos/watch/77dd0da2-c704-469e-8161-e56a0e7753e6",
-   "title": "New-Member-Prozess",
-   "duration_s": 2095,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "77f013ba-adaa-4f65-b056-92981d68251a",
    "url": "https://peertube.debian.social/videos/watch/77f013ba-adaa-4f65-b056-92981d68251a",
    "title": "Welcome talk",
@@ -9611,16 +8735,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "miniDebConf Regensburg 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "787204d4-c3ea-4390-818b-3c9b13702794",
-   "url": "https://peertube.debian.social/videos/watch/787204d4-c3ea-4390-818b-3c9b13702794",
-   "title": "State of Debian Community in India [Hindi]",
-   "duration_s": 819,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -9844,16 +8958,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "7a5dbfa7-b2f3-4246-a1ce-c6da16111d84",
-   "url": "https://peertube.debian.social/videos/watch/7a5dbfa7-b2f3-4246-a1ce-c6da16111d84",
-   "title": "PostgreSQL container groups, aka cgroups down the road.",
-   "duration_s": 2365,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "7a636974-dff5-4354-9729-8b251e6817ee",
    "url": "https://peertube.debian.social/videos/watch/7a636974-dff5-4354-9729-8b251e6817ee",
    "title": "Future of archive-wide testing",
@@ -9914,16 +9018,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "7b1fa11a-40cf-403a-b00b-dc41357f6011",
-   "url": "https://peertube.debian.social/videos/watch/7b1fa11a-40cf-403a-b00b-dc41357f6011",
-   "title": "Debian en Latinoamerica \"BoF\"",
-   "duration_s": 3371,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "7b235516-c0be-4ce8-bb5d-73c22afbf7b5",
    "url": "https://peertube.debian.social/videos/watch/7b235516-c0be-4ce8-bb5d-73c22afbf7b5",
    "title": "Forwards to a Federated Future",
@@ -9941,16 +9035,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 15",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "7bdc1d99-8cd9-420e-bf4f-223773788108",
-   "url": "https://peertube.debian.social/videos/watch/7bdc1d99-8cd9-420e-bf4f-223773788108",
-   "title": "The French localization in the Debian project",
-   "duration_s": 1880,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -9991,16 +9075,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "7c3138a7-564d-4b09-983b-11af450cc06f",
-   "url": "https://peertube.debian.social/videos/watch/7c3138a7-564d-4b09-983b-11af450cc06f",
-   "title": "డెబియన్ ప్రాజెక్ట్ - అంతర్జాతీయ ఆపరేటింగ్ సిస్టంగా  దాని సౌలబ్యథ మరియు రుపాంతర",
-   "duration_s": 2519,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -10174,16 +9248,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "7e3e7777-4aa3-4b33-92b9-d6556d5b3547",
-   "url": "https://peertube.debian.social/videos/watch/7e3e7777-4aa3-4b33-92b9-d6556d5b3547",
-   "title": "Self-organized lightning talks and BoFs",
-   "duration_s": 4455,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "7e6c1e1f-ee43-4732-af3a-3874f6f29ee3",
    "url": "https://peertube.debian.social/videos/watch/7e6c1e1f-ee43-4732-af3a-3874f6f29ee3",
    "title": "SPI BOF",
@@ -10241,16 +9305,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "7f37275e-e4be-464d-be56-5cd328ff9903",
-   "url": "https://peertube.debian.social/videos/watch/7f37275e-e4be-464d-be56-5cd328ff9903",
-   "title": "Conheça a comunidade Debian Brasil e suas contribuições",
-   "duration_s": 5094,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -10321,16 +9375,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "80751353-2c13-4747-996f-790f86ec8794",
-   "url": "https://peertube.debian.social/videos/watch/80751353-2c13-4747-996f-790f86ec8794",
-   "title": "De Docker monolítico a una microinfraestructura con Proxmox: un recorrido práctico",
-   "duration_s": 1833,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -10464,16 +9508,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "82ae5fd9-78d9-469f-86e9-6ae9ec7c7361",
-   "url": "https://peertube.debian.social/videos/watch/82ae5fd9-78d9-469f-86e9-6ae9ec7c7361",
-   "title": "KDE EDU Beispiel Kalzium",
-   "duration_s": 1772,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "82e25fe6-76b7-4f48-8bf9-1f4a53dce3b8",
    "url": "https://peertube.debian.social/videos/watch/82e25fe6-76b7-4f48-8bf9-1f4a53dce3b8",
    "title": "New Members BoF",
@@ -10538,16 +9572,6 @@
    "url": "https://peertube.debian.social/videos/watch/83eb45c6-1440-491f-b023-0b807fbf7fbc",
    "title": "Visualizing Debian package clusters",
    "duration_s": 2533,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "83f6675b-677a-4eb9-bf51-804eb29cbff4",
-   "url": "https://peertube.debian.social/videos/watch/83f6675b-677a-4eb9-bf51-804eb29cbff4",
-   "title": "Extrayendole el jugo a Debian para dar vitaminas a la Educación",
-   "duration_s": 3704,
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 9",
@@ -10641,16 +9665,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "mini-DebConf Switzerland",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "84da3794-637f-4bf8-867d-d9aebf55a5b5",
-   "url": "https://peertube.debian.social/videos/watch/84da3794-637f-4bf8-867d-d9aebf55a5b5",
-   "title": "Debian en Latinoamerica",
-   "duration_s": 3150,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -10984,16 +9998,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "89756e23-c265-4156-9e76-669d165ec448",
-   "url": "https://peertube.debian.social/videos/watch/89756e23-c265-4156-9e76-669d165ec448",
-   "title": "Hardening Debian 10 (Buster)",
-   "duration_s": 2514,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "8976b249-0716-4568-ae60-3eb2367d1007",
    "url": "https://peertube.debian.social/videos/watch/8976b249-0716-4568-ae60-3eb2367d1007",
    "title": "ARM ports BoF",
@@ -11304,16 +10308,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "8daa162b-1424-447f-986d-4a9eeb4fad97",
-   "url": "https://peertube.debian.social/videos/watch/8daa162b-1424-447f-986d-4a9eeb4fad97",
-   "title": "Debian: software libre y abierto en la sociedad actual",
-   "duration_s": 3096,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "8df75689-bc22-4b5f-aae2-a06dd544f45d",
    "url": "https://peertube.debian.social/videos/watch/8df75689-bc22-4b5f-aae2-a06dd544f45d",
    "title": "Destabilising the Linux kernel module ABI",
@@ -11331,16 +10325,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "8e54cec8-bef7-4a06-8035-e6efd7a6cb72",
-   "url": "https://peertube.debian.social/videos/watch/8e54cec8-bef7-4a06-8035-e6efd7a6cb72",
-   "title": "Cross building",
-   "duration_s": 1881,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -11551,16 +10535,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 10",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "91ea4446-e63d-44d9-8744-70d9f307cd18",
-   "url": "https://peertube.debian.social/videos/watch/91ea4446-e63d-44d9-8744-70d9f307cd18",
-   "title": "Edge Machine Learning en pequeños dispositivos con Debian",
-   "duration_s": 2745,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -11811,16 +10785,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 25",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "947a0441-aae7-4320-bf87-e6ff6420fb91",
-   "url": "https://peertube.debian.social/videos/watch/947a0441-aae7-4320-bf87-e6ff6420fb91",
-   "title": "The DebConf Videoteam explained",
-   "duration_s": 2404,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -12104,16 +11068,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "97d4b6a0-a480-468d-93f4-e051acf90b27",
-   "url": "https://peertube.debian.social/videos/watch/97d4b6a0-a480-468d-93f4-e051acf90b27",
-   "title": "Devenires de las tecnologías libres en contextos de encierro",
-   "duration_s": 1532,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "9815c0bb-c362-4153-aee8-8a4cb9c5ec5f",
    "url": "https://peertube.debian.social/videos/watch/9815c0bb-c362-4153-aee8-8a4cb9c5ec5f",
    "title": "Reproducible Builds for Debian, a year later",
@@ -12164,16 +11118,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "98a9bb33-d0c3-48e8-9ca2-d758fd69e412",
-   "url": "https://peertube.debian.social/videos/watch/98a9bb33-d0c3-48e8-9ca2-d758fd69e412",
-   "title": "Plenum - Feedback",
-   "duration_s": 756,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "98d1534d-62b9-4bbe-b130-05d19bf34a38",
    "url": "https://peertube.debian.social/videos/watch/98d1534d-62b9-4bbe-b130-05d19bf34a38",
    "title": "Report from the Debian EFI team about the support of Secure Boot on Debian",
@@ -12201,16 +11145,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "99104fe1-f69d-4361-93ef-60df7303f68a",
-   "url": "https://peertube.debian.social/videos/watch/99104fe1-f69d-4361-93ef-60df7303f68a",
-   "title": "Linux live patching in Debian",
-   "duration_s": 2022,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -12301,16 +11235,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 14",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "99e0c319-f3fa-4fd7-a2aa-5fb2e84370d5",
-   "url": "https://peertube.debian.social/videos/watch/99e0c319-f3fa-4fd7-a2aa-5fb2e84370d5",
-   "title": "ഡെബിയൻ ഗ്നു/ലിനക്സ് ആമുഖം",
-   "duration_s": 1216,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -12414,16 +11338,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "9b026d97-0768-4fac-a299-78b737cf214c",
-   "url": "https://peertube.debian.social/videos/watch/9b026d97-0768-4fac-a299-78b737cf214c",
-   "title": "An introduction to apt-offline",
-   "duration_s": 1535,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "9b305d17-27da-49cf-845c-b1f16d6c4548",
    "url": "https://peertube.debian.social/videos/watch/9b305d17-27da-49cf-845c-b1f16d6c4548",
    "title": "Debian Long Term Support BoF",
@@ -12464,16 +11378,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "9b85b5a8-6982-4df7-9acc-761e4724922f",
-   "url": "https://peertube.debian.social/videos/watch/9b85b5a8-6982-4df7-9acc-761e4724922f",
-   "title": "Skolelinux und Emmäus",
-   "duration_s": 1439,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "9ba34795-8d5c-4f5b-b267-04b0fa3b79f8",
    "url": "https://peertube.debian.social/videos/watch/9ba34795-8d5c-4f5b-b267-04b0fa3b79f8",
    "title": "Linux interfaces error detection hardware",
@@ -12511,16 +11415,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "9c79e5be-6c2b-48ef-8950-e2054bffb547",
-   "url": "https://peertube.debian.social/videos/watch/9c79e5be-6c2b-48ef-8950-e2054bffb547",
-   "title": "వాడుక లో డెబియన్ మెడ్! (Debian Med in Use)",
-   "duration_s": 1126,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -12681,26 +11575,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 7",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "9dd6e0c2-4608-44f1-bd8e-3bc5aed97334",
-   "url": "https://peertube.debian.social/videos/watch/9dd6e0c2-4608-44f1-bd8e-3bc5aed97334",
-   "title": "Soberanía Tecnológica en Salud Comunitaria: un sistema clínico a Medida para Cannabis Medicinal sobre Debian",
-   "duration_s": 2437,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "9de5f157-94ea-4e5b-840e-cccdf2e55888",
-   "url": "https://peertube.debian.social/videos/watch/9de5f157-94ea-4e5b-840e-cccdf2e55888",
-   "title": "Automated License scanning in Gitlab with Fossology [Hindi]",
-   "duration_s": 1116,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -12984,16 +11858,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "a1e2651a-c164-4e41-b822-215171d7ba23",
-   "url": "https://peertube.debian.social/videos/watch/a1e2651a-c164-4e41-b822-215171d7ba23",
-   "title": "Mi experiencia creando una comunidad local en una ciudad pequeña",
-   "duration_s": 1614,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "a1f0a3ac-d31a-43b8-9ab8-10d395f1b6c3",
    "url": "https://peertube.debian.social/videos/watch/a1f0a3ac-d31a-43b8-9ab8-10d395f1b6c3",
    "title": "git-debrebase - new tool for managing Debian packaging in git",
@@ -13084,16 +11948,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "a2e31cda-fe37-4efa-98ff-895cde2f5f95",
-   "url": "https://peertube.debian.social/videos/watch/a2e31cda-fe37-4efa-98ff-895cde2f5f95",
-   "title": "¿Puedo usar limpiamente Debian en las Raspberry Pi?",
-   "duration_s": 2723,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "a2f02ae3-ec5b-41bb-b780-06493e4536a4",
    "url": "https://peertube.debian.social/videos/watch/a2f02ae3-ec5b-41bb-b780-06493e4536a4",
    "title": "Analysing Debian packages with Neo4j",
@@ -13141,26 +11995,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "a38f8291-191c-4cd6-b31a-9cabe9483510",
-   "url": "https://peertube.debian.social/videos/watch/a38f8291-191c-4cd6-b31a-9cabe9483510",
-   "title": "How LTS goes beyond LTS",
-   "duration_s": 1799,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "a39507d0-2270-4a51-a132-c38f3f21b43a",
-   "url": "https://peertube.debian.social/videos/watch/a39507d0-2270-4a51-a132-c38f3f21b43a",
-   "title": "OSS License compliance with FOSSology - Hands on Training",
-   "duration_s": 5941,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -13384,16 +12218,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "a6b7a430-ae2a-461a-8a8a-e9b79f3c835c",
-   "url": "https://peertube.debian.social/videos/watch/a6b7a430-ae2a-461a-8a8a-e9b79f3c835c",
-   "title": "Debian na vida de uma Operadora de Telecom",
-   "duration_s": 2505,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "a6c4b900-7b4e-4d8b-a48f-5f614c2bb59a",
    "url": "https://peertube.debian.social/videos/watch/a6c4b900-7b4e-4d8b-a48f-5f614c2bb59a",
    "title": "GNU Radio Tutorial",
@@ -13401,16 +12225,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 7",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "a6f1bb70-e7bd-4926-9b9d-c05578069a9b",
-   "url": "https://peertube.debian.social/videos/watch/a6f1bb70-e7bd-4926-9b9d-c05578069a9b",
-   "title": "Uso del sistema de manejo de errores de Debian",
-   "duration_s": 2033,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -13794,16 +12608,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ab894d00-1bb5-443f-b82d-7a00aa12bec8",
-   "url": "https://peertube.debian.social/videos/watch/ab894d00-1bb5-443f-b82d-7a00aa12bec8",
-   "title": "Hacker ou Maker: Uma analise a partir do contrato social do sistema operacional universal.",
-   "duration_s": 2733,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "ab8d2775-69a3-44d6-8646-7f1b74973c4e",
    "url": "https://peertube.debian.social/videos/watch/ab8d2775-69a3-44d6-8646-7f1b74973c4e",
    "title": "An experience creating a local community in a small town",
@@ -13891,16 +12695,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "mini-DebConf Germany",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "ac9784d0-1473-4260-81ab-e32cc3ac6241",
-   "url": "https://peertube.debian.social/videos/watch/ac9784d0-1473-4260-81ab-e32cc3ac6241",
-   "title": "Liberating SBC's using Debian",
-   "duration_s": 1205,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -14061,16 +12855,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "aee69caf-438a-4e8f-b2ab-12f85d2c880e",
-   "url": "https://peertube.debian.social/videos/watch/aee69caf-438a-4e8f-b2ab-12f85d2c880e",
-   "title": "Debian on a Chromebook",
-   "duration_s": 2631,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -14504,16 +13288,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "b2c9dea0-504e-418e-9a98-91f35dbd60ae",
-   "url": "https://peertube.debian.social/videos/watch/b2c9dea0-504e-418e-9a98-91f35dbd60ae",
-   "title": "Bisection de l'Archive avec snapshot",
-   "duration_s": 993,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "b2e9d97f-dd7c-4b08-98d6-108c062f9b63",
    "url": "https://peertube.debian.social/videos/watch/b2e9d97f-dd7c-4b08-98d6-108c062f9b63",
    "title": "QtQuick for beginners",
@@ -14671,16 +13445,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "b4840329-df9b-481d-affb-f5c151002421",
-   "url": "https://peertube.debian.social/videos/watch/b4840329-df9b-481d-affb-f5c151002421",
-   "title": "使用 OpenType 實現注音符號在數位環境的排版顯示 Implement Bopomofo Layout with OpenType feature",
-   "duration_s": 3025,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 18",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -15224,16 +13988,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "bac8ddc5-43b9-4433-a873-a8ba0e81741b",
-   "url": "https://peertube.debian.social/videos/watch/bac8ddc5-43b9-4433-a873-a8ba0e81741b",
-   "title": "Debian por dentro",
-   "duration_s": 785,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "bad58735-a8a9-4636-b297-d209e44a146d",
    "url": "https://peertube.debian.social/videos/watch/bad58735-a8a9-4636-b297-d209e44a146d",
    "title": "Lightning Talks",
@@ -15344,26 +14098,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "bbe4e459-edd0-46f8-8725-2308f7e04801",
-   "url": "https://peertube.debian.social/videos/watch/bbe4e459-edd0-46f8-8725-2308f7e04801",
-   "title": "Debian QA: una puerta de entrada al proyecto Debian",
-   "duration_s": 2560,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "bc342650-ad5d-4ab8-a3b9-71d790e48fe7",
-   "url": "https://peertube.debian.social/videos/watch/bc342650-ad5d-4ab8-a3b9-71d790e48fe7",
-   "title": "Lightning talks",
-   "duration_s": 2559,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "bc3fbdcf-60cc-41d8-8724-14170501b497",
    "url": "https://peertube.debian.social/videos/watch/bc3fbdcf-60cc-41d8-8724-14170501b497",
    "title": "New to DebConf BoF",
@@ -15411,26 +14145,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 10",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "bc988f30-b520-442b-ad3c-77a6f29fb904",
-   "url": "https://peertube.debian.social/videos/watch/bc988f30-b520-442b-ad3c-77a6f29fb904",
-   "title": "PyPI Security: Past, Present & Future",
-   "duration_s": 1785,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "bc9f613d-a1fe-4e2c-9c89-61addfe181a2",
-   "url": "https://peertube.debian.social/videos/watch/bc9f613d-a1fe-4e2c-9c89-61addfe181a2",
-   "title": "Freie Lernsoftware in Frankreich",
-   "duration_s": 1813,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -15501,16 +14215,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 16",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "bd3ff906-4198-472c-85cd-fb7ecedfdcc5",
-   "url": "https://peertube.debian.social/videos/watch/bd3ff906-4198-472c-85cd-fb7ecedfdcc5",
-   "title": "Licencia para ignorar: Por qué ya nadie lee el archivo LICENSE",
-   "duration_s": 2492,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 26",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -15661,16 +14365,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 15",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "bf96a9a4-23ac-4563-a451-72807480af58",
-   "url": "https://peertube.debian.social/videos/watch/bf96a9a4-23ac-4563-a451-72807480af58",
-   "title": "Software libre en dispositivos médicos. El caso del proyecto \"Monitoreo simplificado de pacientes en situación de inter…",
-   "duration_s": 2525,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -15954,16 +14648,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "c2f6d6ac-1cb7-4cf6-8934-fff952953ded",
-   "url": "https://peertube.debian.social/videos/watch/c2f6d6ac-1cb7-4cf6-8934-fff952953ded",
-   "title": "Mein Leben mit Luca",
-   "duration_s": 1640,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf Regensburg 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "c2fea61d-9226-4e24-9907-1154b3a78770",
    "url": "https://peertube.debian.social/videos/watch/c2fea61d-9226-4e24-9907-1154b3a78770",
    "title": "Making Games Work Better on Debian",
@@ -15991,26 +14675,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "c35ceb70-64b9-4cb9-b6d6-cd7405f4f6c5",
-   "url": "https://peertube.debian.social/videos/watch/c35ceb70-64b9-4cb9-b6d6-cd7405f4f6c5",
-   "title": "Comunicações seguras em um mundo inseguro",
-   "duration_s": 2806,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "c3dc906e-6a7d-4ca2-86cc-80d89d385c3a",
-   "url": "https://peertube.debian.social/videos/watch/c3dc906e-6a7d-4ca2-86cc-80d89d385c3a",
-   "title": "Benefícios de uma comunidade local de contribuidores FLOSS",
-   "duration_s": 1935,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -16241,16 +14905,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 25",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "c6f76284-22c3-4ad3-9600-0cd02edb7158",
-   "url": "https://peertube.debian.social/videos/watch/c6f76284-22c3-4ad3-9600-0cd02edb7158",
-   "title": "డెబియన్ తెలుగు - స్వేచ్ఛ ప్రాజెక్టు కథాకమామిషు",
-   "duration_s": 1517,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -16504,26 +15158,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "c8f65474-bca2-4a4f-9aa7-e0d24c0e7507",
-   "url": "https://peertube.debian.social/videos/watch/c8f65474-bca2-4a4f-9aa7-e0d24c0e7507",
-   "title": "ಟರ್ಮಿನಲ್ನೊಂದಿಗೆ ವಿನೋದ",
-   "duration_s": 1381,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 21",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "c9871c5b-edb9-4e60-a570-22f4e51ea45f",
-   "url": "https://peertube.debian.social/videos/watch/c9871c5b-edb9-4e60-a570-22f4e51ea45f",
-   "title": "Premiers pas dans l'univers Debian",
-   "duration_s": 3183,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "c9bcad35-285e-470b-9cd2-e8cdd1386837",
    "url": "https://peertube.debian.social/videos/watch/c9bcad35-285e-470b-9cd2-e8cdd1386837",
    "title": "Local Teams BoF",
@@ -16614,16 +15248,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ca5d7df0-00bb-4fd4-99c7-01e80cd00358",
-   "url": "https://peertube.debian.social/videos/watch/ca5d7df0-00bb-4fd4-99c7-01e80cd00358",
-   "title": "GnuPG and web of trust [Telugu]",
-   "duration_s": 1427,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "ca86e676-dbb5-40b5-98ca-e25f22e541cc",
    "url": "https://peertube.debian.social/videos/watch/ca86e676-dbb5-40b5-98ca-e25f22e541cc",
    "title": "Debian on Chromebooks: The Final Steps?",
@@ -16671,16 +15295,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 14",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "cb87d116-57e7-49b4-a8a8-7c37b489766f",
-   "url": "https://peertube.debian.social/videos/watch/cb87d116-57e7-49b4-a8a8-7c37b489766f",
-   "title": "എനിയ്ക്കും ഡെബിയനില്‍ വരണം, ഞാന്‍ എന്തു് ചെയ്യണം? (I want to join Debian, what should I do?)",
-   "duration_s": 2690,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -16844,16 +15458,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "cd115819-1937-4ea5-8c2d-346fa38c5764",
-   "url": "https://peertube.debian.social/videos/watch/cd115819-1937-4ea5-8c2d-346fa38c5764",
-   "title": "Virtualization in Linux [Malayalam]",
-   "duration_s": 1234,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "cd15fb31-1b4e-48f3-a916-c7706516e2ef",
    "url": "https://peertube.debian.social/videos/watch/cd15fb31-1b4e-48f3-a916-c7706516e2ef",
    "title": "GUI vs CLI in Debian",
@@ -16958,16 +15562,6 @@
    "url": "https://peertube.debian.social/videos/watch/ce9865a1-cd66-4513-af1d-4a5501236752",
    "title": "Introduction to Debian translation workflow and processes",
    "duration_s": 2867,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "cea64493-fbd0-48e1-8ea8-e10f1a9ef9f8",
-   "url": "https://peertube.debian.social/videos/watch/cea64493-fbd0-48e1-8ea8-e10f1a9ef9f8",
-   "title": "Sostenibilidad, Soberanía, Idoneidad y Democratización de las TIC en el Ministerio de Salud de El Salvador",
-   "duration_s": 2886,
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 12",
@@ -17314,16 +15908,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "d45e215e-0bd7-42f4-b59e-2123ad776fe9",
-   "url": "https://peertube.debian.social/videos/watch/d45e215e-0bd7-42f4-b59e-2123ad776fe9",
-   "title": "Bastidores Debian - Entenda como a distribuição funciona",
-   "duration_s": 2751,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "d474d6c0-02e6-41ec-915e-c39c19a56df4",
    "url": "https://peertube.debian.social/videos/watch/d474d6c0-02e6-41ec-915e-c39c19a56df4",
    "title": "Live demos",
@@ -17474,16 +16058,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "d695ac59-b0e8-40fb-b171-aa1273d06c32",
-   "url": "https://peertube.debian.social/videos/watch/d695ac59-b0e8-40fb-b171-aa1273d06c32",
-   "title": "BoF: Polyglots, not Silos",
-   "duration_s": 2685,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "d6fbdca9-be6e-4c8d-9c82-2d0b16e39d28",
    "url": "https://peertube.debian.social/videos/watch/d6fbdca9-be6e-4c8d-9c82-2d0b16e39d28",
    "title": "ThinkPadding",
@@ -17501,26 +16075,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "d71438da-de34-47da-a830-4515e818d704",
-   "url": "https://peertube.debian.social/videos/watch/d71438da-de34-47da-a830-4515e818d704",
-   "title": "Introduction to Debian [Marathi]",
-   "duration_s": 1177,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "d7383c94-3a5a-4440-8373-1ad26893a2ef",
-   "url": "https://peertube.debian.social/videos/watch/d7383c94-3a5a-4440-8373-1ad26893a2ef",
-   "title": "Yota One y GNU/Linux",
-   "duration_s": 791,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -17654,16 +16208,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "d8995816-0a6c-44c2-a37c-5b8a27dfd1eb",
-   "url": "https://peertube.debian.social/videos/watch/d8995816-0a6c-44c2-a37c-5b8a27dfd1eb",
-   "title": "Lightning Talks",
-   "duration_s": 1505,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "d8d9edc0-bbf3-4b2d-99b1-314a9490f83c",
    "url": "https://peertube.debian.social/videos/watch/d8d9edc0-bbf3-4b2d-99b1-314a9490f83c",
    "title": "Building a private cloud on Debian using Eucalyptus",
@@ -17781,16 +16325,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 17",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "da8fe07e-1a88-47dd-9021-f9cddb6dee29",
-   "url": "https://peertube.debian.social/videos/watch/da8fe07e-1a88-47dd-9021-f9cddb6dee29",
-   "title": "BoF: കേരളത്തിലെ കോളേജുകളിലെ സ്വതന്ത്ര സോഫ്റ്റ്വെയറിന്റെ അവസ്ഥ - ഒരു അവലോകനം",
-   "duration_s": 2845,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -18374,16 +16908,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "e30d6f68-c560-4647-9da8-fe2a5e34f590",
-   "url": "https://peertube.debian.social/videos/watch/e30d6f68-c560-4647-9da8-fe2a5e34f590",
-   "title": "Benutzerbetreuung mit CAT",
-   "duration_s": 2655,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "e32f21ae-202c-4b22-8fc0-55f696e59637",
    "url": "https://peertube.debian.social/videos/watch/e32f21ae-202c-4b22-8fc0-55f696e59637",
    "title": "Upgrade-advisor, analysing system upgrade",
@@ -18461,16 +16985,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "e461daf8-c974-4060-923d-1468dd006774",
-   "url": "https://peertube.debian.social/videos/watch/e461daf8-c974-4060-923d-1468dd006774",
-   "title": "ടി.വി പരസ്യഘാതകൻ",
-   "duration_s": 1353,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -18781,16 +17295,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 13",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "e7b8b8d0-9184-4e03-9ac0-dab8bafc1e17",
-   "url": "https://peertube.debian.social/videos/watch/e7b8b8d0-9184-4e03-9ac0-dab8bafc1e17",
-   "title": "Inauguración Día Debian",
-   "duration_s": 1282,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -19154,16 +17658,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ec7532df-4906-4314-8577-fad33026e721",
-   "url": "https://peertube.debian.social/videos/watch/ec7532df-4906-4314-8577-fad33026e721",
-   "title": "Como colaborar con Debian",
-   "duration_s": 2952,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "eca4a619-afc0-471b-84fe-0c32f1617985",
    "url": "https://peertube.debian.social/videos/watch/eca4a619-afc0-471b-84fe-0c32f1617985",
    "title": "Debian and the $100 laptop",
@@ -19244,16 +17738,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ed48ac88-b97f-4651-bf27-f19881980e65",
-   "url": "https://peertube.debian.social/videos/watch/ed48ac88-b97f-4651-bf27-f19881980e65",
-   "title": "From 5 to 100: The Debian Brasília Community's Story",
-   "duration_s": 2429,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "ed7ef6b4-4b5c-4830-afbe-c99c820d4f03",
    "url": "https://peertube.debian.social/videos/watch/ed7ef6b4-4b5c-4830-afbe-c99c820d4f03",
    "title": "DebConf15 in Heidelberg",
@@ -19311,16 +17795,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "MiniDebConf Online",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "ee1542aa-c82f-406c-b4a1-685bfa335bff",
-   "url": "https://peertube.debian.social/videos/watch/ee1542aa-c82f-406c-b4a1-685bfa335bff",
-   "title": "Debian, eine freie Linux Distribution",
-   "duration_s": 1256,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -19454,16 +17928,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ef7cf844-1b2f-4cb6-8774-1fefc746a399",
-   "url": "https://peertube.debian.social/videos/watch/ef7cf844-1b2f-4cb6-8774-1fefc746a399",
-   "title": "Debian-edu.de meeting November 2007",
-   "duration_s": 13828,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "ef9cc4a3-58d4-48aa-9b02-860e04c63ff8",
    "url": "https://peertube.debian.social/videos/watch/ef9cc4a3-58d4-48aa-9b02-860e04c63ff8",
    "title": "Salsa CI BoF",
@@ -19574,16 +18038,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "f0c2d41a-43c1-4d9a-8bbb-c60e87b3bb01",
-   "url": "https://peertube.debian.social/videos/watch/f0c2d41a-43c1-4d9a-8bbb-c60e87b3bb01",
-   "title": "Mi vida con software libre",
-   "duration_s": 3615,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 6",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "f0d35a2a-3c2c-4275-8f91-b3ebac5f5f1c",
    "url": "https://peertube.debian.social/videos/watch/f0d35a2a-3c2c-4275-8f91-b3ebac5f5f1c",
    "title": "Debian Day opening Plenary",
@@ -19591,16 +18045,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 10",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "f0df40ee-9cbe-400b-b2be-82abab4a4a38",
-   "url": "https://peertube.debian.social/videos/watch/f0df40ee-9cbe-400b-b2be-82abab4a4a38",
-   "title": "Retour d'expérience : mise à jour de milliers de terminaux Debian",
-   "duration_s": 3243,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -19724,16 +18168,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "f2c6b727-3430-4655-a702-725ffdbe4d28",
-   "url": "https://peertube.debian.social/videos/watch/f2c6b727-3430-4655-a702-725ffdbe4d28",
-   "title": "Escuelas libres con DebianEdu",
-   "duration_s": 820,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 12",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "f2d27496-99fa-4bd0-8000-21a89849260a",
    "url": "https://peertube.debian.social/videos/watch/f2d27496-99fa-4bd0-8000-21a89849260a",
    "title": "Jigsaw Progress in Debian",
@@ -19794,16 +18228,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "f3cb6ec6-1112-4c05-afac-b147e60e07a6",
-   "url": "https://peertube.debian.social/videos/watch/f3cb6ec6-1112-4c05-afac-b147e60e07a6",
-   "title": "Copyleft V. Copyright : Why we should use copy left rather than copyright? [Hindi]",
-   "duration_s": 2127,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "f3eb394f-d6b8-40c2-b280-4b639a4ed083",
    "url": "https://peertube.debian.social/videos/watch/f3eb394f-d6b8-40c2-b280-4b639a4ed083",
    "title": "bugs.debian.org -- Database Ho!",
@@ -19811,16 +18235,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 14",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "f3f1a312-40d1-4e56-85e2-29677a7d0247",
-   "url": "https://peertube.debian.social/videos/watch/f3f1a312-40d1-4e56-85e2-29677a7d0247",
-   "title": "Debian Documentation in Telugu",
-   "duration_s": 1213,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "miniDebConf India 2021",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -19901,16 +18315,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 5",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "f4b87e2f-d59d-441d-be49-288a10a3848f",
-   "url": "https://peertube.debian.social/videos/watch/f4b87e2f-d59d-441d-be49-288a10a3848f",
-   "title": "Automatiser la gestion de configuration de Debian avec Ansible description: Debian propose des outils et procédures pou…",
-   "duration_s": 2894,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -20344,16 +18748,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "f9f852fb-d083-4822-8dd2-dd25091e3ea6",
-   "url": "https://peertube.debian.social/videos/watch/f9f852fb-d083-4822-8dd2-dd25091e3ea6",
-   "title": "Welcome talk",
-   "duration_s": 709,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "fa01c874-b025-4d86-b56c-bf194454491e",
    "url": "https://peertube.debian.social/videos/watch/fa01c874-b025-4d86-b56c-bf194454491e",
    "title": "Investigating a tier system for Release Architectures",
@@ -20381,16 +18775,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 22",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "fa5b2c41-7649-4545-a01c-2f91aefe7720",
-   "url": "https://peertube.debian.social/videos/watch/fa5b2c41-7649-4545-a01c-2f91aefe7720",
-   "title": "French Addons to Skolelinux",
-   "duration_s": 3753,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "Debian-edu Gatherings",
    "instance": "https://peertube.debian.social"
   },
   {
@@ -20634,16 +19018,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "fd1d9360-6df6-4ed9-9bcf-4f4843a0e458",
-   "url": "https://peertube.debian.social/videos/watch/fd1d9360-6df6-4ed9-9bcf-4f4843a0e458",
-   "title": "Welcome team and non-packaging contribution opportunities in Debian",
-   "duration_s": 2496,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "mini-DebConf France",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "fd3ac7df-b658-4e5b-81fe-70a090a76d0f",
    "url": "https://peertube.debian.social/videos/watch/fd3ac7df-b658-4e5b-81fe-70a090a76d0f",
    "title": "Community building in Free Software and focusing on DEI",
@@ -20734,16 +19108,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "fe3dfd60-e8e3-4325-8235-e67476b409e9",
-   "url": "https://peertube.debian.social/videos/watch/fe3dfd60-e8e3-4325-8235-e67476b409e9",
-   "title": "Junta de Extremadura (titulo por determinar)",
-   "duration_s": 657,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 9",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "feaee653-3791-4156-b468-1cdd6e63620e",
    "url": "https://peertube.debian.social/videos/watch/feaee653-3791-4156-b468-1cdd6e63620e",
    "title": "Packaging with version control systems",
@@ -20814,16 +19178,6 @@
    "instance": "https://peertube.debian.social"
   },
   {
-   "id": "ff95b277-3d49-462e-aeda-5b8e0ae2cfe7",
-   "url": "https://peertube.debian.social/videos/watch/ff95b277-3d49-462e-aeda-5b8e0ae2cfe7",
-   "title": "ഡെബിയനിലും മറ്റു സ്വതന്ത്ര സോഫ്‌റ്റ്‌വെയറിലും പങ്കെടുക്കുമ്പോൾ/പങ്കെടുക്കാൻ ശ്രമിച്ചപ്പോൾ ഉണ്ടായ അനുഭവങ്ങൾ പങ്കുവെക്കൽ",
-   "duration_s": 2851,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 20",
-   "instance": "https://peertube.debian.social"
-  },
-  {
    "id": "ff97de62-db16-4d9c-9b37-f9bbf064772b",
    "url": "https://peertube.debian.social/videos/watch/ff97de62-db16-4d9c-9b37-f9bbf064772b",
    "title": "Live packaging workshop",
@@ -20831,16 +19185,6 @@
    "license": "CC-BY",
    "author": "DebConf Videos",
    "channel": "DebConf 23",
-   "instance": "https://peertube.debian.social"
-  },
-  {
-   "id": "ffa39717-8cce-4c92-be09-7fd6e53f2b49",
-   "url": "https://peertube.debian.social/videos/watch/ffa39717-8cce-4c92-be09-7fd6e53f2b49",
-   "title": "Comunidades: o bom, o ruim e o maravilhoso",
-   "duration_s": 1778,
-   "license": "CC-BY",
-   "author": "DebConf Videos",
-   "channel": "DebConf 19",
    "instance": "https://peertube.debian.social"
   },
   {

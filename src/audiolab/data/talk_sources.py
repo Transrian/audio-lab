@@ -76,6 +76,8 @@ SOURCES: dict[str, TalkSource] = {
             "min_duration_s": debconf.MIN_TALK_SECONDS,
             "channel_or_account_must_hold": debconf.FILTER.name_must_hold,
             "editions_left_out": list(debconf.NON_ENGLISH_EDITIONS),
+            "titles_left_out": "a title in another script, or holding a word or a letter"
+            " of debconf.NON_ENGLISH_WORDS or debconf.NON_ENGLISH_LETTERS",
         },
         lister=debconf.list_talks,
         audio_url=peertube.smallest_file_url,

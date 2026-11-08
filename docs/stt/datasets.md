@@ -712,15 +712,12 @@ Per instance, as the listing of 2026-11-08 holds them:
   (PeerTube licence id 1) or CC0 (id 7) whose channel or account name holds
   `debconf`, and writes the answer to
   [`debconf_listing.json`](../../src/audiolab/data/debconf_listing.json). The
-  listing of 2026-11-08 holds **2 085 videos, 1 351.6 h**, in 33 channels: the
-  yearly conference from DebConf 4 to DebConf 26, ten mini-DebConfs, and two
-  channels of the same project that a DebConf account publishes talks under
-  (`QA Meetings`, 12 videos, and `Debian-edu Gatherings`, 15); 603 s is the
-  shortest and 2 455 s the median video. A preparation reads that file and not the
-  live instance, so a talk published or removed later changes nothing. The filter
-  is a filter of channels and not of content: one of the 2 085 videos is a school
-  band's welcome at a Debian-edu gathering, and a music video yields no clips, the
-  two labelling models not agreeing on music.
+  listing of 2026-11-08 holds **1 919 videos, 1 244.4 h**, in 30 channels: the
+  yearly conference from DebConf 4 to DebConf 26, six mini-DebConfs, and the `QA
+  Meetings` channel (12 videos) that a DebConf account publishes talks under;
+  616 s is the shortest and 2 467 s the median video. A preparation reads that
+  file and not the live instance, so a talk published or removed later changes
+  nothing.
 - **License and attribution**: CC BY, as each uploader declared it; PeerTube names
   the licence ("Attribution") without a Creative Commons version, so the manifest
   says `CC-BY` and no version, and no listed video is CC0. CC BY asks for
@@ -738,12 +735,28 @@ Per instance, as the listing of 2026-11-08 holds them:
   therefore accepts a video tagged English **or untagged**, and takes the
   conference's language as its own: DebConf is held in English, and the editions
   that are not held in English are left out by name — `argentina`, `brazil`,
-  `brasil`, `es`, `portugal` in a channel or account name (`DebConf ES`,
-  MiniDebConf Brasil and Portugal, the Debian Brasil channel). Those words are
-  matched as whole words, so an account called `Andreas @ DebConf` is not dropped
-  by the `es` of its name. Videos shorter than ten minutes, videos under another
-  licence and videos the instance does not host itself are left out as in the
-  other talk sources.
+  `brasil`, `es`, `france`, `gatherings`, `india`, `portugal` in a channel or
+  account name (`DebConf ES`, MiniDebConf Brasil and Portugal, the Debian Brasil
+  channel, the mini-DebConf France, the German Debian-edu gatherings and the
+  miniDebConf India 2021, held in Hindi, Malayalam, Marathi and Telugu). Those
+  words are matched as whole words, so an account called `Andreas @ DebConf` is
+  not dropped by the `es` of its name.
+- **Talks in another language at an English DebConf**: a DebConf has talks in
+  the language of its host country too, and the instance tags them no more than
+  the others — Spanish at DebConf 9, 12, 20 and 26, Portuguese at DebConf 19,
+  Chinese at DebConf 18, Malayalam and Telugu at DebConf 20 and 21. Labelled as
+  English, such a talk is translated by Whisper, and the two models can agree on
+  the translation. So a talk is left out when its title is not written in English
+  (`english_title` in `src/audiolab/data/debconf.py`): a title in another script,
+  or holding a Spanish, Portuguese, French or German word that English titles do
+  not use (`en`, `para`, `avec`, `mit`, …) or a letter English does not write
+  (`ñ`, `ç`, `ó`, …). In the catalogue read on 2026-11-08, the miniDebConf India,
+  the mini-DebConf France and the Debian-edu gatherings hold 91 videos of at least
+  ten minutes (55.4 h), and the title rule leaves out 75 more (51.8 h). A talk given in another language under an
+  English title still escapes the filter, and an English title that names a place
+  such as `Brasília` is lost to it. Videos shorter than ten minutes, videos under
+  another licence and videos the instance does not host itself are left out as in
+  the other talk sources.
 - **Labels are English**: this is the first source of the repository labelled in
   another language than French, so the language is not a constant any more: the
   three models are asked to transcribe in English (`send_language`), the clips are
@@ -753,16 +766,12 @@ Per instance, as the listing of 2026-11-08 holds them:
   screening that is not read speech.
 - **Split and order**: `source_split` is `listing`; the listing is written in uuid
   order, which only keeps the file stable, and the talks are read in a seeded
-  shuffle of it (`SEED`) spread over the **conference** — the 33 channels are
+  shuffle of it (`SEED`) spread over the **conference** — the 30 channels are
   covered one after the other, so the talks of a first cap come from every edition
   instead of the one that happens to sort first. Audio comes from the smallest
   file the instance serves for a video, converted to 16 kHz mono WAV; the video is
   deleted once its sound is out, and a talk already in the cache is not fetched
   again.
-- **Prepared audio**: the first 65 h of the reading order — 105 talks — were
-  downloaded and kept as 16 kHz mono WAV, 7.1 GiB in the pipeline's cache
-  (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored; the video file of
-  a talk is deleted once its sound is out). Every talk of that selection arrived.
 - **Group**: the recording (`group_kind: recording`, the video uuid). A talk
   usually has one speaker, the listing names none, and the questions from the room
   add others.
