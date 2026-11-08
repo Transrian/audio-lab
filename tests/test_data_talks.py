@@ -161,7 +161,9 @@ def test_only_the_first_talks_of_the_reading_order_are_prepared(tmp_path, monkey
     prepared = talks.prepare_audio(source, tmp_path / "cache", hours=1.5, verbose=False)
 
     assert fetched == order[:3], "1.5 h of 30-minute talks: three of them"
-    assert (prepared.talks, prepared.failed, round(prepared.hours, 1)) == (2, 1, 1.5)
+    assert (prepared.talks, prepared.failed, round(prepared.hours, 1)) == (2, 1, 1.0), (
+        "the hours are the hours of the talks that arrived, not of the selection"
+    )
 
     fetched.clear()
     monkeypatch.setattr(talks, "fetch_audio", lambda http, one, destination, source: destination)

@@ -368,16 +368,18 @@ def prepare_audio(
     cache.mkdir(parents=True, exist_ok=True)
     if verbose:
         print(f"  listing of {listed_on}: {len(talks)} talks; preparing {len(wanted)} of them")
-    done = failed = 0
+    done: list[Talk] = []
+    failed = 0
     with http_client() as http, ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as downloads:
-        for position, path in enumerate(
-            downloads.map(partial(_audio_file, http, cache, source), wanted), start=1
-        ):
-            done += path is not None
-            failed += path is None
+        heard = downloads.map(partial(_audio_file, http, cache, source), wanted)
+        for position, (talk, path) in enumerate(zip(wanted, heard, strict=True), start=1):
+            if path is None:
+                failed += 1
+            else:
+                done.append(talk)
             if verbose and position % 25 == 0:
-                print(f"  ... {position} talks read, {done} with audio")
-    prepared = PreparedAudio(done, sum(talk.duration_s for talk in wanted) / 3600, failed)
+                print(f"  ... {position} talks read, {len(done)} with audio")
+    prepared = PreparedAudio(len(done), sum(talk.duration_s for talk in done) / 3600, failed)
     if verbose:
         print(
             f"  {prepared.talks} talks ({prepared.hours:.1f} h) ready in {cache}, "
