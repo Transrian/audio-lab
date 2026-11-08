@@ -92,27 +92,45 @@ def huggingface_sha256_map(
 
     A pinned revision makes a repository immutable, and the file listing carries
     the sha256 the Hub itself stores for large files, so a download can be
-    checked against the same value anyone else would get.
+    checked against the same value anyone else would get. One answer holds a
+    thousand files at most, so a bigger directory is followed page by page: a
+    file left out of the map would look like a file without a checksum.
     """
     url = f"https://huggingface.co/api/datasets/{repo}/tree/{revision}/{path}"
     own_client = client is None
     http = client or httpx.Client(follow_redirects=True, timeout=120.0)
+    hashes: dict[str, str] = {}
     try:
-        response = http.get(url)
-        response.raise_for_status()
-        entries = response.json()
-    except (httpx.HTTPError, json.JSONDecodeError) as error:
-        raise DownloadError(f"cannot list {url}: {error}") from error
+        while url:
+            try:
+                response = http.get(url)
+                response.raise_for_status()
+                entries = response.json()
+            except (httpx.HTTPError, json.JSONDecodeError) as error:
+                raise DownloadError(f"cannot list {url}: {error}") from error
+            if not isinstance(entries, list):
+                raise DownloadError(f"{url} did not answer with a file list")
+            for entry in entries:
+                if isinstance(entry, dict) and entry.get("path"):
+                    hashes[Path(entry["path"]).name] = str(entry.get("lfs", {}).get("oid", ""))
+            url = _next_page(response)
     finally:
         if own_client:
             http.close()
-    if not isinstance(entries, list):
-        raise DownloadError(f"{url} did not answer with a file list")
-    return {
-        Path(entry["path"]).name: str(entry.get("lfs", {}).get("oid", ""))
-        for entry in entries
-        if isinstance(entry, dict) and entry.get("path")
-    }
+    return hashes
+
+
+def _next_page(response: httpx.Response) -> str:
+    """The URL of the next page of a Hub listing, or an empty string.
+
+    The Hub pages a long listing and points at the following one with
+    ``Link: <url>; rel="next"``.
+    """
+    for part in response.headers.get("link", "").split(","):
+        url, _, attributes = part.partition(";")
+        if 'rel="next"' in attributes:
+            return url.strip().strip("<>")
+    return ""
 
 
 def open_archive(archive: Path) -> tarfile.TarFile:
