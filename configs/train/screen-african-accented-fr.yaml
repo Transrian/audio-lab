@@ -2,8 +2,7 @@
 # with the same clips count, updates and recipe, so that the evaluation of the
 # final checkpoint against the base model shows what this source brings on its
 # own. Only the dataset (and the GPU it ran on) differs between the
-# screen-*.yaml files. Why these numbers: docs/stt/training.md, "Per-source
-# screening".
+# screen-*.yaml files. Why these numbers: docs/stt/screening.md.
 base_model: nvidia/parakeet-tdt-0.6b-v3
 base_model_env: AUDIOLAB_PARAKEET_NEMO
 dataset: african-accented-fr-train
@@ -27,7 +26,7 @@ precision: bf16-mixed
 grad_clip: 1.0
 
 workers: 4
-gpu: "0"
+gpu: "1"
 seed: 20261107
 resume_every: 500
 log_every: 50
