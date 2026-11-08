@@ -36,7 +36,6 @@ SOURCES: dict[str, TalkSource] = {
         name="peertube-fr-train",
         language="fr",
         allowed_licenses=PEERTUBE_LICENSES,
-        split="listing",
         listing_path=DATA / "peertube_listing.json",
         listing_filter={"licence_ids": [1, 7], "language": "fr", "local": True},
         lister=partial(
@@ -50,7 +49,6 @@ SOURCES: dict[str, TalkSource] = {
         name="peertube-edu-fr-train",
         language="fr",
         allowed_licenses=PEERTUBE_LICENSES,
-        split="listing",
         listing_path=DATA / "peertube_edu_listing.json",
         listing_filter={
             "instances": list(peertube_edu.INSTANCES),
@@ -68,7 +66,6 @@ SOURCES: dict[str, TalkSource] = {
         name="debconf-en-train",
         language="en",
         allowed_licenses=PEERTUBE_LICENSES,
-        split="listing",
         listing_path=DATA / "debconf_listing.json",
         listing_filter={
             "instance": debconf.INSTANCE,
@@ -87,7 +84,6 @@ SOURCES: dict[str, TalkSource] = {
         name="fosdem-en-train",
         language="en",
         allowed_licenses=frozenset({fosdem.LICENSE}),
-        split="listing",
         listing_path=DATA / "fosdem_listing.json",
         listing_filter={
             "schedule": fosdem.SCHEDULE,

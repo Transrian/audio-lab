@@ -57,7 +57,6 @@ def make_source(tmp_path, listed: list[Talk], **fields) -> TalkSource:
         name=fields.pop("name", "test-fr-train"),
         language=fields.pop("language", "fr"),
         allowed_licenses=fields.pop("allowed_licenses", frozenset({"CC-BY", "CC0-1.0"})),
-        split="listing",
         listing_path=tmp_path / f"{fields.get('name', 'test')}-listing.json",
         listing_filter={"language": "fr"},
         lister=lambda http: listed,

@@ -161,14 +161,11 @@ class TalkSource:
     name: str
     language: str
     allowed_licenses: frozenset[str]
-    split: str
     listing_path: Path
     listing_filter: dict[str, object]
     lister: Callable[[httpx.Client], list[Talk]]
     audio_url: Callable[[httpx.Client, Talk], str]
     spread_by: Callable[[Talk], str] | None = None
-    group_kind: str = "recording"
-    text_has_casing_punct: bool = True
 
 
 @dataclass
@@ -304,10 +301,12 @@ def fetch_talks(
         name=source.name,
         builder=builder,
         language=source.language,
-        source_split=source.split,
+        source_split="listing",
         license=license,
-        text_has_casing_punct=source.text_has_casing_punct,
-        group_kind=source.group_kind,
+        # A talk is one recording, and its labels are what Qwen wrote, casing
+        # and punctuation included: no talk source differs here.
+        text_has_casing_punct=True,
+        group_kind="recording",
         cap=TRAIN_CLIP_CAP,
         cap_per_group=CLIP_CAP_PER_GROUP,
     )
