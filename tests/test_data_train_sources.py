@@ -9,6 +9,7 @@ the test, so no test needs the network or a prepared dataset.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from audiolab.data import (  # noqa: E402
     african_french,
     granary,
     librispeech,
+    librispeech_pc,
     mls,
     voxpopuli_train,
 )
@@ -552,23 +554,24 @@ def fake_librispeech_train_cache(cache: Path, name: str = "librispeech-en-train"
     """A cache that looks like LibriSpeech train-clean-100.
 
     ``speaker/chapter/file.flac`` next to a ``.trans.txt`` per chapter, as the
-    corpus publishes it, with the uppercase, unpunctuated transcripts.
+    corpus publishes it, with the uppercase, unpunctuated transcripts. The third
+    utterance is the one a second source (LibriSpeech-PC) can swap the text of.
     """
     directory = cache / name
     tone = write_tone(directory / "tone.flac", seconds=4.0)
-    make_archive(
-        directory / "train-clean-100.tar.gz",
-        {
-            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.flac": tone,
-            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.trans.txt": _text_file(
-                directory, "103-1240-0001.trans.txt", "103-1240-0001 CHAPTER ONE OF A BOOK\n"
-            ),
-            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.flac": tone,
-            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.trans.txt": _text_file(
-                directory, "108-1254-0001.trans.txt", "108-1254-0001 ANOTHER CHAPTER\n"
-            ),
-        },
-    )
+    utterances = {
+        "103/1240/103-1240-0001": "CHAPTER ONE OF A BOOK",
+        "108/1254/108-1254-0001": "ANOTHER CHAPTER",
+        "108/1254/108-1254-0002": "A SECOND PARAGRAPH",
+    }
+    members = {}
+    for path, text in utterances.items():
+        utterance = path.rsplit("/", 1)[-1]
+        members[f"LibriSpeech/train-clean-100/{path}.flac"] = tone
+        members[f"LibriSpeech/train-clean-100/{path}.trans.txt"] = _text_file(
+            directory, f"{utterance}.trans.txt", f"{utterance} {text}\n"
+        )
+    make_archive(directory / "train-clean-100.tar.gz", members)
 
 
 def test_librispeech_train_reads_the_train_archive_and_groups_by_speaker(dirs, monkeypatch):
@@ -579,7 +582,7 @@ def test_librispeech_train_reads_the_train_archive_and_groups_by_speaker(dirs, m
     count = librispeech.fetch_librispeech_en_train(
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
-    assert count == 2
+    assert count == 3
 
     clips = {clip.id: clip for clip in read_manifest(data / "librispeech-en-train")}
     first = clips["librispeech-en-train:103-1240-0001"]
@@ -605,10 +608,10 @@ def test_librispeech_train_leaves_out_a_speaker_test_clean_scores(dirs, monkeypa
     count = librispeech.fetch_librispeech_en_train(
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
-    assert count == 1
-    assert [clip.group for clip in read_manifest(data / "librispeech-en-train")] == [
+    assert count == 2
+    assert {clip.group for clip in read_manifest(data / "librispeech-en-train")} == {
         "librispeech-en-train:108"
-    ]
+    }
 
 
 def test_librispeech_train_stops_at_the_cap(dirs, monkeypatch):
@@ -621,6 +624,110 @@ def test_librispeech_train_stops_at_the_cap(dirs, monkeypatch):
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
     assert count == 1
+
+
+def fake_librispeech_pc_cache(cache: Path, name: str = "librispeech-pc-en-train") -> None:
+    """A cache holding the LibriSpeech audio and the LibriSpeech-PC manifests.
+
+    The audio is the archive ``librispeech-en-train`` downloads, so a test that
+    prepares both sources says what a shared download means: the PC fetcher
+    writes the audio under that source's cache entry.
+    """
+    fake_librispeech_train_cache(cache)
+    directory = cache / name
+    manifests = directory / "manifests.tar.gz"
+    texts = directory / "train-clean-100.json"
+    texts.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        _manifest_row("103/1240/103-1240-0001", "Hello, world. It is a test."),
+        # A chapter title in capitals: three all-caps words in a row.
+        _manifest_row("108/1254/108-1254-0001", "THE LONG ROAD She walked home."),
+        # Two in a row are not a heading.
+        _manifest_row("108/1254/108-1254-0002", "The MR JONES report is ready."),
+    ]
+    texts.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    make_archive(manifests, {"train-clean-100.json": texts})
+
+
+def _manifest_row(path: str, text: str) -> str:
+    return json.dumps(
+        {
+            "duration": 4.0,
+            "audio_filepath": f"train-clean-100/{path}.flac",
+            "text": text,
+            "text_raw": text.upper(),
+        }
+    )
+
+
+def test_librispeech_pc_takes_the_cased_text_and_leaves_out_a_heading(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+    # The third utterance of the archive (103-1240-0001, 108-1254-0001,
+    # 108-1254-0002) is the one whose text is a heading.
+    assert count == 2
+
+    clips = {clip.id: clip for clip in read_manifest(data / "librispeech-pc-en-train")}
+    assert set(clips) == {
+        "librispeech-pc-en-train:103-1240-0001",
+        "librispeech-pc-en-train:108-1254-0002",
+    }
+    first = clips["librispeech-pc-en-train:103-1240-0001"]
+    assert first.text == "Hello, world. It is a test."
+    assert first.text_has_casing_punct is True
+    assert first.group == "librispeech-pc-en-train:103"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "train-clean-100"
+    assert first.license == "CC-BY-4.0"
+    assert clips["librispeech-pc-en-train:108-1254-0002"].text == "The MR JONES report is ready."
+
+
+def test_librispeech_pc_stops_at_the_cap(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+    monkeypatch.setattr(librispeech, "TRAIN_CLIP_CAP", 1, raising=True)
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+    assert count == 1
+
+
+def test_librispeech_pc_counts_the_longest_run_of_capitalised_words():
+    assert librispeech_pc.title_run("Hello, world. It is a test.") == 0
+    assert librispeech_pc.title_run("The MR JONES report is ready.") == 2
+    assert librispeech_pc.title_run("THE LONG ROAD She walked home.") == 3
+    assert librispeech_pc.title_run("THE LONG ROAD She went to AMI HQ TODAY.") == 3
+
+
+def test_librispeech_pc_refuses_a_manifest_archive_without_its_split(dirs, monkeypatch):
+    _, cache = dirs
+    directory = cache / "librispeech-pc-en-train"
+    empty = directory / "other.json"
+    empty.parent.mkdir(parents=True, exist_ok=True)
+    empty.write_text("{}\n", encoding="utf-8")
+    make_archive(directory / "manifests.tar.gz", {"test-clean.json": empty})
+    with pytest.raises(DownloadError, match="holds no train-clean-100.json"):
+        librispeech_pc.read_texts("librispeech-pc-en-train", directory / "manifests.tar.gz")
+
+
+def test_librispeech_pc_refuses_an_unreadable_manifest_line(dirs):
+    _, cache = dirs
+    directory = cache / "librispeech-pc-en-train"
+    bad = directory / "train-clean-100.json"
+    bad.parent.mkdir(parents=True, exist_ok=True)
+    bad.write_text('{"audio_filepath": "train-clean-100/1/2/1-2-0001.flac"}\n', encoding="utf-8")
+    make_archive(directory / "manifests.tar.gz", {"train-clean-100.json": bad})
+    with pytest.raises(DownloadError, match="unreadable line"):
+        librispeech_pc.read_texts("librispeech-pc-en-train", directory / "manifests.tar.gz")
 
 
 def test_voxpopuli_fr_train_leaves_out_a_row_whose_reader_is_not_named(dirs, monkeypatch):

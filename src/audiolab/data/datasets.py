@@ -75,17 +75,31 @@ DATASETS: dict[str, DatasetInfo] = {
         "librispeech-en left out (decision 0002), as documented in "
         "docs/stt/datasets.md. No panels.",
     ),
+    "librispeech-pc-en-train": DatasetInfo(
+        name="librispeech-pc-en-train",
+        source="https://www.openslr.org/145 (manifests.tar.gz, train-clean-100) over the "
+        "audio of https://www.openslr.org/12 (train-clean-100.tar.gz)",
+        license="CC-BY-4.0",
+        split="train-clean-100",
+        reference_style="restored text: casing and punctuation",
+        grouping="speaker (group = LibriSpeech speaker id)",
+        notes="Training data for the per-source screening: the same clips as "
+        "librispeech-en-train with the cased and punctuated text of LibriSpeech-PC, "
+        "as documented in docs/stt/datasets.md. The base model very likely trained on "
+        "this audio with this text, so it guards English rather than bringing gains. "
+        "No panels.",
+    ),
     "african-accented-fr-train": DatasetInfo(
         name="african-accented-fr-train",
         source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/train)",
         license="Apache-2.0",
         split="train",
-        reference_style="lowercase, no punctuation",
+        reference_style="lowercase, no punctuation; the corpus's apostrophe spacing removed",
         grouping="speaker (group = directory of the recordings)",
         notes="Training data for the per-source screening: every train recording that "
         "has a transcript and passes the filters documented in docs/stt/datasets.md, "
         "which is fewer clips than the cap. The corpus has no transcript for part "
-        "of its train recordings. No panels.",
+        "of its train recordings, and eight prompting lines are not speech. No panels.",
     ),
     "granary-fr-train": DatasetInfo(
         name="granary-fr-train",
