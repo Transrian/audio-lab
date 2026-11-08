@@ -419,12 +419,15 @@ def fake_african_french_cache(
             directory,
             "fn_text.txt",
             "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0002.wav"
-            " quand il n' y en a plus\n",
+            " quand il n' y en a plus  il y en a encore \n"
+            "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0003.wav"
+            " etes-vous sûr que c' est lui / elle \n",
         ),
         f"{root}/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav": tone,
         f"{root}/speech/train/ca16/113/afc-gabon_16.06.11_002_conv_0023.wav": tone,
         f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0002.wav": tone,
-        f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0003.wav": tone,
+        f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0003.wav": tone,
+        f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0004.wav": tone,
     }
     make_archive(directory / "African_Accented_French.tar.gz", members)
 
@@ -470,7 +473,9 @@ def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs
         "african-accented-fr-train:ctell1-01-0002",
     }
     ca16 = clips["african-accented-fr-train:afc-gabon_16.06.15_048_read_0344"]
-    assert ca16.text == "d' accord mais je ne connais pas"
+    # The corpus writes a space after the apostrophe; the model learns it and
+    # the scorer counts two words, so the training text is cleaned.
+    assert ca16.text == "d'accord mais je ne connais pas"
     assert ca16.group == "african-accented-fr-train:113"
     assert ca16.group_kind == "speaker"
     assert ca16.source_split == "train"
@@ -480,7 +485,46 @@ def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs
     assert ca16.text_has_casing_punct is False
     # A recording published in the archive without a transcript is left out
     # rather than prepared with an empty reference.
-    assert "african-accented-fr-train:ctell1-01-0003" not in clips
+    assert "african-accented-fr-train:ctell1-01-0004" not in clips
+
+
+def test_african_french_cleans_the_training_text(dirs):
+    """Apostrophe spacing and the whitespace runs go; nothing else changes."""
+    data, cache = dirs
+    fake_african_french_cache(cache)
+
+    african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+
+    clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-train")}
+    yaounde = clips["african-accented-fr-train:ctell1-01-0002"]
+    assert yaounde.text == "quand il n'y en a plus il y en a encore"
+    assert "  " not in yaounde.text
+    assert yaounde.text == yaounde.text.strip()
+
+
+def test_african_french_leaves_out_the_prompting_lines(dirs):
+    """``c' est lui / elle`` is the question read to the speaker, not an answer."""
+    data, cache = dirs
+    fake_african_french_cache(cache)
+
+    count = african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+    assert count == 3
+    assert "african-accented-fr-train:ctell1-01-0003" not in {
+        clip.id for clip in read_manifest(data / "african-accented-fr-train")
+    }
+
+
+def test_african_french_cleanup_is_deterministic():
+    assert african_french.training_text("aujourd' hui c' est ça") == "aujourd'hui c'est ça"
+    assert african_french.training_text("il y en a plus  il y en a encore ") == (
+        "il y en a plus il y en a encore"
+    )
+    # Nothing else is touched: the text stays lowercase and unpunctuated.
+    assert african_french.training_text("qu' il aille à paris") == "qu'il aille à paris"
 
 
 def test_african_french_stops_at_the_cap(dirs, monkeypatch):

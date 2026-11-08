@@ -15,15 +15,20 @@ key once the directory and the extension are removed, which is what
 :func:`_key` does. The corpus has no transcript for 2 934 of its 14 394 train
 recordings; those are left out.
 
-The text is lowercase and unpunctuated, and a few lines keep a word split in
-two (``il y en a plus  il y en a encore``). The base model writes casing and
-punctuation, so this source teaches it to drop both: a known confound of the
-screening, recorded in its card rather than corrected here, because rewriting
-the reference would mean scoring a corpus nobody published.
+The text is lowercase and unpunctuated. Its apostrophes are written as separate
+words (``d' accord``, ``aujourd' hui``), which is a defect of the transcripts
+rather than of the language: the preparation removes the space after an
+apostrophe and collapses the runs of whitespace the Yaoundé part leaves where
+punctuation was deleted, and drops the eight Yaoundé lines that are prompting
+text (``c' est lui / elle``) rather than speech. Casing and punctuation are not
+restored: a source that has neither teaches the base model to drop what it
+writes, and putting them back would take another model. The card in
+`docs/stt/datasets.md` records both the cleanup and that confound.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
@@ -50,6 +55,13 @@ TRANSCRIPTS = (
 )
 # The name a transcript line and an audio member share, without the extension.
 SUFFIXES = (".wav", ".tdf")
+# A space after an apostrophe is the corpus's own typing (``d' accord``), not a
+# word break: the model learns it and the scorer counts two words.
+APOSTROPHE_SPACE = re.compile(r"' +")
+# A line holding this is prompting text read to the speaker ("c' est lui /
+# elle"), not the answer to a question, so it is not speech to train on.
+PROMPT_MARKER = " / "
+WHITESPACE_RUN = re.compile(r"\s+")
 
 
 def fetch_african_accented_fr_train(
@@ -75,6 +87,7 @@ def fetch_african_accented_fr_train(
     )
 
     untranscribed = 0
+    prompts = 0
     with open_archive(archive) as handle:
         for member in handle:
             if take.full():
@@ -85,6 +98,9 @@ def fetch_african_accented_fr_train(
             if text is None:
                 untranscribed += 1
                 continue
+            if PROMPT_MARKER in text:
+                prompts += 1
+                continue
             # The directory above the recording is the speaker of the train
             # part (``speech/train/ca16/113/...``, ``speech/train/yaounde/read/
             # ctell5-78/...``), and one speaker appears in both the read and the
@@ -92,13 +108,31 @@ def fetch_african_accented_fr_train(
             take.offer(
                 _key(member.name),
                 audio_from_archive(handle, member),
-                text=text,
+                text=training_text(text),
                 group=Path(member.name).parent.name,
             )
     if verbose:
-        print(f"  {take.report()}; audio members with no transcript: {untranscribed}")
+        print(
+            f"  {take.report()}; audio members with no transcript: {untranscribed}; "
+            f"prompting lines left out: {prompts}"
+        )
     builder.write()
     return take.kept
+
+
+def training_text(text: str) -> str:
+    """Clean one transcript into the text a training clip is labelled with.
+
+    The cleanup is deterministic and only ever removes a space: the space the
+    corpus writes after an apostrophe (``d' accord``), and the runs of
+    whitespace it leaves where it dropped punctuation (``il y en a plus  il y
+    en a encore``). Nothing is added back — the text stays lowercase and
+    unpunctuated, as the corpus published it.
+
+    Only a training source does this. Evaluation references are scored as
+    published, so a scorer counts the corpus's own spelling.
+    """
+    return WHITESPACE_RUN.sub(" ", APOSTROPHE_SPACE.sub("'", text)).strip()
 
 
 def _is_speech(member) -> bool:
