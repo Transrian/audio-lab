@@ -5,9 +5,8 @@ instance, a conference's file server. Everything the pipeline needs from one is
 what :class:`TalkSource` holds — the pinned list of talks it may use, the
 licences that list may hold, how to find a talk's audio, the language the models
 listen in, and the attribution a clip must carry. The modules that read a
-particular catalogue (:mod:`audiolab.data.peertube`, ``peertube_edu``,
-``debconf``, ``fosdem``) only produce lists of :class:`Talk`; everything after
-that is here and is shared.
+particular catalogue (one per source, in :data:`audiolab.data.talk_sources.SOURCES`)
+only produce lists of :class:`Talk`; everything after that is here and is shared.
 
 A catalogue is live: videos are published, edited and deleted, and a training
 source has to be reproducible. So the list of usable talks is made once, by
@@ -223,7 +222,9 @@ def read_listing(source: TalkSource) -> tuple[str, list[Talk]]:
     return listing["listed_on"], talks
 
 
-def reading_order(talks: list[Talk], seed: int, spread_by: Callable[[Talk], str] | None = None):
+def reading_order(
+    talks: list[Talk], seed: int, spread_by: Callable[[Talk], str] | None = None
+) -> list[Talk]:
     """The listed talks in a seeded order, the same on every machine.
 
     A catalogue publishes one conference, instance or year after another, so the
