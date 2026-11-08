@@ -318,7 +318,10 @@ screening is a difference between corpora and not between recipes:
   model to drop what it already writes; VoxPopuli is cased and punctuated human
   text, and Granary is cased, punctuated model output that nobody verified. That
   difference is part of what the screening measures, so nothing was rewritten to
-  make the arms look alike.
+  make the arms look alike. Transport defects of a published transcript are the
+  one exception, and the card of the source says which: SLR57 writes a space
+  after every apostrophe (`j' ai`), which the training text drops because the
+  model learns it and the scorer counts two words.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
   below.
@@ -328,7 +331,7 @@ screening is a difference between corpora and not between recipes:
 | `granary-fr-train` | fr | audio CC-BY-3.0, labels CC-BY-4.0 | asr_only | 12 000 | 2 725 | 8.3 | 0.9 GiB | 1.8 GiB |
 | `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 229 | 29.0 | 3.1 GiB | 8.6 GiB |
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
-| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 435 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
+| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 427 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
@@ -424,18 +427,33 @@ costs nothing and a fresh clone downloads all of it again.
 - **Source**: OpenSLR SLR57, `African_Accented_French/speech/train` with the three
   transcript files under `transcripts/train`.
 - **License**: Apache-2.0.
-- **Text**: lowercase, unpunctuated, and it is the reference the corpus published:
-  a few lines keep a word split in two (`il y en a plus  il y en a encore`). No
-  cleanup was applied, because the screening has to score what the corpus says.
+- **Text**: lowercase and unpunctuated, as the corpus publishes it, with two
+  transport defects of the published transcript removed: the space after an
+  apostrophe (`d' accord`, `aujourd' hui` — 5 693 of the 5 697 apostrophes of the
+  three train transcript files) and the runs of whitespace the Yaoundé part
+  leaves where it dropped punctuation (`il y en a plus  il y en a encore`, 4 580
+  runs in 3 607 of its lines). Eight Yaoundé lines are the prompting
+  text read to the speaker (`etes-vous sûr que c' est lui / elle`) rather than
+  an answer, and are left out. **Casing and punctuation are not restored**:
+  putting them back would take another model, and a source that has neither
+  still teaches the base model to drop what it writes (the confound below). The
+  cleanup is deterministic and only removes spaces, so the same archive prepares
+  the same text. Evaluation references are never cleaned like this: the scorer
+  normalizes what the corpus published.
+- **What the screening measured**: the arm of the 2026-11-08 screening in
+  [screening.md](screening.md) trained on the text as published, with the
+  apostrophe spacing, and most of its damage was that spacing. The source was
+  re-prepared afterwards, so its screen config trains on the cleaned text and its
+  old numbers no longer describe it.
 - **Group**: the speaker (`group_kind: speaker`), 190 of them, read from the
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
 - **What a cap covers**: the whole train part is smaller than the cap. Its 14 394
-  recordings hold 11 460 with a transcript, of which 25 are longer than 20 s, so
-  the source is 11 435 clips: **the screening's arms do not all have the same number
-  of clips**, and this one is 4.7 % short of the cap. Nothing was padded or
-  repeated to close the gap.
+  recordings hold 11 460 with a transcript, of which 8 are prompting lines and 25
+  are longer than 20 s, so the source is 11 427 clips: **the screening's arms do
+  not all have the same number of clips**, and this one is 4.8 % short of the
+  cap. Nothing was padded or repeated to close the gap.
 - **Why it is here**: African accents are otherwise absent from open French ASR
   data. Its transcripts are also the least punctuated of the screening, which is
   the confound below.
