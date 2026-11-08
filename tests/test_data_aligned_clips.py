@@ -36,7 +36,17 @@ def test_the_transcript_stream_leaves_out_labels_and_notes_and_numbers_its_passa
     assert stream.written_of[5:7] == [5, 5], "both words of 2,000 come from one written word"
     # The host speaks (1), a note ends that passage (2), the guest speaks (3)
     # and starts with a note (4).
-    assert stream.passage_of == [1, 1, 1, 2, 2, 2, 2, 2, 4, 4]
+    assert stream.passage_of_written == [1, 1, 1, 2, 2, 2, 2, 4, 4]
+
+
+def test_a_note_left_open_or_in_angle_brackets_is_not_said():
+    lines = [
+        Line("", "<Intro Music> Hello."),
+        Line("", "[ARCHIVAL AUDIO: Three, two, one, liftoff"),
+        Line("", "[Song: Theme by Someone} Goodbye."),
+    ]
+
+    assert transcript(lines, "en").written == ["Hello.", "Goodbye."]
 
 
 def test_the_alignment_pairs_the_shared_words_around_insertions_and_deletions():
@@ -132,7 +142,7 @@ def test_an_unpaired_transcript_word_at_an_edge_rejects_the_clip_it_may_belong_t
     labels, tally = label(clips, lines)
 
     assert labels == []
-    assert tally["clips left out: the transcript has an unpaired word at an edge"] == 1
+    assert tally["clips left out: the two texts do not meet at an edge"] == 1
 
 
 def test_a_clip_edge_inside_a_written_number_rejects_both_sides():
@@ -161,3 +171,57 @@ def test_a_clip_shorter_than_a_second_or_heard_without_the_transcript_is_left_ou
     assert labels == ["Now let us move on to the next question about the launch."]
     assert tally["clips left out: outside 1-19 s"] == 1
     assert tally["clips left out: an edge word is not in the transcript"] == 1
+
+
+def test_a_word_whisper_hears_twice_across_two_clips_rejects_both():
+    lines = [Line(HOST, "We launch next year. Then we land on the Moon.")]
+    # Whisper hears "next year" at the end of one clip and again at the start of
+    # the next; the alignment pairs the transcript's words with the second copy.
+    clips = [
+        Segment(0.0, 3.0, "We launch next year."),
+        Segment(3.0, 7.0, "Next year. Then we land on the Moon."),
+    ]
+
+    labels, tally = label(clips, lines)
+
+    assert labels == []
+    assert tally["clips left out: an edge word is not in the transcript"] == 1
+    assert tally["clips left out: the two texts do not meet at an edge"] == 1
+
+
+def test_a_number_written_alike_on_both_sides_is_paired_whatever_its_context():
+    lines = [Line(HOST, "The kit costs 1999 dollars, and 20% of it is the helmet.")]
+    clips = [Segment(0.0, 5.0, "The kit costs 1999 dollars, and 20% of it is the helmet.")]
+
+    labels, _ = label(clips, lines)
+
+    assert labels == ["The kit costs 1999 dollars, and 20% of it is the helmet."]
+
+
+def test_a_filler_the_scorer_drops_at_an_edge_rejects_the_clip():
+    lines = [Line(HOST, "Um, so we flew to the Moon and back in eight days.")]
+    clips = [Segment(0.0, 4.0, "so we flew to the moon and back in eight days")]
+
+    labels, tally = label(clips, lines)
+
+    assert labels == []
+    assert tally["clips left out: a word the scorer drops is at an edge"] == 1
+
+
+def test_the_lines_on_each_side_of_a_sound_are_not_labelled():
+    lines = [
+        Line(HOST, "Welcome to the show, we have a great guest today."),
+        Line("", "[Music fades]"),
+        Line(GUEST, "Thanks for having me on the show today."),
+        Line(HOST, "So tell us about your work on the station."),
+    ]
+    clips = [
+        Segment(0.0, 3.0, "Welcome to the show, we have a great guest today."),
+        Segment(5.0, 8.0, "Thanks for having me on the show today."),
+        Segment(8.0, 11.0, "So tell us about your work on the station."),
+    ]
+
+    labels, tally = label(clips, lines)
+
+    assert labels == ["So tell us about your work on the station."]
+    assert tally["clips left out: next to a sound the transcript notes"] == 2

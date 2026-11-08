@@ -244,7 +244,7 @@ def test_a_preparation_labels_its_clips_with_the_transcript_after_every_whisper_
     for one in episodes:
         transcript = page(
             "<strong>Transcript</strong>",
-            "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! [ Music ]",
+            "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
             "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
         )
         (cache / nasa.NAME / "pages").mkdir(parents=True, exist_ok=True)

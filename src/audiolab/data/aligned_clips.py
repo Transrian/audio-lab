@@ -38,9 +38,15 @@ MIN_MATCHED_SHARE = 0.9
 MAX_UNMATCHED_RUN = 2
 MIN_CLIP_SECONDS = 1.0
 # A note of the transcriber, which nobody says: "[ Music ]", "[[Sound: Beep]]",
-# "(laughs)", a timestamp such as "[00:01:26]". A note ends a passage, like a
-# change of speaker (see Transcript).
-NOTE = re.compile(r"\[+[^\]]*\]+|\([^)]*\)")
+# "(laughs)", "<Intro Music>", a timestamp such as "[00:01:26]". A bracket a
+# transcriber left open ("[Song: Theme}", "[ARCHIVAL AUDIO: Launch") ends at
+# the end of its line. A note ends a passage, like a change of speaker (see
+# Transcript).
+NOTE = re.compile(r"\[+[^\]}]*(?:\]+|}|$)|\([^)]*\)|<[^>]*>")
+# A note of a sound under or between the words: music, a song, a recording
+# played on the show. A clip next to one may carry it under the speech, so a
+# line with such a note and the lines on each side of it are not labelled.
+SOUND = re.compile(r"music|song|theme|jingle|sfx|sound|audio|archiv|broadcast|clip|tape", re.I)
 
 
 @dataclass(frozen=True)
@@ -56,18 +62,24 @@ class Transcript:
     """A human transcript as a stream of normalized words.
 
     ``written`` holds the transcript's own words, as written, without speaker
-    labels and notes. ``words`` holds the normalized words the alignment
-    compares; for each of them, ``written_of`` is the index of the written word
-    it comes from (``1,000`` gives two words, ``—`` none), and ``passage_of`` the
-    passage it is said in. A passage is what one speaker says between two
-    changes of speaker or notes: a clip never spans two of them, since a change
-    of voice or a laugh inside a clip is where a label is least reliable.
+    labels and notes, and ``passage_of_written`` the passage each is said in. A
+    passage is what one speaker says between two changes of speaker or notes:
+    a clip never spans two of them, since a change of voice or a laugh inside a
+    clip is where a label is least reliable. ``near_sound`` is true for a written
+    word on a line next to a sound (:data:`SOUND`). ``unscored`` holds the
+    written words that are said and yet give no normalized word ("Um,").
+
+    ``words`` holds the normalized words the alignment compares, and
+    ``written_of`` the index of the written word each comes from: ``1,000``
+    gives two words, ``—`` and ``Um,`` none.
     """
 
     written: list[str]
+    passage_of_written: list[int]
+    near_sound: list[bool]
+    unscored: frozenset[int]
     words: list[str]
     written_of: list[int]
-    passage_of: list[int]
 
 
 @dataclass(frozen=True)
@@ -79,18 +91,26 @@ class Alignment:
 
 
 def words_of(text: str, language: str) -> list[str]:
-    """One written word in the ``normalized`` view: zero, one or several words."""
-    return normalize(text, language).split()
+    """A text in the ``normalized`` view, one whitespace-separated token at a time.
+
+    Both streams go through this, so a token written the same way on both sides
+    gives the same words whatever its neighbours: the normalizer reads
+    ``1999 dollars`` as an amount and ``1999`` alone as a year.
+    """
+    return [word for token in text.split() for word in normalize(token, language).split()]
 
 
 def transcript(lines: list[Line], language: str) -> Transcript:
     """The word stream of a transcript, its passages numbered as they come."""
     written: list[str] = []
+    passage_of_written: list[int] = []
+    near_sound: list[bool] = []
+    unscored: set[int] = set()
     words: list[str] = []
     written_of: list[int] = []
-    passage_of: list[int] = []
     speaker, passage = "", 0
-    for line in lines:
+    sounds = near_a_sound(lines)
+    for line, near in zip(lines, sounds, strict=True):
         if line.speaker and line.speaker != speaker:
             speaker, passage = line.speaker, passage + 1
         for piece_number, piece in enumerate(NOTE.split(line.text)):
@@ -98,11 +118,26 @@ def transcript(lines: list[Line], language: str) -> Transcript:
                 passage += 1
             for token in piece.split():
                 written.append(token)
-                for word in words_of(token, language):
-                    words.append(word)
-                    written_of.append(len(written) - 1)
-                    passage_of.append(passage)
-    return Transcript(written, words, written_of, passage_of)
+                passage_of_written.append(passage)
+                near_sound.append(near)
+                normalized = words_of(token, language)
+                if not normalized and any(char.isalpha() for char in token):
+                    unscored.add(len(written) - 1)
+                words += normalized
+                written_of += [len(written) - 1] * len(normalized)
+    return Transcript(
+        written, passage_of_written, near_sound, frozenset(unscored), words, written_of
+    )
+
+
+def near_a_sound(lines: list[Line]) -> list[bool]:
+    """For each line, whether it or the line of text on either side notes a sound."""
+    with_text = [index for index, line in enumerate(lines) if line.text]
+    noted = [any(SOUND.search(note) for note in NOTE.findall(lines[i].text)) for i in with_text]
+    near = [False] * len(lines)
+    for position, index in enumerate(with_text):
+        near[index] = any(noted[max(0, position - 1) : position + 2])
+    return near
 
 
 def align(human: list[str], whisper: list[str]) -> Alignment:
@@ -158,12 +193,17 @@ def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) 
 
     - the clip lasts :data:`MIN_CLIP_SECONDS` to
       :data:`audiolab.data.talk_clips.MAX_CLIP_SECONDS`;
-    - the first and last words Whisper heard are in the transcript, and the
-      transcript has no word of its own just outside its stretch: such a word
-      may have been said inside the clip, or not, and nothing says which;
+    - the first and last words Whisper heard are in the transcript;
+    - the two streams meet at each edge: the word just outside the stretch on
+      one side is paired with the word just outside it on the other. A
+      transcript word of its own there may have been said inside the clip or
+      not, and when Whisper hears a word twice, at the end of one clip and the
+      start of the next, the pair may be the wrong copy;
+    - no word the scorer drops ("Um,") is just outside the stretch either;
     - the stretch starts and ends on whole written words, so the label never
       holds half of ``1,000``;
-    - the stretch is one passage: no change of speaker and no note inside;
+    - the stretch is one passage, no change of speaker and no note inside, and
+      not next to a sound the transcript notes (:data:`SOUND`);
     - :data:`MIN_MATCHED_SHARE` of the words of each side are paired, and no
       side has more than :data:`MAX_UNMATCHED_RUN` unpaired words in a row.
     """
@@ -173,17 +213,22 @@ def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) 
         return "", "an edge word is not in the transcript"
     first, last = alignment.whisper[heard[0]], alignment.whisper[heard[-1]]
     said = range(first, last + 1)
-    before, after = first - 1, last + 1
-    if (before >= 0 and alignment.human[before] < 0) or (
-        after < len(human.words) and alignment.human[after] < 0
+    if not (
+        meets(alignment, heard[0] - 1, first - 1, len(human.words))
+        and meets(alignment, heard[-1] + 1, last + 1, len(human.words))
     ):
-        return "", "the transcript has an unpaired word at an edge"
-    if (before >= 0 and human.written_of[before] == human.written_of[first]) or (
-        after < len(human.words) and human.written_of[after] == human.written_of[last]
+        return "", "the two texts do not meet at an edge"
+    start, end = human.written_of[first], human.written_of[last]
+    if start - 1 in human.unscored or end + 1 in human.unscored:
+        return "", "a word the scorer drops is at an edge"
+    if (first > 0 and human.written_of[first - 1] == start) or (
+        last + 1 < len(human.words) and human.written_of[last + 1] == end
     ):
         return "", "an edge cuts a written word"
-    if human.passage_of[first] != human.passage_of[last]:
+    if human.passage_of_written[start] != human.passage_of_written[end]:
         return "", "a change of speaker or a note inside"
+    if any(human.near_sound[start : end + 1]):
+        return "", "next to a sound the transcript notes"
     paired = sum(alignment.whisper[index] >= 0 for index in heard)
     if paired < MIN_MATCHED_SHARE * max(len(heard), len(said)):
         return "", "too few words paired"
@@ -192,8 +237,23 @@ def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) 
         > MAX_UNMATCHED_RUN
     ):
         return "", f"more than {MAX_UNMATCHED_RUN} unpaired words in a row"
-    written = human.written[human.written_of[first] : human.written_of[last] + 1]
-    return " ".join(written), ""
+    return " ".join(human.written[start : end + 1]), ""
+
+
+def meets(alignment: Alignment, whisper_word: int, human_word: int, human_words: int) -> bool:
+    """Whether the words just outside a stretch, one per stream, are each other's pair.
+
+    Outside the start of a stream there is nothing to pair: a transcript that
+    starts there meets anything, and Whisper's stream starting there meets a
+    transcript word only if that word was paired earlier, which cannot be.
+    """
+    whisper_outside = 0 <= whisper_word < len(alignment.whisper)
+    human_outside = 0 <= human_word < human_words
+    if not human_outside:
+        return True
+    if not whisper_outside:
+        return False
+    return alignment.whisper[whisper_word] == human_word
 
 
 def longest_unpaired(pairs: list[int], stretch: range) -> int:
