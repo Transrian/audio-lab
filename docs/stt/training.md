@@ -35,14 +35,13 @@ Two of those pins are worth knowing about before a run:
   on the command line: the PyTorch index also carries stale copies of unrelated
   packages, and the flag makes uv look at both indexes.
 
-> **A stopgap, pending an owner decision.** These pins belong in an optional
-> extra of `pyproject.toml`, where anyone could install them with one command.
-> That is not possible today: the version of `nvidia-curand-cu12` that
-> PyTorch's CUDA 12.8 index resolves to looks like a private address to
-> `scripts/check_repo.py`, which refuses `uv.lock`. Until the owner decides
-> whether that check should skip `uv.lock`, the heavy stack lives in
-> `requirements/nemo.txt` and in its own environment, and this page describes it
-> that way.
+The pins cannot live in `uv.lock` today: one CUDA package version that PyTorch's
+index resolves trips the private-address check in `scripts/check_repo.py`. Where
+they belong instead, and what has to change for that, is
+[decision 0012](../decisions/proposed/0012-heavy-model-stack-as-a-locked-extra.md)
+— proposed, not decided. Until the owner rules on it, the heavy stack lives in
+`requirements/nemo.txt` and in its own environment, and this page describes that
+stopgap.
 
 Nothing in `src/audiolab/train/` is imported by the rest of the package: the
 tests, the data commands and the evaluation all run without NeMo. Only the

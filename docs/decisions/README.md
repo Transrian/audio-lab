@@ -58,3 +58,4 @@ Never invent alternatives after the fact.
 | [0009](accepted/0009-non-commercial-datasets-for-testing-only.md) | stt | accepted | Non-commercial datasets may be used for testing only |
 | [0010](proposed/0010-stt-evaluation-core.md) | stt | proposed | STT evaluation core (phase 1a) |
 | [0011](proposed/0011-unlicensed-datasets-for-private-evaluation.md) | stt | proposed | A dataset with no license may be used for evaluation only |
+| [0012](proposed/0012-heavy-model-stack-as-a-locked-extra.md) | global | proposed | The heavy model stack becomes a locked, optional extra |
