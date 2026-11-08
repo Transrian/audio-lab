@@ -63,6 +63,21 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "icsi-en-train": DatasetInfo(
+        name="icsi-en-train",
+        source="https://groups.inf.ed.ac.uk/ami/icsi/ (ICSI_original_transcripts.zip and "
+        "ICSIsignals/SPH/<meeting>/<channel>.sph)",
+        license="CC-BY-4.0",
+        split="mrt",
+        reference_style="at best: the annotators' words, cased and punctuated, with the "
+        "corpus's own spellings",
+        grouping="speaker (group = the ICSI participant id)",
+        notes="Research meetings with one close microphone per participant and word-by-word "
+        "manual transcripts, in the MRT release, which carries the start and end time of "
+        "every utterance. Audio is shorten-compressed SPHERE and is decoded with ffmpeg. "
+        "Training data for the per-source screening, as documented in docs/stt/datasets.md. "
+        "No panels.",
+    ),
     "librispeech-en-train": DatasetInfo(
         name="librispeech-en-train",
         source="https://www.openslr.org/12 (train-clean-100.tar.gz)",

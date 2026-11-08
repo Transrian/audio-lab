@@ -328,9 +328,9 @@ screening is a difference between corpora and not between recipes:
   otherwise, which `group_kind` records. A screening result is a confidence
   interval over groups like every other number here.
 - **The text the source publishes**, which each card records. Casing and
-  punctuation are not added back: three of the five sources are lowercased or
-  uppercased and unpunctuated (MLS, SLR57, LibriSpeech), so their arms teach the
-  model to drop what it already writes; VoxPopuli is cased and punctuated human
+  punctuation are not added back: three sources are lowercased or uppercased and
+  unpunctuated (MLS, SLR57, LibriSpeech), so their arms teach the model to drop
+  what it already writes; VoxPopuli, AMI and ICSI are cased and punctuated human
   text, and Granary is cased, punctuated model output that nobody verified. That
   difference is part of what the screening measures, so nothing was rewritten to
   make the arms look alike. Transport defects of a published transcript are the
@@ -351,6 +351,7 @@ screening is a difference between corpora and not between recipes:
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
+| `icsi-en-train` | en | CC-BY-4.0 | mrt | 9 393 | 52 | 6.3 | 0.7 GiB | 3.6 GiB of signals, and 12 GiB of decoded WAV stays in the cache |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -529,6 +530,75 @@ costs nothing and a fresh clone downloads all of it again.
   Set 3.0 lists AMI), so the arm is a guard for a mix rather than a source of
   gains, like `librispeech-pc-en-train`.
 
+### `icsi-en-train` — English research meetings, one close mic per participant
+
+- **Source**: the ICSI Meeting Corpus, from the corpus's own site: the manual
+  transcripts (`ICSI_original_transcripts.zip`, 3.5 MiB, release 1.0 of 22 July
+  2016) and the signals of the meetings it takes,
+  `ICSIsignals/SPH/<meeting>/<channel>.sph`. The site serves both over plain HTTP
+  without a login, and it publishes no checksum for either, so the sha256 of the
+  transcript archive is recorded in `src/audiolab/data/icsi.py` and checked on
+  download, and the signals are checked against the count and the sum of samples
+  their own SPHERE header declares (below).
+- **License**: CC-BY-4.0, corpus and transcripts. Checked on 2026-11-08 at
+  <https://groups.inf.ed.ac.uk/ami/icsi/> and
+  <https://groups.inf.ed.ac.uk/ami/icsi/license.shtml>, and in the corpus's own
+  `LICENCE.txt` inside the NXT archive.
+- **Text**: the transcripts of the **MRT** release, not the NXT annotations built
+  from it. An MRT segment carries the start and the end time of one utterance by
+  one participant, while NXT rebuilds those times from single words and leaves a
+  word unplaced when the annotators placed it only at its other end (`We` with a
+  start and no end), so an NXT boundary would have to be guessed. The words are
+  the annotators' own, cased and punctuated, with their spellings (`O_K`,
+  `Mm-hmm`, acronyms split by underscores as written) and their marks of a false
+  start (`how much w- how easy`). The annotation elements between the words are
+  taken out: `VocalSound` (29 779 of them), `NonVocalSound` (3 708), `Comment`
+  (12 283) and `Pause` (7 213) carry no words to transcribe, while `Emphasis`
+  (24 612), `Uncertain`, `Pronounce` and `Foreign` hold words the speaker did say
+  and are kept as text. A segment that is nothing but a vocal sound cleans to no
+  text, and such a segment is not a clip.
+- **Group**: the speaker (`group_kind: speaker`): the 52 participant ids of the
+  corpus, each of them a group of its own. A clip is sliced from the close
+  microphone the segment's own preamble gives its speaker
+  (`<Participant Name="fe066" Channel="chan0"/>`), so two participants of one
+  meeting never share a clip. A participant the preamble gives no channel to
+  (51 slots) is one the corpus says was unmiked — heard on other people's
+  microphones — and each of their 219 segments says `CloseMic="false"`; a segment
+  that claims the close microphone and has no channel stops the preparation
+  instead.
+- **What the source is**: 75 meetings and 129 813 segments. 1 413 of those
+  segments say the close microphone did not carry the speech, and 717 of them
+  name no participant either — a stretch of room noise the annotators marked —
+  which leaves 108 323 segments that are speech one of the microphones this
+  source reads did carry. 20 077 of the 129 813 clean to no text (a laugh, a
+  cough, an annotator's remark), so the corpus for this source is the 108 323
+  that are left. The per-speaker share of 200 clips is what holds the
+  preparation there: 8.7 % of those segments become clips, 9 393 of them from 45
+  of the 75 meetings, 6.3 h, median 1.7 s, and one segment longer than 20 s. The
+  42 speakers that reach their share contribute 200 clips each and the 10
+  smaller ones contribute what they have.
+- **What a cap covers**: fewer clips than the cap, and the per-group share is
+  what holds it there. The corpus has 52 participants for this source, so the
+  share (200 clips of a group) allows 10 400 clips at most, below the 12 000 of
+  the cap: every arm of the screening is capped by the same rule, and this source
+  cannot reach 12 000 clips under it. Its config sets `clips: 9393` next to the
+  reason.
+- **Decoding**: the corpus's signals are shorten-compressed SPHERE and the audio
+  readers of this project do not decode them, so `ffmpeg` decodes every channel a
+  preparation reads — the only external program any preparation runs — and the
+  samples it produced are checked against the count and the checksum the SPHERE
+  header of the file itself carries, which is the only checksum the corpus
+  offers. `src/audiolab/data/icsi.py` says why the annotation archive is pinned
+  by sha256 instead. The 105 channels a full preparation reads are 3.6 GiB of
+  downloads, the decoded WAV they leave in the cache is another 12 GiB, and the
+  prepared set is 0.7 GiB.
+- **Why it is here**: 70 hours of meetings that would have happened anyway, with
+  a manual transcript and one microphone per participant: the same kind of data
+  as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
+  selection of French-L1 participants, so the two arms say what the selection and
+  the corpus contribute. The corpus is not in the list of training sets the base
+  model's own card cites (NeMo's ASR Set 3.0 lists AMI, not ICSI), which AMI is.
+
 ### `pxcorpus-fr-train` — spoken French drug prescriptions
 
 - **Source**: Zenodo, record 10080490, `PxCorpus.zip` (376 MB): the `PxSLU`
@@ -640,11 +710,12 @@ fetch`) before the training source is, because the check reads its manifest.
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
+| `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
-is not used for training, and the two French sources that are not evaluation sets
-at all (SLR57, Granary) publish no other split here.
+is not used for training, and the sources that are not evaluation sets at all
+(SLR57, Granary, PxCorpus, AMI, ICSI) publish no other split here.
 
 The voxpopuli check is the one that bites. The camera-ready way to break decision
 0002 would be to train on French parliamentary speech and then score the same

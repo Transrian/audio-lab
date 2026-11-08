@@ -10,11 +10,13 @@ the test, so no test needs the network or a prepared dataset.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -31,13 +33,17 @@ from audiolab.data import (  # noqa: E402
     african_french,
     ami,
     granary,
+    icsi,
     librispeech,
     librispeech_pc,
     mls,
     pxcorpus,
     voxpopuli_train,
 )
-from audiolab.data.download import DownloadError, sha256_file  # noqa: E402
+from audiolab.data.download import (  # noqa: E402
+    DownloadError,
+    sha256_file,
+)
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
 
@@ -1236,3 +1242,267 @@ def test_ami_refuses_an_archive_of_speakers_without_a_french_one(dirs):
     fake_ami_cache(cache, participants=dutch)
     with pytest.raises(DownloadError, match="no speaker of native language French"):
         ami.read_channels(directory / ami.ANNOTATIONS_NAME)
+
+
+# --- ICSI -------------------------------------------------------------------
+
+# Two meetings in the shape the corpus publishes its MRT transcripts: one
+# segment per utterance, the participant's own microphone in the preamble, and
+# the annotation elements between the words.
+ICSI_MEETINGS = {
+    "Btr001": """<?xml version="1.0" encoding="iso-8859-1"?>
+<Meeting Session="Btr001" DateTimeStamp="2000-01-10-1000" Version="2">
+  <Preamble>
+    <Participants>
+      <Participant Name="fe068" Channel="chan0" Seat="3"/>
+      <Participant Name="fe069" Channel="chan1" Seat="4"/>
+      <Participant Name="me011"/>
+    </Participants>
+  </Preamble>
+  <Transcript StartTime="0.0" EndTime="600.0">
+    <Segment StartTime="0.000" EndTime="1.770" Participant="fe068">
+      We have littler heads so.
+    </Segment>
+    <Segment StartTime="2.000" EndTime="3.000" Participant="fe069">
+      Is - is M- So, is - is Marisa's <VocalSound Description="laugh"/> close enough?
+    </Segment>
+    <Segment StartTime="3.400" EndTime="4.400" Participant="fe068">
+      O_K. <Comment Description="coughs"/> So <Emphasis>that</Emphasis> is fine.
+    </Segment>
+    <Segment StartTime="4.600" EndTime="9.800" Participant="fe069" CloseMic="false">
+      Would you check the microphone adjustments, please?
+    </Segment>
+    <Segment StartTime="5.000" EndTime="5.300" Participant="fe069">
+      Yeah.
+    </Segment>
+    <Segment StartTime="6.000" EndTime="6.400" Participant="fe069">
+      <VocalSound Description="clears throat"/>
+    </Segment>
+    <Segment StartTime="6.500" EndTime="7.000" CloseMic="false">
+      <NonVocalSound Description="door slams"/>
+    </Segment>
+  </Transcript>
+</Meeting>
+""",
+    "Bnr002": """<?xml version="1.0" encoding="iso-8859-1"?>
+<Meeting Session="Bnr002" DateTimeStamp="2000-02-10-1000" Version="2">
+  <Preamble>
+    <Participants>
+      <Participant Name="fe070" Channel="chan0" Seat="2"/>
+      <Participant Name="fe071" Channel="chan1" Seat="5"/>
+      <Participant Name="me011"/>
+    </Participants>
+  </Preamble>
+  <Transcript StartTime="0.0" EndTime="600.0">
+    <Segment StartTime="0.500" EndTime="3.500" Participant="fe070">
+      Right, let's start with the agenda.
+    </Segment>
+    <Segment StartTime="3.600" EndTime="8.000" Participant="fe071" CloseMic="false">
+      I heard that on somebody else's microphone.
+    </Segment>
+    <Segment StartTime="4.000" EndTime="6.000" Participant="me011" CloseMic="false">
+      So did I.
+    </Segment>
+  </Transcript>
+</Meeting>
+""",
+}
+
+
+def write_sphere(
+    path: Path, seconds: float = 10.03, rate: int = 16000, frequency: int = 440
+) -> Path:
+    """A NIST SPHERE file of plain samples, the shape ICSI's own headers declare.
+
+    The corpus's own files are shorten-compressed, which no reader here decodes;
+    ``ffmpeg`` is what turns them into the samples this project uses, and this
+    fixture is what those samples are made of when they are already plain, so
+    the decode can be exercised without the corpus. The header carries the count
+    and the checksum of the samples, as the corpus's headers do.
+    """
+    times = np.arange(int(seconds * rate)) / rate
+    samples = (0.3 * np.sin(2 * np.pi * frequency * times) * 32767).astype("<i2")
+    checksum = int(samples.astype("int64").sum() % icsi.CHECKSUM_MODULUS)
+    fields = [
+        "sample_n_bytes -i 2",
+        "channel_count -i 1",
+        f"sample_count -i {len(samples)}",
+        f"sample_rate -i {rate}",
+        "sample_coding -s4 pcm",
+        "sample_byte_format -s2 01",
+        f"sample_checksum -i {checksum}",
+    ]
+    header = "NIST_1A\n   1024\n" + "\n".join(fields) + "\nend_head\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        header.encode("latin-1").ljust(icsi.SPHERE_HEADER_BYTES, b"\n") + samples.tobytes()
+    )
+    return path
+
+
+def fake_icsi_cache(cache: Path, monkeypatch, meetings: dict[str, str] | None = None) -> Path:
+    """A cache that looks like the corpus's transcript archive and its signals.
+
+    The archive is pinned by its own digest, the way the corpus's is, and the
+    signals are files of the fixture rather than of the corpus: the fetcher
+    downloads by URL, and a URL that is already a local file is copied, so the
+    preparation runs without the network.
+    """
+    directory = cache / "icsi-en-train"
+    members = {
+        f"{icsi.TRANSCRIPTS_DIRECTORY}/{session}.mrt": _icsi_member(directory, session, content)
+        for session, content in (meetings or ICSI_MEETINGS).items()
+    }
+    # The corpus also serves the preambles of every meeting in one file, which
+    # holds no segment and must not be read as a meeting of its own.
+    members[icsi.MEETINGS_FILE] = _icsi_member(directory, "preambles", "<Meetings/>")
+    archive = make_zip(directory / icsi.TRANSCRIPTS_NAME, members)
+    monkeypatch.setattr(icsi, "TRANSCRIPTS_URL", str(archive))
+    monkeypatch.setattr(icsi, "PINNED_SHA256", {icsi.TRANSCRIPTS_NAME: sha256_file(archive)})
+    monkeypatch.setattr(icsi, "AUDIO_URL", str(directory / "audio"))
+    return directory
+
+
+def _icsi_member(directory: Path, name: str, content: str) -> Path:
+    path = directory / "members" / f"{name}.mrt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def fake_icsi_signals(directory: Path, sources: list[str]) -> None:
+    """The signals the fixture's segments are sliced from, one SPH file each.
+
+    Only the channels the fixture's segments are sliced from are written, so a
+    preparation that asked for a channel it does not need would fail here the way
+    a wrong URL fails against the corpus.
+    """
+    for source in sources:
+        write_sphere(directory / "audio" / f"{source}.sph")
+
+
+requires_ffmpeg = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None,
+    reason="ffmpeg is what decodes the shorten-compressed audio of ICSI",
+)
+
+
+@requires_ffmpeg
+def test_icsi_reads_the_mrt_segments_and_groups_by_participant(dirs, monkeypatch):
+    data, cache = dirs
+    directory = fake_icsi_cache(cache, monkeypatch)
+    fake_icsi_signals(directory, ["Btr001/chan0", "Btr001/chan1", "Bnr002/chan0"])
+
+    count = icsi.fetch_icsi_en_train("icsi-en-train", cache, data / "icsi-en-train", verbose=False)
+    # Three segments of the first meeting and one of the second; the segment the
+    # close microphone did not carry, the one too short to be a clip, the one
+    # with nothing but a vocal sound and the one without a participant are not
+    # clips, and the participant without a microphone of their own is not read.
+    assert count == 4
+
+    clips = {clip.id: clip for clip in read_manifest(data / "icsi-en-train")}
+    assert set(clips) == {
+        "icsi-en-train:Btr001.fe068.0000",
+        "icsi-en-train:Btr001.fe069.0001",
+        "icsi-en-train:Btr001.fe068.0002",
+        "icsi-en-train:Bnr002.fe070.0000",
+    }
+    first = clips["icsi-en-train:Btr001.fe068.0000"]
+    # The text is the annotators' own, cased and punctuated, and the clip is the
+    # part of the meeting between the times they gave the segment.
+    assert first.text == "We have littler heads so."
+    assert first.text_has_casing_punct is True
+    assert first.duration_s == pytest.approx(1.77, abs=0.01)
+    assert first.group == "icsi-en-train:fe068"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "mrt"
+    assert first.language == "en"
+    assert first.license == "CC-BY-4.0"
+    # A vocal sound is not a word, and an emphasised word is: the markup goes,
+    # the words it was written around stay.
+    assert clips["icsi-en-train:Btr001.fe069.0001"].text == (
+        "Is - is M- So, is - is Marisa's close enough?"
+    )
+    assert clips["icsi-en-train:Btr001.fe068.0002"].text == "O_K. So that is fine."
+    assert {clip.group for clip in clips.values()} == {
+        "icsi-en-train:fe068",
+        "icsi-en-train:fe069",
+        "icsi-en-train:fe070",
+    }
+
+
+@requires_ffmpeg
+def test_icsi_downloads_only_the_channels_a_clip_is_sliced_from(dirs, monkeypatch):
+    """The corpus serves 482 channels of these meetings; a preparation reads 105 of them."""
+    data, cache = dirs
+    directory = fake_icsi_cache(cache, monkeypatch)
+    # No signal is written for Bnr002/chan1 or for the channel of a participant
+    # the preamble does not give one to: asking for either would fail.
+    fake_icsi_signals(directory, ["Btr001/chan0", "Btr001/chan1", "Bnr002/chan0"])
+
+    icsi.fetch_icsi_en_train("icsi-en-train", cache, data / "icsi-en-train", verbose=False)
+
+    assert sorted(path.name for path in (directory / "audio").glob("*/*.sph")) == [
+        "chan0.sph",
+        "chan0.sph",
+        "chan1.sph",
+    ]
+
+
+@requires_ffmpeg
+def test_icsi_decodes_the_samples_the_header_of_a_recording_declares(dirs, monkeypatch):
+    _, cache = dirs
+    directory = fake_icsi_cache(cache, monkeypatch)
+    fake_icsi_signals(directory, ["Btr001/chan0"])
+
+    audio = icsi.load_recording("icsi-en-train", cache, "Btr001", "chan0")
+
+    assert audio.sample_rate == 16000
+    assert audio.duration_s == pytest.approx(10.03, abs=0.01)
+    assert (cache / "icsi-en-train" / "audio" / "Btr001" / "chan0.wav").is_file()
+
+
+@requires_ffmpeg
+def test_icsi_refuses_recording_whose_samples_are_not_what_its_header_says(dirs, monkeypatch):
+    """A decoder that quietly drops samples would misalign every clip on the channel."""
+    _, cache = dirs
+    directory = fake_icsi_cache(cache, monkeypatch)
+    source = write_sphere(directory / "audio" / "Btr001" / "chan0.sph")
+    # The corpus's headers carry the count and the sum of the samples they hold;
+    # a header that disagrees with the audio is not the recording the transcript
+    # times were made on.
+    source.write_bytes(
+        source.read_bytes().replace(b"sample_count -i 160480", b"sample_count -i 160482")
+    )
+    with pytest.raises(DownloadError, match="its own header says"):
+        icsi.load_recording("icsi-en-train", cache, "Btr001", "chan0")
+
+    source = write_sphere(directory / "audio" / "Btr001" / "chan0.sph")
+    source.write_bytes(source.read_bytes().replace(b"sample_checksum -i ", b"sample_checksum -i 1"))
+    source.write_bytes(
+        source.read_bytes().replace(b"sample_checksum -i 1", b"sample_checksum -i 7")
+    )
+    with pytest.raises(DownloadError, match="do not match its own checksum"):
+        icsi.load_recording("icsi-en-train", cache, "Btr001", "chan0")
+
+
+def test_icsi_refuses_a_segment_of_a_speaker_whose_microphone_is_not_named(dirs, monkeypatch):
+    """A clip is sliced from the speaker's own microphone: without one, there is no clip."""
+    _, cache = dirs
+    unamplified = ICSI_MEETINGS["Btr001"].replace(
+        'Participant="fe068">\n      We have littler heads so.',
+        'Participant="me011">\n      We have littler heads so.',
+    )
+    fake_icsi_cache(cache, monkeypatch, meetings={"Btr001": unamplified})
+    with pytest.raises(DownloadError, match="which the preamble does not give them"):
+        icsi.read_segments(cache / "icsi-en-train" / icsi.TRANSCRIPTS_NAME)
+
+
+def test_icsi_refuses_an_archive_without_a_transcript(dirs, monkeypatch):
+    _, cache = dirs
+    directory = cache / "icsi-en-train"
+    empty = _icsi_member(directory, "nothing", "<Meeting Session='X'/>")
+    archive = make_zip(directory / icsi.TRANSCRIPTS_NAME, {"transcripts/other.txt": empty})
+    monkeypatch.setattr(icsi, "TRANSCRIPTS_URL", str(archive))
+    with pytest.raises(DownloadError, match="holds no transcripts"):
+        icsi.read_segments(archive)
