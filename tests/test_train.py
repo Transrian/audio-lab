@@ -22,7 +22,7 @@ from audiolab.core.checkpoint import CheckpointError  # noqa: E402
 from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import TrainConfig, TrainConfigError  # noqa: E402
-from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402  # noqa: E402
+from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     LOG_NAME,
     MANIFEST_NAME,
@@ -42,6 +42,13 @@ from audiolab.train.run import (  # noqa: E402
 )
 from audiolab.train.runner import Training  # noqa: E402
 from audiolab.train.settings import dataset_config  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def no_gpu_needed(monkeypatch):
+    """The training step is faked, so no GPU is either: CI machines have none."""
+    monkeypatch.setattr(runner, "select_gpu", lambda spec: None)
+
 
 # The keys every config must set, at values small enough for a test. What a run
 # trains on, how long, in what batches and at what rates are choices, not
