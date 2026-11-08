@@ -67,7 +67,7 @@ dataset under a frozen panel.
 | `mls-fr` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `librispeech-en` | OpenSLR SLR12 | `test-clean.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
 | `pxcorpus-fr-train` | Zenodo record 10080490 | `PxCorpus.zip` | md5 published by Zenodo for the file (`src/audiolab/data/pxcorpus.py`) |
-| `ami-fr-speakers-en-train` | AMI corpus | `ami_public_manual_1.6.2.zip` and the corpus's own headset WAVs | nothing: the corpus publishes no checksum for either, and the annotations are pinned by their release name (`src/audiolab/data/ami.py`) |
+| `ami-fr-speakers-en-train` | AMI corpus | `ami_public_manual_1.6.2.zip` and the 42 of the corpus's headset WAVs this source reads | the corpus publishes no checksum: the sha256 of the annotations zip and of each of the 42 recordings is recorded in the code and checked on every download (`src/audiolab/data/ami.py`) |
 | `nonspeech` | generated here | fixed seed per clip | nothing to verify: the same seed rebuilds the same samples (`src/audiolab/data/nonspeech.py`) |
 | `nonspeech` | `karolpiczak/ESC-50` | commit `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6` | sha256 of `meta/esc50.csv` (`src/audiolab/data/esc50.py`) |
 | `voxpopuli-en-french-accent` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
@@ -338,7 +338,7 @@ screening is a difference between corpora and not between recipes:
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
-| `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 969 | 20 | 4.4 | 0.5 GiB | 2.5 GiB |
+| `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -462,14 +462,25 @@ costs nothing and a fresh clone downloads all of it again.
 - **Source**: the AMI meeting corpus, from its own site: the manual annotations
   (`ami_public_manual_1.6.2.zip`, 23 MB) and the individual headset recordings of
   the meetings it takes, `amicorpus/<meeting>/audio/<meeting>.Headset-N.wav`. The
-  audio is served over plain HTTP without a login; one preparation downloads
-  2.5 GiB of it, and only for the meetings a French-L1 participant speaks in.
+  audio is served without a login; one preparation downloads 2.5 GiB of it, and
+  only for the meetings a French-L1 participant speaks in. The corpus publishes
+  no checksum for either part, so the sha256 of the annotations zip and of each
+  of the 42 headset recordings this source reads is recorded in
+  `src/audiolab/data/ami.py` and checked on download; a recording outside that,
+  longer list stops the preparation rather than being taken unverified.
 - **License**: CC-BY-4.0, corpus and annotations.
 - **Text**: the words the annotators wrote, cased and punctuated, with the
-  corpus's own spellings (`'kay`, `uh`). A manual word file also holds
-  `vocalsound` (a laugh, a cough), `disfmarker` (a disfluency) and `gap` (a
-  stretch nobody transcribed); none of them carries text, so they are dropped and
-  they neither join two words nor end a sentence.
+  corpus's own spellings (`'kay`, `uh`), and its spelling of spelled-out letters
+  undone: the annotators separate the letters of a spelled word with underscores
+  (`T_V_`, `L_C_D_`), which is removed, so the label is `TV` and `LCD`. A manual
+  word file also holds `vocalsound` (a laugh, a cough), `disfmarker` (a
+  disfluency) and `gap` (a stretch nobody transcribed); none of them carries
+  text. All three are dropped as words — they neither join two words nor end a
+  sentence — but a `gap` **ends the clip** it falls in: the audio under it is
+  speech nobody transcribed, so a clip that spanned it would be labelled with
+  text that is not all its audio says. A silence longer than one second ends a
+  clip the same way. Most gaps are shorter than that — 3 950 of the corpus's
+  5 125 gaps have no length at all — but one ends a clip wherever it falls.
 - **Group**: the speaker (`group_kind: speaker`), read from `participants.xml`
   and `meetings.xml`: 20 participants in the prepared clips. Every speaker of a
   meeting is a group of its own, and a clip comes from that speaker's own headset
@@ -482,13 +493,16 @@ costs nothing and a fresh clone downloads all of it again.
   meetings are not in the public annotations, which is also why this source is
   smaller than the roughly 10 hours one would expect from the participant list.
   A clip is one sentence of one speaker: cut at sentence-final punctuation, at a
-  silence longer than one second, or at 20 s, and 5 460 utterances gave 3 969
-  clips of 0.5 s to 20 s (1 491 were shorter); median 2.5 s, 4.4 h in total.
+  silence longer than one second, at a gap, or at 20 s. The 69 recordings hold
+  12 739 utterances under those rules; the preparation offered 5 489 of them to
+  the cap — the rest were never read, because the per-speaker share of 200 clips
+  was already full — of which 1 518 were shorter than 0.5 s, and the source is
+  3 971 clips of 0.5 s to 20 s: median 2.5 s, 4.3 h in total.
 - **What a cap covers**: fewer clips than the cap, and the per-group share is
   what holds it there. The corpus has 20 groups for this source, so the share
   (200 clips of a group) allows 4 000 clips at most: every arm of the screening
   is capped by the same rule, and this source cannot reach 10 000 clips under it.
-  Its config sets `clips: 3969` next to the reason.
+  Its config sets `clips: 3971` next to the reason.
 - **Why it is here**: AMI is spontaneous English spoken by people whose first
   language is French, which is the target use of a dictation model for French
   speakers — the register no other English source of the screening has. It is

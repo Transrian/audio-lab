@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -36,7 +37,7 @@ from audiolab.data import (  # noqa: E402
     pxcorpus,
     voxpopuli_train,
 )
-from audiolab.data.download import DownloadError  # noqa: E402
+from audiolab.data.download import DownloadError, sha256_file  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
 
@@ -895,21 +896,23 @@ AMI_PARTICIPANTS = """<?xml version="1.0" encoding="ISO-8859-1"?>
 </root>
 """
 
+# The headset channel of a speaker is what meetings.xml says, not what the
+# speaker letter usually means: A is channel 1 here.
 AMI_MEETINGS = """<?xml version="1.0" encoding="ISO-8859-1"?>
 <root xmlns:nite="http://nite.sourceforge.net/">
   <meeting observation="IS1003a">
-    <speaker nite:id="IS1003a.A" nxt_agent="A" global_name="FIO017" role="PM"/>
-    <speaker nite:id="IS1003a.B" nxt_agent="B" global_name="MIO042" role="ME"/>
-    <speaker nite:id="IS1003a.D" nxt_agent="D" global_name="MIO023" role="ID"/>
+    <speaker nite:id="IS1003a.A" nxt_agent="A" channel="1" global_name="FIO017" role="PM"/>
+    <speaker nite:id="IS1003a.B" nxt_agent="B" channel="0" global_name="MIO042" role="ME"/>
+    <speaker nite:id="IS1003a.D" nxt_agent="D" channel="3" global_name="MIO023" role="ID"/>
   </meeting>
   <meeting observation="ES2001a">
-    <speaker nite:id="ES2001a.B" nxt_agent="B" global_name="MIO042" role="PM"/>
+    <speaker nite:id="ES2001a.B" nxt_agent="B" channel="0" global_name="MIO042" role="PM"/>
   </meeting>
 </root>
 """
 
-# One speaker's manual words: two sentences, a laugh and a disfluency marker in
-# between, and a fragment that is too short to be a clip.
+# One speaker's manual words: two sentences, a laugh, a disfluency marker and a
+# gap in the middle of a sentence, then a fragment too short to be a clip.
 AMI_WORDS = """<?xml version="1.0" encoding="ISO-8859-1"?>
 <root xmlns:nite="http://nite.sourceforge.net/">
   <w nite:id="w1" starttime="0.100" endtime="0.500">Okay</w>
@@ -918,11 +921,15 @@ AMI_WORDS = """<?xml version="1.0" encoding="ISO-8859-1"?>
   <vocalsound nite:id="v1" starttime="2.000" endtime="2.500" type="laugh"/>
   <w nite:id="w4" starttime="2.600" endtime="3.000">I</w>
   <w nite:id="w5" starttime="3.000" endtime="3.500">think</w>
-  <w nite:id="w6" starttime="3.500" endtime="4.200" punc="true">.</w>
-  <disfmarker nite:id="d1" starttime="4.200" endtime="4.500" type="disfluency"/>
-  <w nite:id="w7" starttime="6.000" endtime="6.800">Right</w>
-  <w nite:id="w8" starttime="6.800" endtime="7.100" punc="true">?</w>
-  <w nite:id="w9" starttime="8.000" endtime="8.200">tiny</w>
+  <w nite:id="w6" starttime="3.500" endtime="3.700">that</w>
+  <gap nite:id="g1" starttime="3.700" endtime="4.600"/>
+  <w nite:id="w7" starttime="4.700" endtime="5.200">this</w>
+  <w nite:id="w8" starttime="5.200" endtime="5.900">works</w>
+  <w nite:id="w9" starttime="5.900" endtime="6.200" punc="true">.</w>
+  <disfmarker nite:id="d1" starttime="6.200" endtime="6.300" type="disfluency"/>
+  <w nite:id="w10" starttime="6.400" endtime="7.000">Right</w>
+  <w nite:id="w11" starttime="7.000" endtime="7.300" punc="true">?</w>
+  <w nite:id="w12" starttime="8.000" endtime="8.200">tiny</w>
 </root>
 """
 
@@ -934,8 +941,21 @@ def _ami_resource(directory: Path, file_name: str, content: str) -> Path:
     return path
 
 
+def _ami_channels(meetings: str) -> dict[str, int]:
+    """The headset channel of every speaker of the fixture's meetings."""
+    root = ET.fromstring(meetings)
+    return {
+        f"{meeting.attrib['observation']}.{speaker.attrib['nxt_agent']}": int(
+            speaker.attrib["channel"]
+        )
+        for meeting in root
+        for speaker in meeting
+    }
+
+
 def fake_ami_cache(
     cache: Path,
+    monkeypatch=None,
     name: str = "ami-fr-speakers-en-train",
     *,
     participants: str = AMI_PARTICIPANTS,
@@ -945,15 +965,15 @@ def fake_ami_cache(
 ) -> None:
     """A cache that looks like the AMI annotations archive plus the headsets it names.
 
-    The headset recordings are written where the fetcher looks for them, which
-    is how it takes them without the network. Each one is long enough that every
-    timestamp of an annotation falls inside it.
+    The headset recordings are written where the fetcher looks for them — under
+    the channel the meeting gives the speaker — which is how it takes them
+    without the network. Each one is long enough that every timestamp of an
+    annotation falls inside it. With ``monkeypatch``, the recordings of the
+    fixture are pinned by the digest of the tone they are made of, the way the
+    corpus's own recordings are pinned.
     """
     directory = cache / name
-    channels = channels or {
-        "IS1003a.A": AMI_WORDS,
-        "IS1003a.D": AMI_WORDS,
-    }
+    channels = channels or {"IS1003a.A": AMI_WORDS, "IS1003a.D": AMI_WORDS}
     members = {
         ami.PARTICIPANTS: _ami_resource(directory, "participants.xml", participants),
         ami.MEETINGS: _ami_resource(directory, "meetings.xml", meetings),
@@ -963,49 +983,97 @@ def fake_ami_cache(
             directory, f"{channel}.words.xml", content
         )
     make_zip(directory / ami.ANNOTATIONS_NAME, members)
+    heads = _ami_channels(meetings)
+    recordings = [
+        f"{channel.partition('.')[0]}.Headset-{heads[channel]}.wav" for channel in channels
+    ]
+    if monkeypatch is not None:
+        # The recordings of the fixture are tones, so they are pinned by the
+        # digest of a tone; the corpus's own recordings are pinned one by one.
+        digest = sha256_file(write_tone(directory / "tone.wav", seconds=10.0))
+        monkeypatch.setattr(ami, "PINNED_RECORDINGS", dict.fromkeys(recordings, digest))
     if not headsets:
         return
-    for channel in channels:
-        meeting, _, agent = channel.partition(".")
-        write_tone(
-            directory / "audio" / f"{meeting}.Headset-{ami.head_number(agent)}.wav", seconds=10.0
-        )
+    for recording in recordings:
+        write_tone(directory / "audio" / recording, seconds=10.0)
 
 
-def test_ami_takes_the_words_of_a_french_speaker_and_groups_by_participant(dirs):
+def test_ami_takes_the_words_of_a_french_speaker_and_groups_by_participant(dirs, monkeypatch):
     data, cache = dirs
-    fake_ami_cache(cache)
+    fake_ami_cache(cache, monkeypatch)
 
     count = ami.fetch_ami_fr_speakers_en_train(
         "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
     )
-    # Two sentences and one fragment too short to be a clip, for each of the two
-    # French speakers of the meeting.
-    assert count == 4
+    # Three sentences and one fragment too short to be a clip, for each of the
+    # two French speakers of the meeting.
+    assert count == 6
 
     clips = {clip.id: clip for clip in read_manifest(data / "ami-fr-speakers-en-train")}
     assert set(clips) == {
         "ami-fr-speakers-en-train:IS1003a.A.0000",
         "ami-fr-speakers-en-train:IS1003a.A.0001",
+        "ami-fr-speakers-en-train:IS1003a.A.0002",
         "ami-fr-speakers-en-train:IS1003a.D.0000",
         "ami-fr-speakers-en-train:IS1003a.D.0001",
+        "ami-fr-speakers-en-train:IS1003a.D.0002",
     }
     first = clips["ami-fr-speakers-en-train:IS1003a.A.0000"]
     # Words and punctuation join the way the annotator wrote them, in cased text.
-    assert first.text == "Okay so, I think."
+    assert first.text == "Okay so, I think that"
     assert first.text_has_casing_punct is True
     assert first.group == "ami-fr-speakers-en-train:FIO017"
     assert first.group_kind == "speaker"
     assert first.source_split == "manual"
     assert first.license == "CC-BY-4.0"
     # The clip is the part of the meeting between its first and last word.
-    assert first.duration_s == pytest.approx(4.1, abs=0.01)
+    assert first.duration_s == pytest.approx(3.6, abs=0.01)
 
 
-def test_ami_keeps_one_speaker_of_a_meeting_out_of_another(dirs):
+def test_ami_does_not_let_a_clip_span_a_gap(dirs):
+    """The audio under a gap has no text, so a clip that spanned it would be mislabelled."""
+    _, cache = dirs
+    fake_ami_cache(cache)
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    bounds = [(u.start, u.end) for u in utterances]
+    assert bounds == [(0.1, 3.7), (4.7, 6.2), (6.4, 7.3), (8.0, 8.2)]
+    # Without the gap closing the clip, the first one would run to 6.2 s and say
+    # words the audio between 3.7 s and 4.6 s does not have.
+    assert [u.text for u in utterances] == [
+        "Okay so, I think that",
+        "this works.",
+        "Right?",
+        "tiny",
+    ]
+
+
+def test_ami_writes_a_word_spelled_letter_by_letter_as_the_word_it_spells(dirs):
+    """``T_V_`` is how the annotators wrote "TV", not something the speaker said."""
+    _, cache = dirs
+    words = """<root xmlns:nite="http://nite.sourceforge.net/">
+  <w nite:id="w1" starttime="0.100" endtime="0.500">We</w>
+  <w nite:id="w2" starttime="0.500" endtime="1.000">watched</w>
+  <w nite:id="w3" starttime="1.000" endtime="1.400">T_V_</w>
+  <w nite:id="w4" starttime="1.400" endtime="1.800">on</w>
+  <w nite:id="w5" starttime="1.800" endtime="2.200">the</w>
+  <w nite:id="w6" starttime="2.200" endtime="2.600">L_C_D_</w>
+  <w nite:id="w7" starttime="2.600" endtime="2.900" punc="true">.</w>
+</root>"""
+    fake_ami_cache(cache, channels={"IS1003a.A": words})
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    assert [u.text for u in utterances] == ["We watched TV on the LCD."]
+
+
+def test_ami_keeps_one_speaker_of_a_meeting_out_of_another(dirs, monkeypatch):
     """Each participant is a group of its own, even inside one meeting."""
     data, cache = dirs
-    fake_ami_cache(cache)
+    fake_ami_cache(cache, monkeypatch)
 
     ami.fetch_ami_fr_speakers_en_train(
         "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
@@ -1015,13 +1083,13 @@ def test_ami_keeps_one_speaker_of_a_meeting_out_of_another(dirs):
         "ami-fr-speakers-en-train:FIO017",
         "ami-fr-speakers-en-train:MIO023",
     }
-    assert sum(1 for clip in clips if clip.group.endswith("FIO017")) == 2
+    assert sum(1 for clip in clips if clip.group.endswith("FIO017")) == 3
 
 
-def test_ami_leaves_out_a_speaker_whose_first_language_is_not_french(dirs):
+def test_ami_leaves_out_a_speaker_whose_first_language_is_not_french(dirs, monkeypatch):
     """The source is the French-L1 participants of an English corpus, nobody else."""
     data, cache = dirs
-    fake_ami_cache(cache)
+    fake_ami_cache(cache, monkeypatch)
 
     ami.fetch_ami_fr_speakers_en_train(
         "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
@@ -1030,18 +1098,13 @@ def test_ami_leaves_out_a_speaker_whose_first_language_is_not_french(dirs):
     assert "ami-fr-speakers-en-train:MIO042" not in groups
 
 
-def test_ami_cuts_at_a_sentence_end_and_at_a_silence(dirs):
-    """A clip is a sentence; a silence of more than a second ends it just as well."""
+def test_ami_reads_the_headset_channel_the_meeting_names(dirs):
+    """``A`` is ``Headset-0`` in most meetings but not in all of them."""
     _, cache = dirs
     fake_ami_cache(cache)
-    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017")
-    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
-        utterances = ami.utterances_of(archive, channel)
+    channels = ami.read_channels(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME)
 
-    assert [(u.start, u.end) for u in utterances] == [(0.1, 4.2), (6.0, 7.1), (8.0, 8.2)]
-    assert [u.text for u in utterances] == ["Okay so, I think.", "Right?", "tiny"]
-    # The laugh and the disfluency marker carry no text and separate nothing.
-    assert [u.index for u in utterances] == [0, 1, 2]
+    assert [(c.agent, c.channel) for c in channels] == [("A", 1), ("D", 3)]
 
 
 def test_ami_does_not_let_a_clip_run_past_twenty_seconds(dirs):
@@ -1053,7 +1116,7 @@ def test_ami_does_not_let_a_clip_run_past_twenty_seconds(dirs):
     )
     root = f'<root xmlns:nite="http://nite.sourceforge.net/">\n{words}</root>'
     fake_ami_cache(cache, channels={"IS1003a.A": root})
-    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017")
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
     with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
         utterances = ami.utterances_of(archive, channel)
 
@@ -1061,19 +1124,29 @@ def test_ami_does_not_let_a_clip_run_past_twenty_seconds(dirs):
 
 
 def test_ami_copies_a_headset_recording_the_cache_does_not_have(dirs, tmp_path, monkeypatch):
-    """The audio comes from the corpus's own mirror, in the letter's own channel."""
+    """The audio comes from the corpus's own mirror, in the channel it names."""
     data, cache = dirs
-    fake_ami_cache(cache, headsets=False)
+    fake_ami_cache(cache, monkeypatch, headsets=False)
     mirror = tmp_path / "mirror" / "IS1003a" / "audio"
-    write_tone(mirror / "IS1003a.Headset-0.wav", seconds=10.0)
+    write_tone(mirror / "IS1003a.Headset-1.wav", seconds=10.0)
     write_tone(mirror / "IS1003a.Headset-3.wav", seconds=10.0)
     monkeypatch.setattr(ami, "AUDIO_URL", str(tmp_path / "mirror"))
 
     count = ami.fetch_ami_fr_speakers_en_train(
         "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
     )
-    assert count == 4
-    assert (cache / "ami-fr-speakers-en-train" / "audio" / "IS1003a.Headset-0.wav").is_file()
+    assert count == 6
+    assert (cache / "ami-fr-speakers-en-train" / "audio" / "IS1003a.Headset-1.wav").is_file()
+
+
+def test_ami_refuses_a_recording_it_has_no_pin_for(dirs):
+    """A recording the source did not pin is not taken unverified."""
+    data, cache = dirs
+    fake_ami_cache(cache)
+    with pytest.raises(DownloadError, match="has no pinned sha256"):
+        ami.fetch_ami_fr_speakers_en_train(
+            "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+        )
 
 
 def test_ami_refuses_an_archive_without_the_participants_resource(dirs):
@@ -1093,7 +1166,26 @@ def test_ami_refuses_a_speaker_the_annotations_do_not_describe(dirs):
     fake_ami_cache(cache, channels={"IS1003a.B": AMI_WORDS})
     with pytest.raises(DownloadError, match="holds no words/IS1003a.A.words.xml"):
         with zipfile.ZipFile(directory / ami.ANNOTATIONS_NAME) as archive:
-            ami.read_words(archive, ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017"))
+            ami.read_words(
+                archive,
+                ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1),
+            )
+
+
+def test_ami_refuses_a_word_the_annotations_give_no_time_for(dirs):
+    """A word that cannot be placed in the recording cannot be a clip either."""
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    timeless = AMI_WORDS.replace(
+        '<w nite:id="w1" starttime="0.100" endtime="0.500">Okay</w>', '<w nite:id="w1">Okay</w>'
+    )
+    fake_ami_cache(cache, channels={"IS1003a.A": timeless})
+    with pytest.raises(DownloadError, match="holds a word without a time: 'Okay'"):
+        with zipfile.ZipFile(directory / ami.ANNOTATIONS_NAME) as archive:
+            ami.read_words(
+                archive,
+                ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1),
+            )
 
 
 def test_ami_refuses_an_archive_of_speakers_without_a_french_one(dirs):
@@ -1103,9 +1195,3 @@ def test_ami_refuses_an_archive_of_speakers_without_a_french_one(dirs):
     fake_ami_cache(cache, participants=dutch)
     with pytest.raises(DownloadError, match="no speaker of native language French"):
         ami.read_channels(directory / ami.ANNOTATIONS_NAME)
-
-
-def test_ami_headsets_are_lettered_from_a(dirs):
-    assert [ami.head_number(agent) for agent in "ABCD"] == [0, 1, 2, 3]
-    with pytest.raises(DownloadError, match="no headset for speaker letter 'E'"):
-        ami.head_number("E")

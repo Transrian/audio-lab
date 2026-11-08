@@ -7,13 +7,12 @@ base_model: nvidia/parakeet-tdt-0.6b-v3
 base_model_env: AUDIOLAB_PARAKEET_NEMO
 dataset: ami-fr-speakers-en-train
 
-# Not the 10 000 of the other arms: the corpus publishes a handful of
-# meetings per participant and the per-group share of the cap (200 clips of a
-# group) holds this source at 3 969 clips over its 20 French-L1 speakers.
-# Every clip it has is presented 5.0 times instead of the 3.2 of a 10 000-clip
-# arm; docs/stt/datasets.md says how to read that.
-clips: 3969
-
+# Not the 10 000 of the other arms: the corpus publishes a handful of meetings
+# per participant and the per-group share of the cap (200 clips of a group)
+# holds this source at 3 971 clips over its 20 French-L1 speakers. Every clip it
+# has is presented 8.1 times instead of the 3.2 of a 10 000-clip arm;
+# docs/stt/datasets.md says how to read that.
+clips: 3971
 updates: 2000
 # 16 clips per update. Two at a time is what fits clips of up to 20 s of dense
 # read speech in 32 GB (four already does not).
