@@ -36,38 +36,48 @@ def download(
 ) -> Path:
     """Download ``url`` to ``destination``, skipping it when it is already there.
 
-    The file appears under its final name only once it is complete, so an
-    interrupted download never looks like a finished one. A ``url`` that is
-    already a local file is copied instead of fetched, which is how the tests
-    exercise preparation without network access. When a checksum is given — a
-    ``sha256``, or the ``md5`` some hosts publish instead — a file that was just
-    fetched or copied must match it; a file already in the
-    cache was checked when it arrived.
+    The file appears under its final name only once it is complete *and* it
+    matched the checksum it was pinned by, so neither an interrupted download nor
+    a changed source leaves something that looks finished: the next call fetches
+    again instead of taking a bad file from the cache. A ``url`` that is already
+    a local file is copied instead of fetched, which is how the tests exercise
+    preparation without network access; it goes through a temporary name like a
+    fetched file. When a checksum is given — a ``sha256``, or the ``md5`` some
+    hosts publish instead — a file that was just fetched or copied must match it;
+    a file already in the cache was checked when it arrived.
     """
     if destination.is_file() and destination.stat().st_size > 0:
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
     local = Path(url)
     if local.is_file():
-        shutil.copyfile(local, destination)
-        _check(destination, sha256, md5, url)
-        return destination
-    own_client = client is None
-    http = client or httpx.Client(follow_redirects=True, timeout=120.0)
+        with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
+            with local.open("rb") as source:
+                shutil.copyfileobj(source, temporary)
+            staged = Path(temporary.name)
+    else:
+        own_client = client is None
+        http = client or httpx.Client(follow_redirects=True, timeout=120.0)
+        try:
+            with http.stream("GET", url) as response:
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
+                    for block in response.iter_bytes(chunk_size=1 << 20):
+                        temporary.write(block)
+                    staged = Path(temporary.name)
+        except httpx.HTTPError as error:
+            raise DownloadError(f"cannot download {url}: {error}") from error
+        finally:
+            if own_client:
+                http.close()
     try:
-        with http.stream("GET", url) as response:
-            response.raise_for_status()
-            with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
-                for block in response.iter_bytes(chunk_size=1 << 20):
-                    temporary.write(block)
-                staged = Path(temporary.name)
-    except httpx.HTTPError as error:
-        raise DownloadError(f"cannot download {url}: {error}") from error
-    finally:
-        if own_client:
-            http.close()
+        _check(staged, sha256=sha256, md5=md5, source=url)
+    except DownloadError:
+        # A file that does not match what was pinned must not be left behind:
+        # the next preparation would find it in the cache and take it as it is.
+        staged.unlink(missing_ok=True)
+        raise
     shutil.move(str(staged), str(destination))
-    _check(destination, sha256, md5, url)
     return destination
 
 
@@ -92,10 +102,15 @@ def _digest_file(digest, path: Path) -> str:
     return digest.hexdigest()
 
 
-def _check(path: Path, expected: str, expected_md5: str, source: str) -> None:
+def _check(path: Path, *, sha256: str, md5: str, source: str) -> None:
+    """Refuse a file that does not have the digest it was pinned by.
+
+    The two parameters are the expected digests, named after them so that a
+    call site reads the same way as :func:`download`.
+    """
     for digest_of, wanted, name in (
-        (sha256_file, expected, "sha256"),
-        (md5_file, expected_md5, "md5"),
+        (sha256_file, sha256, "sha256"),
+        (md5_file, md5, "md5"),
     ):
         if not wanted:
             continue
