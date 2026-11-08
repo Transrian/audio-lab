@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import random
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 import httpx
@@ -67,16 +67,37 @@ class TalkSource:
 
 
 def write_listing(source: TalkSource, listed_on: str, talks: list[Talk]) -> None:
-    """Pin the usable talks of one source, with the date and the filter they came from."""
+    """Pin the usable talks of one source, with the date and the filter they came from.
+
+    A talk is one line: its values, in the order the listing's ``fields`` names
+    them. A value every talk shares — a licence, an instance — is written once,
+    under ``shared``, and not at all when it is the field's default. That keeps a
+    listing of several thousand talks readable, diffable, and within the size a
+    file of the repository may have (``scripts/check_repo.py``).
+    """
+    names = [field.name for field in fields(Talk)]
+    defaults = {field.name: field.default for field in fields(Talk)}
+    rows = [asdict(talk) for talk in talks]
+    shared = {
+        name: rows[0][name]
+        for name in names
+        if rows and all(row[name] == rows[0][name] for row in rows)
+    }
     listing = {
         "source": source.name,
         "listed_on": listed_on,
         "filter": source.listing_filter,
-        "talks": [asdict(talk) for talk in talks],
+        "shared": {name: value for name, value in shared.items() if value != defaults[name]},
+        "fields": [name for name in names if name not in shared],
+        "talks": [],
     }
-    source.listing_path.write_text(
-        json.dumps(listing, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    lines = ",\n".join(
+        "  " + json.dumps([row[name] for name in listing["fields"]], ensure_ascii=False)
+        for row in rows
     )
+    # The listing ends with its empty list of talks: one line per talk goes there.
+    text = json.dumps(listing, ensure_ascii=False, indent=1).removesuffix("[]\n}")
+    source.listing_path.write_text(f"{text}[\n{lines}\n ]\n}}\n", encoding="utf-8")
 
 
 def read_listing(source: TalkSource) -> tuple[str, list[Talk]]:
@@ -87,7 +108,10 @@ def read_listing(source: TalkSource) -> tuple[str, list[Talk]]:
     passed the filter, so a licence that does not is a wrong file (D-019).
     """
     listing = json.loads(source.listing_path.read_text(encoding="utf-8"))
-    talks = [Talk(**row) for row in listing["talks"]]
+    talks = [
+        Talk(**listing["shared"], **dict(zip(listing["fields"], row, strict=True)))
+        for row in listing["talks"]
+    ]
     unusable = [talk.id for talk in talks if talk.license not in source.allowed_licenses]
     if unusable:
         raise DownloadError(f"{source.listing_path}: talks under another licence: {unusable[:3]}")

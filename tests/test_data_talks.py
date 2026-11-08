@@ -9,6 +9,7 @@ that listing, the language, and where the audio of a talk comes from.
 
 from __future__ import annotations
 
+import json
 import sys
 from collections import Counter
 from pathlib import Path
@@ -120,6 +121,30 @@ def test_a_pinned_listing_keeps_its_date_its_filter_and_its_talks(tmp_path):
     assert listed_on == "2026-11-08"
     assert listed == [talk("a"), talk("b", license="CC0-1.0")]
     assert source.listing_filter == {"language": "fr"}, "the filter is recorded for a reader"
+
+
+def test_a_listing_is_one_line_per_talk_with_what_they_share_written_once(tmp_path):
+    listed = [talk("a"), talk("b", license="CC0-1.0", title="L'été", duration_s=900)]
+    source = make_source(tmp_path, listed)
+    written = source.listing_path.read_text(encoding="utf-8")
+    listing = json.loads(written)
+
+    assert listing["shared"] == {
+        "author": "Capitole du Libre",
+        "channel": "Talks",
+        "instance": INSTANCE,
+    }
+    assert listing["fields"] == ["id", "url", "title", "duration_s", "license"]
+    assert listing["talks"][1] == ["b", f"{INSTANCE}/videos/watch/b", "L'été", 900, "CC0-1.0"]
+    rows = [line for line in written.splitlines() if line.startswith("  [")]
+    assert len(rows) == len(listed), "a line per talk"
+    assert talk_listing.read_listing(source)[1] == listed
+
+    defaults = make_source(tmp_path, [talk("a", instance=""), talk("b", instance="")])
+    assert "instance" not in json.loads(defaults.listing_path.read_text())["shared"], (
+        "a default every talk shares is not written"
+    )
+    assert talk_listing.read_listing(defaults)[1][0].instance == ""
 
 
 def test_a_listing_holding_another_licence_is_refused(tmp_path):
