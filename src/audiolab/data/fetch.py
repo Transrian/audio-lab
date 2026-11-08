@@ -15,6 +15,7 @@ from audiolab.data.codeswitched import fetch_servicenow_codeswitched
 from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fleurs import fetch_fleurs
+from audiolab.data.granary import fetch_granary_fr_train
 from audiolab.data.librispeech import fetch_librispeech_en
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
 from audiolab.data.nonspeech import fetch_nonspeech
@@ -25,6 +26,7 @@ from audiolab.data.voxpopuli_train import fetch_voxpopuli_fr_train
 FETCHERS = {
     "fleurs-fr": fetch_fleurs,
     "fleurs-en": fetch_fleurs,
+    "granary-fr-train": fetch_granary_fr_train,
     "mls-fr": fetch_mls_fr,
     "mls-fr-train": fetch_mls_fr_train,
     "librispeech-en": fetch_librispeech_en,

@@ -24,7 +24,7 @@ from helpers import (  # noqa: E402
 )
 from test_data_source import make_archive  # noqa: E402
 
-from audiolab.data import mls, voxpopuli_train  # noqa: E402
+from audiolab.data import granary, mls, voxpopuli_train  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
@@ -308,3 +308,67 @@ def test_mls_fr_train_stops_before_the_archive_it_does_not_need(dirs, monkeypatc
     monkeypatch.setattr(mls, "download", refuse)
     count = mls.fetch_mls_fr_train("mls-fr-train", cache, data / "mls-fr-train", verbose=False)
     assert count == 1
+
+
+def fake_granary_cache(cache: Path) -> None:
+    """A cache that looks like the French directory of the Granary shards."""
+    directory = cache / "granary-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=2.0)
+    write_parquet(
+        directory / "00000000.parquet",
+        {
+            "audio": [audio_cell(tone, "fr000_00000000_video_0.wav")],
+            "utt_id": ["fr000_00000000_video_0"],
+            "text": ["Voilà, c'est simple."],
+            "original_audio_id": ["video"],
+        },
+    )
+    write_parquet(
+        directory / "00000001.parquet",
+        {
+            "audio": [audio_cell(tone, "fr000_00000000_other_1.wav")],
+            "utt_id": ["fr000_00000000_other_1"],
+            "text": ["Une autre phrase."],
+            "original_audio_id": ["video"],
+        },
+    )
+
+
+def patch_granary_listing(monkeypatch, shards: int = 2) -> None:
+    monkeypatch.setattr(
+        granary,
+        "huggingface_sha256_map",
+        lambda repo, revision, path, **options: {
+            f"{index:08d}.parquet": chr(ord("a") + index) * 64 for index in range(shards)
+        },
+    )
+
+
+def test_granary_fr_train_keeps_the_label_text_and_groups_by_video(dirs, monkeypatch):
+    data, cache = dirs
+    fake_granary_cache(cache)
+    patch_granary_listing(monkeypatch)
+
+    count = granary.fetch_granary_fr_train(
+        "granary-fr-train", cache, data / "granary-fr-train", verbose=False
+    )
+    assert count == 2
+
+    clips = {clip.id: clip for clip in read_manifest(data / "granary-fr-train")}
+    first = clips["granary-fr-train:fr000_00000000_video_0"]
+    assert first.text == "Voilà, c'est simple."
+    assert first.text_has_casing_punct is True
+    # The corpus publishes no speaker identity, so the video is the group.
+    assert {clip.group for clip in clips.values()} == {"granary-fr-train:video"}
+    assert first.group_kind == "recording"
+    assert first.source_split == "asr_only"
+    assert first.license == "audio CC-BY-3.0, labels CC-BY-4.0"
+
+
+def test_granary_fr_train_refuses_a_directory_without_shards(dirs, monkeypatch):
+    _, cache = dirs
+    monkeypatch.setattr(
+        granary, "huggingface_sha256_map", lambda repo, revision, path, **options: {}
+    )
+    with pytest.raises(DownloadError, match="lists no shard"):
+        granary.fetch_granary_fr_train("granary-fr-train", cache, cache / "out", verbose=False)

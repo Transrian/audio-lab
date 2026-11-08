@@ -63,6 +63,18 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "granary-fr-train": DatasetInfo(
+        name="granary-fr-train",
+        source="https://huggingface.co/datasets/espnet/yodas-granary (data/fr000, asr_only)",
+        license="audio CC-BY-3.0, labels CC-BY-4.0",
+        split="asr_only",
+        reference_style="pseudo-labelled text: casing and punctuation kept",
+        grouping="recording (group = YouTube video id)",
+        notes="Training data for the per-source screening: a capped number of rows "
+        "of the French directory, selected and filtered as documented in "
+        "docs/stt/datasets.md. Labels are model output, not human transcripts. "
+        "No panels.",
+    ),
     "mls-fr-train": DatasetInfo(
         name="mls-fr-train",
         source="https://huggingface.co/datasets/facebook/multilingual_librispeech "
