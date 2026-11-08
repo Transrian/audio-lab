@@ -53,13 +53,22 @@ def is_finished(directory: Path) -> bool:
     return (directory / TRAIN_JSON).is_file() and (directory / MODEL_NAME).is_file()
 
 
-def prepare_run_dir(directory: Path, *, fresh: bool = False) -> Path:
-    """Make the run directory ready to train in, keeping an unfinished run's slot."""
+def refuse_finished_run(directory: Path, *, fresh: bool = False) -> None:
+    """Refuse to train over a finished run unless the caller asked to start over.
+
+    The sequence calls this before it reads anything, and `prepare_run_dir` calls
+    it before it touches the directory, so both refuse in the same words.
+    """
     if is_finished(directory) and not fresh:
         raise TrainRunError(
             f"{directory} already holds a finished run ({MODEL_NAME} and {TRAIN_JSON}); "
             "train again with --fresh to start over, or remove the directory to rerun it"
         )
+
+
+def prepare_run_dir(directory: Path, *, fresh: bool = False) -> Path:
+    """Make the run directory ready to train in, keeping an unfinished run's slot."""
+    refuse_finished_run(directory, fresh=fresh)
     if fresh and directory.exists():
         # Deleting a directory is the one destructive step here, so it is only
         # this run's own directory: <runs>/train/<name>/.

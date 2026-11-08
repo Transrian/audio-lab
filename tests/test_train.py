@@ -34,6 +34,7 @@ from audiolab.train.run import (  # noqa: E402
     is_finished,
     prepare_run_dir,
     read_run_config,
+    refuse_finished_run,
     resume_checkpoint,
     run_dir,
     train_json,
@@ -231,6 +232,9 @@ def test_a_finished_run_is_not_trained_again(tmp_path):
     (directory / MODEL_NAME).write_bytes(b"weights")
     (directory / TRAIN_JSON).write_text("{}", encoding="utf-8")
     assert is_finished(directory)
+    with pytest.raises(TrainRunError, match="already holds a finished run"):
+        refuse_finished_run(run_dir("example", tmp_path))
+    # The same rule guards the directory itself, whatever calls it.
     with pytest.raises(TrainRunError, match="already holds a finished run"):
         prepare_run_dir(run_dir("example", tmp_path))
     prepare_run_dir(run_dir("example", tmp_path), fresh=True)

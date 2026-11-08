@@ -26,14 +26,12 @@ from audiolab.train.data import (
 from audiolab.train.run import (
     LOG_NAME,
     MANIFEST_NAME,
-    MODEL_NAME,
     RESUME_NAME,
-    TRAIN_JSON,
     TrainRunError,
     config_differences,
-    is_finished,
     prepare_run_dir,
     read_run_config,
+    refuse_finished_run,
     resume_checkpoint,
     run_dir,
     write_model_config,
@@ -89,11 +87,9 @@ def run_training(
 ) -> Path:
     """Train one config and return the run directory that now holds the result."""
     directory = run_dir(config.name, runs_root)
-    if is_finished(directory) and not fresh:
-        raise TrainRunError(
-            f"{directory} already holds a finished run ({MODEL_NAME} and {TRAIN_JSON}); "
-            "train again with --fresh to start over"
-        )
+    # Before anything is read, so a finished run costs a second rather than a
+    # checkpoint load and a dataset scan.
+    refuse_finished_run(directory, fresh=fresh)
     # The base checkpoint is resolved here rather than inside the heavy step, so
     # a missing file or an unset variable is reported before a GPU is touched.
     base = config.weights()
