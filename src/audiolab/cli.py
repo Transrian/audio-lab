@@ -10,11 +10,13 @@ import argparse
 import json
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 from audiolab import __version__
 from audiolab.core.gpu import add_gpu_argument, list_gpus
 from audiolab.core.paths import data_dir, runs_dir
+from audiolab.data import peertube
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fetch import fetch_dataset
 from audiolab.data.panels import (
@@ -67,6 +69,16 @@ def cmd_data_fetch(args: argparse.Namespace) -> int:
     for name in names:
         print(f"fetching {name} into {data_dir() / name}")
         fetch_dataset(name, force=args.force)
+    return 0
+
+
+def cmd_data_list_peertube(args: argparse.Namespace) -> int:
+    """List the usable videos of the PeerTube instance into the pinned listing."""
+    with peertube.http_client() as http:
+        videos = peertube.list_videos(http)
+    peertube.write_listing(videos, listed_on=date.today().isoformat())
+    hours = sum(video.duration_s for video in videos) / 3600
+    print(f"{peertube.LISTING_PATH}: {len(videos)} videos, {hours:.1f} h")
     return 0
 
 
@@ -223,6 +235,16 @@ def _add_data_commands(commands: argparse._SubParsersAction) -> None:
     fetch.add_argument("names", nargs="*", help="dataset names; all of them when omitted")
     fetch.add_argument("--force", action="store_true", help="prepare again even if already present")
     fetch.set_defaults(func=cmd_data_fetch)
+
+    peertube_listing = _command(
+        data_commands,
+        "list-peertube",
+        "list the PeerTube videos peertube-fr-train may use",
+        "Asks the instance's API for its CC BY and CC0 French videos and writes the "
+        "pinned listing that the preparation reads (metadata only).",
+        "audiolab data list-peertube",
+    )
+    peertube_listing.set_defaults(func=cmd_data_list_peertube)
 
     panels = _command(
         data_commands,
