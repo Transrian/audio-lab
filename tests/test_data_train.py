@@ -8,6 +8,7 @@ own test only checks what its source does differently.
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +29,7 @@ from audiolab.data.train import (  # noqa: E402
     TRAIN_CLIP_CAP,
     Take,
     evaluation_groups,
+    plan_clips,
 )
 
 
@@ -178,3 +180,78 @@ def test_take_report_says_what_the_share_of_a_group_left_out(tmp_path):
     take.offer("a2", tone(3.0), text="bonjour", group="spkA")
 
     assert "1 beyond the 1-clip share of a group" in take.report()
+
+
+@dataclass(frozen=True)
+class Row:
+    """One row of a source as its own plan sees it: what it says, when, and whose."""
+
+    text: str
+    start: float
+    end: float
+    speaker: str
+
+
+def row(text: str = "bonjour", start: float = 0.0, end: float = 3.0, speaker: str = "spkA"):
+    return Row(text=text, start=start, end=end, speaker=speaker)
+
+
+def test_planning_clips_applies_the_filters_of_the_cap_to_the_annotation():
+    """A source that must read its whole annotation first decides from that alone."""
+    take = make_take(Path("/tmp"), cap=10, cap_per_group=2)
+    rows = [
+        row("bonjour"),
+        row("", speaker="spkB"),
+        row(end=0.4, speaker="spkC"),
+        row(end=25.0, speaker="spkD"),
+        row("bonjour", speaker="spkA"),
+        row("bonjour", speaker="spkA"),
+        row("bonjour", speaker="spkA"),
+    ]
+    planned, counts = plan_clips(take, rows)
+
+    assert [planned_row.speaker for planned_row in planned] == ["spkA", "spkA"]
+    assert counts.rows_read == 7
+    assert counts.without_text == 1
+    assert counts.too_short == 1
+    assert counts.too_long == 1
+    assert counts.beyond_group_cap == 2
+    assert counts.per_group == {"spkA": 2}
+
+
+def test_planning_clips_stops_at_the_cap_and_keeps_the_source_order():
+    take = make_take(Path("/tmp"), cap=2, cap_per_group=2)
+    rows = [row(speaker=speaker) for speaker in ("spkA", "spkB", "spkC")]
+
+    planned, counts = plan_clips(take, rows)
+
+    assert [planned_row.speaker for planned_row in planned] == ["spkA", "spkB"]
+    # The rows after the cap are not read at all: the preparation stops there.
+    assert counts.rows_read == 2
+
+
+def test_the_report_of_a_planned_source_says_what_a_one_pass_source_says(tmp_path):
+    """The plan counted the rows without reading them, and the run adds those counts.
+
+    The plan only reads the annotation, so it cannot know whether a row is really
+    usable; the audio is offered afterwards and ``absorb`` adds what the plan
+    decided about the rows the run never got to.
+    """
+    take = make_take(tmp_path, cap=4, cap_per_group=4)
+    rows = [row(), row(end=0.4), row("", speaker="spkB"), row(speaker="spkC")]
+    planned, counts = plan_clips(take, rows)
+    assert len(planned) == 2
+
+    for planned_row in planned:
+        assert take.offer(
+            planned_row.speaker,
+            tone(planned_row.end - planned_row.start),
+            text=planned_row.text,
+            group=planned_row.speaker,
+        )
+    take.absorb(counts)
+
+    assert take.kept == 2
+    assert "4 rows read" in take.report()
+    assert "1 shorter than 0.5 s" in take.report()
+    assert "1 without text" in take.report()
