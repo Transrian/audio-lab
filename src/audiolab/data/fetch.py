@@ -42,6 +42,7 @@ FETCHERS = {
     "nonspeech": fetch_nonspeech,
     "peertube-fr-train": fetch_talk_dataset,
     "peertube-edu-fr-train": fetch_talk_dataset,
+    "debconf-en-train": fetch_talk_dataset,
     "pxcorpus-fr-train": fetch_pxcorpus_fr_train,
     "voxpopuli-en-nonnative": fetch_voxpopuli_nonnative,
     "servicenow-codeswitched-en-fr": fetch_servicenow_codeswitched,

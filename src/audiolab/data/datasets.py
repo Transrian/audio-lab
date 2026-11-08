@@ -169,6 +169,20 @@ DATASETS: dict[str, DatasetInfo] = {
         "model output, not human transcripts. Every clip carries the attribution of "
         "its video (channel, title, URL, license). No panels.",
     ),
+    "debconf-en-train": DatasetInfo(
+        name="debconf-en-train",
+        source="https://peertube.debian.social (PeerTube API; the pinned list of videos "
+        "is src/audiolab/data/debconf_listing.json)",
+        license="CC-BY / CC0-1.0",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data for the per-source screening: the DebConf and mini-DebConf "
+        "talks of the Debian project, in English, labelled in English as described in "
+        "docs/stt/datasets.md. Labels are model output, not human transcripts. Every "
+        "clip carries the attribution of its video (channel, title, URL, license). "
+        "No panels.",
+    ),
     "peertube-fr-train": DatasetInfo(
         name="peertube-fr-train",
         source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "

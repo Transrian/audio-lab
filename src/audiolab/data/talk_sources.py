@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from audiolab.data import peertube, peertube_edu
+from audiolab.data import debconf, peertube, peertube_edu
 from audiolab.data.datasets import DATASETS
 from audiolab.data.talks import PreparedAudio, Talk, TalkSource, fetch_talks, prepare_audio
 
@@ -63,6 +63,25 @@ SOURCES: dict[str, TalkSource] = {
         lister=peertube_edu.list_talks,
         audio_url=peertube.smallest_file_url,
         spread_by=peertube_edu.spread_key,
+    ),
+    "debconf-en-train": TalkSource(
+        name="debconf-en-train",
+        language="en",
+        allowed_licenses=PEERTUBE_LICENSES,
+        split="listing",
+        listing_path=DATA / "debconf_listing.json",
+        listing_filter={
+            "instance": debconf.INSTANCE,
+            "licence_ids": list(debconf.FILTER.licence_ids),
+            "language": ["en", "untagged"],
+            "local": True,
+            "min_duration_s": debconf.MIN_TALK_SECONDS,
+            "channel_or_account_must_hold": debconf.FILTER.name_must_hold,
+            "editions_left_out": list(debconf.NON_ENGLISH_EDITIONS),
+        },
+        lister=debconf.list_talks,
+        audio_url=peertube.smallest_file_url,
+        spread_by=debconf.spread_key,
     ),
 }
 

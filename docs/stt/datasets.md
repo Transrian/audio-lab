@@ -352,6 +352,7 @@ screening is a difference between corpora and not between recipes:
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -673,6 +674,12 @@ catalogue's, and model labels instead of a transcript somebody published.
   talks of a preparation cover all eleven catalogues instead of the biggest one.
   Audio comes from the smallest file the instance serves for a video, converted to
   16 kHz mono WAV; the video is deleted once its sound is out.
+- **Prepared audio**: before the labelling run, the first 65 h of the reading
+  order — 120 talks — were downloaded and kept as 16 kHz mono WAV, 7.2 GiB in the
+  pipeline's cache (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored;
+  the video file of a talk is deleted once its sound is out). The first attempt
+  lost 33 of them to a file the instance still listed and no longer served, which
+  `smallest_file_url` now checks for; asking again recovered all 33.
 - **Why it is here**: it is the French arm that is neither a conference nor a
   published corpus — teachers and the ministry speaking French, on every school
   subject, in a register no evaluation set of this repository has. It is the French
@@ -697,6 +704,69 @@ Per instance, as the listing of 2026-11-08 holds them:
 | `tube-maternelle` | 89 | 58.5 |
 | `tube-numerique-educatif` | 523 | 317.9 |
 | `tube-sciences-technologies` | 640 | 270.0 |
+
+### `debconf-en-train` — DebConf talks on the Debian instance
+
+- **Source**: [`peertube.debian.social`](https://peertube.debian.social), the
+  Debian project's own PeerTube instance. `audiolab data list-talks
+  debconf-en-train` asks its REST API for every local video under licence CC BY
+  (PeerTube licence id 1) or CC0 (id 7) whose channel or account name holds
+  `debconf`, and writes the answer to
+  [`debconf_listing.json`](../../src/audiolab/data/debconf_listing.json). The
+  listing of 2026-11-08 holds **2 085 videos, 1 351.6 h**, in 33 channels: the
+  yearly conference from DebConf 4 to DebConf 26, ten mini-DebConfs, and two
+  channels of the same project that a DebConf account publishes talks under
+  (`QA Meetings`, 12 videos, and `Debian-edu Gatherings`, 15); 603 s is the
+  shortest and 2 455 s the median video. A preparation reads that file and not the
+  live instance, so a talk published or removed later changes nothing. The filter
+  is a filter of channels and not of content: one of the 2 085 videos is a school
+  band's welcome at a Debian-edu gathering, and a music video yields no clips, the
+  two labelling models not agreeing on music.
+- **License and attribution**: CC BY, as each uploader declared it; PeerTube names
+  the licence ("Attribution") without a Creative Commons version, so the manifest
+  says `CC-BY` and no version, and no listed video is CC0. CC BY asks for
+  attribution, so every clip carries its video's `source_url`, `source_title` and
+  `source_author` (the PeerTube account), and its `license`. Attribution also
+  rests on the instance and the conference the video belongs to, both of which the
+  card and the channel name record.
+- **Language, and why the filter is not about the language tag**: the instance
+  leaves the language of most of its videos unset — the DebConf uploads were made
+  in bulk — so requiring `en` would keep 121 of the 2 779 local videos the
+  instance hosts under those two licences (4 %), where 2 343 of them carry no
+  language tag at all. That is also why this listing is a PeerTube-specific
+  filter and not a language one: the tag would answer a question the corpus never
+  asked. The filter
+  therefore accepts a video tagged English **or untagged**, and takes the
+  conference's language as its own: DebConf is held in English, and the editions
+  that are not held in English are left out by name — `argentina`, `brazil`,
+  `brasil`, `es`, `portugal` in a channel or account name (`DebConf ES`,
+  MiniDebConf Brasil and Portugal, the Debian Brasil channel). Those words are
+  matched as whole words, so an account called `Andreas @ DebConf` is not dropped
+  by the `es` of its name. Videos shorter than ten minutes, videos under another
+  licence and videos the instance does not host itself are left out as in the
+  other talk sources.
+- **Labels are English**: this is the first source of the repository labelled in
+  another language than French, so the language is not a constant any more: the
+  three models are asked to transcribe in English (`send_language`), the clips are
+  cut and normalized as English (`candidates`, `doubt`, `disagreement`), and each
+  manifest line says `language: en`. A French speaker reading English words
+  therefore yields an English label, and the source is the English arm of the
+  screening that is not read speech.
+- **Split and order**: `source_split` is `listing`; the listing is written in uuid
+  order, which only keeps the file stable, and the talks are read in a seeded
+  shuffle of it (`SEED`) spread over the **conference** — the 33 channels are
+  covered one after the other, so the talks of a first cap come from every edition
+  instead of the one that happens to sort first. Audio comes from the smallest
+  file the instance serves for a video, converted to 16 kHz mono WAV; the video is
+  deleted once its sound is out, and a talk already in the cache is not fetched
+  again.
+- **Prepared audio**: the first 65 h of the reading order — 105 talks — were
+  downloaded and kept as 16 kHz mono WAV, 7.1 GiB in the pipeline's cache
+  (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored; the video file of
+  a talk is deleted once its sound is out). Every talk of that selection arrived.
+- **Group**: the recording (`group_kind: recording`, the video uuid). A talk
+  usually has one speaker, the listing names none, and the questions from the room
+  add others.
 
 ### No overlap with the evaluation sets
 
@@ -724,6 +794,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 | `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
+| `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the two French sources that are not evaluation sets
