@@ -1,0 +1,12 @@
+# NVIDIA Nemotron 3.5 Transcribe 30B-A4B (FP8), served by vLLM on the owner's
+# home server, split over two GPUs. This server is not the one behind
+# STT_BASE_URL, so it has its own variables; URL and key come from the
+# environment (D-015).
+name: nemotron-3.5-transcribe-vllm
+api: transcriptions
+base_url_env: HOME_STT_BASE_URL
+api_key_env: HOME_STT_API_KEY
+model: stt-v-nemotron-3.5-transcribe-30B-A4B
+send_language: true
+server_label: owner's home server
+request: {}
