@@ -43,6 +43,7 @@ from pathlib import Path
 from audiolab.core.audio import load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
+from audiolab.data.meeting import GAP_SECONDS, SENTENCE_END, spelled_out
 from audiolab.data.train import (
     CLIP_CAP_PER_GROUP,
     MAX_SECONDS,
@@ -115,13 +116,8 @@ NATIVE_LANGUAGE = "French"
 LICENSE = "CC-BY-4.0"
 LANGUAGE = "en"
 SPLIT = "manual"
-# A silence longer than this separates two utterances, so a clip never spans it.
-GAP_SECONDS = 1.0
-SENTENCE_END = frozenset(".!?")
 # A punctuation mark is written as its own word and belongs to the word before.
 PUNCTUATION = re.compile(r"^[.,;:!?'\u2019-]+$")
-# A word spelled letter by letter, each letter followed by an underscore.
-SPELLED_LETTERS = re.compile(r"^((?:[A-Za-z]_)+)$")
 NITE = "{http://nite.sourceforge.net/}"
 
 
@@ -316,7 +312,7 @@ def read_words(archive: zipfile.ZipFile, channel: Channel) -> list[Word | Untran
             continue
         if name != "w":
             continue
-        text = _spelled_out((element.text or "").strip())
+        text = spelled_out((element.text or "").strip())
         if not text:
             continue
         try:
@@ -352,16 +348,6 @@ def _headset_file(name: str, cache_dir: Path, channel: Channel) -> Path:
         cache_dir / name / "audio" / recording,
         sha256=pinned,
     )
-
-
-def _spelled_out(text: str) -> str:
-    """A word the annotators wrote letter by letter, as the word it spells.
-
-    The corpus marks a spelled-out word by an underscore after each letter
-    (``T_V_`` is "TV", ``L_C_D_`` is "LCD"), which is a mark of how it was
-    written, not how it was said.
-    """
-    return SPELLED_LETTERS.sub(lambda match: match.group(1).replace("_", ""), text)
 
 
 def _text_of(words: list[Word]) -> str:

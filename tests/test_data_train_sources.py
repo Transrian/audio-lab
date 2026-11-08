@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -1372,6 +1373,26 @@ def _icsi_member(directory: Path, name: str, content: str) -> Path:
     return path
 
 
+def fake_icsi_decode(monkeypatch) -> None:
+    """Decode the fixture's signals without ffmpeg, checking them the same way.
+
+    The corpus's own signals are shorten-compressed and ffmpeg is the only
+    decoder on hand for them; the fixture's are plain, so a preparation can be
+    exercised on a machine without it. What the fake writes is checked with the
+    same function the real decode checks ffmpeg's output with, so nothing about
+    the samples the corpus declares is lost by not running ffmpeg.
+    """
+
+    def decode(source: Path, destination: Path) -> None:
+        samples, rate = sf.read(str(source), dtype="int16", always_2d=False)
+        icsi.verify_samples(source, samples)
+        staged = destination.with_name(f"{destination.name}.part")
+        sf.write(str(staged), samples, rate, format="WAV", subtype="PCM_16")
+        staged.replace(destination)
+
+    monkeypatch.setattr(icsi, "_decode", decode)
+
+
 def fake_icsi_signals(directory: Path, sources: list[str]) -> None:
     """The signals the fixture's segments are sliced from, one SPH file each.
 
@@ -1389,10 +1410,10 @@ requires_ffmpeg = pytest.mark.skipif(
 )
 
 
-@requires_ffmpeg
 def test_icsi_reads_the_mrt_segments_and_groups_by_participant(dirs, monkeypatch):
     data, cache = dirs
     directory = fake_icsi_cache(cache, monkeypatch)
+    fake_icsi_decode(monkeypatch)
     fake_icsi_signals(directory, ["Btr001/chan0", "Btr001/chan1", "Bnr002/chan0"])
 
     count = icsi.fetch_icsi_en_train("icsi-en-train", cache, data / "icsi-en-train", verbose=False)
@@ -1433,11 +1454,15 @@ def test_icsi_reads_the_mrt_segments_and_groups_by_participant(dirs, monkeypatch
     }
 
 
-@requires_ffmpeg
 def test_icsi_downloads_only_the_channels_a_clip_is_sliced_from(dirs, monkeypatch):
-    """The corpus serves 482 channels of these meetings; a preparation reads 105 of them."""
+    """A preparation reads the channels its clips are on, not every microphone.
+
+    The preambles of the corpus name 469 microphones across its 75 meetings; a
+    preparation of the whole corpus reads the ones a planned clip is sliced from.
+    """
     data, cache = dirs
     directory = fake_icsi_cache(cache, monkeypatch)
+    fake_icsi_decode(monkeypatch)
     # No signal is written for Bnr002/chan1 or for the channel of a participant
     # the preamble does not give one to: asking for either would fail.
     fake_icsi_signals(directory, ["Btr001/chan0", "Btr001/chan1", "Bnr002/chan0"])
@@ -1464,28 +1489,164 @@ def test_icsi_decodes_the_samples_the_header_of_a_recording_declares(dirs, monke
     assert (cache / "icsi-en-train" / "audio" / "Btr001" / "chan0.wav").is_file()
 
 
-@requires_ffmpeg
-def test_icsi_refuses_recording_whose_samples_are_not_what_its_header_says(dirs, monkeypatch):
-    """A decoder that quietly drops samples would misalign every clip on the channel."""
-    _, cache = dirs
-    directory = fake_icsi_cache(cache, monkeypatch)
-    source = write_sphere(directory / "audio" / "Btr001" / "chan0.sph")
-    # The corpus's headers carry the count and the sum of the samples they hold;
-    # a header that disagrees with the audio is not the recording the transcript
-    # times were made on.
-    source.write_bytes(
-        source.read_bytes().replace(b"sample_count -i 160480", b"sample_count -i 160482")
-    )
-    with pytest.raises(DownloadError, match="its own header says"):
-        icsi.load_recording("icsi-en-train", cache, "Btr001", "chan0")
+def test_icsi_refuses_samples_that_are_not_what_the_header_declares(tmp_path):
+    """The header's count and sum are what says the samples are the recording.
 
-    source = write_sphere(directory / "audio" / "Btr001" / "chan0.sph")
-    source.write_bytes(source.read_bytes().replace(b"sample_checksum -i ", b"sample_checksum -i 1"))
-    source.write_bytes(
-        source.read_bytes().replace(b"sample_checksum -i 1", b"sample_checksum -i 7")
-    )
+    A decoder that quietly dropped or repeated samples would misalign every clip
+    on the channel, and samples that do not add up to the sum the corpus wrote
+    are not the recording the transcript times were made on. The check reads the
+    header alone, so it runs without a decoder.
+    """
+    source = write_sphere(tmp_path / "chan0.sph")
+    samples, _ = sf.read(str(source), dtype="int16", always_2d=False)
+    icsi.verify_samples(source, samples)
+
+    with pytest.raises(DownloadError, match="its own header says 160480"):
+        icsi.verify_samples(source, samples[:-1])
+
+    # One sample louder, the header left alone: the count still matches and the
+    # sum does not.
+    louder = samples.copy()
+    louder[100] = louder[100] + 1
     with pytest.raises(DownloadError, match="do not match its own checksum"):
-        icsi.load_recording("icsi-en-train", cache, "Btr001", "chan0")
+        icsi.verify_samples(source, louder)
+
+
+@requires_ffmpeg
+def test_icsi_refuses_a_recording_whose_samples_were_changed_under_its_header(tmp_path):
+    """What the decode produced is checked before it is kept, not after."""
+    source = write_sphere(tmp_path / "chan0.sph")
+    changed = bytearray(source.read_bytes())
+    # One sample of the audio flipped, the header and the file length untouched.
+    changed[icsi.SPHERE_HEADER_BYTES + 2 * 100] ^= 0x01
+    source.write_bytes(bytes(changed))
+
+    with pytest.raises(DownloadError, match="do not match its own checksum"):
+        icsi._decode(source, tmp_path / "chan0.wav")
+    assert not (tmp_path / "chan0.wav").exists()
+    assert not (tmp_path / "chan0.wav.part").exists()
+
+
+def test_icsi_joins_the_segments_of_one_participant_into_a_clip(dirs, monkeypatch):
+    """The annotators cut a speaker's turn at pauses; a clip is the sentence they said."""
+    data, cache = dirs
+    meeting = """<?xml version="1.0" encoding="iso-8859-1"?>
+<Meeting Session="Ctr003">
+  <Preamble>
+    <Participants>
+      <Participant Name="fe068" Channel="chan0" Seat="1"/>
+    </Participants>
+  </Preamble>
+  <Transcript StartTime="0.0" EndTime="600.0">
+    <Segment StartTime="1.000" EndTime="2.000" Participant="fe068">
+      We have littler heads
+    </Segment>
+    <Segment StartTime="2.300" EndTime="4.000" Participant="fe068">
+      so. So that is fine.
+    </Segment>
+    <Segment StartTime="4.500" EndTime="5.000" Participant="fe068">
+      And another thing.
+    </Segment>
+  </Transcript>
+</Meeting>
+"""
+    directory = fake_icsi_cache(cache, monkeypatch, meetings={"Ctr003": meeting})
+    fake_icsi_decode(monkeypatch)
+    fake_icsi_signals(directory, ["Ctr003/chan0"])
+
+    icsi.fetch_icsi_en_train("icsi-en-train", cache, data / "icsi-en-train", verbose=False)
+
+    clips = read_manifest(data / "icsi-en-train")
+    # The first two segments are one sentence the annotators cut at a pause, so
+    # they are one clip; the third follows a sentence the annotators closed and
+    # is a clip of its own.
+    assert [clip.id for clip in clips] == [
+        "icsi-en-train:Ctr003.fe068.0000",
+        "icsi-en-train:Ctr003.fe068.0002",
+    ]
+    assert clips[0].text == "We have littler heads so. So that is fine."
+    assert clips[0].duration_s == pytest.approx(3.0, abs=0.01)
+    assert clips[1].text == "And another thing."
+
+
+def test_segment_text_keeps_the_words_of_markup_written_inside_markup():
+    """The annotation nests, and a word inside a pronunciation is still a word."""
+    element = ET.fromstring(
+        "<Segment>the <Emphasis>real <Pronounce>places</Pronounce></Emphasis> "
+        "are <Comment>coughs</Comment>here.</Segment>"
+    )
+
+    assert icsi.segment_text(element) == "the real places are here."
+
+
+def test_icsi_leaves_out_what_it_cannot_write_a_reference_for(dirs, monkeypatch):
+    """A digit task, a word nobody made out and a re-sliced channel are not clips."""
+    data, cache = dirs
+    meeting = """<?xml version="1.0" encoding="iso-8859-1"?>
+<Meeting Session="Dtr004">
+  <Preamble>
+    <Participants>
+      <Participant Name="fe068" Channel="chan0" Seat="1"/>
+      <Participant Name="fe069" Channel="chan1" Seat="2"/>
+    </Participants>
+  </Preamble>
+  <Transcript StartTime="0.0" EndTime="600.0">
+    <Segment StartTime="1.000" EndTime="2.000" Participant="fe068">
+      We have littler heads so.
+    </Segment>
+    <Segment StartTime="2.500" EndTime="3.000" Participant="fe068" DigitTask="true">
+      Six three, three three.
+    </Segment>
+    <Segment StartTime="3.400" EndTime="4.000" Participant="fe068">
+      And then <Uncertain> @@ </Uncertain> happened.
+    </Segment>
+    <Segment StartTime="4.400" EndTime="5.000" Participant="fe068">
+      This one is fine.
+    </Segment>
+    <Segment StartTime="5.400" EndTime="6.000" Participant="fe068" Channel="chan8">
+      And this is the same speech on another microphone.
+    </Segment>
+    <Segment StartTime="6.400" EndTime="7.200" Participant="fe068">
+      And the last thing on this channel
+    </Segment>
+    <Segment StartTime="7.400" EndTime="7.700" Participant="fe068" DigitTask="true">
+      Nine nine two.
+    </Segment>
+    <Segment StartTime="7.900" EndTime="8.600" Participant="fe068">
+      was not a digit task.
+    </Segment>
+    <Segment StartTime="1.000" EndTime="2.500" Participant="fe069">
+      The <Emphasis><Pronounce>places</Pronounce></Emphasis> are here.
+    </Segment>
+  </Transcript>
+</Meeting>
+"""
+    directory = fake_icsi_cache(cache, monkeypatch, meetings={"Dtr004": meeting})
+    fake_icsi_decode(monkeypatch)
+    # chan8 is not among them: a preparation that kept the re-sliced segment
+    # would ask the corpus for a file it has no clip to cut.
+    fake_icsi_signals(directory, ["Dtr004/chan0", "Dtr004/chan1"])
+
+    icsi.fetch_icsi_en_train("icsi-en-train", cache, data / "icsi-en-train", verbose=False)
+
+    clips = read_manifest(data / "icsi-en-train")
+    assert [clip.id for clip in clips] == [
+        "icsi-en-train:Dtr004.fe068.0000",
+        "icsi-en-train:Dtr004.fe068.0003",
+        "icsi-en-train:Dtr004.fe068.0005",
+        "icsi-en-train:Dtr004.fe068.0007",
+        "icsi-en-train:Dtr004.fe069.0008",
+    ]
+    texts = [clip.text for clip in clips]
+    # The row nobody made out is gone, and the digit task between the last two
+    # ends what would otherwise have been one clip.
+    assert texts == [
+        "We have littler heads so.",
+        "This one is fine.",
+        "And the last thing on this channel",
+        "was not a digit task.",
+        "The places are here.",
+    ]
 
 
 def test_icsi_refuses_a_segment_of_a_speaker_whose_microphone_is_not_named(dirs, monkeypatch):
@@ -1497,7 +1658,7 @@ def test_icsi_refuses_a_segment_of_a_speaker_whose_microphone_is_not_named(dirs,
     )
     fake_icsi_cache(cache, monkeypatch, meetings={"Btr001": unamplified})
     with pytest.raises(DownloadError, match="which the preamble does not give them"):
-        icsi.read_segments(cache / "icsi-en-train" / icsi.TRANSCRIPTS_NAME)
+        icsi.read_chunks(cache / "icsi-en-train" / icsi.TRANSCRIPTS_NAME)
 
 
 def test_icsi_refuses_an_archive_without_a_transcript(dirs, monkeypatch):
@@ -1507,7 +1668,7 @@ def test_icsi_refuses_an_archive_without_a_transcript(dirs, monkeypatch):
     archive = make_zip(directory / icsi.TRANSCRIPTS_NAME, {"transcripts/other.txt": empty})
     monkeypatch.setattr(icsi, "TRANSCRIPTS_URL", str(archive))
     with pytest.raises(DownloadError, match="holds no transcripts"):
-        icsi.read_segments(archive)
+        icsi.read_chunks(archive)
 
 
 # --- NOTSOFAR-1 -------------------------------------------------------------
@@ -1551,7 +1712,7 @@ NOTSOFAR_TRANSCRIPTS = {
             "ct_wav_file_name": "close_talk/CT_21.wav",
             "start_time": 8.0,
             "end_time": 9.0,
-            "text": "But <UNKNOWN/> we should ask.",
+            "text": "But we should ask.",
         },
     ],
     "MTG_00002": [
@@ -1678,6 +1839,103 @@ def test_notsofar_reads_the_train_meetings_and_groups_by_participant(dirs, monke
         "notsofar-en-train:Sophie",
         "notsofar-en-train:Bert",
     }
+
+
+def test_notsofar_leaves_out_the_rows_the_annotators_could_not_write_down(dirs, monkeypatch):
+    """A word nobody caught, and a stretch they had a problem with, are not references."""
+    data, cache = dirs
+    transcripts = {
+        "MTG_00001": [
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 1.0,
+                "end_time": 2.0,
+                "text": "But <UNKNOWN/> we should ask.",
+            },
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 2.5,
+                "end_time": 3.5,
+                "text": "This one is written down.",
+            },
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 4.0,
+                "end_time": 5.0,
+                "text": "And <ISSUE/> this one is not.",
+            },
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 5.5,
+                "end_time": 6.5,
+                "text": "So is this.",
+            },
+        ]
+    }
+    fake_notsofar_release(cache, monkeypatch, transcripts=transcripts)
+
+    notsofar.fetch_notsofar_en_train(
+        "notsofar-en-train", cache, data / "notsofar-en-train", verbose=False
+    )
+
+    clips = read_manifest(data / "notsofar-en-train")
+    # The rows with a mark in them break the run of one speaker's speech, so the
+    # two that are readable are two clips and not one.
+    assert [clip.id for clip in clips] == [
+        "notsofar-en-train:MTG_00001.Peter.0001",
+        "notsofar-en-train:MTG_00001.Peter.0003",
+    ]
+    assert [clip.text for clip in clips] == ["This one is written down.", "So is this."]
+
+
+def test_notsofar_joins_the_utterances_of_one_participant_into_a_clip(dirs, monkeypatch):
+    """The corpus cuts at every pause; a clip is what a participant said in one go."""
+    data, cache = dirs
+    transcripts = {
+        "MTG_00001": [
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 1.0,
+                "end_time": 2.0,
+                "text": "I think schools are about",
+            },
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 2.3,
+                "end_time": 4.0,
+                "text": "preparing children for Harvard.",
+            },
+            {
+                "speaker_id": "Peter",
+                "ct_wav_file_name": "close_talk/CT_21.wav",
+                "start_time": 4.4,
+                "end_time": 5.0,
+                "text": "And the second one.",
+            },
+        ]
+    }
+    fake_notsofar_release(cache, monkeypatch, transcripts=transcripts)
+
+    notsofar.fetch_notsofar_en_train(
+        "notsofar-en-train", cache, data / "notsofar-en-train", verbose=False
+    )
+
+    clips = read_manifest(data / "notsofar-en-train")
+    # The first two rows are one sentence the annotators cut at a pause, so they
+    # are one clip; the third follows a sentence they closed and stands alone.
+    assert [clip.id for clip in clips] == [
+        "notsofar-en-train:MTG_00001.Peter.0000",
+        "notsofar-en-train:MTG_00001.Peter.0002",
+    ]
+    assert clips[0].text == "I think schools are about preparing children for Harvard."
+    assert clips[0].duration_s == pytest.approx(3.0, abs=0.01)
+    assert clips[1].text == "And the second one."
 
 
 def test_notsofar_cleans_the_annotation_markup_but_keeps_the_words():

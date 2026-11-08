@@ -43,6 +43,7 @@ from pathlib import Path
 from audiolab.core.audio import Audio, load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download, huggingface_entries
+from audiolab.data.meeting import Chunk, merged
 from audiolab.data.train import (
     CLIP_CAP_PER_GROUP,
     TRAIN_CLIP_CAP,
@@ -71,6 +72,11 @@ LANGUAGE = "en"
 # made out, a background noise — or a tag around a word they marked, such as a
 # name. The tags are taken out of the text; the words inside them are not.
 MARKUP = re.compile(r"<[^>]*>")
+# The marks the annotators left where they could not write the words down: a
+# word nobody caught, and a stretch they had a problem with. The audio is there
+# but the reference is not, so a row holding one is left out rather than half
+# transcribed.
+UNWRITTEN = ("<UNKNOWN/>", "<ISSUE/>")
 WHITESPACE = re.compile(r"\s+")
 # The corpus pads a tag with spaces (``<PName> Peter </PName> .``), so taking the
 # tag out can leave a space between a word and the punctuation the annotators
@@ -83,32 +89,19 @@ WORKERS = 8
 
 
 @dataclass(frozen=True)
-class Utterance:
-    """One transcribed utterance: who said it, on which recording, what it says."""
-
-    meeting: str
-    speaker: str
-    recording: str
-    index: int
-    start: float
-    end: float
-    text: str
-
-    @property
-    def id(self) -> str:
-        """A stable name for the clip, unique inside the corpus."""
-        return f"{self.meeting}.{self.speaker}.{self.index:04d}"
-
-
-@dataclass(frozen=True)
 class Meeting:
-    """One recorded meeting: where it lives in the corpus, and what was said."""
+    """One recorded meeting: where it lives in the corpus, and what was said.
+
+    The utterances come in the corpus's own order, with ``None`` where a row is
+    markup and nothing else: the audio under such a row is speech the annotators
+    did not write down, and the clip builder must not build a clip across it.
+    """
 
     meeting: str
     # The meeting's own directory in the repository, which every file of the
     # meeting is found under.
     directory: str
-    utterances: list[Utterance]
+    utterances: list[Chunk | None]
 
 
 def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
@@ -132,16 +125,16 @@ def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
     # one piece — its recordings are downloaded at the same time — and only the
     # rows the plan kept are written, from the recording each of them is on.
     planned = plan_clips(
-        take, [utterance for meeting in meetings for utterance in meeting.utterances]
+        take, [chunk for meeting in meetings for chunk in merged(meeting.utterances)]
     )
     for meeting in meetings:
-        rows = [utterance for utterance in planned if utterance.meeting == meeting.meeting]
+        rows = [chunk for chunk in planned if chunk.meeting == meeting.meeting]
         if not rows:
             continue
         audio = release.recordings(meeting, rows)
-        by_recording: dict[str, list[Utterance]] = {}
-        for utterance in rows:
-            by_recording.setdefault(utterance.recording, []).append(utterance)
+        by_recording: dict[str, list[Chunk]] = {}
+        for chunk in rows:
+            by_recording.setdefault(chunk.recording, []).append(chunk)
         for recording, group in by_recording.items():
             write_clips(take, recording, audio[recording], group)
     if verbose:
@@ -228,7 +221,7 @@ class Release:
             }
         return self._files
 
-    def recordings(self, meeting: Meeting, utterances: list[Utterance]) -> dict[str, Audio]:
+    def recordings(self, meeting: Meeting, utterances: list[Chunk]) -> dict[str, Audio]:
         """Download and read the close-talking recordings one meeting's clips need.
 
         Only the recordings the planned clips are on are read, and they are read
@@ -266,22 +259,29 @@ class Release:
             meeting=meeting,
             directory=directory,
             utterances=[
-                self._utterance(meeting, transcript.name, index, row)
-                for index, row in enumerate(rows)
+                self._chunk(meeting, transcript.name, index, row) for index, row in enumerate(rows)
             ],
         )
 
-    def _utterance(self, meeting: str, source: str, index: int, row) -> Utterance:
-        """One row of a transcript, as an utterance."""
+    def _chunk(self, meeting: str, source: str, index: int, row) -> Chunk | None:
+        """One row of a transcript, as a chunk of speech, or ``None`` when it says nothing.
+
+        A row the annotators filled with markup alone is a stretch of speech
+        nobody wrote down, and so is a row holding a word they could not make out;
+        a clip built across either would carry audio its text does not describe.
+        """
         try:
-            return Utterance(
+            text = clean_text(row["text"])
+            if not text or any(mark in row["text"] for mark in UNWRITTEN):
+                return None
+            return Chunk(
                 meeting=meeting,
                 speaker=row["speaker_id"],
                 recording=row["ct_wav_file_name"],
                 index=index,
                 start=float(row["start_time"]),
                 end=float(row["end_time"]),
-                text=clean_text(row["text"]),
+                text=text,
             )
         except (KeyError, TypeError, ValueError) as error:
             raise DownloadError(

@@ -49,14 +49,15 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 
 from audiolab.core.audio import Audio, load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
+from audiolab.data.meeting import Chunk, merged
 from audiolab.data.train import (
     CLIP_CAP_PER_GROUP,
     TRAIN_CLIP_CAP,
@@ -89,6 +90,10 @@ SPLIT = "mrt"
 # annotator's remark, a silence. Emphasis, Pronounce, Foreign and Uncertain do
 # carry words and are kept.
 NON_SPEECH = frozenset({"VocalSound", "NonVocalSound", "Comment", "Pause"})
+# Where the annotators could not make the words out they wrote this mark
+# (the corpus's own guide, ``doc/trans_guide.txt``): the audio is there but the
+# reference is not, and a clip whose text is missing a word is not a reference.
+UNINTELLIGIBLE = "@@"
 WHITESPACE = re.compile(r"\s+")
 # A SPHERE header is plain text in the first kilobyte of the file.
 SPHERE_HEADER_BYTES = 1024
@@ -96,24 +101,6 @@ SAMPLE_COUNT = re.compile(r"^sample_count -i (\d+)$", re.MULTILINE)
 SAMPLE_CHECKSUM = re.compile(r"^sample_checksum -i (\d+)$", re.MULTILINE)
 # The sum the SPHERE format asks a checksum to be: its own modulo of 2^16.
 CHECKSUM_MODULUS = 1 << 16
-
-
-@dataclass(frozen=True)
-class Segment:
-    """One utterance of one speaker: when it is, what was said, and where it is."""
-
-    meeting: str
-    speaker: str
-    channel: str
-    index: int
-    start: float
-    end: float
-    text: str
-
-    @property
-    def id(self) -> str:
-        """A stable name for the clip, unique inside the corpus."""
-        return f"{self.meeting}.{self.speaker}.{self.index:04d}"
 
 
 def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
@@ -135,16 +122,16 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
         cap_per_group=CLIP_CAP_PER_GROUP,
     )
 
-    # The segments are read first and the audio is downloaded afterwards,
-    # because the cap and the per-speaker share decide which segments become
+    # The annotation is read first and the audio is downloaded afterwards,
+    # because the cap and the per-speaker share decide which stretches become
     # clips and that decision can be taken from the transcript alone. Planning
     # it first downloads the 105 channels a full preparation slices instead of
     # the 469 the corpus has.
-    segments = read_segments(transcripts)
+    segments = merged(read_chunks(transcripts))
     planned = plan_clips(take, segments)
-    by_channel: dict[tuple[str, str], list[Segment]] = {}
+    by_channel: dict[tuple[str, str], list[Chunk]] = {}
     for segment in planned:
-        by_channel.setdefault((segment.meeting, segment.channel), []).append(segment)
+        by_channel.setdefault((segment.meeting, segment.recording), []).append(segment)
     if verbose:
         print(f"  {len(by_channel)} channels of audio to decode for {len(planned)} clips")
     for (meeting, channel), rows in sorted(by_channel.items()):
@@ -155,12 +142,16 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
     return take.kept
 
 
-def read_segments(transcripts: Path) -> list[Segment]:
-    """Every transcribed segment of the corpus, in the corpus's own order.
+def read_chunks(transcripts: Path) -> list[Chunk | None]:
+    """The corpus's annotation, in the corpus's own order, with what it drops marked.
 
     The archive lists its meetings in the order the corpus's download page lists
     them, which is the order this reads: an MRT file per meeting, and inside it
     the segments in the order the annotators wrote them, which is time order.
+    A segment that is not speech this source can use — a laugh the annotators
+    marked, words of a participant the preamble gives no microphone to, speech
+    their own microphone did not carry — is ``None``, so that the clip builder
+    knows a clip may not be built across it.
     """
     with zipfile.ZipFile(transcripts) as archive:
         members = [
@@ -172,10 +163,10 @@ def read_segments(transcripts: Path) -> list[Segment]:
         ]
         if not members:
             raise DownloadError(f"{transcripts.name}: holds no {TRANSCRIPTS_DIRECTORY}/*.mrt")
-        segments = []
+        segments: list[Chunk | None] = []
         for member in members:
-            segments.extend(_meeting_segments(archive, member))
-    if not segments:
+            segments.extend(_meeting_chunks(archive, member))
+    if not any(segments):
         raise DownloadError(f"{transcripts.name}: holds no transcribed segment")
     return segments
 
@@ -244,22 +235,36 @@ def _decode(source: Path, destination: Path) -> None:
             f"ffmpeg cannot decode {source.name}: {result.stderr.decode(errors='replace').strip()}"
         )
     samples, _ = sf.read(str(staged), dtype="int16", always_2d=False)
+    try:
+        verify_samples(source, samples)
+    except DownloadError:
+        staged.unlink(missing_ok=True)
+        raise
+    staged.replace(destination)
+
+
+def verify_samples(source: Path, samples: np.ndarray) -> None:
+    """Refuse samples that are not what the recording's own header declares.
+
+    Every SPH file of the corpus carries the count of its samples and the sum of
+    them, and the sum tells apart a file whose samples were changed or decoded
+    from a file whose samples are the recording: a decoder that quietly dropped
+    or repeated samples would misalign every clip on that channel, and a file
+    that changed since the times were made is not the file the annotators read.
+    The check reads the header alone, so it is exercised without a decoder.
+    """
     expected_count = int(_sphere_field(source, SAMPLE_COUNT))
     if len(samples) != expected_count:
-        staged.unlink(missing_ok=True)
         raise DownloadError(
             f"{source.name} decoded to {len(samples)} samples but its own header says "
             f"{expected_count}: the file or the decoder is wrong"
         )
-    if int(samples.astype("int64").sum() % CHECKSUM_MODULUS) != int(
-        _sphere_field(source, SAMPLE_CHECKSUM)
-    ):
-        staged.unlink(missing_ok=True)
+    checksum = int(samples.astype("int64").sum() % CHECKSUM_MODULUS)
+    if checksum != int(_sphere_field(source, SAMPLE_CHECKSUM)):
         raise DownloadError(
             f"{source.name} decoded to samples that do not match its own checksum: "
             "the decode is not the recording the transcript times refer to"
         )
-    staged.replace(destination)
 
 
 def _sphere_field(path: Path, pattern: re.Pattern[str]) -> str:
@@ -272,7 +277,7 @@ def _sphere_field(path: Path, pattern: re.Pattern[str]) -> str:
     return found.group(1)
 
 
-def _meeting_segments(archive: zipfile.ZipFile, member: str) -> list[Segment]:
+def _meeting_chunks(archive: zipfile.ZipFile, member: str) -> list[Chunk | None]:
     """One meeting's segments, in the order the file lists them."""
     try:
         root = ET.fromstring(archive.read(member))
@@ -290,16 +295,34 @@ def _meeting_segments(archive: zipfile.ZipFile, member: str) -> list[Segment]:
         for participant in root.iter("Participant")
         if "Channel" in participant.attrib
     }
-    segments = []
+    segments: list[Chunk | None] = []
     for position, element in enumerate(root.iter("Segment")):
         speaker = element.attrib.get("Participant")
         # A segment without a participant is a stretch of room noise the
         # annotators marked, and one with CloseMic="false" is speech the
         # speaker's own close microphone did not carry; neither is a clip.
         if not speaker or element.attrib.get("CloseMic") == "false":
+            segments.append(None)
+            continue
+        # A digit task is the annotators reading out digits one by one; the
+        # corpus marks it because transcribing it is a task of its own, and what
+        # the speaker says is not the sentence the rest of the corpus holds.
+        if element.attrib.get("DigitTask") == "true":
+            segments.append(None)
+            continue
+        # A segment whose own Channel differs from the one the preamble gives
+        # its speaker is the same speech the corpus re-sliced from another
+        # microphone: taking it would prepare that speech twice.
+        own_channel = element.attrib.get("Channel")
+        if own_channel and speaker in channels and own_channel != channels[speaker]:
+            segments.append(None)
             continue
         text = segment_text(element)
         if not text:
+            segments.append(None)
+            continue
+        if UNINTELLIGIBLE in text:
+            segments.append(None)
             continue
         if speaker not in channels:
             raise DownloadError(
@@ -313,13 +336,13 @@ def _meeting_segments(archive: zipfile.ZipFile, member: str) -> list[Segment]:
                 f"{archive.filename}: {member} holds a segment without a time: {text!r}"
             ) from None
         segments.append(
-            Segment(
+            Chunk(
                 meeting=meeting,
                 speaker=speaker,
-                channel=channels[speaker],
+                recording=channels[speaker],
                 # The number of the segment in the file, so that the name of a
-                # clip says which segment of the corpus it is and does not move
-                # when a filter above the loop changes.
+                # clip says which segment of the corpus it starts at and does
+                # not move when a filter above the loop changes.
                 index=position,
                 start=start,
                 end=end,
@@ -339,12 +362,21 @@ def segment_text(element: ET.Element) -> str:
     their text, because that is what the speaker said. The words around the
     markup are joined with the whitespace the file left out.
     """
-    pieces = []
-    if (element.text or "").strip():
-        pieces.append(element.text)
+    pieces = [piece.strip() for piece in _pieces(element) if piece.strip()]
+    return WHITESPACE.sub(" ", " ".join(pieces)).strip()
+
+
+def _pieces(element: ET.Element) -> list[str]:
+    """The words of one element: its text, its children's, and the tails between them.
+
+    The markup nests — an emphasis holds a pronunciation, which holds the word —
+    so the walk goes all the way down. An element that carries no words is
+    dropped with everything inside it, since a laugh holds no words, but its tail
+    is the file's own punctuation after it and belongs to the segment.
+    """
+    pieces = [element.text or ""]
     for child in element:
-        if child.tag not in NON_SPEECH and (child.text or "").strip():
-            pieces.append(child.text)
-        if (child.tail or "").strip():
-            pieces.append(child.tail)
-    return WHITESPACE.sub(" ", " ".join(piece.strip() for piece in pieces)).strip()
+        if child.tag not in NON_SPEECH:
+            pieces.extend(_pieces(child))
+        pieces.append(child.tail or "")
+    return pieces
