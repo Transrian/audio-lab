@@ -95,9 +95,16 @@ class NemoBackend:
 
 
 def _answer_text(answer) -> str:
-    """The text of one answer, whether NeMo returned a string or a hypothesis."""
-    text = getattr(answer, "text", answer)
-    return str(text)
+    """The text of one answer: a string, or something whose ``.text`` is one.
+
+    Anything else means the model answered in a shape this server does not know.
+    Turning that into ``str(...)`` would cache whatever it printed - a token list,
+    a ``None`` - as a transcript, which is worse than failing the request.
+    """
+    text = answer if isinstance(answer, str) else getattr(answer, "text", None)
+    if not isinstance(text, str):
+        raise TypeError(f"the model answered with {type(answer).__name__}, which holds no text")
+    return text
 
 
 def transcriber(spec: ServeSpec, device: str = DEFAULT_DEVICE) -> Callable[[bytes, str], str]:

@@ -191,4 +191,9 @@ class TranscriptionServer:
 
     def _transcribe(self, audio: bytes, language: str) -> str:
         with self._lock:
-            return str(self.transcribe(audio, language))
+            answer = self.transcribe(audio, language)
+        if not isinstance(answer, str):
+            # The contract is a transcript, and a backend that breaks it is worth
+            # an error: the answer would otherwise be recorded as a result.
+            raise TypeError(f"the backend returned {type(answer).__name__}, not a transcript")
+        return answer

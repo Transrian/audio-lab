@@ -103,6 +103,39 @@ def test_reported_identity_reads_the_server_or_nothing(tmp_path):
     assert reported_identity("http://127.0.0.1:9", timeout_s=2) is None
 
 
+def test_an_answer_that_is_not_text_is_refused():
+    """A transcript is text. A backend answering in another shape is a bug.
+
+    ``str()`` of a token list or of ``None`` would be cached as a result, which is
+    worse than a failed request.
+    """
+    from audiolab.serve.nemo import _answer_text
+
+    class Hypothesis:
+        text = "bonjour tout le monde"
+
+    class NoText:
+        text = None
+
+    assert _answer_text("bonjour tout le monde") == "bonjour tout le monde"
+    assert _answer_text(Hypothesis()) == "bonjour tout le monde"
+    for answer in (None, ["bonjour"], 3, NoText()):
+        with pytest.raises(TypeError, match="holds no text"):
+            _answer_text(answer)
+
+
+def test_a_backend_that_does_not_return_text_answers_500():
+    """The HTTP layer keeps the same rule, whatever the backend is."""
+    with TranscriptionServer(lambda audio, language: {"tokens": [1, 2]}, "m") as server:
+        answer = httpx.post(
+            f"{server.base_url}/v1/audio/transcriptions",
+            files={"file": ("clip.wav", FAKE_WAV)},
+            data={"model": "m"},
+        )
+    assert answer.status_code == 500
+    assert "tokens" not in answer.text
+
+
 def test_the_server_root_and_the_version_root_answer_the_same():
     """A client may be pointed at either; the server accepts both."""
     with TranscriptionServer(fake_backend("bonjour"), "m") as server:
