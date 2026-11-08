@@ -99,8 +99,9 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], fleurs-en at +0.46
   [+0.12, +0.82], and still a real cost on code-switched speech
   (servicenow en-fr-ca +7.66, en-fr +12.25, cs-fleurs-fr-en +2.06) and on accented
-  English (+5.03, with 46 empty answers out of 600). The source would need its
-  text fixed before any mix.
+  English (+5.03, with 46 empty answers out of 600). Its text was fixed after
+  the screening (apostrophes and spacing), so these numbers describe the old
+  text.
 - **LibriSpeech EN** is unusable as it is prepared: its transcripts are all
   uppercase, the model learns to write in capitals (`HE HOPED THERE WOULD BE
   STEW FOR DINNER`), which this tokenizer spells poorly, and it gets worse even
