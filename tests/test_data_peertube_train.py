@@ -1,8 +1,8 @@
 """Labelling ``peertube-fr-train`` without a speech server.
 
-The two speech models are replaced by fakes, so these tests check how a talk is
-cut into segments, which segments are labelled, which labels are kept, and what
-a manifest line carries.
+The three speech models are replaced by fakes, so these tests check which clips
+are labelled, which labels are kept, what a manifest line carries, how talks are
+batched, and that the models are asked one after the other.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -19,109 +18,65 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 from test_data_peertube import INSTANCE, video  # noqa: E402
 
-from audiolab.core.audio import SAMPLE_RATE, Audio  # noqa: E402
+from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
 from audiolab.data import peertube, peertube_train  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
-from audiolab.data.peertube_train import ClipTexts, Segment, Talk  # noqa: E402
+from audiolab.data.download import DownloadError  # noqa: E402
+from audiolab.data.peertube_clips import Answers, Segment  # noqa: E402
+from audiolab.data.peertube_train import Talk  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
 from audiolab.data.train import Take  # noqa: E402
+from audiolab.eval.client import TranscriptionError  # noqa: E402
+
+WHISPER, QWEN, PARAKEET = (
+    peertube_train.SEGMENT_MODEL,
+    peertube_train.LABEL_MODEL,
+    peertube_train.BASE_MODEL,
+)
 
 
-def silence(seconds: float) -> Audio:
-    return Audio(
-        samples=np.zeros(round(seconds * SAMPLE_RATE), np.float32), sample_rate=SAMPLE_RATE
+def segment(text: str, start: float, end: float) -> Segment:
+    return Segment(start_s=start, end_s=end, text=text)
+
+
+def whisper_row(start: float, end: float, text: str) -> dict:
+    return {"start": start, "end": end, "text": f" {text}"}
+
+
+def make_take(tmp_path, cap: int = 12_000, cap_per_group: int = 200) -> Take:
+    return Take(
+        name="peertube-fr-train",
+        builder=ManifestBuilder(tmp_path / "dataset", verbose=False),
+        language="fr",
+        source_split="listing",
+        license="CC-BY",
+        text_has_casing_punct=True,
+        group_kind="recording",
+        cap=cap,
+        cap_per_group=cap_per_group,
     )
 
 
-def whisper_row(start: float, end: float, text: str, **fields) -> dict:
-    return {"start": start, "end": end, "text": f" {text}", **fields}
+def answering_by_length(texts: dict[float, str]):
+    """A fake clip model that answers by clip length, counting its calls.
+
+    A length it has no text for is a failed request.
+    """
+    calls = []
+
+    def transcribe(wav: bytes) -> dict:
+        seconds = round((len(wav) - 44) / 2 / SAMPLE_RATE, 2)
+        calls.append(seconds)
+        if seconds not in texts:
+            raise TranscriptionError("HTTP 500")
+        return {"text": texts[seconds]}
+
+    return transcribe, calls
 
 
-def test_a_talk_is_sent_in_chunks_that_restart_after_the_last_whole_segment():
-    sent = []
-
-    def whisper(wav: bytes) -> dict:
-        sent.append((len(wav) - 44) / 2 / SAMPLE_RATE)
-        if len(sent) == 1:
-            rows = [whisper_row(0.0, 120.0, "un"), whisper_row(120.0, 290.0, "deux")]
-            return {"segments": rows + [whisper_row(290.0, 300.0, "coupé au mi-")]}
-        return {"segments": [whisper_row(0.0, 5.0, "trois"), whisper_row(5.0, 100.0, "quatre")]}
-
-    segments = peertube_train.segment_audio(silence(390.0), whisper)
-
-    assert sent == [300.0, 100.0], "the second chunk starts at 290 s, where 'deux' ended"
-    assert [(s.start_s, s.end_s, s.text) for s in segments] == [
-        (0.0, 120.0, "un"),
-        (120.0, 290.0, "deux"),
-        (290.0, 295.0, "trois"),
-        (295.0, 390.0, "quatre"),
-    ]
-
-
-def test_a_chunk_without_a_whole_segment_moves_on_by_a_full_chunk():
-    answers = iter([{"segments": [whisper_row(0.0, 300.0, "musique")]}, {"segments": []}])
-    sent = []
-
-    def whisper(wav: bytes) -> dict:
-        sent.append(wav)
-        return next(answers)
-
-    assert peertube_train.segment_audio(silence(400.0), whisper) == []
-    assert len(sent) == 2
-
-
-def segment(text: str = "bonjour à tous", start: float = 0.0, end: float = 2.0, **fields):
-    return Segment(start_s=start, end_s=end, text=text, **fields)
-
-
-@pytest.mark.parametrize(
-    ("candidate", "reason"),
-    [
-        (segment(), ""),
-        (segment(""), "without words"),
-        (segment("Euh..."), "without words"),
-        (segment("merci " * 20), "in a repetition loop"),
-        (segment(no_speech_prob=0.9, avg_logprob=-1.5), "not speech"),
-        (segment(no_speech_prob=0.9, avg_logprob=-0.2), ""),
-    ],
-)
-def test_whisper_doubts_are_found_before_a_segment_is_labelled(candidate, reason):
-    assert peertube_train.doubt(candidate) == reason
-
-
-def spans(clips: list[Segment]) -> list[tuple[float, float, str]]:
-    return [(clip.start_s, clip.end_s, clip.text) for clip in clips]
-
-
-def test_phrases_are_joined_up_to_a_full_stop_once_the_clip_lasts_five_seconds():
-    phrases = [
-        segment("Alors, F-Droid,", 0.0, 1.5),
-        segment("c'est un magasin d'applications.", 1.5, 6.0),
-        segment("Oui.", 6.2, 6.5),
-        segment("Mais pas comme le Play Store ?", 6.5, 12.0),
-    ]
-    assert spans(peertube_train.candidates(phrases, Counter())) == [
-        (0.0, 6.0, "Alors, F-Droid, c'est un magasin d'applications."),
-        (6.2, 12.0, "Oui. Mais pas comme le Play Store ?"),
-    ]
-
-
-def test_a_long_pause_a_doubtful_segment_or_the_length_limit_end_a_sentence():
-    left_out = Counter()
-    phrases = [
-        segment("avant la pause", 0.0, 2.0),
-        segment("après la pause", 3.5, 5.0),
-        segment("merci " * 20, 5.0, 8.0),
-        segment("et on reprend", 8.0, 9.0),
-        segment("une phrase sans fin", 9.0, 28.0),
-    ]
-    assert spans(peertube_train.candidates(phrases, left_out)) == [
-        (0.0, 2.0, "avant la pause"),
-        (3.5, 5.0, "après la pause"),
-        (8.0, 9.0, "et on reprend"),
-        (9.0, 28.0, "une phrase sans fin"),
-    ]
-    assert left_out == Counter({"segments in a repetition loop": 1})
+def make_talk(tmp_path, segments: list[Segment], seconds: float, **video_fields) -> Talk:
+    path = write_tone(tmp_path / "talk.wav", seconds=seconds)
+    return Talk(video(**video_fields), path, segments)
 
 
 def test_agreement_ignores_casing_punctuation_and_how_numbers_are_written():
@@ -135,54 +90,25 @@ def test_agreement_ignores_casing_punctuation_and_how_numbers_are_written():
     assert peertube_train.disagreement("un deux trois quatre", "un deux") == 0.5
 
 
-def make_take(tmp_path, cap_per_group: int = 200) -> Take:
-    return Take(
-        name="peertube-fr-train",
-        builder=ManifestBuilder(tmp_path / "dataset", verbose=False),
-        language="fr",
-        source_split="listing",
-        license="CC-BY",
-        text_has_casing_punct=True,
-        group_kind="recording",
-        cap_per_group=cap_per_group,
-    )
-
-
-def answering_by_length(texts: dict[float, str]):
-    """A fake clip model that answers by clip length, counting its calls."""
-    calls = []
-
-    def transcribe(wav: bytes) -> dict:
-        seconds = round((len(wav) - 44) / 2 / SAMPLE_RATE, 2)
-        calls.append(seconds)
-        return {"text": texts[seconds]}
-
-    return transcribe, calls
-
-
-def make_talk(tmp_path, segments: list[Segment], seconds: float, **video_fields) -> Talk:
-    path = write_tone(tmp_path / "talk.wav", seconds=seconds)
-    return Talk(video(**video_fields), path, segments)
-
-
 def test_only_clips_the_two_models_agree_on_are_kept(tmp_path):
     talk = make_talk(
         tmp_path,
         [
             segment("Bonjour à tous.", 0.0, 6.0),
             segment("On parle de Kubernetes.", 6.0, 13.0),
-            segment("Oui.", 13.5, 13.8),
+            segment("Oui.", 13.5, 13.55),
             segment("Une phrase beaucoup trop longue.", 15.0, 35.0),
         ],
         seconds=40.0,
     )
-    qwen, calls = answering_by_length({6.0: "Bonjour à tous.", 7.0: "Il pleut sur Toulouse."})
+    # With their padding, the clips last 6.0 s, 7.2 s, 0.45 s and 20.2 s.
+    qwen, calls = answering_by_length({6.0: "Bonjour à tous.", 7.2: "Il pleut sur Toulouse."})
     tally = Counter()
 
-    agreed = peertube_train.agreeing(talk, ClipTexts(tmp_path / "q.jsonl"), qwen, 200, tally)
+    agreed = peertube_train.agreeing(talk, Answers(tmp_path / "q.jsonl"), qwen, 200, tally)
 
     assert [(clip.start_s, label) for clip, label in agreed] == [(0.0, "Bonjour à tous.")]
-    assert calls == [6.0, 7.0], "a clip outside 0.5-19 s is not labelled"
+    assert calls == [6.0, 7.2], "a clip outside 0.5-19 s is not labelled"
     assert tally == Counter(
         {
             "clips labelled": 2,
@@ -193,13 +119,29 @@ def test_only_clips_the_two_models_agree_on_are_kept(tmp_path):
     assert "(50.0%) rejected" in peertube_train.report(tally)
 
 
+def test_a_failed_label_request_is_counted_and_asked_again_next_time(tmp_path):
+    talk = make_talk(
+        tmp_path,
+        [segment("Bonjour à tous.", 0.0, 6.0), segment("On parle de Kubernetes.", 7.0, 14.0)],
+        seconds=20.0,
+    )
+    qwen, calls = answering_by_length({6.2: "Bonjour à tous."})
+    tally = Counter()
+
+    agreed = peertube_train.agreeing(talk, Answers(tmp_path / "q.jsonl"), qwen, 200, tally)
+    peertube_train.agreeing(talk, Answers(tmp_path / "q.jsonl"), qwen, 200, Counter())
+
+    assert len(agreed) == 1 and tally["clips Qwen failed on"] == 1
+    assert calls == [6.2, 7.4, 7.4], "the answer is cached, the failure is not"
+
+
 def test_a_talk_stops_being_labelled_at_its_share_of_the_cap(tmp_path):
     talk = make_talk(
-        tmp_path, [segment("Bonjour.", 6.0 * i, 6.0 * i + 5.0) for i in range(5)], seconds=30.0
+        tmp_path, [segment(f"Phrase {i}.", 6.0 * i, 6.0 * i + 5.0) for i in range(5)], seconds=30.0
     )
-    qwen, calls = answering_by_length({5.0: "Bonjour."})
+    qwen, calls = answering_by_length({5.2: "Phrase 0.", 5.4: "Phrase 1."})
 
-    agreed = peertube_train.agreeing(talk, ClipTexts(tmp_path / "q.jsonl"), qwen, 2, Counter())
+    agreed = peertube_train.agreeing(talk, Answers(tmp_path / "q.jsonl"), qwen, 2, Counter())
 
     assert len(agreed) == 2 and len(calls) == 2
 
@@ -209,16 +151,17 @@ def test_a_kept_clip_carries_its_attribution_and_the_base_models_error(tmp_path)
     talk.agreed = [
         (segment("Bonjour à tous.", 0.0, 6.0), "Bonjour à tous."),
         (segment("On parle de Kubernetes.", 6.0, 10.0), "On parle de Kubernetes."),
+        (segment("Merci.", 10.0, 13.0), "Merci."),
     ]
     parakeet, _ = answering_by_length({6.0: "bonjour à tous", 4.0: "On parle de cube air net."})
     take = make_take(tmp_path)
     tally = Counter()
 
-    kept = peertube_train.offer_talk(talk, ClipTexts(tmp_path / "p.jsonl"), parakeet, take, tally)
+    kept = peertube_train.offer_talk(talk, Answers(tmp_path / "p.jsonl"), parakeet, take, tally)
     take.builder.write()
 
-    assert kept == 2
-    first, second = read_manifest(tmp_path / "dataset")
+    assert kept == 3
+    first, second, third = read_manifest(tmp_path / "dataset")
     assert first.id == "peertube-fr-train:v1-0000000"
     assert first.text == "Bonjour à tous." and first.text_has_casing_punct
     assert first.group == "peertube-fr-train:v1" and first.group_kind == "recording"
@@ -227,35 +170,43 @@ def test_a_kept_clip_carries_its_attribution_and_the_base_models_error(tmp_path)
     assert first.source_title == "Talk v1" and first.source_author == "Capitole du Libre"
     assert first.base_wer == 0.0, "casing and punctuation are not errors"
     assert second.base_wer == 0.75, "the base model is scored, never asked to agree"
-    assert "gets 1 of the 2 kept clips wrong (50.0%)" in peertube_train.report(tally)
+    assert third.base_wer is None, "a failed request leaves the error unknown, not the clip out"
+    assert "gets 1 of the 3 kept clips wrong (33.3%)" in peertube_train.report(tally)
+    assert tally["kept clips Parakeet failed on (no base_wer)"] == 1
 
 
-def test_clip_texts_are_cached_by_the_stretch_of_audio_they_were_heard_in(tmp_path):
-    path = tmp_path / "texts.jsonl"
-    audio = silence(5.0)
-    qwen, calls = answering_by_length({2.0: "Bonjour.", 3.0: "Bonjour."})
-    ClipTexts(path).text(segment(start=0.0, end=2.0), audio, qwen)
-    ClipTexts(path).text(segment(start=0.0, end=2.0), audio, qwen)
-    assert calls == [2.0], "a resumed preparation reads the text it already has"
+def test_a_talk_that_cannot_be_downloaded_or_heard_is_counted_and_skipped(tmp_path, monkeypatch):
+    def refuse(http, video, destination):
+        raise DownloadError("HTTP 404")
 
-    ClipTexts(path).text(segment(start=0.0, end=3.0), audio, qwen)
-    assert calls == [2.0, 3.0], "a clip cut differently is transcribed again"
+    monkeypatch.setattr(peertube, "fetch_audio", refuse)
+    assert peertube_train._audio_file(None, tmp_path, video()) is None
+
+    def failing(wav: bytes) -> dict:
+        raise TranscriptionError("HTTP 500")
+
+    tally = Counter()
+    missing = peertube_train.heard_talk(video("a"), None, tmp_path, failing, tally)
+    deaf = peertube_train.heard_talk(
+        video("b"), write_tone(tmp_path / "b.wav", seconds=2.0), tmp_path, failing, tally
+    )
+
+    assert missing.segments == deaf.segments == []
+    assert tally == Counter({"talks that could not be downloaded": 1, "talks Whisper failed on": 1})
+    assert (
+        peertube_train.agreeing(missing, Answers(tmp_path / "q.jsonl"), failing, 200, tally) == []
+    )
 
 
-def test_segments_are_cached_under_the_model_and_the_chunk_length(tmp_path):
-    asked = []
+def test_the_first_batch_counts_on_the_expected_yield_and_later_ones_on_the_seen_one(tmp_path):
+    take = make_take(tmp_path)
+    assert peertube_train.batch_size(take, talks_read=0) == 86, "12 000 clips at 140 a talk"
 
-    def whisper(wav: bytes) -> dict:
-        asked.append(wav)
-        return {"segments": [whisper_row(0.0, 2.0, "bonjour")]}
+    take.kept = 11_000
+    assert peertube_train.batch_size(take, talks_read=88) == 11, "1 000 at 125 a talk, x 1.3"
 
-    audio_path = write_tone(tmp_path / "talk.wav", seconds=3.0)
-    path = tmp_path / peertube_train.segments_file(video())
-    first = peertube_train.cached_segments(audio_path, whisper, path)
-    again = peertube_train.cached_segments(audio_path, whisper, path)
-
-    assert first == again == [segment("bonjour", 0.0, 2.0)] and len(asked) == 1
-    assert "stt-c-whisper-large-v3" in path.name and "300s" in path.name
+    take.kept = 0
+    assert peertube_train.batch_size(take, talks_read=5) == 15_600, "no yield counts as one"
 
 
 class FakeClient:
@@ -276,67 +227,66 @@ class FakeClient:
         return type("Transcription", (), {"answer": self.answer(wav)})()
 
 
-def test_fetch_sends_each_model_all_its_requests_before_the_next_one(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(peertube, "read_listing", lambda: ("2026-11-08", [video("a"), video("b")]))
-    monkeypatch.setattr(
-        peertube,
-        "fetch_audio",
-        lambda http, video, destination: write_tone(destination, seconds=12.0),
-    )
-    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
-    answers = {
-        peertube_train.SEGMENT_MODEL: lambda wav: {"segments": rows},
-        peertube_train.LABEL_MODEL: lambda wav: {"text": "Bonjour."},
-        peertube_train.BASE_MODEL: lambda wav: {"text": "Bonjour."},
-    }
-    log: list[str] = []
+def serve_fakes(monkeypatch, videos, answers: dict, log: list[str]) -> None:
+    def fetch_audio(http, video, destination):
+        log.append(f"download {video.uuid}")
+        return write_tone(destination, seconds=12.0)
+
+    monkeypatch.setattr(peertube, "read_listing", lambda: ("2026-11-08", videos))
+    monkeypatch.setattr(peertube, "fetch_audio", fetch_audio)
     monkeypatch.setattr(
         peertube_train,
         "_client",
         lambda model, request=None: FakeClient(model, answers[model], log),
     )
 
+
+def test_each_batch_runs_the_three_passes_one_model_after_the_other(tmp_path, monkeypatch, capsys):
+    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    serve_fakes(monkeypatch, [video(uuid) for uuid in "abcd"], answers, log)
+    # Each talk gives one clip; the first batch counts on two.
+    monkeypatch.setattr(peertube_train, "TRAIN_CLIP_CAP", 3)
+    monkeypatch.setattr(peertube_train, "EXPECTED_CLIPS_PER_TALK", 2)
+
     count = peertube_train.fetch_peertube_fr_train(
         "peertube-fr-train", tmp_path / "cache", tmp_path / "dataset", verbose=True
     )
 
-    assert count == 2, "one clip of each talk agrees"
-    assert "2 talks (" in capsys.readouterr().out
-    assert (
-        log
-        == ["stt-c-whisper-large-v3"] * 2
-        + ["stt-a-qwen3-asr-1.7B"] * 4
-        + ["stt-c-parakeet-tdt-0.6B-v3"] * 2
-    ), "the models never alternate"
+    assert count == 3
+    requests = [entry for entry in log if not entry.startswith("download")]
+    first_batch = [WHISPER] * 2 + [QWEN] * 4 + [PARAKEET] * 2
+    # The second batch reads two talks, at the one clip a talk seen so far, x 1.3;
+    # the last clip fills the cap, and the fourth talk is not labelled.
+    second_batch = [WHISPER] * 2 + [QWEN] + [PARAKEET]
+    assert requests == first_batch + second_batch, (
+        "each pass sends every request of its batch before the next pass starts"
+    )
     clips = read_manifest(tmp_path / "dataset")
-    assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 2
+    assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 3
     cache = tmp_path / "cache" / "peertube-fr-train"
-    assert (cache / "a.stt-a-qwen3-asr-1.7B.jsonl").is_file()
-    assert (cache / "b.stt-c-parakeet-tdt-0.6B-v3.jsonl").is_file()
+    for model, talks in ((f"{WHISPER}.300s", 4), (f"{QWEN}.clips", 3), (f"{PARAKEET}.clips", 3)):
+        assert len(list(cache.glob(f"*.{model}.jsonl"))) == talks, "one cache file per talk"
+    assert "2 talks (" in capsys.readouterr().out
 
 
 def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
+    answers = {
+        model: lambda wav: {"segments": [], "text": ""} for model in (WHISPER, QWEN, PARAKEET)
+    }
     log: list[str] = []
-
-    def fetch_audio(http, video, destination):
-        log.append(f"download {video.uuid}")
-        return write_tone(destination, seconds=2.0)
-
-    monkeypatch.setattr(peertube, "read_listing", lambda: ("2026-11-08", [video(u) for u in "abc"]))
-    monkeypatch.setattr(peertube, "fetch_audio", fetch_audio)
-    monkeypatch.setattr(
-        peertube_train,
-        "_client",
-        lambda model, request=None: FakeClient(
-            model, lambda wav: {"segments": [], "text": ""}, log
-        ),
-    )
+    serve_fakes(monkeypatch, [video(uuid) for uuid in "abc"], answers, log)
 
     peertube_train.fetch_peertube_fr_train(
         "peertube-fr-train", tmp_path / "cache", tmp_path / "dataset", verbose=False
     )
 
     downloads = [position for position, entry in enumerate(log) if entry.startswith("download")]
-    assert log.index(peertube_train.SEGMENT_MODEL) < downloads[2], (
+    assert log.index(WHISPER) < downloads[2], (
         "only the next talk downloads before Whisper starts, not the whole batch"
     )
