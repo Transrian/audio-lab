@@ -10,8 +10,9 @@ trains for the number of updates the config asks for while rewriting one resume
 slot, and writes the fine-tuned checkpoint into the run directory. Only the
 training settings (see `settings.py`) are ours; the model keeps its preprocessor,
 its augmentation and its loss as the checkpoint carries them. Every weight is
-trained and no adapter is added, so the result is one ordinary checkpoint, served
-and evaluated like any other.
+trained (batch normalization keeps the base model's statistics, see
+`FrozenBatchNormStatistics`) and no adapter is added, so the result is one
+ordinary checkpoint, served and evaluated like any other.
 """
 
 from __future__ import annotations
@@ -79,6 +80,27 @@ class LossLog(Callback):
         self.print_line(f"update {update}: loss {value:.4f}")
 
 
+class FrozenBatchNormStatistics(Callback):
+    """Keep the batch normalization statistics of the base model during training.
+
+    The encoder's convolution blocks normalize with statistics that the model
+    learned on large batches, and that inference uses as they are. In training
+    mode each batch would replace them, a little at every step, with its own:
+    with a few clips per batch, padded to the longest, the padding frames pull
+    them away from what real audio looks like. A run measured on 2026-11-08 lost
+    its English that way while its training loss kept falling. Holding the
+    layers in evaluation mode keeps the statistics; their scale and shift still
+    train like every other weight.
+    """
+
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:
+        # Lightning puts the whole model back in training mode at the start of
+        # an epoch, so this is redone at every batch rather than once.
+        for module in pl_module.modules():
+            if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+                module.eval()
+
+
 def fine_tune(
     config: TrainConfig,
     base: Checkpoint,
@@ -138,7 +160,11 @@ def fine_tune(
         log_every_n_steps=config.log_every,
         logger=False,
         enable_progress_bar=False,
-        callbacks=[resume, LossLog(log_path, config.log_every, print_line)],
+        callbacks=[
+            resume,
+            FrozenBatchNormStatistics(),
+            LossLog(log_path, config.log_every, print_line),
+        ],
     )
     # Build the optimizer once now, so a wrong learning rate costs a second
     # instead of an hour of GPU time. Lightning builds it again at fit time, from
