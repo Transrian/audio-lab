@@ -1,9 +1,17 @@
-# The panels a report is judged on. Slower, and the only place a small
-# difference can become visible.
+# The panels a report is judged on: the same cases as fast.yaml, over every clip
+# their groups allow. Slower, and the only place a small difference can become
+# visible.
 name: full
 panels:
+  # read speech in the two languages of phase 1
   - fleurs-fr-full
   - mls-fr-full
   - fleurs-en-full
   - librispeech-en-full
+  # the target use: English with a French accent, French and English in one sentence
+  - voxpopuli-en-french-accent-full
+  - servicenow-codeswitched-en-fr-full
+  - servicenow-codeswitched-en-fr-ca-full
+  - cs-fleurs-fr-en-full
+  # what must stay silent
   - nonspeech-full

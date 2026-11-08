@@ -1,9 +1,18 @@
-# A short pass: about 100 utterances per language plus the 60-clip battery.
+# A short pass: one panel per case the project cares about, 856 clips in all
+# (D-009: French, English with a French accent, French and English in one
+# sentence, and clips that must stay silent).
 # Use it while iterating; use full.yaml before believing a difference.
 name: fast
 panels:
+  # read speech in the two languages of phase 1
   - fleurs-fr-fast
   - mls-fr-fast
   - fleurs-en-fast
   - librispeech-en-fast
+  # the target use: English with a French accent, French and English in one sentence
+  - voxpopuli-en-french-accent-fast
+  - servicenow-codeswitched-en-fr-fast
+  - servicenow-codeswitched-en-fr-ca-fast
+  - cs-fleurs-fr-en-fast
+  # what must stay silent
   - nonspeech-fast
