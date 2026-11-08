@@ -232,12 +232,15 @@ def test_a_cleared_run_directory_is_always_the_configs_own(tmp_path):
     assert (elsewhere / "keep-me").is_file()
 
 
-def test_a_run_writes_the_model_config_that_evaluates_it(tmp_path):
-    directory = prepare_run_dir(run_dir("example", tmp_path))
+def test_a_run_writes_the_model_config_that_evaluates_it(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # a runs root given as a relative path
+    directory = prepare_run_dir(run_dir("example", Path("runs")))
     path = write_model_config(directory, name="example", gpu="GPU-abc")
     text = path.read_text(encoding="utf-8")
     raw = yaml.safe_load(text)
-    assert raw["serve"]["checkpoint"] == str(directory / MODEL_NAME)
+    # Absolute, so the config works from anywhere, whatever runs root was given.
+    expected = tmp_path / "runs" / "train" / "example" / MODEL_NAME
+    assert raw["serve"]["checkpoint"] == str(expected)
     assert raw["serve"]["gpu"] == "GPU-abc"
     assert raw["name"] == "example" and raw["model"] == "example"
     # No endpoint and no address: this config serves a local checkpoint (D-016).

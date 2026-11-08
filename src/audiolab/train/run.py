@@ -138,9 +138,13 @@ def write_model_config(directory: Path, *, name: str, gpu: str) -> Path:
 
     Somebody reading a finished run should not have to write a config to hear
     the model, so the run writes one for them.
+
+    The paths in it are absolute: a config that only works from the directory the
+    run was started in would fail the first time somebody reads the run from
+    somewhere else.
     """
-    checkpoint = directory / MODEL_NAME
-    path = directory / MODEL_CONFIG
+    checkpoint = (directory / MODEL_NAME).resolve()
+    path = (directory / MODEL_CONFIG).resolve()
     path.write_text(
         f"""# Written by 'audiolab train' for the checkpoint of this run:
 #   audiolab eval --model {path} --suite configs/suites/fast.yaml
