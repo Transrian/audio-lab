@@ -76,6 +76,10 @@ its panels; nothing about them is repeated here.
 | [`librispeech-en`](datasets.md#librispeech-en--read-audiobook-english) | en | CC-BY-4.0 | The standard English read-speech panel. |
 | [ESC-50](datasets.md#nonspeech--the-hallucination-battery) | none | CC-BY-NC-3.0 | Everyday sounds inside `nonspeech`. Non-commercial: **testing only** per [decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md). |
 | [Generated silence and noise](datasets.md#nonspeech--the-hallucination-battery) | none | none: generated here from a fixed seed | There is no license to honour and no redistribution question. |
+| [`voxpopuli-en-french-accent`](datasets.md#voxpopuli-en-french-accent--english-with-a-french-accent) | en | CC0-1.0, data only (2026-11-05) | The `en_accented` config of VoxPopuli filtered to its `en_fr` accent: English read in the European Parliament by French speakers, with human transcripts and never trained on. Added 2026-11-08 for the accented English of [D-009](../owner/directives.md); a test split by construction. |
+| [`servicenow-codeswitched-en-fr`](datasets.md#servicenow-codeswitched-en-fr-and-servicenow-codeswitched-en-fr-ca--synthetic-code-switching-in-it-support) | fr, en | **no licence on the card** (2026-11-05) | French framing English words inside one sentence, over the IT, support and HR terms of the target use. **The audio is synthetic**, so it stays private: never trained on, never redistributed. Owner-approved for evaluation on 2026-11-08 (proposed decision 0011). |
+| [`servicenow-codeswitched-en-fr-ca`](datasets.md#servicenow-codeswitched-en-fr-and-servicenow-codeswitched-en-fr-ca--synthetic-code-switching-in-it-support) | fr, en | **no licence on the card** (2026-11-05) | The same corpus spoken in Québec French, prepared as its own dataset so its numbers read apart. Same conditions as the row above. |
+| [`cs-fleurs-fr-en`](datasets.md#cs-fleurs-fr-en--code-switched-fleurs-sentences) | fr, en | **CC-BY-NC-4.0** (2026-11-05) | FLEURS sentences with part of their words replaced by the other language, read by a person and rendered by synthetic voices. Non-commercial: **testing only** per [decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md). Added 2026-11-08 for the switches inside a sentence of [D-009](../owner/directives.md). |
 
 ## Candidates — researched, not acquired here
 
@@ -94,7 +98,7 @@ the note says what that project did and found. None is `used` in this repository
 | Source | Language | License | Reason / note |
 | --- | --- | --- | --- |
 | [Granary / YODAS FR](https://huggingface.co/datasets/espnet/yodas-granary) | fr | audio CC-BY-3.0, labels CC-BY-4.0 (2026-11-01) | Pseudo-labelled YouTube speech, the widest variety found. Earlier private project (2026-10-28): built a filtered 100 h subset and trained on it; its audit removed duplicate audio, repetition loops and hallucination patterns. Not reproduced here. |
-| [VoxPopuli FR](https://github.com/facebookresearch/voxpopuli) | fr | data CC0, code and models CC-BY-NC (not used) (2026-11-01) | European Parliament speech with human-edited transcripts. Earlier private project (2026-11-01): trained on the train split. Not reproduced here. Its English `en_accented` set is a separate evaluation candidate below. |
+| [VoxPopuli FR](https://github.com/facebookresearch/voxpopuli) | fr | data CC0, code and models CC-BY-NC (not used) (2026-11-01) | European Parliament speech with human-edited transcripts. Earlier private project (2026-11-01): trained on the train split. Not reproduced here. Its English `en_accented` set is used for evaluation (see [Evaluation only](#evaluation-only--used-here-to-evaluate)). |
 | [Common Voice Spontaneous Speech 5.0 FR](https://mozilladatacollective.com/datasets/cmu5z135s00ginq072mliz1as) | fr | CC0 + Mozilla Data Collective terms | Spontaneous speech. Earlier private project (2026-11-01): it could use very few clips, because almost every speaker overlapped the protected evaluation pool. Not reproduced here. The MDC terms forbid re-identification and redistribution; treat as publishable-with-conditions. |
 | Common Voice Spontaneous Speech 5.0 EN | en | CC0 + Mozilla Data Collective terms | English guard in a French mix. Earlier private project (2026-11-01): trained on a small capped share of it for that purpose. Not reproduced here. |
 | [MUSAN](https://www.openslr.org/17/) `noise/` | none | CC-BY-4.0 (2026-11-01) | Noise augmentation. Earlier private project: kept half of the noise files for training and reserved the other half, so a later acquisition must not reuse the reserved half. Not reproduced here. |
@@ -149,10 +153,11 @@ a campaign ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sea
 
 | Source | Language | License | Reason / note |
 | --- | --- | --- | --- |
-| [ServiceNow asr_codeswitched](https://huggingface.co/datasets/ServiceNow-AI/asr_codeswitched), configs `en_fr` and `en_fr_ca` | fr, en | **no licence on the card** (2026-11-05) | FR↔EN switching with IT, support and HR terms, labelled per word: exactly the target use. The audio is synthetic, so keep it for private evaluation and never redistribute it. |
-| VoxPopuli `en_accented`, accent `en_fr` ([repository](https://github.com/facebookresearch/voxpopuli)) | en | CC0 (2026-11-05) | The only CC0 set of English spoken by French speakers found, with human transcripts. A test set by construction. |
-| [CS-FLEURS](https://huggingface.co/datasets/byan/cs-fleurs), FR-EN pairs | fr, en | **CC-BY-NC-4.0** (2026-11-05) | Read code-switching, real voices and synthetic. Non-commercial: **testing only** per [decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md). |
 | [MediaSpeech](https://www.openslr.org/108) FR (SLR108) | fr | CC-BY-4.0; the video copyright stays with its owners (2026-11-05) | Radio and television extracts transcribed by hand: a media register, better suited to evaluation than to training. |
+
+The ServiceNow, VoxPopuli `en_accented` and CS-FLEURS rows that stood here were
+acquired on 2026-11-08 and moved to
+[Evaluation only](#evaluation-only--used-here-to-evaluate).
 
 ### Synthetic audio and text to speech
 
@@ -215,7 +220,7 @@ published, so such a source could come back as an evaluation candidate.
 | [UniDataPro french-speech-recognition](https://huggingface.co/datasets/UniDataPro/french-speech-recognition-dataset) | fr | CC-BY-NC-ND-4.0, excerpt only, full corpus paid | Non-commercial and no derivatives, although it was the only telephone corpus found. |
 | Speech-data / French-Speech-Dataset | fr | CC-BY-NC-ND-4.0 | Non-commercial, no derivatives, and doubtful provenance. |
 | [SwitchLingua](https://huggingface.co/datasets/Shelton1013/SwitchLingua_audio) | multi, FR-EN among them | CC-BY-NC-4.0 + signed agreement | Non-commercial code-switching; to reconsider only for a strictly unpublished use. |
-| CS-FLEURS training set | fr, en | CC-BY-NC-4.0 | Non-commercial, so no training; its test part stays an evaluation candidate above. |
+| CS-FLEURS training set | fr, en | CC-BY-NC-4.0 | Non-commercial, so no training; its test part is used for evaluation only ([Evaluation only](#evaluation-only--used-here-to-evaluate)). |
 | AMI, TED-LIUM 3, linux.conf.au | en | NC-SA, NC-ND, NC-SA | Non-commercial. |
 | PyCon US | en | speaker agreement: "non-commercial, private" use | Non-commercial; contrary to a widespread belief, it is not CC-BY. |
 | [GigaSpeech](https://huggingface.co/datasets/speechcolab/gigaspeech) | en | metadata Apache-2.0, but the access conditions say the organisers do not own the audio, and allow non-commercial research only, behind a named form (2026-11-05) | Non-commercial, English only, and personal use is not research; Granary EN and FOSDEM cover the same content lawfully. |

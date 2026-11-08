@@ -340,13 +340,22 @@ and in the comparison. Groups are counted per dataset and per panel in
 [datasets.md](datasets.md#panels-and-their-groups); `mls-fr` is the one that
 matters here, 4 groups on its sealed panel and 14 on the others, so a French
 interval is an indication of spread between speakers rather than a precise
-bound.
+bound. The two `servicenow-codeswitched-*` datasets go further and carry the
+caution on every panel: their two voices leave one voice for the sealed panel
+and one for the others, so those intervals describe a voice.
 
 ## 7. What this does not measure
 
 - noise and reverberation;
 - long-form audio (more than one utterance per request);
-- term recall, named entities and accents;
+- other accents than English read with a French accent: the accent of
+  `voxpopuli-en-french-accent` is measured, no other one is;
+- which word a code switch or an accent cost, and term recall and named
+  entities: the switches and the vocabulary are scored inside the sentence, not
+  as a list of words that had to be right;
+- dictation itself: the code-switched panels are text written first and read or
+  spoken afterwards, so a person thinking out loud and switching language
+  mid-sentence is still not measured;
 - a semantic score from a language model;
 - local models on our own GPUs (phase 1b);
 - music: the non-speech battery covers silence, noise and everyday ESC-50
