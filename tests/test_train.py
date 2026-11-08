@@ -459,6 +459,20 @@ def fake_model(rates: dict | None = None, weightless: tuple = ()) -> FakeModel:
     return FakeModel(groups, **parts)
 
 
+def test_the_rate_check_reads_the_rate_the_schedule_started_from():
+    """NeMo steps its warmup policy once while building it, so ``lr`` has moved.
+
+    Comparing ``lr`` would refuse a run whose rates were exactly right.
+    """
+    from audiolab.train.settings import check_rates
+
+    model = fake_model(weightless=("preprocessor",))
+    for group in model._optimizer.param_groups:
+        group["initial_lr"] = group["lr"]
+        group["lr"] = group["lr"] / 10  # what one warmup step leaves behind
+    check_rates(model, config())
+
+
 def test_the_rate_check_accepts_a_model_grouped_the_way_the_run_asks():
     from audiolab.train.settings import check_rates
 

@@ -85,6 +85,16 @@ def dataset_config(config: TrainConfig, manifest_path: Path) -> dict:
     }
 
 
+def _rate(group: dict) -> float:
+    """The rate a group was created with.
+
+    NeMo's warmup policy steps the scheduler once while it is built, so by the
+    time a run can look, ``lr`` is no longer the rate the config asked for.
+    ``initial_lr`` is what the schedule started from, and what a run means.
+    """
+    return group.get("initial_lr", group["lr"])
+
+
 def check_rates(model, config: TrainConfig) -> None:
     """Check on the loaded model that the two rates really went where asked.
 
@@ -109,8 +119,9 @@ def check_rates(model, config: TrainConfig) -> None:
         holders = [group for group in groups if owned & {id(p) for p in group["params"]}]
         if len(holders) != 1:
             raise ValueError(f"the parameters of {part!r} are spread over {len(holders)} groups")
-        if holders[0]["lr"] != rate:
-            raise ValueError(f"the parameters of {part!r} train at {holders[0]['lr']}, not {rate}")
-    rates = {group["lr"] for group in groups}
+        held = _rate(holders[0])
+        if held != rate:
+            raise ValueError(f"the parameters of {part!r} train at {held}, not {rate}")
+    rates = {_rate(group) for group in groups}
     if rates - {config.lr_encoder, config.lr_heads}:
         raise ValueError(f"the optimizer holds learning rates the config did not ask for: {rates}")
