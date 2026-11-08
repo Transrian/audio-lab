@@ -64,6 +64,23 @@ def test_pcm_sha256_changes_with_the_audio(tmp_path):
     assert pcm_sha256(loud) != pcm_sha256(quiet)
 
 
+def test_cut_takes_the_frames_between_two_times():
+    audio = Audio(samples=_tone(1.0, 1000), sample_rate=1000)
+    clip = audio.cut(0.25, 0.5)
+    assert clip.sample_rate == 1000
+    assert len(clip.samples) == 250
+    assert np.array_equal(clip.samples, audio.samples[250:500])
+
+
+def test_cut_clamps_a_time_that_runs_past_the_audio():
+    audio = Audio(samples=_tone(1.0, 1000), sample_rate=1000)
+    assert len(audio.cut(-0.5, 0.1).samples) == 100
+    assert len(audio.cut(0.9, 3.0).samples) == 100
+    # A time past the end of the audio gives no frames rather than an error: the
+    # length filter of a preparation drops such a clip.
+    assert len(audio.cut(1.5, 2.0).samples) == 0
+
+
 def test_to_int16_clips_out_of_range_samples():
     assert to_int16(np.array([2.0, -2.0], dtype=np.float32)).tolist() == [32767, -32767]
 

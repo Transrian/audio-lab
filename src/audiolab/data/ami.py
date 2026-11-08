@@ -40,7 +40,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from audiolab.core.audio import SAMPLE_RATE, Audio, load_audio
+from audiolab.core.audio import load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
 from audiolab.data.train import (
@@ -212,7 +212,7 @@ def fetch_ami_fr_speakers_en_train(
                     break
                 take.offer(
                     utterance.id,
-                    _slice(audio, utterance.start, utterance.end),
+                    audio.cut(utterance.start, utterance.end),
                     text=utterance.text,
                     group=utterance.speaker,
                 )
@@ -352,13 +352,6 @@ def _headset_file(name: str, cache_dir: Path, channel: Channel) -> Path:
         cache_dir / name / "audio" / recording,
         sha256=pinned,
     )
-
-
-def _slice(audio: Audio, start: float, end: float) -> Audio:
-    """The samples of one utterance, taken from the meeting's headset recording."""
-    first = max(int(round(start * SAMPLE_RATE)), 0)
-    last = min(int(round(end * SAMPLE_RATE)), len(audio.samples))
-    return Audio(samples=audio.samples[first:last], sample_rate=SAMPLE_RATE)
 
 
 def _spelled_out(text: str) -> str:

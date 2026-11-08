@@ -30,6 +30,18 @@ class Audio:
     def duration_s(self) -> float:
         return len(self.samples) / self.sample_rate
 
+    def cut(self, start_s: float, end_s: float) -> Audio:
+        """The part of this audio between two times, in frames.
+
+        A cut that runs past either end is clamped to the audio, so an
+        annotation written in seconds always gives a clip of the file it came
+        from. A start at or after the end gives an empty clip, which the length
+        filter of a preparation then drops.
+        """
+        first = max(round(start_s * self.sample_rate), 0)
+        last = min(round(end_s * self.sample_rate), len(self.samples))
+        return Audio(samples=self.samples[first:last], sample_rate=self.sample_rate)
+
 
 def load_audio(source, sample_rate: int = SAMPLE_RATE) -> Audio:
     """Read any soundfile-supported file as mono float32 at ``sample_rate``.
