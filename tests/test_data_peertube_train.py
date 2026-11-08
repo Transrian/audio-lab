@@ -313,3 +313,30 @@ def test_fetch_sends_each_model_all_its_requests_before_the_next_one(tmp_path, m
     cache = tmp_path / "cache" / "peertube-fr-train"
     assert (cache / "a.stt-a-qwen3-asr-1.7B.jsonl").is_file()
     assert (cache / "b.stt-c-parakeet-tdt-0.6B-v3.jsonl").is_file()
+
+
+def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
+    log: list[str] = []
+
+    def fetch_audio(http, video, destination):
+        log.append(f"download {video.uuid}")
+        return write_tone(destination, seconds=2.0)
+
+    monkeypatch.setattr(peertube, "read_listing", lambda: ("2026-11-08", [video(u) for u in "abc"]))
+    monkeypatch.setattr(peertube, "fetch_audio", fetch_audio)
+    monkeypatch.setattr(
+        peertube_train,
+        "_client",
+        lambda model, request=None: FakeClient(
+            model, lambda wav: {"segments": [], "text": ""}, log
+        ),
+    )
+
+    peertube_train.fetch_peertube_fr_train(
+        "peertube-fr-train", tmp_path / "cache", tmp_path / "dataset", verbose=False
+    )
+
+    downloads = [position for position, entry in enumerate(log) if entry.startswith("download")]
+    assert log.index(peertube_train.SEGMENT_MODEL) < downloads[2], (
+        "only the next talk downloads before Whisper starts, not the whole batch"
+    )

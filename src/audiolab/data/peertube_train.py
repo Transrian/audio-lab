@@ -160,12 +160,12 @@ def fetch_peertube_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
         while not take.full():
             # As many talks as could still fill the cap, if each gave its full share.
             needed = math.ceil((take.cap - take.kept) / take.cap_per_group)
-            batch = list(islice(audio_files, needed))
-            if not batch:
-                break
+            batch = islice(audio_files, needed)
             timing = prepare_batch(
                 batch, cache, _answer(whisper), _answer(qwen), _answer(parakeet), take, tally
             )
+            if not timing:
+                break
             if verbose:
                 print(f"  {timing}; {take.kept} clips so far")
     if verbose:
@@ -176,7 +176,7 @@ def fetch_peertube_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
 
 
 def prepare_batch(
-    batch: list[tuple[Video, Path]],
+    batch: Iterator[tuple[Video, Path]],
     cache: Path,
     whisper: Transcribe,
     qwen: Transcribe,
@@ -186,13 +186,17 @@ def prepare_batch(
 ) -> str:
     """Run the three passes over a batch of talks, one model after the other.
 
-    Returns a line saying how long each pass took.
+    The batch is read as the Whisper pass goes, so the next talk downloads while
+    this one is transcribed. Returns a line saying how long each pass took, or
+    an empty string when the batch held no talk.
     """
     started = time.monotonic()
     talks = [
         Talk(video, path, cached_segments(path, whisper, cache / segments_file(video)))
         for video, path in batch
     ]
+    if not talks:
+        return ""
     segmented = time.monotonic()
     room = take.cap - take.kept
     for talk in talks:
