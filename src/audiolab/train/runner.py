@@ -30,11 +30,14 @@ from audiolab.train.run import (
     RESUME_NAME,
     TRAIN_JSON,
     TrainRunError,
+    config_differences,
     is_finished,
     prepare_run_dir,
+    read_run_config,
     resume_checkpoint,
     run_dir,
     write_model_config,
+    write_run_config,
     write_train_json,
 )
 
@@ -107,7 +110,13 @@ def run_training(
         f"({clips.outside_duration} outside the duration window, "
         f"{clips.without_text} without text)"
     )
+    started = _start_payload(config, base, base_identity, clips)
+    if not fresh and resume_checkpoint(directory) is not None:
+        _refuse_a_different_run(directory, started)
     prepare_run_dir(directory, fresh=fresh)
+    # Written before the first update, and never rewritten: this is what a later
+    # resume is checked against.
+    write_run_config(directory, started)
     write_nemo_manifest(directory / MANIFEST_NAME, clips.clips, with_data)
 
     # The GPU is chosen before the heavy step imports torch, because
@@ -119,7 +128,7 @@ def run_training(
         clips=clips,
         base=base,
         base_identity=base_identity,
-        resuming=resume_checkpoint(directory) is not None,
+        resuming=not fresh and resume_checkpoint(directory) is not None,
     )
     print_line(
         "resuming from the last resume slot"
@@ -136,6 +145,41 @@ def run_training(
     return directory
 
 
+def _start_payload(
+    config: TrainConfig, base: Checkpoint, base_identity: str, clips: TrainingClips
+) -> dict:
+    """What a run is, for ``config.json``: its config, its base model, its clips.
+
+    The clips are in it because a dataset can be prepared again under the same
+    name: the same seed over other clips is another run, and this is what tells
+    the two apart.
+    """
+    return {
+        "config": config.to_dict(),
+        "base_model": str(base),
+        "base_model_identity": base_identity,
+        "sampled_ids_sha256": clips.ids_sha256,
+        "clips": len(clips.clips),
+    }
+
+
+def _refuse_a_different_run(directory: Path, started: dict) -> None:
+    """A resume slot belongs to one run, and this is where that is enforced."""
+    recorded = read_run_config(directory)
+    if recorded is None:
+        raise TrainRunError(
+            f"{directory} holds a resume slot but no config.json, so the run it belongs to "
+            "cannot be checked; go on with --fresh if the slot is not worth keeping"
+        )
+    differences = config_differences(recorded, started)
+    if differences:
+        raise TrainRunError(
+            f"{directory} was started as a different run: {', '.join(differences)} changed. "
+            "Put the old value back to continue it, or start a new run with --fresh "
+            "(which deletes this directory and its resume slot)"
+        )
+
+
 def _record(config: TrainConfig, training: Training, result: object) -> dict:
     """What this run was and what it produced, as it goes into train.json."""
     updates = getattr(result, "updates", config.updates) or config.updates
@@ -149,6 +193,7 @@ def _record(config: TrainConfig, training: Training, result: object) -> dict:
         "sampled_ids_sha256": training.clips.ids_sha256,
         "base_model": str(training.base),
         "base_model_identity": training.base_identity,
+        "resumed": training.resuming,
         "git_commit": git_commit(),
         "final_loss": getattr(result, "final_loss", float("nan")),
         "updates": updates,

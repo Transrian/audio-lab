@@ -33,10 +33,12 @@ from audiolab.train.run import (  # noqa: E402
     TrainRunError,
     is_finished,
     prepare_run_dir,
+    read_run_config,
     resume_checkpoint,
     run_dir,
     train_json,
     write_model_config,
+    write_run_config,
 )
 from audiolab.train.runner import Training  # noqa: E402
 
@@ -332,20 +334,119 @@ def test_a_finished_run_says_so_and_fresh_starts_over(tmp_path, monkeypatch):
     assert is_finished(run_dir("example", tmp_path / "runs"))
 
 
+class InterruptedStep:
+    """A run that stops the way a crash does: after writing a resume slot."""
+
+    def __call__(self, training: Training, *, print_line=print):
+        (training.directory / RESUME_NAME).write_bytes(b"optimizer state")
+        raise RuntimeError("the machine went down")
+
+
+def stopped_run(tmp_path, dataset, **overrides) -> Path:
+    """Leave a run directory holding a resume slot and nothing finished."""
+    monkeypatch_hint = overrides.pop("monkeypatch")
+    monkeypatch_hint.setattr(runner, "train_checkpoint", InterruptedStep())
+    with pytest.raises(RuntimeError, match="went down"):
+        runner.run_training(
+            run_config(tmp_path, clips=4, updates=2, **overrides),
+            data_dir=dataset,
+            runs_root=tmp_path / "runs",
+            print_line=lambda _: None,
+        )
+    return run_dir("example", tmp_path / "runs")
+
+
 def test_a_run_that_stopped_is_continued_from_its_slot(tmp_path, monkeypatch):
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    stopped_run(tmp_path, dataset, monkeypatch=monkeypatch)
     step = FakeStep()
     monkeypatch.setattr(runner, "train_checkpoint", step)
-    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
-    directory = run_dir("example", tmp_path / "runs")
-    prepare_run_dir(directory)
-    (directory / RESUME_NAME).write_bytes(b"optimizer state")
-    runner.run_training(
+    directory = runner.run_training(
         run_config(tmp_path, clips=4, updates=2),
         data_dir=dataset,
         runs_root=tmp_path / "runs",
         print_line=lambda _: None,
     )
     assert step.calls[0].resuming is True
+    assert train_json(directory)["resumed"] is True
+
+
+def test_what_a_run_was_started_as_is_on_disk_before_it_trains(tmp_path, monkeypatch):
+    """``config.json`` is what a later resume is checked against."""
+    step = FakeStep()
+    monkeypatch.setattr(runner, "train_checkpoint", step)
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    loaded = run_config(tmp_path, clips=4, updates=2)
+    directory = runner.run_training(
+        loaded, data_dir=dataset, runs_root=tmp_path / "runs", print_line=lambda _: None
+    )
+    started = read_run_config(directory)
+    assert started["config"] == loaded.to_dict()
+    assert started["base_model_identity"].startswith("sha256=")
+    assert started["sampled_ids_sha256"] == step.calls[0].clips.ids_sha256
+    assert started["clips"] == len(step.calls[0].clips.clips)
+    # The run that went on from the base model is not a resumed one.
+    assert train_json(directory)["resumed"] is False
+
+
+def test_a_resume_with_another_config_is_refused(tmp_path, monkeypatch):
+    """A slot belongs to one run; continuing it with another recipe is a third run."""
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    stopped_run(tmp_path, dataset, monkeypatch=monkeypatch)
+    monkeypatch.setattr(runner, "train_checkpoint", FakeStep())
+    with pytest.raises(TrainRunError, match="config.updates changed"):
+        runner.run_training(
+            run_config(tmp_path, clips=4, updates=3),
+            data_dir=dataset,
+            runs_root=tmp_path / "runs",
+            print_line=lambda _: None,
+        )
+    # The old config still resumes, and --fresh starts the new one over it.
+    runner.run_training(
+        run_config(tmp_path, clips=4, updates=2),
+        data_dir=dataset,
+        runs_root=tmp_path / "runs",
+        print_line=lambda _: None,
+    )
+    runner.run_training(
+        run_config(tmp_path, clips=4, updates=3),
+        data_dir=dataset,
+        runs_root=tmp_path / "runs",
+        fresh=True,
+        print_line=lambda _: None,
+    )
+    assert train_json(run_dir("example", tmp_path / "runs"))["config"]["updates"] == 3
+
+
+def test_a_slot_that_says_nothing_about_its_run_is_refused(tmp_path, monkeypatch):
+    """An unverifiable slot is not resumed: nothing says it is this config's run."""
+    monkeypatch.setattr(runner, "train_checkpoint", FakeStep())
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    directory = run_dir("example", tmp_path / "runs")
+    prepare_run_dir(directory)
+    (directory / RESUME_NAME).write_bytes(b"optimizer state")
+    with pytest.raises(TrainRunError, match="no config.json"):
+        runner.run_training(
+            run_config(tmp_path, clips=4, updates=2),
+            data_dir=dataset,
+            runs_root=tmp_path / "runs",
+        )
+
+
+def test_a_new_config_over_a_stopped_run_that_has_no_slot_starts_over(tmp_path, monkeypatch):
+    """There is nothing to continue, so the new config simply runs."""
+    monkeypatch.setattr(runner, "train_checkpoint", FakeStep())
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    directory = run_dir("example", tmp_path / "runs")
+    prepare_run_dir(directory)
+    write_run_config(directory, {"config": {"updates": 99}})
+    runner.run_training(
+        run_config(tmp_path, clips=4, updates=2),
+        data_dir=dataset,
+        runs_root=tmp_path / "runs",
+        print_line=lambda _: None,
+    )
+    assert read_run_config(directory)["config"]["updates"] == 2
 
 
 def test_a_missing_base_checkpoint_is_reported_before_the_gpu_is_touched(tmp_path, monkeypatch):

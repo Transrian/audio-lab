@@ -137,11 +137,12 @@ says which weights the run started from without naming a machine.
 
 | file | what it is |
 |---|---|
+| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew. Written before the first update, never rewritten; a resume is checked against it (§5) |
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset, the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory and the device name |
+| `train.json` | what the run did: the config, the dataset, the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory and the device name |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so. `--fresh`
@@ -163,6 +164,14 @@ leaves a pile of checkpoints to choose from.
 `resuming from the last resume slot` when it does. Interrupting it (Ctrl-C, a
 killed process, a reboot) is therefore safe: at most `resume_every` updates are
 lost. When the run finishes, the slot is deleted: the final model is `model.nemo`.
+
+A slot belongs to the run that wrote it, so a resume has to be that run: the
+config in hand is compared with `config.json`, and a difference — a field of the
+config, the base model's identity, or the clips the same seed now draws from a
+dataset that was prepared again — refuses to resume and names what changed. Put
+the old value back, or start another run with `--fresh`. A slot with no
+`config.json` beside it is refused too: nothing on disk would say which run it
+belongs to. `train.json` records whether the run was resumed.
 
 The slot is the size of the weights plus the optimizer state — about 7 GiB for a
 0.6 B model — and writing it takes a few seconds, so a small `resume_every` costs

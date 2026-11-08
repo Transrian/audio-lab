@@ -2,6 +2,8 @@
 
 One run directory per training config, under ``$AUDIOLAB_RUNS/train/<name>/``:
 
+- ``config.json``     what the run was started as: its config, its base model and
+                      the clips it drew, written before it trains;
 - ``manifest.jsonl``  the clips this run trains on, in NeMo's manifest format;
 - ``train-log.jsonl`` one line per logged interval, with the loss;
 - ``resume.ckpt``     the one resume slot, rewritten as the run goes, deleted
@@ -30,6 +32,7 @@ LOG_NAME = "train-log.jsonl"
 RESUME_NAME = "resume.ckpt"
 MODEL_NAME = "model.nemo"
 TRAIN_JSON = "train.json"
+CONFIG_NAME = "config.json"
 MODEL_CONFIG = "model.yaml"
 
 
@@ -85,6 +88,43 @@ def write_train_json(directory: Path, payload: dict) -> Path:
     path = directory / TRAIN_JSON
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def write_run_config(directory: Path, payload: dict) -> Path:
+    """Write what this run is, before it trains.
+
+    A resume continues one particular run, so what that run was has to be on
+    disk: the config in hand can be a different one, and a run resumed with
+    another recipe would produce a checkpoint that is neither run.
+    """
+    path = directory / CONFIG_NAME
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def read_run_config(directory: Path) -> dict | None:
+    """What the run in this directory was started as; ``None`` if nothing says."""
+    path = directory / CONFIG_NAME
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def config_differences(recorded: dict, wanted: dict, prefix: str = "") -> list[str]:
+    """The keys where the run on disk and the run in hand disagree.
+
+    Nested mappings are walked, so a changed config field reads as
+    ``config.updates`` rather than as the whole ``config``.
+    """
+    differences = []
+    for key in sorted(set(recorded) | set(wanted)):
+        here = f"{prefix}{key}"
+        was, now = recorded.get(key), wanted.get(key)
+        if isinstance(was, dict) and isinstance(now, dict):
+            differences += config_differences(was, now, f"{here}.")
+        elif was != now:
+            differences.append(here)
+    return differences
 
 
 def log_line(path: Path, payload: dict) -> None:
