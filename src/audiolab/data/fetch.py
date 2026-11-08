@@ -12,6 +12,7 @@ from pathlib import Path
 
 from audiolab.core.paths import cache_dir, data_dir
 from audiolab.data.african_french import fetch_african_accented_fr_train
+from audiolab.data.ami import fetch_ami_fr_speakers_en_train
 from audiolab.data.codeswitched import fetch_servicenow_codeswitched
 from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
 from audiolab.data.datasets import DATASETS
@@ -28,6 +29,7 @@ from audiolab.data.voxpopuli_train import fetch_voxpopuli_fr_train
 
 FETCHERS = {
     "african-accented-fr-train": fetch_african_accented_fr_train,
+    "ami-fr-speakers-en-train": fetch_ami_fr_speakers_en_train,
     "fleurs-fr": fetch_fleurs,
     "fleurs-en": fetch_fleurs,
     "granary-fr-train": fetch_granary_fr_train,

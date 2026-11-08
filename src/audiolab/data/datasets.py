@@ -89,6 +89,20 @@ DATASETS: dict[str, DatasetInfo] = {
         "this audio with this text, so it guards English rather than bringing gains. "
         "No panels.",
     ),
+    "ami-fr-speakers-en-train": DatasetInfo(
+        name="ami-fr-speakers-en-train",
+        source="https://groups.inf.ed.ac.uk/ami/download/ (ami_public_manual_1.6.2.zip "
+        "annotations and the corpus's own AMICorpusMirror audio)",
+        license="CC-BY-4.0",
+        split="manual",
+        reference_style="manual words: casing and punctuation as the annotators wrote them",
+        grouping="speaker (group = the AMI participant id)",
+        notes="Training data for the per-source screening: English meetings spoken by "
+        "the participants whose native language is French, one clip per sentence of "
+        "their own headset recording, as documented in docs/stt/datasets.md. AMI is in "
+        "the training data of English models, Parakeet among them, so this is a guard "
+        "for a mix and not a source of new material. No panels.",
+    ),
     "african-accented-fr-train": DatasetInfo(
         name="african-accented-fr-train",
         source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/train)",

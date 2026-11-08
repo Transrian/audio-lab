@@ -28,6 +28,7 @@ from test_data_source import make_archive  # noqa: E402
 
 from audiolab.data import (  # noqa: E402
     african_french,
+    ami,
     granary,
     librispeech,
     librispeech_pc,
@@ -884,3 +885,227 @@ def test_mls_fr_train_skips_the_archives_of_a_reader_it_already_has(dirs, monkey
         "mls-fr-train:1234",
         "mls-fr-train:9999",
     }
+
+
+AMI_PARTICIPANTS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+   <participant nite:id="FIO017" nxt_agent="A" native_language="French"/>
+   <participant nite:id="MIO023" nxt_agent="D" native_language="French"/>
+   <participant nite:id="MIO042" nxt_agent="B" native_language="English"/>
+</root>
+"""
+
+AMI_MEETINGS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+  <meeting observation="IS1003a">
+    <speaker nite:id="IS1003a.A" nxt_agent="A" global_name="FIO017" role="PM"/>
+    <speaker nite:id="IS1003a.B" nxt_agent="B" global_name="MIO042" role="ME"/>
+    <speaker nite:id="IS1003a.D" nxt_agent="D" global_name="MIO023" role="ID"/>
+  </meeting>
+  <meeting observation="ES2001a">
+    <speaker nite:id="ES2001a.B" nxt_agent="B" global_name="MIO042" role="PM"/>
+  </meeting>
+</root>
+"""
+
+# One speaker's manual words: two sentences, a laugh and a disfluency marker in
+# between, and a fragment that is too short to be a clip.
+AMI_WORDS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+  <w nite:id="w1" starttime="0.100" endtime="0.500">Okay</w>
+  <w nite:id="w2" starttime="0.500" endtime="1.400">so</w>
+  <w nite:id="w3" starttime="1.400" endtime="2.000" punc="true">,</w>
+  <vocalsound nite:id="v1" starttime="2.000" endtime="2.500" type="laugh"/>
+  <w nite:id="w4" starttime="2.600" endtime="3.000">I</w>
+  <w nite:id="w5" starttime="3.000" endtime="3.500">think</w>
+  <w nite:id="w6" starttime="3.500" endtime="4.200" punc="true">.</w>
+  <disfmarker nite:id="d1" starttime="4.200" endtime="4.500" type="disfluency"/>
+  <w nite:id="w7" starttime="6.000" endtime="6.800">Right</w>
+  <w nite:id="w8" starttime="6.800" endtime="7.100" punc="true">?</w>
+  <w nite:id="w9" starttime="8.000" endtime="8.200">tiny</w>
+</root>
+"""
+
+
+def _ami_resource(directory: Path, file_name: str, content: str) -> Path:
+    path = directory / "ami" / file_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def fake_ami_cache(
+    cache: Path,
+    name: str = "ami-fr-speakers-en-train",
+    *,
+    participants: str = AMI_PARTICIPANTS,
+    meetings: str = AMI_MEETINGS,
+    channels: dict[str, str] | None = None,
+    headsets: bool = True,
+) -> None:
+    """A cache that looks like the AMI annotations archive plus the headsets it names.
+
+    The headset recordings are written where the fetcher looks for them, which
+    is how it takes them without the network. Each one is long enough that every
+    timestamp of an annotation falls inside it.
+    """
+    directory = cache / name
+    channels = channels or {
+        "IS1003a.A": AMI_WORDS,
+        "IS1003a.D": AMI_WORDS,
+    }
+    members = {
+        ami.PARTICIPANTS: _ami_resource(directory, "participants.xml", participants),
+        ami.MEETINGS: _ami_resource(directory, "meetings.xml", meetings),
+    }
+    for channel, content in channels.items():
+        members[f"{ami.WORDS_DIRECTORY}/{channel}.words.xml"] = _ami_resource(
+            directory, f"{channel}.words.xml", content
+        )
+    make_zip(directory / ami.ANNOTATIONS_NAME, members)
+    if not headsets:
+        return
+    for channel in channels:
+        meeting, _, agent = channel.partition(".")
+        write_tone(
+            directory / "audio" / f"{meeting}.Headset-{ami.head_number(agent)}.wav", seconds=10.0
+        )
+
+
+def test_ami_takes_the_words_of_a_french_speaker_and_groups_by_participant(dirs):
+    data, cache = dirs
+    fake_ami_cache(cache)
+
+    count = ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    # Two sentences and one fragment too short to be a clip, for each of the two
+    # French speakers of the meeting.
+    assert count == 4
+
+    clips = {clip.id: clip for clip in read_manifest(data / "ami-fr-speakers-en-train")}
+    assert set(clips) == {
+        "ami-fr-speakers-en-train:IS1003a.A.0000",
+        "ami-fr-speakers-en-train:IS1003a.A.0001",
+        "ami-fr-speakers-en-train:IS1003a.D.0000",
+        "ami-fr-speakers-en-train:IS1003a.D.0001",
+    }
+    first = clips["ami-fr-speakers-en-train:IS1003a.A.0000"]
+    # Words and punctuation join the way the annotator wrote them, in cased text.
+    assert first.text == "Okay so, I think."
+    assert first.text_has_casing_punct is True
+    assert first.group == "ami-fr-speakers-en-train:FIO017"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "manual"
+    assert first.license == "CC-BY-4.0"
+    # The clip is the part of the meeting between its first and last word.
+    assert first.duration_s == pytest.approx(4.1, abs=0.01)
+
+
+def test_ami_keeps_one_speaker_of_a_meeting_out_of_another(dirs):
+    """Each participant is a group of its own, even inside one meeting."""
+    data, cache = dirs
+    fake_ami_cache(cache)
+
+    ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    clips = read_manifest(data / "ami-fr-speakers-en-train")
+    assert {clip.group for clip in clips} == {
+        "ami-fr-speakers-en-train:FIO017",
+        "ami-fr-speakers-en-train:MIO023",
+    }
+    assert sum(1 for clip in clips if clip.group.endswith("FIO017")) == 2
+
+
+def test_ami_leaves_out_a_speaker_whose_first_language_is_not_french(dirs):
+    """The source is the French-L1 participants of an English corpus, nobody else."""
+    data, cache = dirs
+    fake_ami_cache(cache)
+
+    ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    groups = {clip.group for clip in read_manifest(data / "ami-fr-speakers-en-train")}
+    assert "ami-fr-speakers-en-train:MIO042" not in groups
+
+
+def test_ami_cuts_at_a_sentence_end_and_at_a_silence(dirs):
+    """A clip is a sentence; a silence of more than a second ends it just as well."""
+    _, cache = dirs
+    fake_ami_cache(cache)
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017")
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    assert [(u.start, u.end) for u in utterances] == [(0.1, 4.2), (6.0, 7.1), (8.0, 8.2)]
+    assert [u.text for u in utterances] == ["Okay so, I think.", "Right?", "tiny"]
+    # The laugh and the disfluency marker carry no text and separate nothing.
+    assert [u.index for u in utterances] == [0, 1, 2]
+
+
+def test_ami_does_not_let_a_clip_run_past_twenty_seconds(dirs):
+    """A speaker who talks on without a pause still gets clips a recipe can batch."""
+    _, cache = dirs
+    words = "".join(
+        f'  <w nite:id="w{i}" starttime="{i * 2.5:.2f}" endtime="{(i + 1) * 2.5:.2f}">word</w>\n'
+        for i in range(12)
+    )
+    root = f'<root xmlns:nite="http://nite.sourceforge.net/">\n{words}</root>'
+    fake_ami_cache(cache, channels={"IS1003a.A": root})
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017")
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    assert [round(u.end - u.start, 2) for u in utterances] == [20.0, 10.0]
+
+
+def test_ami_copies_a_headset_recording_the_cache_does_not_have(dirs, tmp_path, monkeypatch):
+    """The audio comes from the corpus's own mirror, in the letter's own channel."""
+    data, cache = dirs
+    fake_ami_cache(cache, headsets=False)
+    mirror = tmp_path / "mirror" / "IS1003a" / "audio"
+    write_tone(mirror / "IS1003a.Headset-0.wav", seconds=10.0)
+    write_tone(mirror / "IS1003a.Headset-3.wav", seconds=10.0)
+    monkeypatch.setattr(ami, "AUDIO_URL", str(tmp_path / "mirror"))
+
+    count = ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    assert count == 4
+    assert (cache / "ami-fr-speakers-en-train" / "audio" / "IS1003a.Headset-0.wav").is_file()
+
+
+def test_ami_refuses_an_archive_without_the_participants_resource(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    make_zip(
+        directory / ami.ANNOTATIONS_NAME,
+        {ami.MEETINGS: _ami_resource(directory, "meetings.xml", AMI_MEETINGS)},
+    )
+    with pytest.raises(DownloadError, match="holds no corpusResources/participants.xml"):
+        ami.read_channels(directory / ami.ANNOTATIONS_NAME)
+
+
+def test_ami_refuses_a_speaker_the_annotations_do_not_describe(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    fake_ami_cache(cache, channels={"IS1003a.B": AMI_WORDS})
+    with pytest.raises(DownloadError, match="holds no words/IS1003a.A.words.xml"):
+        with zipfile.ZipFile(directory / ami.ANNOTATIONS_NAME) as archive:
+            ami.read_words(archive, ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017"))
+
+
+def test_ami_refuses_an_archive_of_speakers_without_a_french_one(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    dutch = AMI_PARTICIPANTS.replace('native_language="French"', 'native_language="Dutch"')
+    fake_ami_cache(cache, participants=dutch)
+    with pytest.raises(DownloadError, match="no speaker of native language French"):
+        ami.read_channels(directory / ami.ANNOTATIONS_NAME)
+
+
+def test_ami_headsets_are_lettered_from_a(dirs):
+    assert [ami.head_number(agent) for agent in "ABCD"] == [0, 1, 2, 3]
+    with pytest.raises(DownloadError, match="no headset for speaker letter 'E'"):
+        ami.head_number("E")
