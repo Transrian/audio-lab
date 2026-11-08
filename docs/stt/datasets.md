@@ -596,6 +596,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
+| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips, for the same reason as `librispeech-en-train`: it reads the same clips and leaves out the same speakers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
