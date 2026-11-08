@@ -319,6 +319,16 @@ screening is a difference between corpora and not between recipes:
   Granary (154 clips for its largest video), SLR57 (156 for its largest speaker)
   and `librispeech-en-train` (165) are below it — and it is what makes the 12 000
   clips of `mls-fr-train` cover 138 readers instead of 19.
+- **A clip is one speaker's turn, not one row of an annotation**. Where a
+  corpus cuts a speaker at every pause — AMI at each word, ICSI and NOTSOFAR at
+  each utterance — consecutive rows of one speaker are joined while at most a
+  second of silence separates them, while the row does not end a sentence, and
+  while the joined clip stays inside the window; a row that is not a clip (a
+  laugh, a word nobody made out, a number read out loud, another speaker's
+  microphone) ends the clip being built, so no clip carries audio its own text
+  does not describe. The rule is `src/audiolab/data/meeting.py`, shared by the
+  three meeting sources, and it is why a "Yeah." of 0.4 s is a clip only when it
+  has nothing to join.
 - **Filters**: 0.5 s to 20 s of audio, text that is not empty, and audio that
   decodes at all — the point where a damaged file would otherwise show up. A clip
   the filters drop is counted in the fetch report and read past, so a source is
@@ -352,8 +362,8 @@ screening is a difference between corpora and not between recipes:
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
-| `icsi-en-train` | en | CC-BY-4.0 | mrt | 9 393 | 52 | 6.3 | 0.7 GiB | 3.6 GiB of signals, and 12 GiB of decoded WAV stays in the cache |
-| `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 372 | 12 | 1.5 | 0.2 GiB | 0.8 GiB |
+| `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 752 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
+| `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 330 | 12 | 2.1 | 0.2 GiB | 0.8 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -552,48 +562,64 @@ costs nothing and a fresh clone downloads all of it again.
   word unplaced when the annotators placed it only at its other end (`We` with a
   start and no end), so an NXT boundary would have to be guessed. The words are
   the annotators' own, cased and punctuated, with their spellings (`O_K`,
-  `Mm-hmm`, acronyms split by underscores as written) and their marks of a false
-  start (`how much w- how easy`). The annotation elements between the words are
-  taken out: `VocalSound` (29 779 of them), `NonVocalSound` (3 708), `Comment`
-  (12 283) and `Pause` (7 213) carry no words to transcribe, while `Emphasis`
-  (24 612), `Uncertain`, `Pronounce` and `Foreign` hold words the speaker did say
-  and are kept as text. A segment that is nothing but a vocal sound cleans to no
-  text, and such a segment is not a clip.
+  `Mm-hmm`, and an acronym written letter by letter read as the word it spells:
+  `T_V_s` is `TVs`) and their marks of a false start (`how much w- how easy`).
+  The annotation elements between the words are taken out, all the way down:
+  `VocalSound` (29 779 of them), `NonVocalSound` (3 708), `Comment` (12 283) and
+  `Pause` (7 213) carry no words to transcribe and go with what they hold, while
+  `Emphasis` (24 612), `Uncertain`, `Pronounce` and `Foreign` hold words the
+  speaker did say and are kept as text — including a word written inside two of
+  them (`<Emphasis><Pronounce>places</Pronounce></Emphasis>`). A segment that is
+  nothing but a vocal sound cleans to no text, and such a segment is not a clip.
+  Where the annotators could not make the words out they wrote `@@` (`So you can
+  @@ -`), so a segment holding one is not a clip either: the audio is there and
+  the reference is not.
 - **Group**: the speaker (`group_kind: speaker`): the 52 participant ids of the
   corpus, each of them a group of its own. A clip is sliced from the close
   microphone the segment's own preamble gives its speaker
   (`<Participant Name="fe066" Channel="chan0"/>`), so two participants of one
-  meeting never share a clip. A participant the preamble gives no channel to
-  (51 slots) is one the corpus says was unmiked — heard on other people's
-  microphones — and each of their 219 segments says `CloseMic="false"`; a segment
-  that claims the close microphone and has no channel stops the preparation
-  instead.
-- **What the source is**: 75 meetings and 129 813 segments. 1 413 of those
-  segments say the close microphone did not carry the speech, and 717 of them
-  name no participant either — a stretch of room noise the annotators marked —
-  which leaves 108 323 segments that are speech one of the microphones this
-  source reads did carry. 20 077 of the 129 813 clean to no text (a laugh, a
-  cough, an annotator's remark), so the corpus for this source is the 108 323
-  that are left. The per-speaker share of 200 clips is what holds the
-  preparation there: 8.7 % of those segments become clips, 9 393 of them from 45
-  of the 75 meetings, 6.3 h, median 1.7 s, and one segment longer than 20 s. The
-  42 speakers that reach their share contribute 200 clips each and the 10
-  smaller ones contribute what they have.
+  meeting never share a clip. A participant the preamble gives no channel to (25
+  of the corpus's 494 participants, in 16 of its 75 meetings) is one the corpus
+  says was unmiked — heard on other people's microphones — and their 219 segments
+  all say `CloseMic="false"`; a segment that claims the close microphone and has
+  no channel stops the preparation instead. A segment whose own `Channel` is not
+  the one the preamble gives its speaker (5 of them, in `Bsr001`) is the same
+  speech the corpus re-sliced from another microphone, and taking it would
+  prepare that speech twice.
+- **What the source is**: 75 meetings and 129 813 segments, of which 1 413 are
+  not speech on the speaker's own microphone (717 name no participant — a stretch
+  of room noise the annotators marked — and 696 say `CloseMic="false"`), 5 241
+  are a digit task (in 63 of the meetings the annotators read out digits one at
+  a time: `Six three, three three`), 5 were re-sliced from a channel that is not
+  the speaker's, 20 072 hold nothing but markup and 745 hold a word nobody made
+  out. That leaves 102 337 segments, and consecutive ones of one speaker become
+  80 175 stretches, 12 759 of which join two or more segments. The per-speaker
+  share of 200 clips is what holds the preparation there: 8.6 % of those segments
+  become clips, 8 752 of them (1 462 joining several segments) from 49 of the 75
+  meetings, 7.7 h, median 1.9 s. The longest clip is 19.98 s and every clip is
+  inside the window; 8 segments of the corpus are longer — the longest 95 s, two
+  words with the times the annotators gave them — and none of them is a clip. The
+  34 speakers that reach their share contribute 200 clips each and the 18 smaller
+  ones contribute between 21 and 190.
 - **What a cap covers**: fewer clips than the cap, and the per-group share is
   what holds it there. The corpus has 52 participants for this source, so the
   share (200 clips of a group) allows 10 400 clips at most, below the 12 000 of
   the cap: every arm of the screening is capped by the same rule, and this source
-  cannot reach 12 000 clips under it. Its config sets `clips: 9393` next to the
-  reason.
+  cannot reach 12 000 clips under it. Joining the rows of a speaker changes how
+  many clips a corpus gives, not how many a group may have, so the share is still
+  what holds this source, now at 8 752 clips. Its config sets `clips: 8752` next
+  to the reason.
 - **Decoding**: the corpus's signals are shorten-compressed SPHERE and the audio
   readers of this project do not decode them, so `ffmpeg` decodes every channel a
   preparation reads — the only external program any preparation runs — and the
   samples it produced are checked against the count and the checksum the SPHERE
   header of the file itself carries, which is the only checksum the corpus
   offers. `src/audiolab/data/icsi.py` says why the annotation archive is pinned
-  by sha256 instead. The 105 channels a full preparation reads are 3.6 GiB of
-  downloads, the decoded WAV they leave in the cache is another 12 GiB, and the
-  prepared set is 0.7 GiB.
+  by sha256 instead. The 118 channels a full preparation reads are 4.0 GiB of
+  downloads, the decoded WAV they leave in the cache is another 13 GiB, and the
+  prepared set is 0.8 GiB. The count and the checksum of a channel are checked by
+  a function that reads the header alone, so the tests of a preparation run
+  without ffmpeg and only one of them runs the real decoder.
 - **Why it is here**: 70 hours of meetings that would have happened anyway, with
   a manual transcript and one microphone per participant: the same kind of data
   as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
@@ -617,17 +643,21 @@ costs nothing and a fresh clone downloads all of it again.
   2026-11-08 on the dataset's own page and in its `README.md`, which covers the
   recorded data and not only the challenge's code.
 - **Text**: what the annotators wrote, cased and punctuated, with the corpus's
-  markup taken out: `<ST/>` (a pause), `<FILL/>`, `<FILLlaugh/>`, `<BA/>`,
-  `<UNKNOWN/>`, `<ISSUE/>` mark something that is not a word, and
-  `<PName> Peter </PName>` wraps a name, which stays as text. The 980 rows of the
-  split that were nothing but markup clean to no text, and the clip filter drops
-  them for that. The text is
-  the corpus's own: 582 of the 2 372 clips start with a lowercase letter and 840
-  do not end with a sentence-final mark, because the annotators transcribed the
-  utterance as it came, and the preparation rewrites none of it. The corpus pads
-  its tags with spaces, so removing one can leave the padding in front of a comma
-  or a period (`So Sophie , what`); punctuation is joined to the word before it,
-  as the AMI source does, and the words themselves are untouched.
+  markup taken out: `<ST/>` is its own mark inside a row and nothing here reads
+  it, `<FILL/>` and `<FILLlaugh/>` mark a filler and a laugh (the filler goes
+  with the markup, where AMI and ICSI keep theirs in the reference), `<BA/>` a
+  backchannel, and `<PName> Peter </PName>` wraps a name, which stays as text.
+  Two kinds of row are left out rather than half transcribed: the 980 rows of the
+  split that hold markup and nothing else, and the 531 rows holding a word nobody
+  caught (`<UNKNOWN/>`) or a stretch the annotators had a problem with
+  (`<ISSUE/>`), 239 of them counted in both, so 1 511 of the split's 18 178 rows
+  never become clips. The text is the corpus's own: 131 of the 2 330 clips start
+  with a lowercase letter and 300 do not end with a sentence-final mark, because
+  the annotators transcribed the utterance as it came (and joining the rows of
+  one speaker joins the text of both), and the preparation rewrites none of it.
+  The corpus pads its tags with spaces, so removing one can leave the padding in
+  front of a comma or a period (`So Sophie , what`); punctuation is joined to the
+  word before it, as the AMI source does, and the words themselves are untouched.
 - **Group**: the speaker (`group_kind: speaker`): the alias the corpus gives the
   participant (`Peter`, `Sophie`, `Bert`). 12 aliases over the 72 meetings, and
   each of them is one person, recognizable across the meetings of the corpus,
@@ -641,23 +671,30 @@ costs nothing and a fresh clone downloads all of it again.
   page on Hugging Face 315; the revision this source pins holds 72 of them in
   its train split and 12 speakers, and the challenge says 10 of those 12 are also
   in the dev set of the campaign, which is one more reason not to read it here.
-  The split holds 18 178 utterances: 980 of them are markup and nothing else,
-  317 last less than 0.5 s, and the rest fall in the window the clips are cut
-  from — the longest utterance of the split is 8.7 s, so the 20 s rule never
-  applies here. The share of a group holds the preparation: 2 372 clips from 32
-  of the 72 meetings, 1.5 h, median 1.7 s, and 14 509 rows left out because
-  their speaker had its 200 clips already. Every alias reaches its 200 clips
-  except Walter, who has 172.
+  The split is the corpus's `240501.1_train` (108 meetings) without the 36
+  meetings that became the dev set of the challenge, and with a faulty device
+  removed from three meetings, as the `logs/README.txt` of the split itself says.
+  It holds 18 178 rows, 2 014 of which last less than 0.5 s, and 1 511 of them are
+  left out before the plan (above); the rest become 12 993 stretches by joining
+  the rows of one speaker, 475 of the prepared clips spanning two rows or more.
+  No row of the split is longer than 8.7 s, and the longest clip is 19.83 s, so
+  the 20 s window holds but is not far away. The share of a group holds the
+  preparation: 2 330 clips from 38 of the 72 meetings, 2.1 h, median 1.7 s, and
+  10 327 stretches left out because their speaker had its 200 clips already.
+  Eleven aliases reach their 200 clips and Walter has 130.
 - **What a cap covers**: fewer clips than the cap, and the per-group share is
   what holds it there. The split of 72 meetings names 12 participants, so the
   share (200 clips of a group) allows 2 400 clips at most, far below the 12 000
-  of the cap: this source cannot reach it under the rule. Its config sets
-  `clips: 2372` next to the reason.
+  of the cap: this source cannot reach it under the rule, and joining the rows of
+  a speaker leaves it at 2 330 clips. Its config sets `clips: 2330` next to the
+  reason.
 - **Why it is here**: meetings that were really held, a few people around a
   table, each with a close-talking microphone, transcribed by hand — the same
   register as AMI and ICSI and a third corpus of it, recorded twenty years later
   and in other rooms. Like ICSI, it is not in the training list the base model's
-  card cites.
+  card cites. What the split is not is large: 2 330 clips of 12 speakers, so an
+  arm presents every clip 13.7 times and a score on it says as much about those
+  twelve people as about the corpus.
 
 ### `pxcorpus-fr-train` — spoken French drug prescriptions
 

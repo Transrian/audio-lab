@@ -69,8 +69,8 @@ DATASETS: dict[str, DatasetInfo] = {
         "ICSIsignals/SPH/<meeting>/<channel>.sph)",
         license="CC-BY-4.0",
         split="mrt",
-        reference_style="at best: the annotators' words, cased and punctuated, with the "
-        "corpus's own spellings",
+        reference_style="the annotators' words, cased and punctuated, as they wrote "
+        "them: a false start and a partial word are kept, a laugh or a noise is not",
         grouping="speaker (group = the ICSI participant id)",
         notes="Research meetings with one close microphone per participant and word-by-word "
         "manual transcripts, in the MRT release, which carries the start and end time of "
