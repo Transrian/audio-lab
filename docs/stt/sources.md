@@ -47,6 +47,10 @@ Only what the repository settles is used here as a criterion.
 - **No audio in the repository** ([D-013](../owner/directives.md)): a dataset is
   prepared by a script into `$AUDIOLAB_DATA` and never committed. That avoids
   redistributing it, not the need for the right to use it.
+- **Licenses that can be trained on** ([D-019](../owner/directives.md)):
+  public domain, CC0, CC-BY (any version), Apache-2.0, MIT or Licence Ouverte,
+  for the audio and for the text alike. Share-alike, non-commercial,
+  no-derivatives and unknown licenses are not trained on.
 - **Non-commercial data may be used for testing only**
   ([decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md)):
   a dataset restricted to non-commercial use may be used to evaluate models and
@@ -161,7 +165,7 @@ and FLEURS):
 | 18 | [PxCorpus](https://zenodo.org/records/10080490) | fr | **CC-BY-4.0** (Zenodo, 2026-11-08) | About 4 h of spoken drug prescriptions by 55 speakers, with human-checked transcripts: a dictation register with its own terminology. Being prepared as `pxcorpus-fr-train`; far fewer than 10 000 clips. |
 | 19 | [SIWIS French Speech Synthesis Database](https://datashare.ed.ac.uk/handle/10283/2353) | fr | **CC-BY-4.0** (README, 2026-11-08) | More than 10 h of read text from one professional speaker: clean, but one voice and no target-use register. At most a clean share of a mix. |
 | 20 | [MINDS-14](https://huggingface.co/datasets/PolyAI/minds14) fr-FR | fr | CC-BY, no version on the card (2026-11-08) | Spontaneous telephone requests to a bank, 8 kHz, about an hour: too small and the wrong channel for more than a test. |
-| 21 | [VOA Afrique](https://www.voanews.com/p/5338.html) | fr | **public domain** for what Voice of America produces itself; agency material (AFP, AP, Reuters) is not (2026-11-08) | African French broadcasts with no transcripts. Public domain is not in the licence list the owner gave, so it waits for the owner's decision; the agency segments would have to be cut out. |
+| 21 | [VOA Afrique](https://www.voanews.com/p/5338.html) | fr | **public domain** for what Voice of America produces itself; agency material (AFP, AP, Reuters) is not (2026-11-08) | African French broadcasts with no transcripts. Public domain is allowed ([D-019](../owner/directives.md)); the agency segments would have to be cut out. |
 
 Leads not verified yet, to look at before classifying them: the Québec National
 Assembly (Crown copyright presumed), the Belgian Chamber, and corpora of elderly
