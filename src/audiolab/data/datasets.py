@@ -78,6 +78,19 @@ DATASETS: dict[str, DatasetInfo] = {
         "Training data for the per-source screening, as documented in docs/stt/datasets.md. "
         "No panels.",
     ),
+    "notsofar-en-train": DatasetInfo(
+        name="notsofar-en-train",
+        source="https://huggingface.co/datasets/microsoft/NOTSOFAR "
+        "(benchmark-datasets/train_set/240825.1_train)",
+        license="CC-BY-4.0",
+        split="240825.1_train",
+        reference_style="the annotators' words, cased and punctuated, without their markup",
+        grouping="speaker (group = the participant alias)",
+        notes="Real recorded meetings with close-talking per-participant recordings and human "
+        "transcripts. Only the recorded train subset is read; the simulated set and the dev "
+        "and evaluation subsets are not. Training data for the per-source screening, as "
+        "documented in docs/stt/datasets.md. No panels.",
+    ),
     "librispeech-en-train": DatasetInfo(
         name="librispeech-en-train",
         source="https://www.openslr.org/12 (train-clean-100.tar.gz)",

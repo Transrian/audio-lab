@@ -23,6 +23,7 @@ from audiolab.data.librispeech import fetch_librispeech_en, fetch_librispeech_en
 from audiolab.data.librispeech_pc import fetch_librispeech_pc_en_train
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
 from audiolab.data.nonspeech import fetch_nonspeech
+from audiolab.data.notsofar import fetch_notsofar_en_train
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.voxpopuli import fetch_voxpopuli_nonnative
@@ -41,6 +42,7 @@ FETCHERS = {
     "librispeech-en-train": fetch_librispeech_en_train,
     "librispeech-pc-en-train": fetch_librispeech_pc_en_train,
     "nonspeech": fetch_nonspeech,
+    "notsofar-en-train": fetch_notsofar_en_train,
     "pxcorpus-fr-train": fetch_pxcorpus_fr_train,
     "voxpopuli-en-nonnative": fetch_voxpopuli_nonnative,
     "servicenow-codeswitched-en-fr": fetch_servicenow_codeswitched,

@@ -330,9 +330,10 @@ screening is a difference between corpora and not between recipes:
 - **The text the source publishes**, which each card records. Casing and
   punctuation are not added back: three sources are lowercased or uppercased and
   unpunctuated (MLS, SLR57, LibriSpeech), so their arms teach the model to drop
-  what it already writes; VoxPopuli, AMI and ICSI are cased and punctuated human
-  text, and Granary is cased, punctuated model output that nobody verified. That
-  difference is part of what the screening measures, so nothing was rewritten to
+  what it already writes; VoxPopuli, AMI, ICSI and NOTSOFAR are cased and
+  punctuated human text, and Granary is cased, punctuated model output that
+  nobody verified. That difference is part of what the screening measures, so
+  nothing was rewritten to
   make the arms look alike. Transport defects of a published transcript are the
   one exception, and the card of the source says which: SLR57 writes a space
   after every apostrophe (`j' ai`), which the training text drops because the
@@ -352,6 +353,7 @@ screening is a difference between corpora and not between recipes:
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `icsi-en-train` | en | CC-BY-4.0 | mrt | 9 393 | 52 | 6.3 | 0.7 GiB | 3.6 GiB of signals, and 12 GiB of decoded WAV stays in the cache |
+| `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 372 | 12 | 1.5 | 0.2 GiB | 0.8 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -599,6 +601,64 @@ costs nothing and a fresh clone downloads all of it again.
   the corpus contribute. The corpus is not in the list of training sets the base
   model's own card cites (NeMo's ASR Set 3.0 lists AMI, not ICSI), which AMI is.
 
+### `notsofar-en-train` — recorded meetings with one close mic per participant
+
+- **Source**: `microsoft/NOTSOFAR` on Hugging Face, the `train_set` of the
+  recorded meetings at the revision `240825.1_train`, pinned by commit
+  `ba8fd0f034ce185fe4d24f47e53b4b8194795f07` in `src/audiolab/data/notsofar.py`.
+  It is served without a login: 72 meetings under
+  `benchmark-datasets/train_set/240825.1_train/MTG/`, each with
+  `gt_transcription.json` and the close-talking recordings
+  `close_talk/CT_<n>.wav` (16 kHz mono). Every file is checked against the sha256
+  (a recording, which the Hub stores through its LFS) or the git blob sha1 (a
+  transcript, which it stores as a plain object) that the Hub publishes for that
+  revision.
+- **License**: CC-BY-4.0, the recorded meetings and their transcripts. Checked on
+  2026-11-08 on the dataset's own page and in its `README.md`, which covers the
+  recorded data and not only the challenge's code.
+- **Text**: what the annotators wrote, cased and punctuated, with the corpus's
+  markup taken out: `<ST/>` (a pause), `<FILL/>`, `<FILLlaugh/>`, `<BA/>`,
+  `<UNKNOWN/>`, `<ISSUE/>` mark something that is not a word, and
+  `<PName> Peter </PName>` wraps a name, which stays as text. The 980 rows of the
+  split that were nothing but markup clean to no text, and the clip filter drops
+  them for that. The text is
+  the corpus's own: 582 of the 2 372 clips start with a lowercase letter and 840
+  do not end with a sentence-final mark, because the annotators transcribed the
+  utterance as it came, and the preparation rewrites none of it. The corpus pads
+  its tags with spaces, so removing one can leave the padding in front of a comma
+  or a period (`So Sophie , what`); punctuation is joined to the word before it,
+  as the AMI source does, and the words themselves are untouched.
+- **Group**: the speaker (`group_kind: speaker`): the alias the corpus gives the
+  participant (`Peter`, `Sophie`, `Bert`). 12 aliases over the 72 meetings, and
+  each of them is one person, recognizable across the meetings of the corpus,
+  which is what makes them groups; a clip is sliced from that participant's own
+  close-talking recording, so two participants never share one.
+- **What the source is**: the recorded meetings of the challenge — meetings of
+  about six minutes, four to eight attendees in one of 30 conference rooms,
+  transcribed by hand — not the simulated thousand hours published in the same
+  repository, and not the `dev_set` or the `eval_set`, which are not read for
+  anything. The challenge's README counts 237 meetings of it and the dataset's
+  page on Hugging Face 315; the revision this source pins holds 72 of them in
+  its train split and 12 speakers, and the challenge says 10 of those 12 are also
+  in the dev set of the campaign, which is one more reason not to read it here.
+  The split holds 18 178 utterances: 980 of them are markup and nothing else,
+  317 last less than 0.5 s, and the rest fall in the window the clips are cut
+  from — the longest utterance of the split is 8.7 s, so the 20 s rule never
+  applies here. The share of a group holds the preparation: 2 372 clips from 32
+  of the 72 meetings, 1.5 h, median 1.7 s, and 14 509 rows left out because
+  their speaker had its 200 clips already. Every alias reaches its 200 clips
+  except Walter, who has 172.
+- **What a cap covers**: fewer clips than the cap, and the per-group share is
+  what holds it there. The split of 72 meetings names 12 participants, so the
+  share (200 clips of a group) allows 2 400 clips at most, far below the 12 000
+  of the cap: this source cannot reach it under the rule. Its config sets
+  `clips: 2372` next to the reason.
+- **Why it is here**: meetings that were really held, a few people around a
+  table, each with a close-talking microphone, transcribed by hand — the same
+  register as AMI and ICSI and a third corpus of it, recorded twenty years later
+  and in other rooms. Like ICSI, it is not in the training list the base model's
+  card cites.
+
 ### `pxcorpus-fr-train` — spoken French drug prescriptions
 
 - **Source**: Zenodo, record 10080490, `PxCorpus.zip` (376 MB): the `PxSLU`
@@ -711,11 +771,14 @@ fetch`) before the training source is, because the check reads its manifest.
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
+| `notsofar-en-train` | none: no evaluation set comes from this corpus, and the dev and eval splits the challenge publishes are not read either | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the sources that are not evaluation sets at all
-(SLR57, Granary, PxCorpus, AMI, ICSI) publish no other split here.
+(SLR57, Granary, PxCorpus, AMI, ICSI) publish no other split here. The recordings
+of NOTSOFAR are scored by no evaluation set of this campaign either: the corpus
+is one of the challenge's, and its dev and eval splits were left alone.
 
 The voxpopuli check is the one that bites. The camera-ready way to break decision
 0002 would be to train on French parliamentary speech and then score the same

@@ -37,11 +37,13 @@ from audiolab.data import (  # noqa: E402
     librispeech,
     librispeech_pc,
     mls,
+    notsofar,
     pxcorpus,
     voxpopuli_train,
 )
 from audiolab.data.download import (  # noqa: E402
     DownloadError,
+    git_blob_sha1_file,
     sha256_file,
 )
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
@@ -1506,3 +1508,259 @@ def test_icsi_refuses_an_archive_without_a_transcript(dirs, monkeypatch):
     monkeypatch.setattr(icsi, "TRANSCRIPTS_URL", str(archive))
     with pytest.raises(DownloadError, match="holds no transcripts"):
         icsi.read_segments(archive)
+
+
+# --- NOTSOFAR-1 -------------------------------------------------------------
+
+# Two recorded meetings in the shape the corpus publishes its transcripts: one
+# row per utterance, with the speaker, the close-talking recording of that
+# speaker and the times of the utterance, and the annotation markup inside the
+# text.
+NOTSOFAR_TRANSCRIPTS = {
+    "MTG_00001": [
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 1.0,
+            "end_time": 3.5,
+            "text": "I think schools are about preparing children for <PName> Harvard </PName>.",
+        },
+        {
+            "speaker_id": "Sophie",
+            "ct_wav_file_name": "close_talk/CT_22.wav",
+            "start_time": 4.0,
+            "end_time": 5.0,
+            "text": "Mm-hmm. <ST/>",
+        },
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 5.5,
+            "end_time": 5.9,
+            "text": "Yeah.",
+        },
+        {
+            "speaker_id": "Sophie",
+            "ct_wav_file_name": "close_talk/CT_22.wav",
+            "start_time": 6.0,
+            "end_time": 7.5,
+            "text": "<FILLlaugh/>",
+        },
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 8.0,
+            "end_time": 9.0,
+            "text": "But <UNKNOWN/> we should ask.",
+        },
+    ],
+    "MTG_00002": [
+        {
+            "speaker_id": "Bert",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 0.5,
+            "end_time": 2.5,
+            "text": "Right, let's start with the agenda.",
+        }
+    ],
+}
+
+
+def notsofar_listing(directory: Path, transcripts: dict) -> list[dict]:
+    """The files of the fixture as the Hub lists them, with their own digests.
+
+    A recording is a large file the Hub keeps through its LFS store and names by
+    a sha256; a transcript is a small one it keeps as a git object and names by
+    the sha1 of that object. Both are the digests the real listing carries, so a
+    download of the fixture is checked the way a download of the corpus is.
+    """
+    paths = [f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}"]
+    for meeting in transcripts:
+        paths.append(f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}")
+        paths.append(
+            f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{notsofar.TRANSCRIPT_NAME}"
+        )
+        for recording in sorted(_notsofar_recordings(transcripts, meeting)):
+            paths.append(
+                f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{recording}"
+            )
+    entries = []
+    for path in paths:
+        file = directory / path
+        if file.is_dir():
+            entries.append({"type": "directory", "path": path})
+        elif path.endswith(".wav"):
+            entries.append(
+                {
+                    "type": "file",
+                    "path": path,
+                    "size": file.stat().st_size,
+                    "lfs": {"oid": sha256_file(file), "size": file.stat().st_size},
+                }
+            )
+        else:
+            entries.append({"type": "file", "path": path, "oid": git_blob_sha1_file(file)})
+    return entries
+
+
+def _notsofar_recordings(transcripts: dict, meeting: str) -> set[str]:
+    return {row["ct_wav_file_name"] for row in transcripts[meeting]}
+
+
+def fake_notsofar_release(
+    cache: Path,
+    monkeypatch,
+    transcripts: dict | None = None,
+    listing=None,
+    seconds: float = 10.0,
+) -> Path:
+    """A cache that looks like the train split of the corpus, without the Hub.
+
+    The files are the fixture's own and the listing is built from them, so the
+    checksums the preparation verifies are the checksums of the files it copies:
+    a fixture file whose digest does not match the listing is refused exactly as
+    a corpus file that changed under the pinned revision would be. The URL of a
+    file is that file, which is what makes the download a copy, and the listing
+    is asked for through the same call the corpus's listing is.
+    """
+    transcripts = NOTSOFAR_TRANSCRIPTS if transcripts is None else transcripts
+    directory = cache / "fixture"
+    for meeting, rows in transcripts.items():
+        transcript = directory / notsofar.DIRECTORY / notsofar.MEETINGS_DIRECTORY / meeting
+        transcript.mkdir(parents=True, exist_ok=True)
+        (transcript / notsofar.TRANSCRIPT_NAME).write_text(json.dumps(rows), encoding="utf-8")
+        for recording in _notsofar_recordings(transcripts, meeting):
+            write_tone(transcript / recording, seconds=seconds)
+    entries = notsofar_listing(directory, transcripts)
+    if listing is not None:
+        entries = listing(entries)
+    monkeypatch.setattr(
+        notsofar, "huggingface_entries", lambda repo, revision, path, **options: entries
+    )
+    monkeypatch.setattr(notsofar.Release, "url", lambda self, path: str(directory / path))
+    return directory
+
+
+def test_notsofar_reads_the_train_meetings_and_groups_by_participant(dirs, monkeypatch):
+    data, cache = dirs
+    fake_notsofar_release(cache, monkeypatch)
+
+    count = notsofar.fetch_notsofar_en_train(
+        "notsofar-en-train", cache, data / "notsofar-en-train", verbose=False
+    )
+    # Two answers of Peter, one of Sophie and one of Bert; the utterance too
+    # short to be a clip and the one that was nothing but a laugh are not clips.
+    assert count == 4
+
+    clips = {clip.id: clip for clip in read_manifest(data / "notsofar-en-train")}
+    assert set(clips) == {
+        "notsofar-en-train:MTG_00001.Peter.0000",
+        "notsofar-en-train:MTG_00001.Sophie.0001",
+        "notsofar-en-train:MTG_00001.Peter.0004",
+        "notsofar-en-train:MTG_00002.Bert.0000",
+    }
+    first = clips["notsofar-en-train:MTG_00001.Peter.0000"]
+    assert first.text == "I think schools are about preparing children for Harvard."
+    assert first.text_has_casing_punct is True
+    # The clip is the part of the recording the transcript gives it.
+    assert first.duration_s == pytest.approx(2.5, abs=0.01)
+    assert first.group == "notsofar-en-train:Peter"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "240825.1_train"
+    assert first.language == "en"
+    assert first.license == "CC-BY-4.0"
+    assert clips["notsofar-en-train:MTG_00001.Sophie.0001"].text == "Mm-hmm."
+    assert clips["notsofar-en-train:MTG_00001.Peter.0004"].text == "But we should ask."
+    # The same participant of two meetings is one group, which is what the
+    # aliases of the corpus are for.
+    assert {clip.group for clip in clips.values()} == {
+        "notsofar-en-train:Peter",
+        "notsofar-en-train:Sophie",
+        "notsofar-en-train:Bert",
+    }
+
+
+def test_notsofar_cleans_the_annotation_markup_but_keeps_the_words():
+    """A pause is not a word and a marked name is: the tags go, the words stay."""
+    assert notsofar.clean_text("Mm-hmm. <ST/>") == "Mm-hmm."
+    assert notsofar.clean_text("<PName> Peter </PName>") == "Peter"
+    assert notsofar.clean_text("But <UNKNOWN/> we should ask.") == "But we should ask."
+    assert notsofar.clean_text("<FILLlaugh/>") == ""
+    assert notsofar.clean_text("So   <ST/>  <FILL/>  then.") == "So then."
+    # Nothing is put in place of a tag, so a tag next to a word does not move it.
+    assert notsofar.clean_text("the <PName> Rock </PName> said.") == "the Rock said."
+
+
+def test_notsofar_stops_at_the_share_of_one_group(dirs, monkeypatch):
+    """No more than its share of the cap comes from one participant."""
+    data, cache = dirs
+    fake_notsofar_release(cache, monkeypatch)
+    monkeypatch.setattr(notsofar, "CLIP_CAP_PER_GROUP", 1)
+
+    count = notsofar.fetch_notsofar_en_train(
+        "notsofar-en-train", cache, data / "notsofar-en-train", verbose=False
+    )
+
+    clips = read_manifest(data / "notsofar-en-train")
+    assert count == 3
+    assert [clip.id for clip in clips if clip.group.endswith(":Peter")] == [
+        "notsofar-en-train:MTG_00001.Peter.0000"
+    ]
+
+
+def test_notsofar_refuses_a_recording_the_hub_lists_no_checksum_for(dirs, monkeypatch):
+    """A file nobody can pin is not downloaded: the pinned revision is the point."""
+    _, cache = dirs
+
+    def without_checksums(entries):
+        return [
+            {key: value for key, value in entry.items() if key != "lfs"}
+            if entry["path"].endswith("CT_21.wav")
+            else entry
+            for entry in entries
+        ]
+
+    fake_notsofar_release(cache, monkeypatch, listing=without_checksums)
+    with pytest.raises(DownloadError, match="lists no checksum"):
+        notsofar.fetch_notsofar_en_train("notsofar-en-train", cache, cache / "out", verbose=False)
+
+
+def test_notsofar_refuses_a_recording_of_another_meeting(dirs, monkeypatch):
+    """A transcript names the microphone of its own meeting, not of the room next door."""
+    _, cache = dirs
+    elsewhere = json.loads(json.dumps(NOTSOFAR_TRANSCRIPTS))
+    elsewhere["MTG_00001"][0]["ct_wav_file_name"] = "../MTG_00002/close_talk/CT_21.wav"
+    fake_notsofar_release(cache, monkeypatch, transcripts=elsewhere)
+
+    with pytest.raises(DownloadError, match="not a close_talk/<name> recording"):
+        notsofar.fetch_notsofar_en_train("notsofar-en-train", cache, cache / "out", verbose=False)
+
+
+def test_notsofar_refuses_a_clip_that_reaches_past_its_recording(dirs, monkeypatch):
+    """Times that do not fit the recording are not times of that recording."""
+    _, cache = dirs
+    too_late = json.loads(json.dumps(NOTSOFAR_TRANSCRIPTS))
+    too_late["MTG_00001"][0]["end_time"] = 6.5
+    fake_notsofar_release(cache, monkeypatch, transcripts=too_late, seconds=5.0)
+
+    with pytest.raises(DownloadError, match="the annotation is not of this recording"):
+        notsofar.fetch_notsofar_en_train("notsofar-en-train", cache, cache / "out", verbose=False)
+
+
+def test_notsofar_asks_the_hub_for_the_revision_it_pins(dirs):
+    """The revision and the split are in every URL, so neither can drift silently."""
+    _, cache = dirs
+    release = notsofar.Release("notsofar-en-train", cache)
+    path = (
+        f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/MTG_00001/{notsofar.TRANSCRIPT_NAME}"
+    )
+
+    url = release.url(path)
+
+    assert notsofar.REVISION in url
+    assert path in url
+    # The simulated corpus of the same release is another tree of the repository,
+    # and the dev and evaluation subsets are other directories of this one.
+    for other in ("css-datasets", "dev_set", "eval_set"):
+        with pytest.raises(DownloadError, match="is not a file of"):
+            release.url(other)
