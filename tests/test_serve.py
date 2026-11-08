@@ -23,7 +23,7 @@ from audiolab.serve.config import (  # noqa: E402
     file_sha256,
 )
 from audiolab.serve.http import TranscriptionServer, parse_multipart  # noqa: E402
-from audiolab.serve.launcher import serve, serving  # noqa: E402
+from audiolab.serve.launcher import serve_command, serving, start_server  # noqa: E402
 
 FAKE_WAV = b"RIFF\x00\x00\x00\x00WAVEfmt "
 
@@ -165,20 +165,83 @@ def test_multipart_fields_are_read_with_their_own_encoding():
     assert fields["language"] == "fr"
 
 
-def test_the_server_is_stopped_when_the_serving_block_ends():
-    spec = ServeSpec(checkpoint="ignored.nemo")
-    with serving(spec, "m", transcribe=fake_backend()) as base_url:
-        assert httpx.get(f"{base_url}/v1/models").status_code == 200
+FAKE_SERVER = Path(__file__).resolve().parent / "fake_serve.py"
+
+
+def fake_command(spec=None, model_id: str = "") -> list[str]:
+    """The command a test serves with: the real child protocol, no model."""
+    return [sys.executable, str(FAKE_SERVER), "0", "--stop-when-stdin-closes"]
+
+
+def test_a_server_child_announces_the_address_it_serves():
+    """The port is chosen by the child and read from its output, never guessed."""
+    process = start_server(
+        ServeSpec(checkpoint="x.nemo"), "fake-model", command_factory=fake_command
+    )
+    try:
+        assert process.base_url.startswith("http://127.0.0.1:")
+        answer = httpx.get(f"{process.base_url}/v1/models", timeout=5)
+        assert answer.json()["data"][0]["id"] == "fake-model"
+    finally:
+        process.stop()
     with pytest.raises(httpx.TransportError):
-        httpx.get(f"{base_url}/v1/models", timeout=1.0)
+        httpx.get(f"{process.base_url}/v1/models", timeout=2)
 
 
-def test_serve_binds_the_port_before_returning():
-    """A caller never waits for readiness: the socket is listening when serve returns."""
-    server = serve(ServeSpec(checkpoint="ignored.nemo"), "m", transcribe=fake_backend())
+def test_two_servers_of_the_same_checkpoint_do_not_need_the_same_port():
+    """Every run gets a free port; nothing may depend on which one it is."""
+    first = start_server(ServeSpec(checkpoint="x.nemo"), "m", command_factory=fake_command)
+    second = start_server(ServeSpec(checkpoint="x.nemo"), "m", command_factory=fake_command)
+    try:
+        assert first.base_url != second.base_url
+        assert httpx.get(f"{second.base_url}/v1/models", timeout=5).status_code == 200
+    finally:
+        first.stop()
+        second.stop()
+
+
+def test_the_server_is_stopped_when_the_serving_block_ends():
+    with serving(ServeSpec(checkpoint="x.nemo"), "m", command_factory=fake_command) as base_url:
+        assert httpx.get(f"{base_url}/v1/models", timeout=5).status_code == 200
+    with pytest.raises(httpx.TransportError):
+        httpx.get(f"{base_url}/v1/models", timeout=2)
+
+
+def test_a_child_that_cannot_start_says_what_it_printed():
+    """An interpreter without NeMo must fail with its own message, not a timeout."""
+
+    def broken_command(spec=None, model_id: str = "") -> list[str]:
+        return [sys.executable, "-c", "raise SystemExit('no module named nemo')"]
+
+    with pytest.raises(ServeConfigError, match="no module named nemo"):
+        start_server(ServeSpec(checkpoint="x.nemo"), "m", command_factory=broken_command)
+
+
+def test_server_commands_name_the_checkpoint_and_the_interpreter(tmp_path, monkeypatch):
+    """The child is told exactly what to load, in the interpreter that can load it."""
+    checkpoint = checkpoint_file(tmp_path, "serve-me.nemo", b"weights")
+    monkeypatch.setenv("AUDIOLAB_NEMO_PYTHON", "/opt/nemo/python")
+    spec = ServeSpec(checkpoint=str(checkpoint), gpu="GPU-abc", max_symbols=7)
+    command = serve_command(spec, "my-id")
+    assert command[0] == "/opt/nemo/python"
+    assert command[1:3] == ["-m", "audiolab.serve"]
+    assert "--checkpoint" in command and str(checkpoint) in command
+    assert command[command.index("--gpu") + 1] == "GPU-abc"
+    assert command[command.index("--max-symbols") + 1] == "7"
+    assert command[command.index("--model-id") + 1] == "my-id"
+    assert "--stop-when-stdin-closes" in command
+
+    monkeypatch.delenv("AUDIOLAB_NEMO_PYTHON")
+    assert serve_command(spec, "my-id")[0] == sys.executable  # this environment, by default
+
+
+def test_serve_binds_the_port_before_returning(tmp_path):
+    """The in-process server (what `audiolab serve` runs) listens when it returns."""
+    server = TranscriptionServer(fake_backend(), "m", port=0).start()
     try:
         assert server.port > 0
         assert server.base_url == f"http://127.0.0.1:{server.port}"
+        assert httpx.get(f"{server.base_url}/v1/models", timeout=5).status_code == 200
     finally:
         server.stop()
 

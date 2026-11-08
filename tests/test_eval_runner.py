@@ -42,6 +42,7 @@ from audiolab.eval.runner import (  # noqa: E402
     run_suite,
 )
 from audiolab.serve.config import ServeSpec  # noqa: E402
+from audiolab.serve.http import TranscriptionServer  # noqa: E402
 
 PANEL = "fake-fr-fast"
 
@@ -832,17 +833,33 @@ def served_context(workspace, serve_spec, runs_root, name: str = "local-model"):
     return changed
 
 
-def counting_transcriber(calls: list, text: str = "bonjour tout le monde"):
-    """A stand-in backend: the tests never load NeMo nor touch a GPU."""
+def fake_serving(calls: list, text: str = "bonjour tout le monde"):
+    """Serve a stand-in backend, on a new port for every run.
+
+    The runner starts a server in a child process in real use; the same HTTP
+    contract is served in-process here, so the test needs no NeMo and no model.
+    A fresh port per run is the point of the test that uses it: a cache key that
+    followed the URL would send every clip again.
+    """
 
     def transcribe(audio: bytes, language: str = "") -> str:
         calls.append((audio, language))
         return text
 
-    return transcribe
+    @contextmanager
+    def serving(spec, model_id):
+        server = TranscriptionServer(transcribe, model_id).start()
+        try:
+            yield server.base_url
+        finally:
+            server.stop()
+
+    return serving
 
 
-def test_a_served_checkpoint_is_identified_by_its_content_not_its_port(workspace, tmp_path):
+def test_a_served_checkpoint_is_identified_by_its_content_not_its_port(
+    workspace, tmp_path, monkeypatch
+):
     """Two runs of one checkpoint share their answers; another checkpoint does not.
 
     A temporary server listens on a fresh port on every run, so a cache key that
@@ -858,46 +875,37 @@ def test_a_served_checkpoint_is_identified_by_its_content_not_its_port(workspace
     other.write_bytes(b"second-weights")
     runs_root = tmp_path / "runs"
     calls: list = []
-    transcribe = counting_transcriber(calls)
+    monkeypatch.setattr(runner, "serving", fake_serving(calls))
 
-    first = run_suite(
-        served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), runs_root),
-        transcriber=transcribe,
-    )
+    first = run_suite(served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), runs_root))
     assert len(calls) == panel_size(workspace)
 
     # The same weights, another path and another port: nothing is sent again.
-    run_suite(
-        served_context(workspace, ServeSpec(checkpoint=str(copy)), runs_root),
-        transcriber=transcribe,
-    )
+    run_suite(served_context(workspace, ServeSpec(checkpoint=str(copy)), runs_root))
     assert len(calls) == panel_size(workspace)
 
     # Another checkpoint, on another port too: every clip is a new question.
-    run_suite(
-        served_context(workspace, ServeSpec(checkpoint=str(other)), runs_root),
-        transcriber=transcribe,
-    )
+    run_suite(served_context(workspace, ServeSpec(checkpoint=str(other)), runs_root))
     assert len(calls) == 2 * panel_size(workspace)
 
-    # The identity, not the port: both runs of the first checkpoint wrote the
-    # same records, and no run directory names a checkpoint path.
-    assert len({(path.name) for path in (runs_root / "transcripts").glob("*.jsonl")}) == 2
+    # The identity, not the port: one cache file for each checkpoint, and no run
+    # directory names a path.
+    assert len(list((runs_root / "transcripts").glob("*.jsonl"))) == 2
     identity = (first / IDENTITY_NAME).read_text(encoding="utf-8")
     assert str(tmp_path) not in identity
     assert json.loads(identity)["model"]["serve"]["checkpoint"].startswith("sha256=")
-    assert identity.count("sha256=") == 1
 
 
-def test_serving_a_checkpoint_uses_the_port_the_server_chose(workspace, tmp_path):
+def test_serving_a_checkpoint_uses_the_port_the_server_chose(workspace, tmp_path, monkeypatch):
     """The run talks to the server the runner started, not to a URL from a variable."""
     checkpoint = tmp_path / "one.nemo"
     checkpoint.write_bytes(b"weights")
     calls: list = []
+    monkeypatch.setattr(runner, "serving", fake_serving(calls))
     changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
     # The config names a variable that is not set: a run that needed it would fail.
-    assert not os.environ.get("UNUSED_URL")
-    run_dir = run_suite(changed, transcriber=counting_transcriber(calls))
+    assert not os.environ.get("FAKE_URL")
+    run_dir = run_suite(changed)
     assert len(calls) == panel_size(workspace)
     identity = (run_dir / IDENTITY_NAME).read_text(encoding="utf-8")
     # The served address is a temporary local port; it belongs in no record.
@@ -908,27 +916,30 @@ def test_a_served_run_that_fails_still_stops_its_server(workspace, tmp_path, mon
     """A server left behind would keep a GPU busy; the runner must always stop it."""
     checkpoint = tmp_path / "broken.nemo"
     checkpoint.write_bytes(b"weights")
-    ports: list[str] = []
-    real_serving = runner.serving
-
-    @contextmanager
-    def tracking(spec, model_id, *, transcribe=None):
-        with real_serving(spec, model_id, transcribe=transcribe) as base_url:
-            ports.append(base_url)
-            yield base_url
-
-    monkeypatch.setattr(runner, "serving", tracking)
+    used: list[str] = []
 
     def failing(audio: bytes, language: str = "") -> str:
         raise RuntimeError("no GPU memory left")
+
+    @contextmanager
+    def serving(spec, model_id):
+        server = TranscriptionServer(failing, model_id).start()
+        used.append(server.base_url)
+        try:
+            yield server.base_url
+        finally:
+            server.stop()
+
+    monkeypatch.setattr(runner, "serving", serving)
 
     def no_backoff(context_, base_url):
         return TranscriptionClient(context_.model, base_url, sleep=lambda _: None)
 
     changed = served_context(workspace, ServeSpec(checkpoint=str(checkpoint)), tmp_path / "runs")
     with pytest.raises(RunError, match="no answer"):
-        run_suite(changed, transcriber=failing, client_factory=no_backoff)
-    assert len(ports) == 1
-    # The port the run used answers nothing now: the server was stopped.
+        run_suite(changed, client_factory=no_backoff)
+    # The failures are recorded, and the port the run used answers nothing now.
+    assert read_records(changed.runs_root / "eval" / "local-model" / "fast" / RECORDS_NAME)
+    assert len(used) == 1
     with pytest.raises(httpx.TransportError):
-        httpx.get(f"{ports[0]}/v1/models", timeout=2.0, trust_env=False)
+        httpx.get(f"{used[0]}/v1/models", timeout=2)

@@ -125,13 +125,12 @@ class RunContext:
         return self.model.serve.with_gpu(self.gpu)
 
 
-def run_suite(context: RunContext, *, client_factory=None, transcriber=None) -> Path:
+def run_suite(context: RunContext, *, client_factory=None) -> Path:
     """Answer and score every panel of the suite; returns the run directory.
 
     A model config with a ``serve`` block makes this start the server itself and
     stop it afterwards, so evaluating a local checkpoint is one command
-    (D-016). ``transcriber`` replaces the backend, which is how the tests drive
-    the whole path without NeMo.
+    (D-016).
     """
     _refuse_sealed_without_flag(context)
     spec = context.serving_spec()
@@ -139,7 +138,7 @@ def run_suite(context: RunContext, *, client_factory=None, transcriber=None) -> 
         return _answer_and_score(
             context, context.base_url or base_url_from_env(context.model), client_factory
         )
-    with serving(spec, context.model.model, transcribe=transcriber) as base_url:
+    with serving(spec, context.model.model) as base_url:
         return _answer_and_score(context, base_url, client_factory)
 
 
