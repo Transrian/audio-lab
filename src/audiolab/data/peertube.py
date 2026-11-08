@@ -143,6 +143,13 @@ def smallest_file_url(http: httpx.Client, talk: Talk) -> str:
 
     It is asked at download time rather than pinned: an instance may transcode a
     video again under new file names, and every file holds the same audio.
+
+    A file is taken only once it has answered: PeerTube lists the files a video
+    was transcoded into, and an instance that has moved to streaming may have
+    deleted the plain files while still naming them, which is what
+    ``test_a_file_the_instance_no_longer_serves_is_not_taken`` pins. Each
+    candidate is asked for its first byte, so a talk costs one small request more
+    and not a failed download.
     """
     details = get_json(http, f"{talk.instance}/api/v1/videos/{talk.id}")
     files = list(details.get("files") or [])
@@ -150,7 +157,19 @@ def smallest_file_url(http: httpx.Client, talk: Talk) -> str:
         files.extend(playlist.get("files") or [])
     if not files:
         raise DownloadError(f"{talk.url} serves no downloadable file")
-    return min(files, key=lambda file: file["size"])["fileUrl"]
+    for file in sorted(files, key=lambda file: file["size"]):
+        if serves(http, file["fileUrl"]):
+            return file["fileUrl"]
+    raise DownloadError(f"{talk.url} serves no file the instance still has")
+
+
+def serves(http: httpx.Client, url: str) -> bool:
+    """Whether the instance answers for a file URL, asked for its first byte only."""
+    try:
+        response = http.get(url, headers={"Range": "bytes=0-0"})
+    except httpx.TransportError:
+        return False
+    return response.status_code in (200, 206)
 
 
 def get_json(http: httpx.Client, url: str, params: dict | None = None) -> dict:

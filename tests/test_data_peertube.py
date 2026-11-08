@@ -160,9 +160,13 @@ def test_the_smallest_file_of_a_talk_is_asked_for_at_download_time():
         "files": [{"size": 900, "fileUrl": f"{INSTANCE}/big.mp4"}],
         "streamingPlaylists": [{"files": [{"size": 100, "fileUrl": f"{INSTANCE}/small.mp4"}]}],
     }
-    with httpx.Client(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=details))
-    ) as http:
+
+    def answer(request):
+        if request.url.path.startswith("/api/v1/videos"):
+            return httpx.Response(200, json=details)
+        return httpx.Response(206, content=b"x")
+
+    with httpx.Client(transport=httpx.MockTransport(answer)) as http:
         talk = peertube.talk_of(api_row("v1"), INSTANCE)
         assert peertube.smallest_file_url(http, talk) == f"{INSTANCE}/small.mp4"
     with httpx.Client(
@@ -170,6 +174,38 @@ def test_the_smallest_file_of_a_talk_is_asked_for_at_download_time():
     ) as http:
         with pytest.raises(DownloadError, match="no downloadable file"):
             peertube.smallest_file_url(http, peertube.talk_of(api_row("v2"), INSTANCE))
+
+
+def test_a_file_the_instance_no_longer_serves_is_not_taken():
+    """An instance that moved to streaming still names the files it deleted."""
+    details = {
+        "files": [{"size": 100, "fileUrl": f"{INSTANCE}/deleted.mp4"}],
+        "streamingPlaylists": [{"files": [{"size": 900, "fileUrl": f"{INSTANCE}/kept.mp4"}]}],
+    }
+
+    def answer(request):
+        if request.url.path.startswith("/api/v1/videos"):
+            return httpx.Response(200, json=details)
+        if request.url.path == "/deleted.mp4":
+            return httpx.Response(404, json={"detail": "Not Found"})
+        assert request.headers["Range"] == "bytes=0-0"
+        return httpx.Response(206, content=b"x")
+
+    with httpx.Client(transport=httpx.MockTransport(answer)) as http:
+        talk = peertube.talk_of(api_row("v1"), INSTANCE)
+        assert peertube.smallest_file_url(http, talk) == f"{INSTANCE}/kept.mp4"
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda r: (
+                httpx.Response(200, json=details)
+                if r.url.path.startswith("/api/v1/videos")
+                else httpx.Response(404)
+            )
+        )
+    ) as http:
+        talk = peertube.talk_of(api_row("v1"), INSTANCE)
+        with pytest.raises(DownloadError, match="no file the instance still has"):
+            peertube.smallest_file_url(http, talk)
 
 
 def test_the_committed_listing_of_the_capitole_du_libre_is_readable_and_usable():
