@@ -5,8 +5,10 @@
 # The file's name is the run's name: results go to
 # $AUDIOLAB_RUNS/train/example/, and the run writes its own
 # $AUDIOLAB_RUNS/train/example/model.yaml to evaluate itself with. Every value
-# below is explained in docs/stt/training.md; the commented ones are the
-# defaults, so a config can leave them out.
+# below is explained in docs/stt/training.md. The lines without a '#' have no
+# default - what a run trains on, how long, in what batches and at what rates
+# are choices - so a config has to write them down; the commented ones can be
+# left out.
 #
 # A run is one config file, and it never writes outside its own run directory.
 

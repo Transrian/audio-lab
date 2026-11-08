@@ -76,11 +76,14 @@ resume_every: 500                         # updates between resume-slot rewrites
 log_every: 50                             # updates between log lines
 ```
 
-Every field is required except the ones with a default: `grad_accumulation`
-(1), `weight_decay` (1e-3), `schedule` (`constant`), `warmup_updates` (0),
-`precision` (`bf16-mixed`), `grad_clip` (1.0), `max_clip_seconds` (20),
-`workers` (4), `gpu` (0), `seed` (20261107), `resume_every` (500) and
-`log_every` (50).
+`base_model`, `dataset`, `clips`, `updates`, `batch_size`, `lr_encoder` and
+`lr_heads` are required: none of them has a value a run could guess, and a run
+that guessed one would train something other than what the file says. Every
+other field has a default and may be left out: `base_model_env` (`""`),
+`grad_accumulation` (1), `weight_decay` (1e-3), `schedule` (`constant`),
+`warmup_updates` (0), `precision` (`bf16-mixed`), `grad_clip` (1.0),
+`max_clip_seconds` (20), `workers` (4), `gpu` (0), `seed` (20261107),
+`resume_every` (500) and `log_every` (50).
 **An unknown key is refused**, so a typo cannot silently train something else
 than the file says. `clips` must be at least `batch_size`, `warmup_updates` must
 be smaller than `updates`, and the two learning rates must be positive.

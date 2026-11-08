@@ -43,12 +43,23 @@ from audiolab.train.run import (  # noqa: E402
 from audiolab.train.runner import Training  # noqa: E402
 from audiolab.train.settings import dataset_config  # noqa: E402
 
-MINIMAL = {"base_model": "/models/base.nemo", "dataset": "fleurs-fr"}
+# The keys every config must set, at values small enough for a test. What a run
+# trains on, how long, in what batches and at what rates are choices, not
+# defaults: a run would otherwise train something the file does not say.
+MINIMAL = {
+    "base_model": "/models/base.nemo",
+    "dataset": "fleurs-fr",
+    "clips": 4,
+    "updates": 2,
+    "batch_size": 2,
+    "lr_encoder": 1.0e-5,
+    "lr_heads": 3.0e-5,
+}
 
 
 def config(**overrides) -> TrainConfig:
     """A small run: two clips per update, so a test needs only a handful of clips."""
-    return TrainConfig.from_mapping({**MINIMAL, "batch_size": 2, **overrides}, name="example")
+    return TrainConfig.from_mapping({**MINIMAL, **overrides}, name="example")
 
 
 def write_config(path: Path, raw: dict) -> Path:
@@ -80,12 +91,24 @@ def write_dataset(root: Path, name: str, count: int) -> Path:
 def test_a_config_reads_its_defaults_and_the_file_name_names_the_run(tmp_path):
     loaded = TrainConfig.from_file(write_config(tmp_path / "my-first-run.yaml", MINIMAL))
     assert loaded.name == "my-first-run"
-    assert loaded.clips == 4000 and loaded.batch_size == 16
+    assert loaded.clips == 4 and loaded.batch_size == 2
     assert loaded.grad_accumulation == 1 and loaded.schedule == "constant"
-    assert loaded.lr_encoder == 1.0e-5 and loaded.lr_heads == 3.0e-5
-    assert loaded.precision == "bf16-mixed" and loaded.seed == 20261107
+    assert loaded.weight_decay == 1.0e-3 and loaded.warmup_updates == 0
+    assert loaded.precision == "bf16-mixed" and loaded.grad_clip == 1.0
+    assert loaded.max_clip_seconds == 20.0 and loaded.seed == 20261107
     assert loaded.resume_every == 500 and loaded.log_every == 50
     assert loaded.workers == 4 and loaded.gpu == "0"
+
+
+def test_the_size_of_a_run_and_its_rates_have_to_be_written_down():
+    """No default for what a run trains on, how long, or how fast it moves."""
+    with pytest.raises(
+        TrainConfigError,
+        match="missing required keys: clips, updates, batch_size, lr_encoder, lr_heads",
+    ):
+        TrainConfig.from_mapping(
+            {"base_model": "/models/base.nemo", "dataset": "fleurs-fr"}, name="example"
+        )
 
 
 def test_an_unknown_key_in_a_training_config_is_refused(tmp_path):
@@ -579,7 +602,7 @@ def fake_model(rates: dict | None = None, weightless: tuple = ()) -> FakeModel:
 def test_the_dataset_a_run_uses_is_the_one_the_recipe_asks_for(tmp_path):
     """The manifest is read the project's way, not NeMo's default way."""
     path = tmp_path / "manifest.jsonl"
-    built = dataset_config(config(batch_size=8), path)
+    built = dataset_config(config(clips=16, batch_size=8), path)
     assert built["manifest_filepath"] == str(path)
     assert built["batch_size"] == 8
     assert built["use_lhotse"] is False and built["is_tarred"] is False

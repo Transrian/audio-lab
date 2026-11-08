@@ -44,6 +44,9 @@ TRAIN_FIELDS = (
     "resume_every",
     "log_every",
 )
+# The keys with no sensible guess: a run that picked its own size, batch or rate
+# would be another run than the file says, so these must be written down.
+REQUIRED_FIELDS = ("dataset", "clips", "updates", "batch_size", "lr_encoder", "lr_heads")
 SCHEDULES = ("constant", "cosine")
 PRECISIONS = ("bf16-mixed", "16-mixed", "32")
 # The config's name becomes a directory and a model id, so it is kept boring.
@@ -64,19 +67,19 @@ class TrainConfig:
     # copy sets ``base_model_env`` and trains from the copy.
     base_model: str
     dataset: str
-    base_model_env: str = ""
     # How many clips the run trains on, drawn once from the dataset.
-    clips: int = 4000
+    clips: int
     # Optimizer updates, not epochs: this is what stops the run.
-    updates: int = 5000
-    batch_size: int = 16
+    updates: int
+    batch_size: int
+    # Two learning rates: the encoder (with its preprocessor) and the heads
+    # (decoder and joint). Fine-tuning usually wants the heads to move faster.
+    lr_encoder: float
+    lr_heads: float
+    base_model_env: str = ""
     # Gradient accumulation lets a larger effective batch fit in memory: the
     # number of updates does not change, only how many clips each one sees.
     grad_accumulation: int = 1
-    # Two learning rates: the encoder (with its preprocessor) and the heads
-    # (decoder and joint). Fine-tuning usually wants the heads to move faster.
-    lr_encoder: float = 1.0e-5
-    lr_heads: float = 3.0e-5
     weight_decay: float = 1.0e-3
     schedule: str = "constant"
     warmup_updates: int = 0
@@ -119,7 +122,11 @@ class TrainConfig:
         unknown = sorted(set(raw) - set(TRAIN_FIELDS))
         if unknown:
             raise TrainConfigError(f"{source}: unknown training keys: {', '.join(unknown)}")
-        missing = [key for key in ("base_model", "dataset") if not str(raw.get(key) or "").strip()]
+        missing = [
+            key
+            for key in ("base_model", *REQUIRED_FIELDS)
+            if raw.get(key) is None or (isinstance(raw[key], str) and not raw[key].strip())
+        ]
         if missing:
             raise TrainConfigError(f"{source}: missing required keys: {', '.join(missing)}")
         config = cls(
@@ -127,12 +134,12 @@ class TrainConfig:
             base_model=str(raw["base_model"]).strip(),
             base_model_env=str(raw.get("base_model_env") or "").strip(),
             dataset=str(raw["dataset"]).strip(),
-            clips=int(raw.get("clips", cls.clips)),
-            updates=int(raw.get("updates", cls.updates)),
-            batch_size=int(raw.get("batch_size", cls.batch_size)),
+            clips=int(raw["clips"]),
+            updates=int(raw["updates"]),
+            batch_size=int(raw["batch_size"]),
             grad_accumulation=int(raw.get("grad_accumulation", cls.grad_accumulation)),
-            lr_encoder=float(raw.get("lr_encoder", cls.lr_encoder)),
-            lr_heads=float(raw.get("lr_heads", cls.lr_heads)),
+            lr_encoder=float(raw["lr_encoder"]),
+            lr_heads=float(raw["lr_heads"]),
             weight_decay=float(raw.get("weight_decay", cls.weight_decay)),
             schedule=str(raw.get("schedule", cls.schedule)),
             warmup_updates=int(raw.get("warmup_updates", cls.warmup_updates)),
