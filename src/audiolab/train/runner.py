@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from audiolab.core.checkpoint import Checkpoint
 from audiolab.core.gpu import select_gpu
@@ -23,6 +24,10 @@ from audiolab.train.data import (
     load_training_clips,
     write_nemo_manifest,
 )
+
+if TYPE_CHECKING:  # what the heavy step returns; importing it would need PyTorch
+    from audiolab.train.finetune import TrainResult
+
 from audiolab.train.run import (
     LOG_NAME,
     MANIFEST_NAME,
@@ -61,7 +66,9 @@ class Training:
     resuming: bool
 
 
-def train_checkpoint(training: Training, *, print_line: Callable[[str], None] = print):
+def train_checkpoint(
+    training: Training, *, print_line: Callable[[str], None] = print
+) -> TrainResult:
     """The one heavy step. Kept behind a name so the tests can replace it."""
     try:
         from audiolab.train import finetune
@@ -176,10 +183,10 @@ def _refuse_a_different_run(directory: Path, started: dict) -> None:
         )
 
 
-def _record(config: TrainConfig, training: Training, result: object) -> dict:
+def _record(config: TrainConfig, training: Training, result: TrainResult) -> dict:
     """What this run was and what it produced, as it goes into train.json."""
-    updates = getattr(result, "updates", config.updates) or config.updates
-    seconds = getattr(result, "wall_seconds", 0.0) or 0.0
+    updates = result.updates or config.updates
+    seconds = result.wall_seconds or 0.0
     return {
         "name": config.name,
         "config": config.to_dict(),
@@ -191,10 +198,10 @@ def _record(config: TrainConfig, training: Training, result: object) -> dict:
         "base_model_identity": training.base_identity,
         "resumed": training.resuming,
         "git_commit": git_commit(),
-        "final_loss": getattr(result, "final_loss", float("nan")),
+        "final_loss": result.final_loss,
         "updates": updates,
         "wall_seconds": round(seconds, 1),
         "updates_per_second": round(updates / seconds, 2) if seconds > 0 else 0.0,
-        "peak_vram_gib": round(getattr(result, "peak_vram_gib", 0.0), 2),
-        "device": getattr(result, "device", ""),
+        "peak_vram_gib": round(result.peak_vram_gib, 2),
+        "device": result.device,
     }
