@@ -11,7 +11,13 @@ from __future__ import annotations
 import argparse
 import sys
 
-from audiolab.serve.config import ServeConfigError, ServeSpec
+from audiolab.serve.config import (
+    BACKENDS,
+    DEFAULT_GPU,
+    DEFAULT_MAX_SYMBOLS,
+    ServeConfigError,
+    ServeSpec,
+)
 from audiolab.serve.runtime import DEFAULT_HOST, run_foreground
 
 
@@ -23,10 +29,19 @@ def build_parser() -> argparse.ArgumentParser:
         "in normal use, run 'audiolab serve --model configs/models/<name>.yaml' instead.",
     )
     parser.add_argument("--model-id", required=True, help="the id GET /v1/models reports")
-    parser.add_argument("--backend", default="nemo", help="backend to load the checkpoint with")
+    parser.add_argument(
+        "--backend", default=BACKENDS[0], help="backend to load the checkpoint with"
+    )
     parser.add_argument("--checkpoint", required=True, help="a .nemo path or a Hub id")
-    parser.add_argument("--gpu", default="0", help="GPU to load the model on: index or UUID prefix")
-    parser.add_argument("--max-symbols", type=int, default=10, help="greedy decoding symbol budget")
+    parser.add_argument(
+        "--gpu", default=DEFAULT_GPU, help="GPU to load the model on: index or UUID prefix"
+    )
+    parser.add_argument(
+        "--max-symbols",
+        type=int,
+        default=DEFAULT_MAX_SYMBOLS,
+        help="greedy decoding symbol budget",
+    )
     parser.add_argument("--host", default=DEFAULT_HOST, help="address to listen on")
     parser.add_argument("--port", type=int, default=0, help="port to listen on; 0 picks a free one")
     parser.add_argument(
