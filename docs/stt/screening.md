@@ -5,8 +5,8 @@ fine-tune of the base model per source, all with the same budget and the same
 recipe, then every final checkpoint is scored on the full suite against the base
 model served the same way. The question is what one source brings by itself,
 measured against the target use of
-[D-009](../owner/directives.md): better French, with English and English spoken
-by non-native speakers kept.
+[D-009](../owner/directives.md): better French, with English kept, including
+English spoken with an accent.
 
 This is a screening, not a recipe search. It gives a *feel* for each source; it
 does not choose the final mix ([roadmap](../roadmap.md), phase 4) and it is not
@@ -86,8 +86,7 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   speakers**, the panel closest to it (same Parliament, other speakers). It does
   not answer in French there; it drops words: 22 of the 600 clips come back
   empty, against none for the base model, and more answers are cut short.
-  (That panel is named for non-native English, not French-accented English: see
-  its
+  (Its speakers are non-native, but mostly not French: see the panel's
   [card](datasets.md#voxpopuli-en-nonnative--english-spoken-by-non-native-speakers-in-the-european-parliament).)
 - **MLS FR** hurts the main French panel (+0.97) and non-native English, and does
   not even improve its own corpus's panel. Its lowercase, unpunctuated text
