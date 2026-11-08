@@ -154,6 +154,19 @@ DATASETS: dict[str, DatasetInfo] = {
         "docs/stt/datasets.md. MLS keeps the speakers of its splits apart, and "
         "the speakers of the test split are excluded anyway. No panels.",
     ),
+    "peertube-fr-train": DatasetInfo(
+        name="peertube-fr-train",
+        source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "
+        "videos is src/audiolab/data/peertube_listing.json)",
+        license="CC-BY",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data for the per-source screening: free-software talks in French "
+        "with English technical terms, labelled as described in docs/stt/datasets.md. "
+        "Labels are model output, not human transcripts. Every clip carries the "
+        "attribution of its video (author, title, URL, license). No panels.",
+    ),
     "voxpopuli-fr-train": DatasetInfo(
         name="voxpopuli-fr-train",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config fr, split train)",
