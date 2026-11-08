@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from audiolab.data import debconf, peertube, peertube_edu
+from audiolab.data import debconf, fosdem, peertube, peertube_edu
 from audiolab.data.datasets import DATASETS
 from audiolab.data.talks import PreparedAudio, Talk, TalkSource, fetch_talks, prepare_audio
 
@@ -82,6 +82,25 @@ SOURCES: dict[str, TalkSource] = {
         lister=debconf.list_talks,
         audio_url=peertube.smallest_file_url,
         spread_by=debconf.spread_key,
+    ),
+    "fosdem-en-train": TalkSource(
+        name="fosdem-en-train",
+        language="en",
+        allowed_licenses=frozenset({fosdem.LICENSE}),
+        split="listing",
+        listing_path=DATA / "fosdem_listing.json",
+        listing_filter={
+            "schedule": fosdem.SCHEDULE,
+            "video_tree": fosdem.VIDEO_TREE,
+            "years": list(fosdem.YEARS),
+            "language": ["en", "untagged"],
+            "license": fosdem.LICENSE,
+            "min_duration_s": fosdem.MIN_TALK_SECONDS,
+            "join": "the schedule's video link must be a file the tree serves",
+        },
+        lister=fosdem.list_talks,
+        audio_url=fosdem.file_url,
+        spread_by=fosdem.spread_key,
     ),
 }
 

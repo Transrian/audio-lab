@@ -183,6 +183,20 @@ DATASETS: dict[str, DatasetInfo] = {
         "clip carries the attribution of its video (channel, title, URL, license). "
         "No panels.",
     ),
+    "fosdem-en-train": DatasetInfo(
+        name="fosdem-en-train",
+        source="https://video.fosdem.org (the video tree, joined to the per-year schedule "
+        "XML; the pinned list of talks is src/audiolab/data/fosdem_listing.json)",
+        license="CC-BY-2.0-BE",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = talk slug)",
+        notes="Training data for the per-source screening: FOSDEM talks of 2020 to 2026, "
+        "at least ten minutes long, labelled in English as described in "
+        "docs/stt/datasets.md. Labels are model output, not human transcripts. Every "
+        "clip carries the attribution CC BY asks for (speakers, title, URL, license). "
+        "No panels.",
+    ),
     "peertube-fr-train": DatasetInfo(
         name="peertube-fr-train",
         source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "

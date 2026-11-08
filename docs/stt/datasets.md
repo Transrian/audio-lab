@@ -353,6 +353,7 @@ screening is a difference between corpora and not between recipes:
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -768,6 +769,62 @@ Per instance, as the listing of 2026-11-08 holds them:
   usually has one speaker, the listing names none, and the questions from the room
   add others.
 
+### `fosdem-en-train` — FOSDEM talks, seven years of the conference
+
+- **Source**: FOSDEM publishes a talk twice, and neither side is enough on its
+  own. The schedule (`https://fosdem.org/<year>/schedule/xml`, which redirects to
+  FOSDEM's archive) holds one `<event>` per talk with its title, speakers, room,
+  language and slot, and lists talks whose recording was never published; the
+  video tree (`https://video.fosdem.org/<year>/<room>/`) is a plain HTTP directory
+  of `.mp4` and `.webm` files, and a file name says nothing about who spoke. A
+  talk is therefore listed when the schedule points at a file the tree **actually
+  serves** — the join is an exact match on the URL — and the schedule is where the
+  metadata comes from. The listing of 2026-11-08 holds **5 167 talks, 2 442.3 h**,
+  in 108 rooms over the seven years 2020 to 2026 ([`fosdem_listing.json`](
+  ../../src/audiolab/data/fosdem_listing.json)); the tree goes back to 2003, which
+  this source does not read: seven years already cover every devroom and topic the
+  conference has.
+- **The join, year by year**: the schedule of 2020 lists 872 events, 818 of them
+  with a link into the tree; 811 of those last ten minutes and are in English, and
+  811 are listed, the one difference being an event whose recording the tree does
+  not have. The same holds for 2021 (773 events, 644 listed), 2022 (730, 644),
+  2024 (874, 799), 2025 (1 105, 923) and 2026 (1 079, 943). **2023 is the
+  exception**: 780 events, 733 with a link, 713 of them long enough and in
+  English, of which only 403 are listed, because the tree published 22 rooms that
+  year where the other six published 28 to 58. The listing holds what a viewer
+  of the conference could watch, not what it announced.
+- **License and attribution**: CC BY 2.0 BE, stated on the tree's own pages, whose
+  footer links to <https://creativecommons.org/licenses/by/2.0/be/deed.en>
+  (checked 2026-11-08, on the pages of several years). That is the one source here
+  whose licence is a version of CC BY with a jurisdiction, so the manifest records
+  `CC-BY-2.0-BE` rather than `CC-BY`. Every clip carries the talk's `source_url`
+  (the recording), `source_title` and `source_author` (the speakers the schedule
+  names, joined with commas); 15 of the 5 167 talks name no speaker at all — a
+  lightning-talk slot, a stand — and their lines carry no author.
+- **Language**: the schedules of 2020 to 2023 tag no language at all — every
+  event of those years has an empty `<language>` — and those of 2024 to 2026 tag
+  every event `en`. So the language rule drops nothing over the years listed: a
+  talk is taken as English when its year says so or says nothing, FOSDEM being
+  held in English, and it would leave out an event a year tags in another
+  language. A talk that was not given in English in an untagged year is therefore
+  labelled as English like the others, and its clips go through the same
+  agreement test; the programme is in English, so this is a defect of the source
+  and not a rule of the filter. Talks shorter than ten minutes are left out as in
+  the other sources.
+- **Split and order**: `source_split` is `listing`; talks are read in a seeded
+  shuffle (`SEED`) spread over **year and room**, so a first cap covers every year
+  and every devroom instead of the biggest one. The audio is the MP4 the listing
+  pinned — preferred over the WebM because it plays everywhere, and over the AV1
+  WebM, which a decoder may refuse — converted to 16 kHz mono WAV.
+- **Prepared audio**: the first 65 h of the reading order — 126 talks — were
+  downloaded and kept as 16 kHz mono WAV, 6.6 GiB in the pipeline's cache
+  (`$AUDIOLAB_CACHE`, `.cache/audiolab` by default, git-ignored; the video file of
+  a talk is deleted once its sound is out). Every talk of that selection arrived.
+- **Group**: the recording (`group_kind: recording`), the talk. FOSDEM reuses a
+  devroom and a slug across years, so a talk's id starts with its year
+  (`2025-rounding-up-your-first-package`): two talks that share a slug would
+  otherwise share a cache file and a manifest group.
+
 ### No overlap with the evaluation sets
 
 [Decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)
@@ -795,6 +852,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 | `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
+| `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the two French sources that are not evaluation sets
