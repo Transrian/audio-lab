@@ -796,13 +796,36 @@ def test_pxcorpus_takes_every_recording_and_groups_by_participant(dirs):
         "pxcorpus-fr-train:02Qp6ICj9Q/recording_2",
     }
     first = clips["pxcorpus-fr-train:00MYcyVK0t/recording_0"]
-    # The transcript is kept as the corpus published it, cut-off word included.
-    assert first.text == "flagyl 500 milligrammes euh qu/ en cachet pendant 8 jours"
+    # The transcript is kept as the corpus published it, minus the slash that
+    # marks the word the recording button cut off.
+    assert first.text == "flagyl 500 milligrammes euh qu en cachet pendant 8 jours"
     assert first.text_has_casing_punct is False
     assert first.group == "pxcorpus-fr-train:24"
     assert first.group_kind == "speaker"
     assert first.source_split == "recordings"
     assert first.license == "CC-BY-4.0"
+
+
+def test_pxcorpus_rejoins_a_word_the_transcript_marked_with_a_slash(dirs):
+    """``comp/primés`` is the word "comprimés": the slash is a mark, not speech."""
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    make_zip(
+        directory / "PxCorpus.zip",
+        {
+            f"{root}/paths.txt": _text_file(directory, "paths.txt", "s/recording_0.wav\n"),
+            f"{root}/metadata.txt": _text_file(directory, "metadata.txt", "24,18-28,F,doctor\n"),
+            f"{root}/seq.in": _text_file(
+                directory, "seq.in", "2/ comprimés et /pone  matin et soir\n"
+            ),
+            f"{root}/recordings/s/recording_0.wav": tone,
+        },
+    )
+    rows = pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
+
+    assert [row.text for row in rows] == ["2 comprimés et pone matin et soir"]
 
 
 def test_pxcorpus_refuses_parallel_files_that_do_not_line_up(dirs):

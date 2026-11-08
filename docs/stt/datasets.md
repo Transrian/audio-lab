@@ -517,16 +517,17 @@ costs nothing and a fresh clone downloads all of it again.
   `recordings/<session>/`, with the three parallel text files that describe them
   (`paths.txt`, `metadata.txt`, `seq.in`).
 - **License**: CC-BY-4.0.
-- **Text**: lowercase and unpunctuated, taken as published. 110 of the
-  recordings end in a word the recording button cut off (`qu/`), which is left
-  as it is; the corpus's semantic labels (a spoken-language-understanding task)
-  are not read.
+- **Text**: lowercase and unpunctuated, taken as published except for one mark:
+  110 of its lines put a slash inside a word the recording button cut off or that
+  the participant repaired (`comp/primés`, `/pone`). The slash is a mark of the
+  transcription and not something the speaker said, so the label drops it and
+  rejoins the word. Numbers are written as digits (`2,5 milligrammes`). The
+  corpus's semantic labels (a spoken-language-understanding task) are not read.
 - **Group**: the speaker (`group_kind: speaker`), read from `metadata.txt`. A
-  session holds one participant, so the session directory is the speaker id; the
-  corpus numbers its participants per experiment day, and that is why its 55
-  participants appear as 54 groups. 54 groups over 1 912 clips is 35 clips per
-  group, above the smallest groups of the other sources and far below their
-  thousands.
+  session holds one participant, so the session directory is the speaker id;
+  `metadata.txt` names 54 participant ids and the corpus's readme says it has 55
+  participants. 54 groups over 1 912 clips is 35 clips per group, above the
+  smallest groups of the other sources and far below their thousands.
 - **What a cap covers**: the corpus is much smaller than the cap. All 1 981
   recordings are offered; 1 is shorter than 0.5 s and 68 are longer than 20 s, so
   the source is **1 912 clips** — 16.7 passes over the cap's worth of updates
@@ -536,9 +537,9 @@ costs nothing and a fresh clone downloads all of it again.
   this corpus brings when it is all a run has, not as a per-clip comparison.
 - **Why it is here**: the only source of the screening that is spoken dialogue
   with an application rather than read or prompted speech — short turns, real
-  disfluencies (`euh`), drug names and dosages, and 55 speakers of one accent
-  region. It is also the only one whose transcripts were checked by hand against
-  the recordings by its authors.
+  disfluencies (`euh`), drug names and dosages, and 54 participant ids the readme
+  counts as 55. Its authors also say they checked the transcripts by hand against
+  the recordings.
 
 ### `african-accented-fr-train` — African accented French
 

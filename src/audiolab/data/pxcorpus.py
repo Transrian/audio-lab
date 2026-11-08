@@ -12,19 +12,22 @@ One recording is one utterance: the participant pressed a button, dictated a
 prescription, and the corpus aligned that recording with its transcript in
 ``seq.in``. Nothing has to be cut, so a training clip is a whole recording,
 and the recordings longer than 20 s are left out like any other row outside the
-window. A session holds only one participant, so the session directory names its
-speaker; on several experiment days a participant was given a new id, so the
-corpus's 55 participants appear as 54 group ids.
+window. ``metadata.txt`` names 54 participant ids; the readme says the corpus
+has 55 participants.
 
-The text is lowercase and unpunctuated, and 110 recordings end in a word cut off
-by the recording button (``qu/``); it is kept as published. Its register is a
-spoken dialogue with an application, not read speech, which is what makes this
+The text is lowercase and unpunctuated. Some lines mark a word the recording
+button cut off, or a self-repair the annotator joined, with a slash inside the
+word (``comp/primés``, ``/pone``); the slash is a mark of the transcription, not
+something the speaker said, so the training text drops it and rejoins the word.
+Its register is a spoken dialogue with an application, not read speech, and its
+numbers are written as digits (``2,5 milligrammes``), which is what makes this
 source interesting next to the others.
 """
 
 from __future__ import annotations
 
 import io
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,10 +50,13 @@ ROOT = "PxCorpus/PxSLU"
 PATHS = f"{ROOT}/paths.txt"
 METADATA = f"{ROOT}/metadata.txt"
 TRANSCRIPTS = f"{ROOT}/seq.in"
-# The recordings are 16 kHz mono already, but they are re-encoded like every
-# other source, and a partly copied archive can hold anything: the extension is
-# what the corpus uses to name a recording.
+# What the corpus's paths.txt calls a recording. The files are 16 kHz mono
+# already, but every source is re-encoded on preparation.
 AUDIO_SUFFIX = ".wav"
+# The mark the corpus puts inside a word it could not transcribe whole, as in
+# "comp/primés" or "/pone": an annotation mark, not speech.
+FRAGMENT_MARK = "/"
+WHITESPACE = re.compile(r"\s+")
 
 
 def fetch_pxcorpus_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
@@ -117,17 +123,30 @@ def read_rows(name: str, archive: Path) -> list[Row]:
         paths = _lines(name, archive, handle, PATHS)
         metadata = _lines(name, archive, handle, METADATA)
         transcripts = _lines(name, archive, handle, TRANSCRIPTS)
-    if not len(paths) == len(metadata) == len(transcripts):
+    try:
+        rows = [
+            Row(f"{ROOT}/recordings/{path}", training_text(text), participant.partition(",")[0])
+            for path, participant, text in zip(paths, metadata, transcripts, strict=True)
+        ]
+    except ValueError as error:
         raise DownloadError(
             f"{name}: the corpus's own files disagree: {len(paths)} paths, "
-            f"{len(metadata)} participants, {len(transcripts)} transcripts"
-        )
-    rows = []
-    for path, participant, text in zip(paths, metadata, transcripts, strict=True):
-        if not path.endswith(AUDIO_SUFFIX):
-            raise DownloadError(f"{name}: {PATHS} names a file that is not audio: {path!r}")
-        rows.append(Row(f"{ROOT}/recordings/{path}", text, participant.partition(",")[0]))
+            f"{len(metadata)} participants, {len(transcripts)} transcripts ({error})"
+        ) from None
+    for row in rows:
+        if not row.member.endswith(AUDIO_SUFFIX):
+            raise DownloadError(f"{name}: {PATHS} names a file that is not audio: {row.member!r}")
     return rows
+
+
+def training_text(text: str) -> str:
+    """The text of one recording as a training label.
+
+    The corpus writes a slash inside a word whose recording was cut off, or that
+    the participant repaired mid-word; dropping it gives back the word the
+    speaker said (``comp/primés`` is "comprimés").
+    """
+    return WHITESPACE.sub(" ", text.replace(FRAGMENT_MARK, "")).strip()
 
 
 def _lines(name: str, archive: Path, handle: zipfile.ZipFile, member: str) -> list[str]:
