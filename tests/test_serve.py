@@ -299,7 +299,7 @@ def test_the_identity_follows_the_decoding_settings(tmp_path):
     other = ServeSpec(checkpoint=str(checkpoint), max_symbols=20)
     assert spec.identity()["checkpoint"] == other.identity()["checkpoint"]
     assert spec.identity()["decoding"] != other.identity()["decoding"]
-    assert spec.identity()["decoding"]["strategy"] == "greedy"
+    assert spec.identity()["decoding"]["strategy"] == "greedy_batch"
 
 
 def test_a_hugging_face_id_is_an_identity_of_its_own():

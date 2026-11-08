@@ -20,6 +20,11 @@ from audiolab.core.checkpoint import Checkpoint, CheckpointError
 # name here and one module next to this file; that is the point of D-016.
 BACKENDS = ("nemo",)
 DEFAULT_GPU = "0"
+# Greedy decoding, batched: the strategy the checkpoint itself ships with, and
+# the one NeMo recommends for inference ("greedy_batch", not "greedy"). Both are
+# greedy, so they stop at the same tokens; the batched one is what a server
+# should use. It is recorded in the run identity, because it decides answers.
+STRATEGY = "greedy_batch"
 # Greedy decoding stops after this many symbols without a blank. The value is
 # recorded, because it is one of the things that decides an answer.
 DEFAULT_MAX_SYMBOLS = 10
@@ -104,5 +109,5 @@ class ServeSpec:
         return {
             "backend": self.backend,
             "checkpoint": checkpoint,
-            "decoding": {"strategy": "greedy", "max_symbols": self.max_symbols},
+            "decoding": {"strategy": STRATEGY, "max_symbols": self.max_symbols},
         }
