@@ -16,11 +16,13 @@ rather than mirroring another instance.
 
 from __future__ import annotations
 
+import email.utils
 import json
 import random
 import subprocess
 import time
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -116,12 +118,29 @@ def get_json(http: httpx.Client, url: str, params: dict | None = None) -> dict:
                 raise DownloadError(f"cannot reach {url}: {failure}") from failure
             continue
         if response.status_code in (429, 503):
-            time.sleep(float(response.headers.get("retry-after") or 5 * attempt))
+            time.sleep(retry_after_s(response.headers.get("retry-after"), 5.0 * attempt))
             continue
         if response.status_code >= 400:
             raise DownloadError(f"{url}: HTTP {response.status_code}")
         return response.json()
     raise DownloadError(f"{url}: still refused after {RETRIES} attempts")
+
+
+def retry_after_s(value: str | None, default: float) -> float:
+    """How long a ``Retry-After`` header asks to wait: seconds, or an HTTP date."""
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    try:
+        when = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return default
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return max(0.0, (when - datetime.now(UTC)).total_seconds())
 
 
 def write_listing(videos: list[Video], listed_on: str, path: Path = LISTING_PATH) -> None:
@@ -135,7 +154,7 @@ def write_listing(videos: list[Video], listed_on: str, path: Path = LISTING_PATH
 
 
 def read_listing(path: Path = LISTING_PATH) -> tuple[str, list[Video]]:
-    """The date of the pinned listing and its videos, checked again."""
+    """The date of the pinned listing and its videos, their licences checked again."""
     listing = json.loads(path.read_text(encoding="utf-8"))
     videos = [Video(**row) for row in listing["videos"]]
     unusable = [video.uuid for video in videos if video.licence_id not in LICENSES]

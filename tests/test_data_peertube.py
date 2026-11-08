@@ -6,8 +6,10 @@ listing keeps, the order they are read in, and how a talk becomes audio.
 
 from __future__ import annotations
 
+import email.utils
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -162,3 +164,12 @@ def test_fetch_audio_reports_ffmpeg_failing_and_leaves_nothing_behind(tmp_path, 
     with pytest.raises(DownloadError, match="no audio stream"):
         peertube.fetch_audio(None, video(), tmp_path / "cache" / "v1.wav")
     assert list((tmp_path / "cache").iterdir()) == []
+
+
+def test_retry_after_reads_seconds_or_an_http_date():
+    assert peertube.retry_after_s("7", 5.0) == 7.0
+    assert peertube.retry_after_s(None, 5.0) == 5.0
+    assert peertube.retry_after_s("soon", 5.0) == 5.0
+    assert peertube.retry_after_s("Wed, 21 Oct 2015 07:28:00 GMT", 5.0) == 0.0, "a past date"
+    later = email.utils.format_datetime(datetime.now(UTC) + timedelta(seconds=60))
+    assert 50 < peertube.retry_after_s(later, 5.0) <= 60
