@@ -554,18 +554,24 @@ costs nothing and a fresh clone downloads all of it again.
   transcript files under `transcripts/train`.
 - **License**: Apache-2.0.
 - **Text**: lowercase and unpunctuated, as the corpus publishes it, with two
-  transport defects of the published transcript removed: the space after an
-  apostrophe (`d' accord`, `aujourd' hui` — 5 693 of the 5 697 apostrophes of the
-  three train transcript files) and the runs of whitespace the Yaoundé part
-  leaves where it dropped punctuation (`il y en a plus  il y en a encore`, 4 580
-  runs in 3 607 of its lines). Eight Yaoundé lines are the prompting
-  text read to the speaker (`etes-vous sûr que c' est lui / elle`) rather than
-  an answer, and are left out. **Casing and punctuation are not restored**:
-  putting them back would take another model, and a source that has neither
-  still teaches the base model to drop what it writes (the confound below). The
-  cleanup is deterministic and only removes spaces, so the same archive prepares
-  the same text. Evaluation references are never cleaned like this: the scorer
-  normalizes what the corpus published.
+  transport defects of the published transcript removed: the spaces the corpus
+  writes around an apostrophe that stands between two letters (`d' accord`,
+  `grand ' mère` — it joins all 5 697 apostrophes of the three train transcript
+  files, and an apostrophe that quotes something is left where the annotator put
+  it) and the runs of whitespace the Yaoundé part leaves where it dropped
+  punctuation (`il y en a plus  il y en a encore`, 4 580 runs in 3 607 of its
+  lines). Eight lines of the Yaoundé transcript file are the question put to the
+  reader (`etes-vous sûr que c' est lui / elle`), not an answer, and are left
+  out: the slash offers a choice (`lui / elle`), so the transcript cannot say
+  which option was chosen and its text would not match the audio. All eight lines
+  are that one sentence; they are the only lines of the whole corpus that hold
+  `" / "`.
+  **Casing and punctuation are not restored**: putting them back would take
+  another model, and a source that has neither still teaches the base model to
+  drop what it writes (the confound below). The cleanup is deterministic and only
+  removes spaces, so the same archive prepares the same text. Evaluation
+  references are never cleaned like this: the scorer normalizes what the corpus
+  published.
 - **What the screening measured**: the arm of the 2026-11-08 screening in
   [screening.md](screening.md) trained on the text as published, with the
   apostrophe spacing, and most of its damage was that spacing. The source was

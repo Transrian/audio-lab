@@ -16,13 +16,16 @@ key once the directory and the extension are removed, which is what
 recordings; those are left out.
 
 The text is lowercase and unpunctuated. Its apostrophes are written as separate
-words (``d' accord``, ``aujourd' hui``), which is a defect of the transcripts
-rather than of the language: the preparation removes the space after an
-apostrophe and collapses the runs of whitespace the Yaoundé part leaves where
-punctuation was deleted, and drops the eight Yaoundé lines that are prompting
-text (``c' est lui / elle``) rather than speech. Casing and punctuation are not
-restored: a source that has neither teaches the base model to drop what it
-writes, and putting them back would take another model. The card in
+words (``d' accord``, ``aujourd' hui``, ``grand ' mère``), which is a defect of
+the transcripts rather than of the language: the preparation removes the spaces
+around an apostrophe that follows a letter and collapses the runs of whitespace
+the Yaoundé part leaves where punctuation was deleted. Eight lines of
+``transcripts/train/yaounde/fn_text.txt`` are the prompting text (``etes-vous
+sûr que c' est lui / elle``): they offer the reader two answers separated by a
+slash, so the transcript cannot say which one was read and the recordings are
+dropped rather than labelled with text that does not match the audio. Casing and punctuation
+are not restored: a source that has neither teaches the base model to drop what
+it writes, and putting them back would take another model. The card in
 `docs/stt/datasets.md` records both the cleanup and that confound.
 """
 
@@ -57,9 +60,15 @@ TRANSCRIPTS = (
 SUFFIXES = (".wav", ".tdf")
 # A space after an apostrophe is the corpus's own typing (``d' accord``), not a
 # word break: the model learns it and the scorer counts two words.
-APOSTROPHE_SPACE = re.compile(r"' +")
-# A line holding this is prompting text read to the speaker ("c' est lui /
-# elle"), not the answer to a question, so it is not speech to train on.
+# The corpus writes an apostrophe as a separate word ("d' accord", "grand '
+# mère"). The spaces around it are removed only when the apostrophe stands
+# between two letters, which is what an elision looks like; an apostrophe that
+# quotes something is left alone. All 5 697 apostrophes of the train transcripts
+# join under this rule, so nothing of the corpus's own text is left untouched.
+APOSTROPHE_SPACING = re.compile(r"(?<=[^\W\d_]) *' *(?=[^\W\d_])")
+# A line holding this offers the speaker two answers ("c' est lui / elle", "un
+# / une"): the recording is one of them, the transcript does not say which, so
+# the line is not a label that matches its audio.
 PROMPT_MARKER = " / "
 WHITESPACE_RUN = re.compile(r"\s+")
 
@@ -123,16 +132,16 @@ def fetch_african_accented_fr_train(
 def training_text(text: str) -> str:
     """Clean one transcript into the text a training clip is labelled with.
 
-    The cleanup is deterministic and only ever removes a space: the space the
-    corpus writes after an apostrophe (``d' accord``), and the runs of
-    whitespace it leaves where it dropped punctuation (``il y en a plus  il y
-    en a encore``). Nothing is added back — the text stays lowercase and
-    unpunctuated, as the corpus published it.
+    The cleanup is deterministic and only ever removes spaces: the ones the
+    corpus writes around an apostrophe that follows a letter (``d' accord``,
+    ``grand ' mère``), and the runs of whitespace it leaves where it dropped
+    punctuation (``il y en a plus  il y en a encore``). Nothing is added back —
+    the text stays lowercase and unpunctuated, as the corpus published it.
 
     Only a training source does this. Evaluation references are scored as
     published, so a scorer counts the corpus's own spelling.
     """
-    return WHITESPACE_RUN.sub(" ", APOSTROPHE_SPACE.sub("'", text)).strip()
+    return WHITESPACE_RUN.sub(" ", APOSTROPHE_SPACING.sub("'", text)).strip()
 
 
 def _is_speech(member) -> bool:

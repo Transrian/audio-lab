@@ -113,7 +113,9 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Training data for the per-source screening: every train recording that "
         "has a transcript and passes the filters documented in docs/stt/datasets.md, "
         "which is fewer clips than the cap. The corpus has no transcript for part "
-        "of its train recordings, and eight prompting lines are not speech. No panels.",
+        "of its train recordings, and eight prompting lines are left out: they offer "
+        "the speaker two answers separated by a slash, so no one text matches the "
+        "recording. No panels.",
     ),
     "pxcorpus-fr-train": DatasetInfo(
         name="pxcorpus-fr-train",

@@ -533,6 +533,19 @@ def test_african_french_cleanup_is_deterministic():
     assert african_french.training_text("qu' il aille à paris") == "qu'il aille à paris"
 
 
+def test_african_french_joins_an_apostrophe_only_after_a_letter():
+    """A space before an apostrophe comes apart only when a word ends there."""
+    assert african_french.training_text("grand ' mère et grand ' chose") == (
+        "grand'mère et grand'chose"
+    )
+    # An apostrophe that opens a quotation has no letter before it.
+    assert african_french.training_text("il a dit « ' bonjour ' » hier") == (
+        "il a dit « ' bonjour ' » hier"
+    )
+    # Clean text is left exactly as it is.
+    assert african_french.training_text("d'accord, aujourd'hui") == "d'accord, aujourd'hui"
+
+
 def test_african_french_stops_at_the_cap(dirs, monkeypatch):
     data, cache = dirs
     fake_african_french_cache(cache)
