@@ -433,8 +433,8 @@ are optimistic, since clips of one voice are not independent.
 
 - noise and reverberation;
 - long-form audio (more than one utterance per request);
-- other accents than English read with a French accent: the accent of
-  `voxpopuli-en-french-accent` is measured, no other one is;
+- accents other than the non-native English of
+  `voxpopuli-en-nonnative`: that panel is measured, no other accent is;
 - which word a code switch or an accent cost, and term recall and named
   entities: the switches and the vocabulary are scored inside the sentence, not
   as a list of words that had to be right;

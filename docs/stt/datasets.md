@@ -19,7 +19,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `mls-fr` | fr | CC-BY-4.0 | test | 2426 | 18 | 10.1 | 1.1 GiB |
 | `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
 | `nonspeech` | none | see below | esc50 + generated | 300 | 300 | 0.6 | 63 MiB |
-| `voxpopuli-en-french-accent` | en | CC0-1.0 | `en_accented` test, accent `en_fr` | 737 | 27 | 2.4 | 259 MiB |
+| `voxpopuli-en-nonnative` | en | CC0-1.0 | `en_accented` test, accent `en_fr` | 737 | 27 | 2.4 | 259 MiB |
 | `servicenow-codeswitched-en-fr` | fr (en) | no license: evaluation only | test | 298 | 298 | 0.6 | 70 MiB |
 | `servicenow-codeswitched-en-fr-ca` | fr (en) | no license: evaluation only | test | 188 | 188 | 0.4 | 42 MiB |
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
@@ -45,7 +45,7 @@ part of how precise its numbers can be:
 | `mls-fr` | 100 / 14 | 600 / 14 | 468 / 4 |
 | `librispeech-en` | 100 / 32 | 600 / 32 | 492 / 8 |
 | `nonspeech` | 60 / 60 | 280 / 280 | 20 / 20 |
-| `voxpopuli-en-french-accent` | 100 / 22 | 600 / 22 | 50 / 5 |
+| `voxpopuli-en-nonnative` | 100 / 22 | 600 / 22 | 50 / 5 |
 | `servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 | `servicenow-codeswitched-en-fr-ca` | 100 / 100 | 150 / 150 | 38 / 38 |
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
@@ -70,7 +70,7 @@ dataset under a frozen panel.
 | `ami-fr-speakers-en-train` | AMI corpus | `ami_public_manual_1.6.2.zip` and the 42 of the corpus's headset WAVs this source reads | the corpus publishes no checksum: the sha256 of the annotations zip and of each of the 42 recordings is recorded in the code and checked on every download (`src/audiolab/data/ami.py`) |
 | `nonspeech` | generated here | fixed seed per clip | nothing to verify: the same seed rebuilds the same samples (`src/audiolab/data/nonspeech.py`) |
 | `nonspeech` | `karolpiczak/ESC-50` | commit `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6` | sha256 of `meta/esc50.csv` (`src/audiolab/data/esc50.py`) |
-| `voxpopuli-en-french-accent` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
+| `voxpopuli-en-nonnative` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
 | `servicenow-codeswitched-en-fr`, `-en-fr-ca` | `ServiceNow-AI/asr_codeswitched` | revision `82bf4b49499bcaa6f4cf6a67bebfab3ee2affcbb` | sha256 of each configuration's Parquet file (`src/audiolab/data/codeswitched.py`) |
 | `cs-fleurs-fr-en` | `byan/cs-fleurs` | revision `0cdbf166c5517ae4b6eb1c54248522eedec53017` | sha256 of each `metadata.jsonl` in the code, and of every WAV from the checksum the Hub publishes (`src/audiolab/data/csfleurs.py`) |
 | `granary-fr-train` | `espnet/yodas-granary` | revision `969944574ea3f37890beaf67ea651e160cfaf043` | sha256 published by the Hub for every shard of `data/fr000/asr_only` (`src/audiolab/data/granary.py`) |
@@ -166,7 +166,7 @@ Three kinds of clip that must stay silent, 300 in total:
   is what a level in dBFS normally means; scaling by the peak instead would put
   the clips about 10 dB below the level their name claims.
 
-## `voxpopuli-en-french-accent` — English with a French accent
+## `voxpopuli-en-nonnative` — English spoken by non-native speakers in the European Parliament
 
 - **Source**: `facebook/voxpopuli`, config `en_accented`, its one `test` split
   (`test-0000{0,1}-of-00002.parquet`), narrowed to the rows whose `accent` is
@@ -181,30 +181,34 @@ Three kinds of clip that must stay silent, 300 in total:
   and `strict` are computed. Every kept clip is flagged as a gold transcript and
   preparation stops if one is not.
 - **Language**: `en` for every clip, both for the API and for the normalizer.
-- **Group**: the speaker (`group_kind: speaker`), 27 of them. One accent is
-  spoken by several people: their errors are not independent, and the sizes are
-  uneven — the three largest speakers hold 486 of the 737 clips, the smallest
+- **Group**: the speaker (`group_kind: speaker`), 27 of them. One corpus accent
+  is spoken by several people: their errors are not independent, and the sizes
+  are uneven — the three largest speakers hold 486 of the 737 clips, the smallest
   ones a single clip. The sealed panel keeps 5 whole speakers back, `full` and
   `fast` draw on the other 22.
-- **Why it is here**: English with a French accent is one of the four cases of
-  the target use ([D-009](../owner/directives.md)) and no other panel here says
-  what an accent costs. It is the only set of that case acquired here; the
-  [register](sources.md#english-technical-and-french-accented-english) lists
-  the other candidates.
-- **Known limits**: 2.4 hours of read parliamentary speech, one accent out of
-  many, and the corpus's own transcripts hold errors that no model can avoid
-  repeating. Its accent label is a claim by the corpus, and this project has not
-  checked that a speaker's French is their first language.
-- **Accent label in doubt** (2026-11-08): matched to the Parliament's own list
+- **Why it is here**: no other panel here says what reading English costs a
+  speaker of another language, which is the accented English of the fourth case
+  of the target use ([D-009](../owner/directives.md)); this is the only
+  English-as-a-second-language set acquired here, and the
+  [register](sources.md#english-technical-and-french-accented-english) lists the
+  candidates for the French-accented part of that case.
+- **Known limits**: 2.4 hours of read parliamentary speech, one corpus accent out
+  of many, and the corpus's own transcripts hold errors that no model can avoid
+  repeating. The name of the accent is a claim by the corpus, and this project
+  has not checked the first language of any speaker.
+- **Corpus label in doubt** (2026-11-08): matched to the Parliament's own list
   of members, only about 26 of the 737 clips come from French, Luxembourgish or
   French-speaking Belgian members; the largest speakers are from Latvia
   (208 clips), Flanders (171) and Portugal (107). In other accents of the same
   config the speakers do match their nationality. Either the `en_fr` label or
   the speaker ids are wrong for this accent, so until someone listens to a
-  sample, read this panel as English spoken by non-native speakers in the
+  sample, the panel is read as English spoken by non-native speakers in the
   European Parliament, not as French-accented English. The models here were
   served with `language: en`, so a model that switches language on its own is
   not measured by this panel.
+- **Renamed** (2026-11-08): this dataset and its panels were called
+  `voxpopuli-en-french-accent`; the same 737 clips and the same selection rule
+  (`accent == en_fr`) are kept under the new name.
 
 ## `servicenow-codeswitched-en-fr` and `servicenow-codeswitched-en-fr-ca` — synthetic IT-support code-switching
 
@@ -629,7 +633,7 @@ fetch`) before the training source is, because the check reads its manifest.
 
 | training source | evaluation set checked | left out |
 | --- | --- | --- |
-| `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
+| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
@@ -644,7 +648,7 @@ at all (SLR57, Granary) publish no other split here.
 
 The voxpopuli check is the one that bites. The camera-ready way to break decision
 0002 would be to train on French parliamentary speech and then score the same
-people reading English with a French accent: the exclusion is by speaker, and the
+people reading English: the exclusion is by speaker, and the
 prepared French source holds 229 speakers, none of them one of the 27.
 ## Known overlap with what models were trained on
 
@@ -683,7 +687,7 @@ model card before trusting a difference of a few points, not a finding:
   model can have been trained on the audio unless it was trained on this corpus
   itself, but its sentences were written by a language model, so their
   distribution is that of generated text and not of a paper or a bug report.
-- **`voxpopuli-en-french-accent` is a test set by construction.** The accented
+- **`voxpopuli-en-nonnative` is a test set by construction.** The accented
   English config has no train split; VoxPopuli's other audio is public and
   reused like the rest, so its English and French panels would carry the same
   question, not this one.
@@ -709,9 +713,10 @@ model card before trusting a difference of a few points, not a finding:
   generated from FLEURS ones). Someone thinking out loud, switching language
   mid-sentence and correcting themselves is not represented; the vocabulary is
   closer to the target use than the register is.
-- **Accents are covered once, French ones only.** `voxpopuli-en-french-accent`
-  is English with a French accent; English with another accent, and French with
-  a foreign accent, are not covered, and the accent label is the corpus's own
-  claim rather than something checked here.
+- **Accents are covered once.** `voxpopuli-en-nonnative` is English spoken by
+  the Parliament's non-native speakers, drawn from the one accent the corpus
+  labels `en_fr`; English with another accent, and French with a foreign accent,
+  are not covered, and the label is the corpus's own claim rather than something
+  checked here.
 - The panels are samples of these test splits and were chosen by us, so absolute
   numbers describe the panels, not the whole datasets.

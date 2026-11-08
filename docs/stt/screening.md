@@ -5,8 +5,8 @@ fine-tune of the base model per source, all with the same budget and the same
 recipe, then every final checkpoint is scored on the full suite against the base
 model served the same way. The question is what one source brings by itself,
 measured against the target use of
-[D-009](../owner/directives.md): better French, with English and
-French-accented English kept.
+[D-009](../owner/directives.md): better French, with English and English spoken
+by non-native speakers kept.
 
 This is a screening, not a recipe search. It gives a *feel* for each source; it
 does not choose the final mix ([roadmap](../roadmap.md), phase 4) and it is not
@@ -58,7 +58,7 @@ approximate.
 | servicenow en-fr | 13.26 | −1.10 [−2.32, +0.09] | −1.05 [−2.23, +0.11] | +0.90 [−1.03, +3.05] | **+23.74** [+20.77, +26.82] | **+24.82** [+22.14, +27.42] |
 | servicenow en-fr-ca | 15.18 | **−1.71** [−3.35, −0.25] | −0.66 [−2.15, +1.06] | −0.51 [−2.53, +1.44] | **+20.59** [+17.69, +23.66] | **+32.89** [+29.79, +35.92] |
 | cs-fleurs-fr-en | 16.27 | −0.90 [−2.03, +0.13] | **−0.98** [−1.96, −0.07] | −0.37 [−1.57, +0.71] | **+10.52** [+8.87, +12.11] | **+27.98** [+25.96, +30.05] |
-| voxpopuli-en-french-accent | 20.44 | +0.09 [−0.52, +0.98] | **+4.73** [+3.37, +6.61] | **+2.59** [+0.95, +4.98] | **+5.02** [+3.16, +8.04] | **+3.10** [+2.23, +4.34] |
+| voxpopuli-en-nonnative | 20.44 | +0.09 [−0.52, +0.98] | **+4.73** [+3.37, +6.61] | **+2.59** [+0.95, +4.98] | **+5.02** [+3.16, +8.04] | **+3.10** [+2.23, +4.34] |
 | fleurs-en | 5.24 | −0.03 [−0.22, +0.17] | +0.11 [−0.08, +0.30] | +0.35 [−0.03, +0.80] | **+0.43** [+0.09, +0.78] | **+13.20** [+12.18, +14.23] |
 | librispeech-en | 2.04 | −0.04 [−0.23, +0.13] | −0.03 [−0.15, +0.10] | −0.01 [−0.24, +0.21] | +0.10 [−0.10, +0.31] | **+2.27** [+1.83, +2.72] |
 | nonspeech (hallucination) | 5.00 | **−3.93** [−6.79, −1.43] | **−2.50** [−5.00, −0.36] | **−3.93** [−6.43, −1.79] | **−3.93** [−6.79, −1.43] | −0.36 [−2.86, +2.14] |
@@ -82,13 +82,14 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   little on the Québec code-switched panel and, by an approximate interval, on
   read French (MLS), and keeps English and formatting intact.
 - **VoxPopuli FR** is neutral to slightly better on French, including the
-  code-switched panels, but costs **4.7 points on English spoken with a French
-  accent**, the panel closest to it (same Parliament, other speakers). It does
+  code-switched panels, but costs **4.7 points on English spoken by non-native
+  speakers**, the panel closest to it (same Parliament, other speakers). It does
   not answer in French there; it drops words: 22 of the 600 clips come back
   empty, against none for the base model, and more answers are cut short.
-  (Whether that panel is French-accented at all is in doubt: see its
-  [card](datasets.md#voxpopuli-en-french-accent--english-with-a-french-accent).)
-- **MLS FR** hurts the main French panel (+0.97) and accented English, and does
+  (That panel is named for non-native English, not French-accented English: see
+  its
+  [card](datasets.md#voxpopuli-en-nonnative--english-spoken-by-non-native-speakers-in-the-european-parliament).)
+- **MLS FR** hurts the main French panel (+0.97) and non-native English, and does
   not even improve its own corpus's panel. Its lowercase, unpunctuated text
   doubles the formatted WER on fleurs-fr. This matches what the earlier project
   found about MLS.
@@ -98,8 +99,8 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   removed (a diagnostic, not the official score) leaves fleurs-fr at +1.03
   [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], fleurs-en at +0.46
   [+0.12, +0.82], and still a real cost on code-switched speech
-  (servicenow en-fr-ca +7.66, en-fr +12.25, cs-fleurs-fr-en +2.06) and on accented
-  English (+5.03, with 46 empty answers out of 600). Its text was fixed after
+  (servicenow en-fr-ca +7.66, en-fr +12.25, cs-fleurs-fr-en +2.06) and on
+  non-native English (+5.03, with 46 empty answers out of 600). Its text was fixed after
   the screening (apostrophes and spacing), so these numbers describe the old
   text.
 - **LibriSpeech EN** is unusable as it is prepared: its transcripts are all
