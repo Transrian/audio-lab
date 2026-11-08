@@ -51,10 +51,11 @@ def test_clip_from_dict_refuses_unknown_and_missing_fields():
 
 def test_a_line_without_the_optional_fields_reads_with_them_empty():
     line = json.loads(make_clip("d:001").manifest_line())
-    for optional in ("category", "source_url", "source_title", "source_author"):
+    for optional in ("category", "source_url", "source_title", "source_author", "base_wer"):
         del line[optional]
     clip = clip_from_dict(line)
     assert (clip.category, clip.source_url, clip.source_title, clip.source_author) == ("",) * 4
+    assert clip.base_wer is None
 
 
 def test_verify_clips_reports_missing_and_altered_audio(tmp_path):

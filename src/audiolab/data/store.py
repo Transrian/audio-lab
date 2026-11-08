@@ -27,6 +27,9 @@ class Clip:
     ``source_url``, ``source_title`` and ``source_author`` are empty unless the
     source's license asks for attribution per recording (CC BY on a video): the
     manifest line is what travels with the clip, so the attribution goes there.
+    ``base_wer`` is set only where a model wrote the label: the normalized word
+    error rate of the base model on the clip, against that label, so that a
+    training mix can pick the clips the base model gets wrong.
     """
 
     id: str
@@ -44,6 +47,7 @@ class Clip:
     source_url: str = ""
     source_title: str = ""
     source_author: str = ""
+    base_wer: float | None = None
 
     def manifest_line(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, sort_keys=True)
@@ -51,7 +55,7 @@ class Clip:
 
 def clip_from_dict(data: dict) -> Clip:
     """Rebuild a clip, refusing unknown or missing fields instead of guessing."""
-    optional = {"category", "source_url", "source_title", "source_author"}
+    optional = {"category", "source_url", "source_title", "source_author", "base_wer"}
     unknown = set(data) - set(Clip.__dataclass_fields__)
     if unknown:
         raise ValueError(f"manifest line has unknown fields: {sorted(unknown)}")
