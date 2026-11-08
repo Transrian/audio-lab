@@ -66,6 +66,8 @@ dataset under a frozen panel.
 | `fleurs-fr`, `fleurs-en` | `google/fleurs` | revision `70bb2e84b976b7e960aa89f1c648e09c59f894dd` | sha256 of `test.tsv` and `test.tar.gz`, per language (`src/audiolab/data/fleurs.py`) |
 | `mls-fr` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `librispeech-en` | OpenSLR SLR12 | `test-clean.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
+| `pxcorpus-fr-train` | Zenodo record 10080490 | `PxCorpus.zip` | md5 published by Zenodo for the file (`src/audiolab/data/pxcorpus.py`) |
+| `ami-fr-speakers-en-train` | AMI corpus | `ami_public_manual_1.6.2.zip` and the 42 of the corpus's headset WAVs this source reads | the corpus publishes no checksum: the sha256 of the annotations zip and of each of the 42 recordings is recorded in the code and checked on every download (`src/audiolab/data/ami.py`) |
 | `nonspeech` | generated here | fixed seed per clip | nothing to verify: the same seed rebuilds the same samples (`src/audiolab/data/nonspeech.py`) |
 | `nonspeech` | `karolpiczak/ESC-50` | commit `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6` | sha256 of `meta/esc50.csv` (`src/audiolab/data/esc50.py`) |
 | `voxpopuli-en-french-accent` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 of the two `en_accented/test-*.parquet` shards (`src/audiolab/data/voxpopuli.py`) |
@@ -76,6 +78,7 @@ dataset under a frozen panel.
 | `mls-fr-train` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for the train metadata and every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `african-accented-fr-train` | OpenSLR SLR57 | `African_Accented_French.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it (`src/audiolab/data/african_french.py`) |
 | `librispeech-en-train` | OpenSLR SLR12 | `train-clean-100.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
+| `librispeech-pc-en-train` | OpenSLR SLR145 | `manifests.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it; the audio is `librispeech-en-train`'s own archive, checked against its sha256 (`src/audiolab/data/librispeech_pc.py`) |
 
 A cached file is trusted once it has been verified: re-preparing a dataset does
 not download it again, so the check happens when the file arrives.
@@ -326,7 +329,10 @@ screening is a difference between corpora and not between recipes:
   model to drop what it already writes; VoxPopuli is cased and punctuated human
   text, and Granary is cased, punctuated model output that nobody verified. That
   difference is part of what the screening measures, so nothing was rewritten to
-  make the arms look alike.
+  make the arms look alike. Transport defects of a published transcript are the
+  one exception, and the card of the source says which: SLR57 writes a space
+  after every apostrophe (`j' ai`), which the training text drops because the
+  model learns it and the scorer counts two words.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
   below.
@@ -336,8 +342,11 @@ screening is a difference between corpora and not between recipes:
 | `granary-fr-train` | fr | audio CC-BY-3.0, labels CC-BY-4.0 | asr_only | 12 000 | 2 725 | 8.3 | 0.9 GiB | 1.8 GiB |
 | `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 229 | 29.0 | 3.1 GiB | 8.6 GiB |
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
-| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 435 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
+| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 427 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
+| `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
+| `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
+| `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -427,23 +436,164 @@ costs nothing and a fresh clone downloads all of it again.
   which the screening tests again with this source alone. Its clips are the longest
   of the screening (median 14.8 s, at least 10 s).
 
+### `librispeech-pc-en-train` — read audiobook English with restored casing
+
+- **Source**: OpenSLR SLR145 (`manifests.tar.gz`, 25 MiB) for the text, over the
+  audio of SLR12's `train-clean-100.tar.gz`, which is the archive
+  `librispeech-en-train` prepares. The two sources read the same clips in the
+  same order and share one download.
+- **License**: CC-BY-4.0, both halves.
+- **Text**: the restored text of LibriSpeech-PC — casing and punctuation — in
+  place of the corpus's uppercase, unpunctuated transcripts. The restoration
+  dropped 2 498 of the split's 28 539 utterances (8.8 %): those clips are left
+  out rather than labelled with the original text. It also keeps a chapter title
+  in capitals at the start of an utterance's first sentence
+  (`THE PEOPLE MARCH He became aware ...`), and a run of three or more words in
+  capitals — punctuation stripped from the word, so `MARCH,` counts — matches 144
+  of the split's 26 041 rows (0.55 %); the preparation leaves those utterances
+  out of the first rows too, because a dictation model should not learn to write
+  a heading in capitals. The text is what the restorer wrote, not what the reader
+  read: 6 160 of the 12 000 prepared clips begin with a lowercase word, in the
+  middle of a sentence. None of them holds a double quote — the raw transcription
+  quotes speech in 29 % of the split's rows and the restoration dropped the marks
+  — so 4.6 % of the prepared clips carry a quotation mark as a lone apostrophe
+  (`'tis`, `'We sound every chord ...`), and 5.1 % of the split's rows do.
+- **Group**: the speaker (`group_kind: speaker`), 119 of them in the prepared
+  clips.
+- **Why it is here**: it is the English arm of the screening with the text the
+  other sources lack — and the reason not to expect gains from it. The base
+  model very likely trained on this audio with this text: NeMo's ASR Set 3.0
+  lists LibriSpeech and keeps punctuation and casing, so this source mostly
+  repeats what the model already knows. It is the English guard of a mix, and
+  its value in the screening is to test whether mixing in English this way costs
+  French, unlike `librispeech-en-train`, whose uppercase text moved every French
+  panel by 7 to 52 points.
+- **What a cap covers**: the cap was reached after 13 315 rows: 1 243 without
+  restored text and 72 with a heading were dropped on the way. Same per-group
+  share as `librispeech-en-train`.
+
+### `ami-fr-speakers-en-train` — English meetings spoken by French-L1 participants
+
+- **Source**: the AMI meeting corpus, from its own site: the manual annotations
+  (`ami_public_manual_1.6.2.zip`, 23 MB) and the individual headset recordings of
+  the meetings it takes, `amicorpus/<meeting>/audio/<meeting>.Headset-N.wav`. The
+  audio is served without a login; one preparation downloads 2.5 GiB of it, and
+  only for the meetings a French-L1 participant speaks in. The corpus publishes
+  no checksum for either part, so the sha256 of the annotations zip and of each
+  of the 42 headset recordings this source reads is recorded in
+  `src/audiolab/data/ami.py` and checked on download; a recording outside that,
+  longer list stops the preparation rather than being taken unverified.
+- **License**: CC-BY-4.0, corpus and annotations.
+- **Text**: the words the annotators wrote, cased and punctuated, with the
+  corpus's own spellings (`'kay`, `uh`), and its spelling of spelled-out letters
+  undone: the annotators separate the letters of a spelled word with underscores
+  (`T_V_`, `L_C_D_`), which is removed, so the label is `TV` and `LCD`. A manual
+  word file also holds `vocalsound` (a laugh, a cough), `disfmarker` (a
+  disfluency) and `gap` (a stretch nobody transcribed); none of them carries
+  text. All three are dropped as words — they neither join two words nor end a
+  sentence — but a `gap` **ends the clip** it falls in: the audio under it is
+  speech nobody transcribed, so a clip that spanned it would be labelled with
+  text that is not all its audio says. A silence longer than one second ends a
+  clip the same way. Most gaps are shorter than that — 3 950 of the corpus's
+  5 125 gaps have no length at all — but one ends a clip wherever it falls.
+- **Group**: the speaker (`group_kind: speaker`), read from `participants.xml`
+  and `meetings.xml`: 20 participants in the prepared clips. Every speaker of a
+  meeting is a group of its own, and a clip comes from that speaker's own headset
+  recording, so two participants of one meeting never share a clip.
+- **What the source is**: of the 41 participants whose native language is
+  French, 20 are named by a meeting, in 43 meetings and 69 speaker recordings —
+  mostly the IDIAP meetings (IS, IB, IN) and one scenario meeting (ES2007). The
+  other 21 appear in `participants.xml` alone: no meeting of `meetings.xml` names
+  them, so no word file describes them and they cannot contribute a clip. Their
+  meetings are not in the public annotations, which is also why this source is
+  smaller than the roughly 10 hours one would expect from the participant list.
+  A clip is one sentence of one speaker: cut at sentence-final punctuation, at a
+  silence longer than one second, at a gap, or at 20 s. The 69 recordings hold
+  12 739 utterances under those rules; the preparation offered 5 489 of them to
+  the cap — the rest were never read, because the per-speaker share of 200 clips
+  was already full — of which 1 518 were shorter than 0.5 s, and the source is
+  3 971 clips of 0.5 s to 20 s: median 2.5 s, 4.3 h in total.
+- **What a cap covers**: fewer clips than the cap, and the per-group share is
+  what holds it there. The corpus has 20 groups for this source, so the share
+  (200 clips of a group) allows 4 000 clips at most: every arm of the screening
+  is capped by the same rule, and this source cannot reach 10 000 clips under it.
+  Its config sets `clips: 3971` next to the reason.
+- **Why it is here**: AMI is spontaneous English spoken by people whose first
+  language is French, which is the target use of a dictation model for French
+  speakers — the register no other English source of the screening has. It is
+  also in the training data of English models, Parakeet among them (NeMo's ASR
+  Set 3.0 lists AMI), so the arm is a guard for a mix rather than a source of
+  gains, like `librispeech-pc-en-train`.
+
+### `pxcorpus-fr-train` — spoken French drug prescriptions
+
+- **Source**: Zenodo, record 10080490, `PxCorpus.zip` (376 MB): the `PxSLU`
+  recordings of the corpus, 1 981 WAV files of 16 kHz mono speech under
+  `recordings/<session>/`, with the three parallel text files that describe them
+  (`paths.txt`, `metadata.txt`, `seq.in`).
+- **License**: CC-BY-4.0.
+- **Text**: lowercase and unpunctuated, taken as published except for one mark:
+  110 of its lines put a slash inside a word the recording button cut off or that
+  the participant repaired (`comp/primés`, `/pone`). The slash is a mark of the
+  transcription and not something the speaker said, so the label drops it and
+  rejoins the word. Numbers are written as digits (`2,5 milligrammes`). The
+  corpus's semantic labels (a spoken-language-understanding task) are not read.
+- **Group**: the speaker (`group_kind: speaker`), read from `metadata.txt`. A
+  session holds one participant, so the session directory is the speaker id;
+  `metadata.txt` names 54 participant ids and the corpus's readme says it has 55
+  participants. 54 groups over 1 912 clips is 35 clips per group, above the
+  smallest groups of the other sources and far below their thousands.
+- **What a cap covers**: the corpus is much smaller than the cap. All 1 981
+  recordings are offered; 1 is shorter than 0.5 s and 68 are longer than 20 s, so
+  the source is **1 912 clips** — 16.7 passes over the cap's worth of updates
+  instead of the 3.2 of a 10 000-clip arm. The screening compares sources at an
+  equal number of clips, so this arm cannot match the others on that axis; its
+  config says so next to `clips: 1912`, and its numbers are to be read as what
+  this corpus brings when it is all a run has, not as a per-clip comparison.
+- **Why it is here**: the only source of the screening that is spoken dialogue
+  with an application rather than read or prompted speech — short turns, real
+  disfluencies (`euh`), drug names and dosages, and 54 participant ids the readme
+  counts as 55. Its authors also say they checked the transcripts by hand against
+  the recordings.
+
 ### `african-accented-fr-train` — African accented French
 
 - **Source**: OpenSLR SLR57, `African_Accented_French/speech/train` with the three
   transcript files under `transcripts/train`.
 - **License**: Apache-2.0.
-- **Text**: lowercase, unpunctuated, and it is the reference the corpus published:
-  a few lines keep a word split in two (`il y en a plus  il y en a encore`). No
-  cleanup was applied, because the screening has to score what the corpus says.
+- **Text**: lowercase and unpunctuated, as the corpus publishes it, with two
+  transport defects of the published transcript removed: the spaces the corpus
+  writes around an apostrophe that stands between two letters (`d' accord`,
+  `grand ' mère` — it joins all 5 697 apostrophes of the three train transcript
+  files, and an apostrophe that quotes something is left where the annotator put
+  it) and the runs of whitespace the Yaoundé part leaves where it dropped
+  punctuation (`il y en a plus  il y en a encore`, 4 580 runs in 3 607 of its
+  lines). Eight lines of the Yaoundé transcript file are the question put to the
+  reader (`etes-vous sûr que c' est lui / elle`), not an answer, and are left
+  out: the slash offers a choice (`lui / elle`), so the transcript cannot say
+  which option was chosen and its text would not match the audio. All eight lines
+  are that one sentence; they are the only lines of the whole corpus that hold
+  `" / "`.
+  **Casing and punctuation are not restored**: putting them back would take
+  another model, and a source that has neither still teaches the base model to
+  drop what it writes (the confound below). The cleanup is deterministic and only
+  removes spaces, so the same archive prepares the same text. Evaluation
+  references are never cleaned like this: the scorer normalizes what the corpus
+  published.
+- **What the screening measured**: the arm of the 2026-11-08 screening in
+  [screening.md](screening.md) trained on the text as published, with the
+  apostrophe spacing, and most of its damage was that spacing. The source was
+  re-prepared afterwards, so its screen config trains on the cleaned text and its
+  old numbers no longer describe it.
 - **Group**: the speaker (`group_kind: speaker`), 190 of them, read from the
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
 - **What a cap covers**: the whole train part is smaller than the cap. Its 14 394
-  recordings hold 11 460 with a transcript, of which 25 are longer than 20 s, so
-  the source is 11 435 clips: **the screening's arms do not all have the same number
-  of clips**, and this one is 4.7 % short of the cap. Nothing was padded or
-  repeated to close the gap.
+  recordings hold 11 460 with a transcript, of which 8 are prompting lines and 25
+  are longer than 20 s, so the source is 11 427 clips: **the screening's arms do
+  not all have the same number of clips**, and this one is 4.8 % short of the
+  cap. Nothing was padded or repeated to close the gap.
 - **Why it is here**: African accents are otherwise absent from open French ASR
   data. Its transcripts are also the least punctuated of the screening, which is
   the confound below.
@@ -482,6 +632,9 @@ fetch`) before the training source is, because the check reads its manifest.
 | `voxpopuli-fr-train` | `voxpopuli-en-french-accent` (accent `en_fr`) | 896 clips, the clips of the 27 speakers of that set; none of them is in the prepared French source |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
+| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
+| `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
+| `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
 

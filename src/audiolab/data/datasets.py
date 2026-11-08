@@ -75,17 +75,59 @@ DATASETS: dict[str, DatasetInfo] = {
         "librispeech-en left out (decision 0002), as documented in "
         "docs/stt/datasets.md. No panels.",
     ),
+    "librispeech-pc-en-train": DatasetInfo(
+        name="librispeech-pc-en-train",
+        source="https://www.openslr.org/145 (manifests.tar.gz, train-clean-100) over the "
+        "audio of https://www.openslr.org/12 (train-clean-100.tar.gz)",
+        license="CC-BY-4.0",
+        split="train-clean-100",
+        reference_style="restored text: casing and punctuation",
+        grouping="speaker (group = LibriSpeech speaker id)",
+        notes="Training data for the per-source screening: the same clips as "
+        "librispeech-en-train with the cased and punctuated text of LibriSpeech-PC, "
+        "as documented in docs/stt/datasets.md. The base model very likely trained on "
+        "this audio with this text, so it guards English rather than bringing gains. "
+        "No panels.",
+    ),
+    "ami-fr-speakers-en-train": DatasetInfo(
+        name="ami-fr-speakers-en-train",
+        source="https://groups.inf.ed.ac.uk/ami/download/ (ami_public_manual_1.6.2.zip "
+        "annotations and the corpus's own AMICorpusMirror audio)",
+        license="CC-BY-4.0",
+        split="manual",
+        reference_style="manual words: casing and punctuation as the annotators wrote them",
+        grouping="speaker (group = the AMI participant id)",
+        notes="Training data for the per-source screening: English meetings spoken by "
+        "the participants whose native language is French, one clip per sentence of "
+        "their own headset recording, as documented in docs/stt/datasets.md. AMI is in "
+        "the training data of English models, Parakeet among them, so this is a guard "
+        "for a mix and not a source of new material. No panels.",
+    ),
     "african-accented-fr-train": DatasetInfo(
         name="african-accented-fr-train",
         source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/train)",
         license="Apache-2.0",
         split="train",
-        reference_style="lowercase, no punctuation",
+        reference_style="lowercase, no punctuation; the corpus's apostrophe spacing removed",
         grouping="speaker (group = directory of the recordings)",
         notes="Training data for the per-source screening: every train recording that "
         "has a transcript and passes the filters documented in docs/stt/datasets.md, "
         "which is fewer clips than the cap. The corpus has no transcript for part "
-        "of its train recordings. No panels.",
+        "of its train recordings, and eight prompting lines are left out: they offer "
+        "the speaker two answers separated by a slash, so no one text matches the "
+        "recording. No panels.",
+    ),
+    "pxcorpus-fr-train": DatasetInfo(
+        name="pxcorpus-fr-train",
+        source="https://zenodo.org/records/10080490 (PxCorpus.zip, PxSLU recordings)",
+        license="CC-BY-4.0",
+        split="recordings",
+        reference_style="lowercase, no punctuation",
+        grouping="speaker (group = the participant id of the recording)",
+        notes="Training data for the per-source screening: every recording of the "
+        "corpus, which is far fewer clips than the cap, so its arm of the screening "
+        "has fewer clips than the others, as documented in docs/stt/datasets.md. "
+        "Spoken drug prescriptions, one utterance per recording. No panels.",
     ),
     "granary-fr-train": DatasetInfo(
         name="granary-fr-train",

@@ -15,6 +15,7 @@ teaches it to drop both: a known confound of the screening, recorded in its card
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -77,17 +78,42 @@ def fetch_librispeech_en_train(
         cache_dir / name / TRAIN_ARCHIVE_NAME,
         sha256=PINNED_SHA256.get(TRAIN_ARCHIVE_NAME, ""),
     )
-    # The whole archive is walked to read its transcripts, then read again for
-    # the audio of the clips taken from the beginning.
-    transcripts = _read_transcripts(name, archive_path)
     builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    take = prepare_train_audio(name, archive_path, builder)
+    if verbose:
+        print(f"  {take.report()}")
+    builder.write()
+    return take.kept
+
+
+def prepare_train_audio(
+    name: str,
+    archive_path: Path,
+    builder: ManifestBuilder,
+    *,
+    text_for_clip: Callable[[str], str | None] | None = None,
+    text_has_casing_punct: bool = False,
+) -> Take:
+    """Prepare the clips of ``train-clean-100``, in the archive's published order.
+
+    A clip's text and speaker are read from the archive itself, and a source
+    that has better text for the same audio (``librispeech-pc-en-train``) passes
+    ``text_for_clip``: it receives the utterance id, returns the label to use in
+    place of the published text, or ``None`` for a clip it cannot label. Such a
+    source counts what it drops itself, in its own closure, and only it knows
+    what its text looks like, hence ``text_has_casing_punct``.
+
+    The whole archive is read once for its transcripts, then again for the audio
+    of the clips taken from its beginning.
+    """
+    transcripts = _read_transcripts(name, archive_path)
     take = Take(
         name=name,
         builder=builder,
         language=LANGUAGE,
         source_split=TRAIN_SPLIT,
         license=LICENSE,
-        text_has_casing_punct=False,
+        text_has_casing_punct=text_has_casing_punct,
         excluded=evaluation_groups(EVALUATION_DATASET),
         cap=TRAIN_CLIP_CAP,
         cap_per_group=CLIP_CAP_PER_GROUP,
@@ -96,22 +122,25 @@ def fetch_librispeech_en_train(
     with open_archive(archive_path) as handle:
         for member in handle:
             if take.full():
-                break
+                return take
             if not member.name.endswith(".flac"):
                 continue
-            text = transcripts.get(Path(member.name).stem)
+            utterance = Path(member.name).stem
+            text = transcripts.get(utterance)
             if text is None:
                 raise DownloadError(f"{name}: {member.name} has no transcript in the archive")
+            if text_for_clip is not None:
+                restored = text_for_clip(utterance)
+                if restored is None:
+                    continue
+                text = restored
             take.offer(
-                Path(member.name).stem,
+                utterance,
                 audio_from_archive(handle, member),
                 text=text,
                 group=_speaker_of(name, member),
             )
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
-    return take.kept
+    return take
 
 
 def _read_transcripts(name: str, archive_path: Path) -> dict[str, str]:

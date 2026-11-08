@@ -9,7 +9,10 @@ the test, so no test needs the network or a prepared dataset.
 
 from __future__ import annotations
 
+import json
 import sys
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -26,12 +29,15 @@ from test_data_source import make_archive  # noqa: E402
 
 from audiolab.data import (  # noqa: E402
     african_french,
+    ami,
     granary,
     librispeech,
+    librispeech_pc,
     mls,
+    pxcorpus,
     voxpopuli_train,
 )
-from audiolab.data.download import DownloadError  # noqa: E402
+from audiolab.data.download import DownloadError, sha256_file  # noqa: E402
 from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 
 
@@ -419,12 +425,15 @@ def fake_african_french_cache(
             directory,
             "fn_text.txt",
             "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0002.wav"
-            " quand il n' y en a plus\n",
+            " quand il n' y en a plus  il y en a encore \n"
+            "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0003.wav"
+            " etes-vous sûr que c' est lui / elle \n",
         ),
         f"{root}/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav": tone,
         f"{root}/speech/train/ca16/113/afc-gabon_16.06.11_002_conv_0023.wav": tone,
         f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0002.wav": tone,
-        f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0003.wav": tone,
+        f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0003.wav": tone,
+        f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0004.wav": tone,
     }
     make_archive(directory / "African_Accented_French.tar.gz", members)
 
@@ -470,7 +479,9 @@ def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs
         "african-accented-fr-train:ctell1-01-0002",
     }
     ca16 = clips["african-accented-fr-train:afc-gabon_16.06.15_048_read_0344"]
-    assert ca16.text == "d' accord mais je ne connais pas"
+    # The corpus writes a space after the apostrophe; the model learns it and
+    # the scorer counts two words, so the training text is cleaned.
+    assert ca16.text == "d'accord mais je ne connais pas"
     assert ca16.group == "african-accented-fr-train:113"
     assert ca16.group_kind == "speaker"
     assert ca16.source_split == "train"
@@ -480,7 +491,59 @@ def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs
     assert ca16.text_has_casing_punct is False
     # A recording published in the archive without a transcript is left out
     # rather than prepared with an empty reference.
-    assert "african-accented-fr-train:ctell1-01-0003" not in clips
+    assert "african-accented-fr-train:ctell1-01-0004" not in clips
+
+
+def test_african_french_cleans_the_training_text(dirs):
+    """Apostrophe spacing and the whitespace runs go; nothing else changes."""
+    data, cache = dirs
+    fake_african_french_cache(cache)
+
+    african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+
+    clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-train")}
+    yaounde = clips["african-accented-fr-train:ctell1-01-0002"]
+    assert yaounde.text == "quand il n'y en a plus il y en a encore"
+    assert "  " not in yaounde.text
+    assert yaounde.text == yaounde.text.strip()
+
+
+def test_african_french_leaves_out_the_prompting_lines(dirs):
+    """``c' est lui / elle`` is the question read to the speaker, not an answer."""
+    data, cache = dirs
+    fake_african_french_cache(cache)
+
+    count = african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+    assert count == 3
+    assert "african-accented-fr-train:ctell1-01-0003" not in {
+        clip.id for clip in read_manifest(data / "african-accented-fr-train")
+    }
+
+
+def test_african_french_cleanup_is_deterministic():
+    assert african_french.training_text("aujourd' hui c' est ça") == "aujourd'hui c'est ça"
+    assert african_french.training_text("il y en a plus  il y en a encore ") == (
+        "il y en a plus il y en a encore"
+    )
+    # Nothing else is touched: the text stays lowercase and unpunctuated.
+    assert african_french.training_text("qu' il aille à paris") == "qu'il aille à paris"
+
+
+def test_african_french_joins_an_apostrophe_only_after_a_letter():
+    """A space before an apostrophe comes apart only when a word ends there."""
+    assert african_french.training_text("grand ' mère et grand ' chose") == (
+        "grand'mère et grand'chose"
+    )
+    # An apostrophe that opens a quotation has no letter before it.
+    assert african_french.training_text("il a dit « ' bonjour ' » hier") == (
+        "il a dit « ' bonjour ' » hier"
+    )
+    # Clean text is left exactly as it is.
+    assert african_french.training_text("d'accord, aujourd'hui") == "d'accord, aujourd'hui"
 
 
 def test_african_french_stops_at_the_cap(dirs, monkeypatch):
@@ -508,23 +571,24 @@ def fake_librispeech_train_cache(cache: Path, name: str = "librispeech-en-train"
     """A cache that looks like LibriSpeech train-clean-100.
 
     ``speaker/chapter/file.flac`` next to a ``.trans.txt`` per chapter, as the
-    corpus publishes it, with the uppercase, unpunctuated transcripts.
+    corpus publishes it, with the uppercase, unpunctuated transcripts. The third
+    utterance is the one a second source (LibriSpeech-PC) can swap the text of.
     """
     directory = cache / name
     tone = write_tone(directory / "tone.flac", seconds=4.0)
-    make_archive(
-        directory / "train-clean-100.tar.gz",
-        {
-            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.flac": tone,
-            "LibriSpeech/train-clean-100/103/1240/103-1240-0001.trans.txt": _text_file(
-                directory, "103-1240-0001.trans.txt", "103-1240-0001 CHAPTER ONE OF A BOOK\n"
-            ),
-            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.flac": tone,
-            "LibriSpeech/train-clean-100/108/1254/108-1254-0001.trans.txt": _text_file(
-                directory, "108-1254-0001.trans.txt", "108-1254-0001 ANOTHER CHAPTER\n"
-            ),
-        },
-    )
+    utterances = {
+        "103/1240/103-1240-0001": "CHAPTER ONE OF A BOOK",
+        "108/1254/108-1254-0001": "ANOTHER CHAPTER",
+        "108/1254/108-1254-0002": "A SECOND PARAGRAPH",
+    }
+    members = {}
+    for path, text in utterances.items():
+        utterance = path.rsplit("/", 1)[-1]
+        members[f"LibriSpeech/train-clean-100/{path}.flac"] = tone
+        members[f"LibriSpeech/train-clean-100/{path}.trans.txt"] = _text_file(
+            directory, f"{utterance}.trans.txt", f"{utterance} {text}\n"
+        )
+    make_archive(directory / "train-clean-100.tar.gz", members)
 
 
 def test_librispeech_train_reads_the_train_archive_and_groups_by_speaker(dirs, monkeypatch):
@@ -535,7 +599,7 @@ def test_librispeech_train_reads_the_train_archive_and_groups_by_speaker(dirs, m
     count = librispeech.fetch_librispeech_en_train(
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
-    assert count == 2
+    assert count == 3
 
     clips = {clip.id: clip for clip in read_manifest(data / "librispeech-en-train")}
     first = clips["librispeech-en-train:103-1240-0001"]
@@ -561,10 +625,10 @@ def test_librispeech_train_leaves_out_a_speaker_test_clean_scores(dirs, monkeypa
     count = librispeech.fetch_librispeech_en_train(
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
-    assert count == 1
-    assert [clip.group for clip in read_manifest(data / "librispeech-en-train")] == [
+    assert count == 2
+    assert {clip.group for clip in read_manifest(data / "librispeech-en-train")} == {
         "librispeech-en-train:108"
-    ]
+    }
 
 
 def test_librispeech_train_stops_at_the_cap(dirs, monkeypatch):
@@ -577,6 +641,245 @@ def test_librispeech_train_stops_at_the_cap(dirs, monkeypatch):
         "librispeech-en-train", cache, data / "librispeech-en-train", verbose=False
     )
     assert count == 1
+
+
+def fake_librispeech_pc_cache(cache: Path, name: str = "librispeech-pc-en-train") -> None:
+    """A cache holding the LibriSpeech audio and the LibriSpeech-PC manifests.
+
+    The audio is the archive ``librispeech-en-train`` downloads, so a test that
+    prepares both sources says what a shared download means: the PC fetcher
+    writes the audio under that source's cache entry.
+    """
+    fake_librispeech_train_cache(cache)
+    directory = cache / name
+    manifests = directory / "manifests.tar.gz"
+    texts = directory / "train-clean-100.json"
+    texts.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        _manifest_row("103/1240/103-1240-0001", "Hello, world. It is a test."),
+        # A chapter title in capitals: three all-caps words in a row.
+        _manifest_row("108/1254/108-1254-0001", "THE LONG ROAD She walked home."),
+        # Two in a row are not a heading.
+        _manifest_row("108/1254/108-1254-0002", "The MR JONES report is ready."),
+    ]
+    texts.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    make_archive(manifests, {"train-clean-100.json": texts})
+
+
+def _manifest_row(path: str, text: str) -> str:
+    return json.dumps(
+        {
+            "duration": 4.0,
+            "audio_filepath": f"train-clean-100/{path}.flac",
+            "text": text,
+            "text_raw": text.upper(),
+        }
+    )
+
+
+def test_librispeech_pc_takes_the_cased_text_and_leaves_out_a_heading(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+    # The third utterance of the archive (103-1240-0001, 108-1254-0001,
+    # 108-1254-0002) is the one whose text is a heading.
+    assert count == 2
+
+    clips = {clip.id: clip for clip in read_manifest(data / "librispeech-pc-en-train")}
+    assert set(clips) == {
+        "librispeech-pc-en-train:103-1240-0001",
+        "librispeech-pc-en-train:108-1254-0002",
+    }
+    first = clips["librispeech-pc-en-train:103-1240-0001"]
+    assert first.text == "Hello, world. It is a test."
+    assert first.text_has_casing_punct is True
+    assert first.group == "librispeech-pc-en-train:103"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "train-clean-100"
+    assert first.license == "CC-BY-4.0"
+    assert clips["librispeech-pc-en-train:108-1254-0002"].text == "The MR JONES report is ready."
+
+
+def test_librispeech_pc_stops_at_the_cap(dirs, monkeypatch):
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+    monkeypatch.setattr(librispeech, "TRAIN_CLIP_CAP", 1, raising=True)
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+    assert count == 1
+
+
+def test_librispeech_pc_counts_the_longest_run_of_capitalised_words():
+    assert librispeech_pc.title_run("Hello, world. It is a test.") == 0
+    assert librispeech_pc.title_run("The MR JONES report is ready.") == 2
+    assert librispeech_pc.title_run("THE LONG ROAD She walked home.") == 3
+    assert librispeech_pc.title_run("THE LONG ROAD She went to AMI HQ TODAY.") == 3
+    # A heading keeps its punctuation, and a capitalised word that is not a
+    # heading does not become one.
+    assert librispeech_pc.title_run("THE MARCH, THE MIXER'S AHEAD He went.") == 5
+    assert librispeech_pc.title_run("The MR. JONES report is ready.") == 2
+    assert librispeech_pc.title_run("THE MR JONES He went home.") == 3
+
+
+def test_librispeech_pc_refuses_a_manifest_archive_without_its_split(dirs, monkeypatch):
+    _, cache = dirs
+    directory = cache / "librispeech-pc-en-train"
+    empty = directory / "other.json"
+    empty.parent.mkdir(parents=True, exist_ok=True)
+    empty.write_text("{}\n", encoding="utf-8")
+    make_archive(directory / "manifests.tar.gz", {"test-clean.json": empty})
+    with pytest.raises(DownloadError, match="holds no train-clean-100.json"):
+        librispeech_pc.read_texts("librispeech-pc-en-train", directory / "manifests.tar.gz")
+
+
+def test_librispeech_pc_refuses_an_unreadable_manifest_line(dirs):
+    _, cache = dirs
+    directory = cache / "librispeech-pc-en-train"
+    bad = directory / "train-clean-100.json"
+    bad.parent.mkdir(parents=True, exist_ok=True)
+    bad.write_text('{"audio_filepath": "train-clean-100/1/2/1-2-0001.flac"}\n', encoding="utf-8")
+    make_archive(directory / "manifests.tar.gz", {"train-clean-100.json": bad})
+    with pytest.raises(DownloadError, match="unreadable line"):
+        librispeech_pc.read_texts("librispeech-pc-en-train", directory / "manifests.tar.gz")
+
+
+def fake_pxcorpus_cache(
+    cache: Path, name: str = "pxcorpus-fr-train", non_audio: bool = False
+) -> None:
+    """A cache that looks like the zip PxCorpus publishes.
+
+    One recording per utterance, and the three parallel files the corpus lists
+    them in: the path, the participant and the transcript.
+    """
+    directory = cache / name
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    # Three recordings and three participants: the corpus's files are parallel.
+    paths = "00MYcyVK0t/recording_0.wav\n02Qp6ICj9Q/recording_1.wav\n02Qp6ICj9Q/recording_2.wav\n"
+    if non_audio:
+        paths = paths.replace("recording_2.wav", "readme.md")
+    members = {
+        f"{root}/paths.txt": _text_file(directory, "paths.txt", paths),
+        f"{root}/metadata.txt": _text_file(
+            directory,
+            "metadata.txt",
+            "24,18-28,F,doctor\n48,60+,F,non-expert\n48,60+,F,non-expert\n",
+        ),
+        f"{root}/seq.in": _text_file(
+            directory,
+            "seq.in",
+            "flagyl 500 milligrammes euh qu/ en cachet pendant 8 jours\n"
+            "3 comprimés par jour matin midi et soir pendant 10 jours\n"
+            "and this line has no audio\n",
+        ),
+        f"{root}/recordings/00MYcyVK0t/recording_0.wav": tone,
+        f"{root}/recordings/02Qp6ICj9Q/recording_1.wav": tone,
+        f"{root}/recordings/02Qp6ICj9Q/recording_2.wav": tone,
+        f"{root}/readme.md": _text_file(directory, "readme.md", "PxCorpus\n"),
+    }
+    make_zip(directory / "PxCorpus.zip", members)
+
+
+def make_zip(path: Path, members: dict[str, Path]) -> Path:
+    """A zip holding the given files, built the way PxCorpus publishes its own."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as handle:
+        for name, source in members.items():
+            handle.write(str(source), arcname=name)
+    return path
+
+
+def test_pxcorpus_takes_every_recording_and_groups_by_participant(dirs):
+    data, cache = dirs
+    fake_pxcorpus_cache(cache)
+
+    count = pxcorpus.fetch_pxcorpus_fr_train(
+        "pxcorpus-fr-train", cache, data / "pxcorpus-fr-train", verbose=False
+    )
+    assert count == 3
+
+    clips = {clip.id: clip for clip in read_manifest(data / "pxcorpus-fr-train")}
+    assert set(clips) == {
+        "pxcorpus-fr-train:00MYcyVK0t/recording_0",
+        "pxcorpus-fr-train:02Qp6ICj9Q/recording_1",
+        "pxcorpus-fr-train:02Qp6ICj9Q/recording_2",
+    }
+    first = clips["pxcorpus-fr-train:00MYcyVK0t/recording_0"]
+    # The transcript is kept as the corpus published it, minus the slash that
+    # marks the word the recording button cut off.
+    assert first.text == "flagyl 500 milligrammes euh qu en cachet pendant 8 jours"
+    assert first.text_has_casing_punct is False
+    assert first.group == "pxcorpus-fr-train:24"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "recordings"
+    assert first.license == "CC-BY-4.0"
+
+
+def test_pxcorpus_rejoins_a_word_the_transcript_marked_with_a_slash(dirs):
+    """``comp/primés`` is the word "comprimés": the slash is a mark, not speech."""
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    make_zip(
+        directory / "PxCorpus.zip",
+        {
+            f"{root}/paths.txt": _text_file(directory, "paths.txt", "s/recording_0.wav\n"),
+            f"{root}/metadata.txt": _text_file(directory, "metadata.txt", "24,18-28,F,doctor\n"),
+            f"{root}/seq.in": _text_file(
+                directory, "seq.in", "2/ comprimés et /pone  matin et soir\n"
+            ),
+            f"{root}/recordings/s/recording_0.wav": tone,
+        },
+    )
+    rows = pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
+
+    assert [row.text for row in rows] == ["2 comprimés et pone matin et soir"]
+
+
+def test_pxcorpus_refuses_parallel_files_that_do_not_line_up(dirs):
+    """The three files describe the same recordings, so a short one is a defect."""
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=3.0)
+    root = "PxCorpus/PxSLU"
+    make_zip(
+        directory / "PxCorpus.zip",
+        {
+            f"{root}/paths.txt": _text_file(directory, "paths.txt", "s/recording_0.wav\n"),
+            f"{root}/metadata.txt": _text_file(directory, "metadata.txt", "24,18-28,F,doctor\n"),
+            f"{root}/seq.in": _text_file(directory, "seq.in", "une phrase\nune autre phrase\n"),
+            f"{root}/recordings/s/recording_0.wav": tone,
+        },
+    )
+    with pytest.raises(DownloadError, match="the corpus's own files disagree"):
+        pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
+
+
+def test_pxcorpus_refuses_a_paths_file_naming_something_that_is_not_audio(dirs):
+    data, cache = dirs
+    fake_pxcorpus_cache(cache, non_audio=True)
+    with pytest.raises(DownloadError, match="names a file that is not audio"):
+        pxcorpus.fetch_pxcorpus_fr_train(
+            "pxcorpus-fr-train", cache, data / "pxcorpus-fr-train", verbose=False
+        )
+
+
+def test_pxcorpus_refuses_an_archive_without_its_files(dirs):
+    _, cache = dirs
+    directory = cache / "pxcorpus-fr-train"
+    make_zip(directory / "PxCorpus.zip", {})
+    with pytest.raises(DownloadError, match="holds no PxCorpus/PxSLU/paths.txt"):
+        pxcorpus.read_rows("pxcorpus-fr-train", directory / "PxCorpus.zip")
 
 
 def test_voxpopuli_fr_train_leaves_out_a_row_whose_reader_is_not_named(dirs, monkeypatch):
@@ -624,3 +927,312 @@ def test_mls_fr_train_skips_the_archives_of_a_reader_it_already_has(dirs, monkey
         "mls-fr-train:1234",
         "mls-fr-train:9999",
     }
+
+
+AMI_PARTICIPANTS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+   <participant nite:id="FIO017" nxt_agent="A" native_language="French"/>
+   <participant nite:id="MIO023" nxt_agent="D" native_language="French"/>
+   <participant nite:id="MIO042" nxt_agent="B" native_language="English"/>
+</root>
+"""
+
+# The headset channel of a speaker is what meetings.xml says, not what the
+# speaker letter usually means: A is channel 1 here.
+AMI_MEETINGS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+  <meeting observation="IS1003a">
+    <speaker nite:id="IS1003a.A" nxt_agent="A" channel="1" global_name="FIO017" role="PM"/>
+    <speaker nite:id="IS1003a.B" nxt_agent="B" channel="0" global_name="MIO042" role="ME"/>
+    <speaker nite:id="IS1003a.D" nxt_agent="D" channel="3" global_name="MIO023" role="ID"/>
+  </meeting>
+  <meeting observation="ES2001a">
+    <speaker nite:id="ES2001a.B" nxt_agent="B" channel="0" global_name="MIO042" role="PM"/>
+  </meeting>
+</root>
+"""
+
+# One speaker's manual words: two sentences, a laugh, a disfluency marker and a
+# gap in the middle of a sentence, then a fragment too short to be a clip.
+AMI_WORDS = """<?xml version="1.0" encoding="ISO-8859-1"?>
+<root xmlns:nite="http://nite.sourceforge.net/">
+  <w nite:id="w1" starttime="0.100" endtime="0.500">Okay</w>
+  <w nite:id="w2" starttime="0.500" endtime="1.400">so</w>
+  <w nite:id="w3" starttime="1.400" endtime="2.000" punc="true">,</w>
+  <vocalsound nite:id="v1" starttime="2.000" endtime="2.500" type="laugh"/>
+  <w nite:id="w4" starttime="2.600" endtime="3.000">I</w>
+  <w nite:id="w5" starttime="3.000" endtime="3.500">think</w>
+  <w nite:id="w6" starttime="3.500" endtime="3.700">that</w>
+  <gap nite:id="g1" starttime="3.700" endtime="4.600"/>
+  <w nite:id="w7" starttime="4.700" endtime="5.200">this</w>
+  <w nite:id="w8" starttime="5.200" endtime="5.900">works</w>
+  <w nite:id="w9" starttime="5.900" endtime="6.200" punc="true">.</w>
+  <disfmarker nite:id="d1" starttime="6.200" endtime="6.300" type="disfluency"/>
+  <w nite:id="w10" starttime="6.400" endtime="7.000">Right</w>
+  <w nite:id="w11" starttime="7.000" endtime="7.300" punc="true">?</w>
+  <w nite:id="w12" starttime="8.000" endtime="8.200">tiny</w>
+</root>
+"""
+
+
+def _ami_resource(directory: Path, file_name: str, content: str) -> Path:
+    path = directory / "ami" / file_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _ami_channels(meetings: str) -> dict[str, int]:
+    """The headset channel of every speaker of the fixture's meetings."""
+    root = ET.fromstring(meetings)
+    return {
+        f"{meeting.attrib['observation']}.{speaker.attrib['nxt_agent']}": int(
+            speaker.attrib["channel"]
+        )
+        for meeting in root
+        for speaker in meeting
+    }
+
+
+def fake_ami_cache(
+    cache: Path,
+    monkeypatch=None,
+    name: str = "ami-fr-speakers-en-train",
+    *,
+    participants: str = AMI_PARTICIPANTS,
+    meetings: str = AMI_MEETINGS,
+    channels: dict[str, str] | None = None,
+    headsets: bool = True,
+) -> None:
+    """A cache that looks like the AMI annotations archive plus the headsets it names.
+
+    The headset recordings are written where the fetcher looks for them — under
+    the channel the meeting gives the speaker — which is how it takes them
+    without the network. Each one is long enough that every timestamp of an
+    annotation falls inside it. With ``monkeypatch``, the recordings of the
+    fixture are pinned by the digest of the tone they are made of, the way the
+    corpus's own recordings are pinned.
+    """
+    directory = cache / name
+    channels = channels or {"IS1003a.A": AMI_WORDS, "IS1003a.D": AMI_WORDS}
+    members = {
+        ami.PARTICIPANTS: _ami_resource(directory, "participants.xml", participants),
+        ami.MEETINGS: _ami_resource(directory, "meetings.xml", meetings),
+    }
+    for channel, content in channels.items():
+        members[f"{ami.WORDS_DIRECTORY}/{channel}.words.xml"] = _ami_resource(
+            directory, f"{channel}.words.xml", content
+        )
+    make_zip(directory / ami.ANNOTATIONS_NAME, members)
+    heads = _ami_channels(meetings)
+    recordings = [
+        f"{channel.partition('.')[0]}.Headset-{heads[channel]}.wav" for channel in channels
+    ]
+    if monkeypatch is not None:
+        # The recordings of the fixture are tones, so they are pinned by the
+        # digest of a tone; the corpus's own recordings are pinned one by one.
+        digest = sha256_file(write_tone(directory / "tone.wav", seconds=10.0))
+        monkeypatch.setattr(ami, "PINNED_RECORDINGS", dict.fromkeys(recordings, digest))
+    if not headsets:
+        return
+    for recording in recordings:
+        write_tone(directory / "audio" / recording, seconds=10.0)
+
+
+def test_ami_takes_the_words_of_a_french_speaker_and_groups_by_participant(dirs, monkeypatch):
+    data, cache = dirs
+    fake_ami_cache(cache, monkeypatch)
+
+    count = ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    # Three sentences and one fragment too short to be a clip, for each of the
+    # two French speakers of the meeting.
+    assert count == 6
+
+    clips = {clip.id: clip for clip in read_manifest(data / "ami-fr-speakers-en-train")}
+    assert set(clips) == {
+        "ami-fr-speakers-en-train:IS1003a.A.0000",
+        "ami-fr-speakers-en-train:IS1003a.A.0001",
+        "ami-fr-speakers-en-train:IS1003a.A.0002",
+        "ami-fr-speakers-en-train:IS1003a.D.0000",
+        "ami-fr-speakers-en-train:IS1003a.D.0001",
+        "ami-fr-speakers-en-train:IS1003a.D.0002",
+    }
+    first = clips["ami-fr-speakers-en-train:IS1003a.A.0000"]
+    # Words and punctuation join the way the annotator wrote them, in cased text.
+    assert first.text == "Okay so, I think that"
+    assert first.text_has_casing_punct is True
+    assert first.group == "ami-fr-speakers-en-train:FIO017"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "manual"
+    assert first.license == "CC-BY-4.0"
+    # The clip is the part of the meeting between its first and last word.
+    assert first.duration_s == pytest.approx(3.6, abs=0.01)
+
+
+def test_ami_does_not_let_a_clip_span_a_gap(dirs):
+    """The audio under a gap has no text, so a clip that spanned it would be mislabelled."""
+    _, cache = dirs
+    fake_ami_cache(cache)
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    bounds = [(u.start, u.end) for u in utterances]
+    assert bounds == [(0.1, 3.7), (4.7, 6.2), (6.4, 7.3), (8.0, 8.2)]
+    # Without the gap closing the clip, the first one would run to 6.2 s and say
+    # words the audio between 3.7 s and 4.6 s does not have.
+    assert [u.text for u in utterances] == [
+        "Okay so, I think that",
+        "this works.",
+        "Right?",
+        "tiny",
+    ]
+
+
+def test_ami_writes_a_word_spelled_letter_by_letter_as_the_word_it_spells(dirs):
+    """``T_V_`` is how the annotators wrote "TV", not something the speaker said."""
+    _, cache = dirs
+    words = """<root xmlns:nite="http://nite.sourceforge.net/">
+  <w nite:id="w1" starttime="0.100" endtime="0.500">We</w>
+  <w nite:id="w2" starttime="0.500" endtime="1.000">watched</w>
+  <w nite:id="w3" starttime="1.000" endtime="1.400">T_V_</w>
+  <w nite:id="w4" starttime="1.400" endtime="1.800">on</w>
+  <w nite:id="w5" starttime="1.800" endtime="2.200">the</w>
+  <w nite:id="w6" starttime="2.200" endtime="2.600">L_C_D_</w>
+  <w nite:id="w7" starttime="2.600" endtime="2.900" punc="true">.</w>
+</root>"""
+    fake_ami_cache(cache, channels={"IS1003a.A": words})
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    assert [u.text for u in utterances] == ["We watched TV on the LCD."]
+
+
+def test_ami_keeps_one_speaker_of_a_meeting_out_of_another(dirs, monkeypatch):
+    """Each participant is a group of its own, even inside one meeting."""
+    data, cache = dirs
+    fake_ami_cache(cache, monkeypatch)
+
+    ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    clips = read_manifest(data / "ami-fr-speakers-en-train")
+    assert {clip.group for clip in clips} == {
+        "ami-fr-speakers-en-train:FIO017",
+        "ami-fr-speakers-en-train:MIO023",
+    }
+    assert sum(1 for clip in clips if clip.group.endswith("FIO017")) == 3
+
+
+def test_ami_leaves_out_a_speaker_whose_first_language_is_not_french(dirs, monkeypatch):
+    """The source is the French-L1 participants of an English corpus, nobody else."""
+    data, cache = dirs
+    fake_ami_cache(cache, monkeypatch)
+
+    ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    groups = {clip.group for clip in read_manifest(data / "ami-fr-speakers-en-train")}
+    assert "ami-fr-speakers-en-train:MIO042" not in groups
+
+
+def test_ami_reads_the_headset_channel_the_meeting_names(dirs):
+    """``A`` is ``Headset-0`` in most meetings but not in all of them."""
+    _, cache = dirs
+    fake_ami_cache(cache)
+    channels = ami.read_channels(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME)
+
+    assert [(c.agent, c.channel) for c in channels] == [("A", 1), ("D", 3)]
+
+
+def test_ami_does_not_let_a_clip_run_past_twenty_seconds(dirs):
+    """A speaker who talks on without a pause still gets clips a recipe can batch."""
+    _, cache = dirs
+    words = "".join(
+        f'  <w nite:id="w{i}" starttime="{i * 2.5:.2f}" endtime="{(i + 1) * 2.5:.2f}">word</w>\n'
+        for i in range(12)
+    )
+    root = f'<root xmlns:nite="http://nite.sourceforge.net/">\n{words}</root>'
+    fake_ami_cache(cache, channels={"IS1003a.A": root})
+    channel = ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1)
+    with zipfile.ZipFile(cache / "ami-fr-speakers-en-train" / ami.ANNOTATIONS_NAME) as archive:
+        utterances = ami.utterances_of(archive, channel)
+
+    assert [round(u.end - u.start, 2) for u in utterances] == [20.0, 10.0]
+
+
+def test_ami_copies_a_headset_recording_the_cache_does_not_have(dirs, tmp_path, monkeypatch):
+    """The audio comes from the corpus's own mirror, in the channel it names."""
+    data, cache = dirs
+    fake_ami_cache(cache, monkeypatch, headsets=False)
+    mirror = tmp_path / "mirror" / "IS1003a" / "audio"
+    write_tone(mirror / "IS1003a.Headset-1.wav", seconds=10.0)
+    write_tone(mirror / "IS1003a.Headset-3.wav", seconds=10.0)
+    monkeypatch.setattr(ami, "AUDIO_URL", str(tmp_path / "mirror"))
+
+    count = ami.fetch_ami_fr_speakers_en_train(
+        "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+    )
+    assert count == 6
+    assert (cache / "ami-fr-speakers-en-train" / "audio" / "IS1003a.Headset-1.wav").is_file()
+
+
+def test_ami_refuses_a_recording_it_has_no_pin_for(dirs):
+    """A recording the source did not pin is not taken unverified."""
+    data, cache = dirs
+    fake_ami_cache(cache)
+    with pytest.raises(DownloadError, match="has no pinned sha256"):
+        ami.fetch_ami_fr_speakers_en_train(
+            "ami-fr-speakers-en-train", cache, data / "ami-fr-speakers-en-train", verbose=False
+        )
+
+
+def test_ami_refuses_an_archive_without_the_participants_resource(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    make_zip(
+        directory / ami.ANNOTATIONS_NAME,
+        {ami.MEETINGS: _ami_resource(directory, "meetings.xml", AMI_MEETINGS)},
+    )
+    with pytest.raises(DownloadError, match="holds no corpusResources/participants.xml"):
+        ami.read_channels(directory / ami.ANNOTATIONS_NAME)
+
+
+def test_ami_refuses_a_speaker_the_annotations_do_not_describe(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    fake_ami_cache(cache, channels={"IS1003a.B": AMI_WORDS})
+    with pytest.raises(DownloadError, match="holds no words/IS1003a.A.words.xml"):
+        with zipfile.ZipFile(directory / ami.ANNOTATIONS_NAME) as archive:
+            ami.read_words(
+                archive,
+                ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1),
+            )
+
+
+def test_ami_refuses_a_word_the_annotations_give_no_time_for(dirs):
+    """A word that cannot be placed in the recording cannot be a clip either."""
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    timeless = AMI_WORDS.replace(
+        '<w nite:id="w1" starttime="0.100" endtime="0.500">Okay</w>', '<w nite:id="w1">Okay</w>'
+    )
+    fake_ami_cache(cache, channels={"IS1003a.A": timeless})
+    with pytest.raises(DownloadError, match="holds a word without a time: 'Okay'"):
+        with zipfile.ZipFile(directory / ami.ANNOTATIONS_NAME) as archive:
+            ami.read_words(
+                archive,
+                ami.Channel(meeting="IS1003a", agent="A", speaker="FIO017", channel=1),
+            )
+
+
+def test_ami_refuses_an_archive_of_speakers_without_a_french_one(dirs):
+    _, cache = dirs
+    directory = cache / "ami-fr-speakers-en-train"
+    dutch = AMI_PARTICIPANTS.replace('native_language="French"', 'native_language="Dutch"')
+    fake_ami_cache(cache, participants=dutch)
+    with pytest.raises(DownloadError, match="no speaker of native language French"):
+        ami.read_channels(directory / ami.ANNOTATIONS_NAME)
