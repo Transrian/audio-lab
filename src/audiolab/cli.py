@@ -26,8 +26,9 @@ from audiolab.data.panels import (
     load_dataset_clips,
     panel_path,
 )
+from audiolab.data.talk_listing import Talk, write_listing
 from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
-from audiolab.data.talks import HOURS_PER_CAP, Talk, http_client, write_listing
+from audiolab.data.talks import HOURS_PER_CAP, http_client
 from audiolab.eval.client import ConfigError, ModelConfig
 from audiolab.eval.report import (
     REPORT_NAME,

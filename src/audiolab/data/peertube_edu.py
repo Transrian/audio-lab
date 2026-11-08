@@ -35,7 +35,7 @@ from __future__ import annotations
 import httpx
 
 from audiolab.data import peertube
-from audiolab.data.talks import Talk
+from audiolab.data.talk_listing import Talk
 
 # The ministry's instances, in the order the PeerTube index lists them. A video
 # of one is only usable if that instance hosts it itself (peertube.Filter).

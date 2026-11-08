@@ -622,7 +622,7 @@ costs nothing and a fresh clone downloads all of it again.
 The sources below, like `peertube-fr-train`, are **talks** rather than corpora: a
 pinned listing of videos, read in a seeded order, whose audio is labelled by two
 speech models where they agree. One module holds that machinery for all of them
-(`src/audiolab/data/talks.py` and `talk_clips.py`), and each source is a listing
+(`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and each source is a listing
 module plus one entry in `src/audiolab/data/talk_sources.py`, which says what the
 listing must hold, in which language the talks are labelled, where a talk's audio
 comes from and what a seeded selection spreads over. What is specific to a

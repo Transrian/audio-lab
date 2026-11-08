@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from audiolab.data import debconf, peertube, talk_sources
-from audiolab.data.talks import read_listing
+from audiolab.data.talk_listing import read_listing
 
 SOURCE = talk_sources.SOURCES["debconf-en-train"]
 INSTANCE = debconf.INSTANCE

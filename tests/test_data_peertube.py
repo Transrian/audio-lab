@@ -16,7 +16,7 @@ import pytest
 from audiolab.data import peertube, talk_sources
 from audiolab.data.download import DownloadError
 from audiolab.data.peertube import Filter
-from audiolab.data.talks import read_listing
+from audiolab.data.talk_listing import read_listing
 
 INSTANCE = "https://videos.capitoledulibre.org"
 FR = Filter(language="fr")

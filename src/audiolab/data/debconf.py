@@ -40,7 +40,7 @@ import unicodedata
 import httpx
 
 from audiolab.data import peertube
-from audiolab.data.talks import Talk
+from audiolab.data.talk_listing import Talk
 
 INSTANCE = "https://peertube.debian.social"
 

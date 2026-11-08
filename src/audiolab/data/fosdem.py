@@ -29,7 +29,7 @@ import xml.etree.ElementTree as ET
 import httpx
 
 from audiolab.data.download import DownloadError
-from audiolab.data.talks import Talk
+from audiolab.data.talk_listing import Talk
 
 VIDEO_TREE = "https://video.fosdem.org"
 # The schedule of a year; fosdem.org redirects to its archive, which the client follows.

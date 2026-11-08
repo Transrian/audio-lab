@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 import httpx
 
 from audiolab.data.download import DownloadError
-from audiolab.data.talks import Talk
+from audiolab.data.talk_listing import Talk
 
 # PeerTube licence ids and the license a clip of each is recorded under.
 # PeerTube names the licence ("Attribution") without a Creative Commons version.

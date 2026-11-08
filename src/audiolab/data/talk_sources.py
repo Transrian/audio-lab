@@ -20,7 +20,8 @@ import httpx
 
 from audiolab.data import debconf, fosdem, peertube, peertube_edu
 from audiolab.data.datasets import DATASETS
-from audiolab.data.talks import PreparedAudio, Talk, TalkSource, fetch_talks, prepare_audio
+from audiolab.data.talk_listing import Talk, TalkSource
+from audiolab.data.talks import PreparedAudio, fetch_talks, prepare_audio
 
 DATA = Path(__file__).parent
 # The Capitole du Libre instance: free-software talks in French, the first talk

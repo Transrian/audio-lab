@@ -12,9 +12,9 @@ import xml.etree.ElementTree as ET
 import httpx
 import pytest
 
-from audiolab.data import fosdem, talk_sources, talks
+from audiolab.data import fosdem, talk_listing, talk_sources
 from audiolab.data.download import DownloadError
-from audiolab.data.talks import Talk, read_listing
+from audiolab.data.talk_listing import Talk, read_listing
 
 SOURCE = talk_sources.SOURCES["fosdem-en-train"]
 YEAR = 2025
@@ -203,7 +203,7 @@ def test_the_reading_order_of_the_source_spreads_over_years_and_rooms():
         for index in range(3)
     ]
 
-    order = talks.reading_order(listed, seed=1, spread_by=fosdem.spread_key)
+    order = talk_listing.reading_order(listed, seed=1, spread_by=fosdem.spread_key)
 
     assert len(order) == 12
     assert len({fosdem.spread_key(one) for one in order[:4]}) == 4, "one per year and room first"

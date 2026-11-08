@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from audiolab.data import peertube, peertube_edu, talk_sources
-from audiolab.data.talks import read_listing
+from audiolab.data.talk_listing import read_listing
 
 SOURCE = talk_sources.SOURCES["peertube-edu-fr-train"]
 HOST = "tube-cycle-2.apps.education.fr"

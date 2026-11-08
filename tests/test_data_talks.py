@@ -20,12 +20,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
-from audiolab.data import talk_sources, talks  # noqa: E402
+from audiolab.data import talk_listing, talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
 from audiolab.data.talk_clips import Answers, Segment  # noqa: E402
-from audiolab.data.talks import Talk, TalkInProgress, TalkSource, write_listing  # noqa: E402
+from audiolab.data.talk_listing import Talk, TalkSource, write_listing  # noqa: E402
+from audiolab.data.talks import TalkInProgress  # noqa: E402
 from audiolab.data.train import Take  # noqa: E402
 from audiolab.eval.client import TranscriptionError  # noqa: E402
 
@@ -114,7 +115,7 @@ def make_pass(tmp_path, segments: list[Segment], seconds: float, **talk_fields) 
 def test_a_pinned_listing_keeps_its_date_its_filter_and_its_talks(tmp_path):
     source = make_source(tmp_path, [talk("a"), talk("b", license="CC0-1.0")])
 
-    listed_on, listed = talks.read_listing(source)
+    listed_on, listed = talk_listing.read_listing(source)
 
     assert listed_on == "2026-11-08"
     assert listed == [talk("a"), talk("b", license="CC0-1.0")]
@@ -125,20 +126,20 @@ def test_a_listing_holding_another_licence_is_refused(tmp_path):
     source = make_source(tmp_path, [talk("a", license="CC-BY-SA-4.0")])
 
     with pytest.raises(DownloadError, match="another licence"):
-        talks.read_listing(source)
+        talk_listing.read_listing(source)
 
 
 def test_the_reading_order_is_seeded_and_spreads_over_the_groups(tmp_path):
     listed = [talk(f"v{index:02d}", channel=f"c{index % 4}") for index in range(20)]
-    order = talks.reading_order(listed, seed=1, spread_by=lambda one: one.channel)
+    order = talk_listing.reading_order(listed, seed=1, spread_by=lambda one: one.channel)
 
     spread = lambda one: one.channel  # noqa: E731 - the group of this source
-    assert order == talks.reading_order(list(reversed(listed)), seed=1, spread_by=spread)
-    assert order != talks.reading_order(listed, seed=2, spread_by=lambda one: one.channel)
+    assert order == talk_listing.reading_order(list(reversed(listed)), seed=1, spread_by=spread)
+    assert order != talk_listing.reading_order(listed, seed=2, spread_by=lambda one: one.channel)
     assert sorted(one.id for one in order) == sorted(one.id for one in listed)
     assert {one.channel for one in order[:4]} == {"c0", "c1", "c2", "c3"}, "one per group first"
     assert order[4] not in order[:4] and len({one.channel for one in order[:8]}) == 4
-    assert talks.reading_order(listed, seed=1) == talks.reading_order(
+    assert talk_listing.reading_order(listed, seed=1) == talk_listing.reading_order(
         list(reversed(listed)), seed=1
     ), "without a spread it is one shuffle"
 
@@ -146,7 +147,7 @@ def test_the_reading_order_is_seeded_and_spreads_over_the_groups(tmp_path):
 def test_only_the_first_talks_of_the_reading_order_are_prepared(tmp_path, monkeypatch):
     listed = [talk(f"v{index}", duration_s=1800) for index in range(10)]
     source = make_source(tmp_path, listed)
-    order = [one.id for one in talks.reading_order(listed, seed=1)]
+    order = [one.id for one in talk_listing.reading_order(listed, seed=1)]
     fetched: list[str] = []
 
     def fetch_audio(http, one, destination, source):
@@ -447,8 +448,8 @@ def test_the_names_peertube_fr_train_is_cached_and_labelled_under_do_not_change(
     for talks already labelled, or label other talks than the ones it started on.
     """
     source = talk_sources.SOURCES["peertube-fr-train"]
-    listed_on, listed = talks.read_listing(source)
-    order = talks.reading_order(listed, talks.SEED, source.spread_by)
+    listed_on, listed = talk_listing.read_listing(source)
+    order = talk_listing.reading_order(listed, talks.SEED, source.spread_by)
     assert (listed_on, len(listed)) == ("2026-11-08", 519)
     assert [one.id for one in order[:3]] == [
         "6a2bdc8c-970e-465f-bdc7-fe01c74de834",
