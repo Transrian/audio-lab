@@ -72,8 +72,8 @@ def fake_voxpopuli_cache(
 
     ``accents`` gives the accent of the ``en_accented`` evaluation subset; a
     speaker listed there recorded English as well and must not be trained on.
-    The default names one French-accented speaker who has no row in the French
-    shard, so nothing is excluded unless a test asks for it.
+    The default names one speaker the corpus labels ``en_fr`` who has no row in
+    the French shard, so nothing is excluded unless a test asks for it.
     """
     accents = accents if accents is not None else {"999": "en_fr"}
     directory = cache / "voxpopuli-fr-train"
@@ -87,7 +87,7 @@ def fake_voxpopuli_cache(
             "is_gold_transcript": [True] * rows,
         },
     )
-    accented = cache / "voxpopuli-en-french-accent"
+    accented = cache / "voxpopuli-en-nonnative"
     write_parquet(
         accented / "test-00000-of-00001.parquet",
         {

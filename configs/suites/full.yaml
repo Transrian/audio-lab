@@ -8,8 +8,8 @@ panels:
   - mls-fr-full
   - fleurs-en-full
   - librispeech-en-full
-  # the target use: English with a French accent, French and English in one sentence
-  - voxpopuli-en-french-accent-full
+  # the target use: non-native English, French and English in one sentence
+  - voxpopuli-en-nonnative-full
   - servicenow-codeswitched-en-fr-full
   - servicenow-codeswitched-en-fr-ca-full
   - cs-fleurs-fr-en-full

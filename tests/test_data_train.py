@@ -146,7 +146,7 @@ def test_evaluation_groups_of_several_datasets_are_merged(tmp_path):
 
 def test_evaluation_groups_is_empty_for_a_dataset_that_is_not_prepared(tmp_path):
     """Nothing is excluded when the evaluation set is not on this machine."""
-    assert evaluation_groups("voxpopuli-en-french-accent", root=tmp_path) == frozenset()
+    assert evaluation_groups("voxpopuli-en-nonnative", root=tmp_path) == frozenset()
 
 
 def test_one_group_may_only_hold_its_share_of_the_cap(tmp_path):

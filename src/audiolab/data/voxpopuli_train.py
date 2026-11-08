@@ -40,9 +40,9 @@ SPLIT_PATH = "fr"
 SHARD_PREFIX = "train-"
 COLUMNS = ["audio", "raw_text", "speaker_id", "is_gold_transcript"]
 
-# The French-accented English evaluation subset: same corpus, same recordings,
-# and a speaker id can appear in both languages.
-ACCENTED_DATASET = "voxpopuli-en-french-accent"
+# The non-native English evaluation subset: same corpus, same recordings, and
+# a speaker id can appear in both languages.
+NONNATIVE_DATASET = "voxpopuli-en-nonnative"
 ACCENTED_PATH = "en_accented"
 ACCENTED_ACCENT = "en_fr"
 # VoxPopuli publishes no speaker id for part of its rows: 12 % of the French
@@ -131,7 +131,7 @@ def _accented_speakers(cache_dir: Path) -> frozenset[str]:
     columns naming the speaker and the accent are decoded: the audio of those
     rows is never read.
     """
-    cache = cache_dir / ACCENTED_DATASET
+    cache = cache_dir / NONNATIVE_DATASET
     speakers: set[str] = set()
     for shard, sha256 in _shards(ACCENTED_PATH, "test-").items():
         path = download(f"{REPO_URL}/{ACCENTED_PATH}/{shard}", cache / shard, sha256=sha256)
@@ -139,5 +139,5 @@ def _accented_speakers(cache_dir: Path) -> frozenset[str]:
             if row["accent"] == ACCENTED_ACCENT:
                 speakers.add(row["speaker_id"])
     if not speakers:
-        raise DownloadError(f"{ACCENTED_DATASET} lists no {ACCENTED_ACCENT} speaker")
+        raise DownloadError(f"{NONNATIVE_DATASET} lists no {ACCENTED_ACCENT} speaker")
     return frozenset(speakers)

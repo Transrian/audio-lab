@@ -163,7 +163,7 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = VoxPopuli speaker id)",
         notes="Training data for the per-source screening: a capped number of clips "
         "of the train split, selected and filtered as documented in "
-        "docs/stt/datasets.md. Speakers of the French-accented English "
+        "docs/stt/datasets.md. Speakers of the non-native English "
         "evaluation subset are left out. No panels.",
     ),
     "nonspeech": DatasetInfo(
@@ -176,16 +176,18 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Hallucination battery: 50 silences, 50 low-level noises, 200 ESC-50 "
         "clips. No music (known gap).",
     ),
-    "voxpopuli-en-french-accent": DatasetInfo(
-        name="voxpopuli-en-french-accent",
+    "voxpopuli-en-nonnative": DatasetInfo(
+        name="voxpopuli-en-nonnative",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config en_accented)",
         license="CC0-1.0 (data; the repository's code and models are CC-BY-NC and unused here)",
         split="test (accent en_fr only)",
         reference_style="editor's transcript, no punctuation; every clip is a gold transcript",
         grouping="speaker (group = VoxPopuli speaker id)",
-        notes="English read in the European Parliament by French speakers, in the accented "
-        "English subset of VoxPopuli. The whole config is downloaded and the 737 clips of "
-        "the French accent are kept.",
+        notes="English read in the European Parliament by non-native speakers, in the accented "
+        "English subset of VoxPopuli. The whole config is downloaded and the 737 clips the "
+        "corpus labels French (accent en_fr) are kept; matching those speakers to the "
+        "Parliament's member list found only about 26 of them French-speaking, so the "
+        "dataset is named after what it holds, not after the label.",
     ),
     "servicenow-codeswitched-en-fr": DatasetInfo(
         name="servicenow-codeswitched-en-fr",
