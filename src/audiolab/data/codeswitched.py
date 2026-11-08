@@ -66,16 +66,20 @@ def fetch_servicenow_codeswitched(
     )
     builder = ManifestBuilder(dataset_dir, verbose=verbose)
     for row in rows(path, COLUMNS):
-        # The voice is the group: the corpus has two of them per configuration,
-        # and every clip of one voice shares its rendering.
+        # Every sentence is different, so the clip is the group. The corpus has
+        # only two synthetic voices per configuration: as groups they would give
+        # an interval resampled from two values and a sealed panel holding one
+        # whole voice. The voice is kept as the category instead, so a report can
+        # still tell them apart.
         builder.add(
             f"{name}:{row['ID']}",
             audio_of(row["audio"]),
             language=LANGUAGE,
             text=row["utterance"],
             text_has_casing_punct=True,
-            group=f"{name}:{row['voice']}",
-            group_kind="speaker",
+            category=f"voice/{row['voice']}",
+            group=f"{name}:{row['ID']}",
+            group_kind="clip",
             source_split=SPLIT,
             license=LICENSE,
         )

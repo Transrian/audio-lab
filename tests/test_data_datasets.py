@@ -556,9 +556,12 @@ def test_servicenow_is_prepared_as_two_french_framed_datasets(dirs):
     # French frames every utterance of the corpus, in both configurations.
     assert first.language == "fr"
     assert first.text_has_casing_punct is True
-    assert first.group == "servicenow-codeswitched-en-fr-ca:F-Marine"
-    assert first.group_kind == "speaker"
-    assert len({clip.group for clip in clips}) == 2
+    # Two synthetic voices are too few groups: the clip is the group, the voice
+    # its category.
+    assert first.group == "servicenow-codeswitched-en-fr-ca:en_fr_ca_codeswitched_0000"
+    assert first.group_kind == "clip"
+    assert first.category == "voice/F-Marine"
+    assert len({clip.group for clip in clips}) == len(clips)
     assert "evaluation only" in first.license
     # The two configurations are two datasets: their clips never share an id.
     other = read_manifest(data / "servicenow-codeswitched-en-fr")

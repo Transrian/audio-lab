@@ -340,9 +340,9 @@ and in the comparison. Groups are counted per dataset and per panel in
 [datasets.md](datasets.md#panels-and-their-groups); `mls-fr` is the one that
 matters here, 4 groups on its sealed panel and 14 on the others, so a French
 interval is an indication of spread between speakers rather than a precise
-bound. The two `servicenow-codeswitched-*` datasets go further and carry the
-caution on every panel: their two voices leave one voice for the sealed panel
-and one for the others, so those intervals describe a voice.
+bound. The two `servicenow-codeswitched-*` datasets have only two synthetic
+voices each, so their group is the clip: their intervals have enough groups but
+are optimistic, since clips of one voice are not independent.
 
 ## 7. What this does not measure
 

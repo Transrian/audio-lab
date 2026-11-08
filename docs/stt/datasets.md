@@ -20,8 +20,8 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
 | `nonspeech` | none | see below | esc50 + generated | 300 | 300 | 0.6 | 63 MiB |
 | `voxpopuli-en-french-accent` | en | CC0-1.0 | `en_accented` test, accent `en_fr` | 737 | 27 | 2.4 | 259 MiB |
-| `servicenow-codeswitched-en-fr` | fr (en) | no license: evaluation only | test | 298 | 2 | 0.6 | 70 MiB |
-| `servicenow-codeswitched-en-fr-ca` | fr (en) | no license: evaluation only | test | 188 | 2 | 0.4 | 42 MiB |
+| `servicenow-codeswitched-en-fr` | fr (en) | no license: evaluation only | test | 298 | 298 | 0.6 | 70 MiB |
+| `servicenow-codeswitched-en-fr-ca` | fr (en) | no license: evaluation only | test | 188 | 188 | 0.4 | 42 MiB |
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
@@ -43,8 +43,8 @@ part of how precise its numbers can be:
 | `librispeech-en` | 100 / 32 | 600 / 32 | 492 / 8 |
 | `nonspeech` | 60 / 60 | 280 / 280 | 20 / 20 |
 | `voxpopuli-en-french-accent` | 100 / 22 | 600 / 22 | 50 / 5 |
-| `servicenow-codeswitched-en-fr` | 100 / 1 | 151 / 1 | 147 / 1 |
-| `servicenow-codeswitched-en-fr-ca` | 96 / 1 | 96 / 1 | 92 / 1 |
+| `servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
+| `servicenow-codeswitched-en-fr-ca` | 100 / 100 | 150 / 150 | 38 / 38 |
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
 
 Group counts are the ones the panels depend on, so they are checked against the
@@ -215,19 +215,20 @@ Three kinds of clip that must stay silent, 300 in total:
   ones. The model is told `fr`, as a French dictation that happens to contain
   English words would be, and a model that answers in French here is doing what
   was asked.
-- **Group**: the voice (`group_kind: speaker`), two per configuration. The
-  sealed panel therefore takes one voice whole and `full` and `fast` score the
-  other: `en_fr` 100 / 151 / 147 clips, `en_fr_ca` 96 / 96 / 92. `fast` cannot be
-  shorter than the one voice it is drawn from, so on `en_fr_ca` it is as long as
-  `full`. Every panel of both datasets carries the report's `few groups (n < 20)`
-  caution: their intervals describe one voice.
+- **Group**: the clip (`group_kind: clip`); every sentence is different. The
+  voice is the clip's `category` (`voice/<name>`). Two voices are too few groups:
+  an interval resampled from two values says nothing, and the sealed panel would
+  hold one whole voice. Panels: `en_fr` 100 / 238 / 60 clips, `en_fr_ca`
+  100 / 150 / 38 (fast / full / sealed), both voices in each. The intervals treat
+  clips as independent, which is optimistic: clips of one voice share its
+  rendering.
 - **Why it is here**: the vocabulary and the register of the target use — a
   ticket, a VPN, an update, a mailbox — with the switch inside the sentence,
   which no other panel has, and a Québec variety to compare against it.
 - **Known limits**: synthetic voices, two per configuration, so a score here
   says nothing about a real speaker switching language; the sentences are
-  written to be read rather than thought and dictated; and the intervals rest on
-  one voice per panel.
+  written to be read rather than thought and dictated; and the intervals ignore
+  the voice, so they are narrower than they should be.
 
 ## `cs-fleurs-fr-en` — code-switched FLEURS sentences
 
