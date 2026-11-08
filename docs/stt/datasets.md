@@ -561,9 +561,12 @@ costs nothing and a fresh clone downloads all of it again.
   one participant, while NXT rebuilds those times from single words and leaves a
   word unplaced when the annotators placed it only at its other end (`We` with a
   start and no end), so an NXT boundary would have to be guessed. The words are
-  the annotators' own, cased and punctuated, with their spellings (`O_K`,
-  `Mm-hmm`, and an acronym written letter by letter read as the word it spells:
-  `T_V_s` is `TVs`) and their marks of a false start (`how much w- how easy`).
+  the annotators' own, cased and punctuated, with their marks of a false start
+  (`how much w- how easy`) and their own spellings, except for one mark of how a
+  word was written: a token written letter by letter is read as the word it
+  spells, the way the AMI source reads its own words — `O_K` is "OK", `S_R_I` is
+  "SRI", `T_V_s` is "TVs", and a lone `L_` is the letter "L" — while `Mm-hmm`
+  stays as the annotators wrote it.
   The annotation elements between the words are taken out, all the way down:
   `VocalSound` (29 779 of them), `NonVocalSound` (3 708), `Comment` (12 283) and
   `Pause` (7 213) carry no words to transcribe and go with what they hold, while

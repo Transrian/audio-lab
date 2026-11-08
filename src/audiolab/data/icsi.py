@@ -57,7 +57,7 @@ import soundfile as sf
 from audiolab.core.audio import Audio, load_audio
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
-from audiolab.data.meeting import Chunk, merged
+from audiolab.data.meeting import Chunk, merged, spelled_out
 from audiolab.data.train import (
     CLIP_CAP_PER_GROUP,
     TRAIN_CLIP_CAP,
@@ -360,10 +360,13 @@ def segment_text(element: ET.Element) -> str:
     elements that carry no words are dropped whole; the ones that do — an
     emphasis, a pronunciation, a foreign word, an uncertain guess — contribute
     their text, because that is what the speaker said. The words around the
-    markup are joined with the whitespace the file left out.
+    markup are joined with the whitespace the file left out, and a token the
+    annotators wrote letter by letter is read as the word it spells (`O_K` is
+    "OK", `S_R_I` is "SRI", a lone `L_` is "L"), the way the AMI source reads the
+    words of its own annotation.
     """
     pieces = [piece.strip() for piece in _pieces(element) if piece.strip()]
-    return WHITESPACE.sub(" ", " ".join(pieces)).strip()
+    return spelled_out(WHITESPACE.sub(" ", " ".join(pieces)).strip())
 
 
 def _pieces(element: ET.Element) -> list[str]:

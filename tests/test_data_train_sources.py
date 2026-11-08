@@ -1446,7 +1446,8 @@ def test_icsi_reads_the_mrt_segments_and_groups_by_participant(dirs, monkeypatch
     assert clips["icsi-en-train:Btr001.fe069.0001"].text == (
         "Is - is M- So, is - is Marisa's close enough?"
     )
-    assert clips["icsi-en-train:Btr001.fe068.0002"].text == "O_K. So that is fine."
+    # A token written letter by letter is the word it spells, as in AMI.
+    assert clips["icsi-en-train:Btr001.fe068.0002"].text == "OK. So that is fine."
     assert {clip.group for clip in clips.values()} == {
         "icsi-en-train:fe068",
         "icsi-en-train:fe069",
