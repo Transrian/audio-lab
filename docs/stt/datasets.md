@@ -186,12 +186,20 @@ Three kinds of clip that must stay silent, 300 in total:
 - **Why it is here**: English with a French accent is one of the four cases of
   the target use ([D-009](../owner/directives.md)) and no other panel here says
   what an accent costs. It is the only set of that case acquired here; the
-  register keeps [GLOBE V2](sources.md#english-technical-and-french-accented-english)
-  as a further candidate.
+  [register](sources.md#english-technical-and-french-accented-english) lists
+  the other candidates.
 - **Known limits**: 2.4 hours of read parliamentary speech, one accent out of
   many, and the corpus's own transcripts hold errors that no model can avoid
   repeating. Its accent label is a claim by the corpus, and this project has not
-  checked that a speaker's French is their first language. The models here were
+  checked that a speaker's French is their first language.
+- **Accent label in doubt** (2026-11-08): matched to the Parliament's own list
+  of members, only about 26 of the 737 clips come from French, Luxembourgish or
+  French-speaking Belgian members; the largest speakers are from Latvia
+  (208 clips), Flanders (171) and Portugal (107). In other accents of the same
+  config the speakers do match their nationality. Either the `en_fr` label or
+  the speaker ids are wrong for this accent, so until someone listens to a
+  sample, read this panel as English spoken by non-native speakers in the
+  European Parliament, not as French-accented English. The models here were
   served with `language: en`, so a model that switches language on its own is
   not measured by this panel.
 

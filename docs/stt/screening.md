@@ -86,6 +86,8 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   accent**, the panel closest to it (same Parliament, other speakers). It does
   not answer in French there; it drops words: 22 of the 600 clips come back
   empty, against none for the base model, and more answers are cut short.
+  (Whether that panel is French-accented at all is in doubt: see its
+  [card](datasets.md#voxpopuli-en-french-accent--english-with-a-french-accent).)
 - **MLS FR** hurts the main French panel (+0.97) and accented English, and does
   not even improve its own corpus's panel. Its lowercase, unpunctuated text
   doubles the formatted WER on fleurs-fr. This matches what the earlier project
