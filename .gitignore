@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 .venv/
+# The environment holding the heavy local-model stack (see requirements/nemo.txt).
+.venv-nemo/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
