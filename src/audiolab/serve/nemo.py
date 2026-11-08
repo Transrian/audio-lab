@@ -1,10 +1,11 @@
 """The NeMo backend: a local checkpoint, decoded greedily on one GPU.
 
 NeMo and PyTorch are imported here and nowhere else, so the rest of the
-repository (and the whole test suite) works on a machine that has neither. The
-loading settings come from the owner's earlier private work, where the defaults
-of a restored archive turned out to be wrong for inference or for the Numba TDT
-kernel; see the comments below.
+repository (and the whole test suite) works on a machine that has neither.
+
+A restored archive carries the settings its own training run used, and several of
+them are wrong for a server that answers one clip at a time. Each change below
+says what breaks without it.
 """
 
 from __future__ import annotations
@@ -48,16 +49,10 @@ class NemoBackend:
         self.model = model
 
     def _configure_decoding(self, model) -> None:
-        """The decoding settings this server uses, whatever the archive carried.
+        """The greedy decoding this server uses, whatever the archive carried.
 
-        An archive carries what its training run used, and the fused batch paths
-        assume a fixed batch shape; both are a training-time speedup, so they are
-        off. Greedy decoding of the shapes here needs no CUDA graphs, and this
-        build cannot draw them: NeMo 2.6.1 asks the CUDA bindings for one value
-        more than its own pinned `cuda-python` returns, and a decode that fails
-        inside a captured graph comes back empty instead of raising, which is
-        worse than being slow. A checkpoint with no transducer joint is refused
-        here rather than producing silent nonsense later.
+        A checkpoint with no transducer joint is refused here, rather than failing
+        into a transcript that looks like an answer.
         """
         from omegaconf import open_dict
 
@@ -68,9 +63,17 @@ class NemoBackend:
             )
         with open_dict(model.cfg):
             model.cfg.decoding.strategy = STRATEGY
+            # The fused batch paths assume one fixed batch shape, which is a
+            # training-time speedup; a server decoding one clip at a time is
+            # faster without them.
             model.cfg.decoding.fused_batch_size = None
             model.cfg.joint.fused_batch_size = None
+            # Greedy decoding stops after this many symbols inside a blank run.
             model.cfg.decoding.greedy.max_symbols = self.spec.max_symbols
+            # NeMo 2.6.1 asks the CUDA bindings for one value more than the
+            # `cuda-python` it pins returns while capturing this decode, and a
+            # decode that fails inside a capture comes back empty instead of
+            # raising - an empty transcript that looks like an answer.
             model.cfg.decoding.greedy.use_cuda_graph_decoder = False
         # Build the decoder now: the one built while the archive was restored
         # would keep the archive's own settings, and building it later is what

@@ -2,19 +2,16 @@
 
 This is the module that needs the heavy stack, and it is the only one: the
 config, the settings it imposes on NeMo, the clips a run trains on and the run
-directory are all written so they can be read and tested with the plain install
+directory are written so they can be read and tested with the plain install
 (see `requirements/nemo.txt`).
 
-What a run does, in order: load the base checkpoint, hand NeMo our manifest and
-our two learning rates, train for a fixed number of updates while rewriting one
-resume slot, then write the fine-tuned checkpoint into the run directory. Every
-weight is trained; nothing is frozen and no adapters are added, so the result is
-one ordinary checkpoint, served and evaluated like any other.
-
-The settings it applies (see `settings.py`) are ours rather than the base
-model's, because a fine-tune reads a different manifest at a different batch
-size; everything else about the model (its preprocessor, its augmentation, its
-loss) is left exactly as the checkpoint carries it.
+It loads the base checkpoint, hands NeMo our manifest and our two learning rates,
+trains for the number of updates the config asks for while rewriting one resume
+slot, and writes the fine-tuned checkpoint into the run directory. Only the
+training settings (see `settings.py`) are ours; the model keeps its preprocessor,
+its augmentation and its loss as the checkpoint carries them. Every weight is
+trained and no adapter is added, so the result is one ordinary checkpoint, served
+and evaluated like any other.
 """
 
 from __future__ import annotations

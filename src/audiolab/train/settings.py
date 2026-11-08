@@ -23,8 +23,8 @@ from audiolab.train.config import TrainConfig
 # and covers families whose feature extractor does train.
 ENCODER_PARTS = ("preprocessor", "encoder")
 HEAD_PARTS = ("decoder", "joint")
-# AdamW settings for this kind of model. The second moment is the one that pays
-# for long utterances.
+# AdamW's betas. The second moment forgets faster than the usual 0.999, which
+# suits speech batches whose gradient scale moves with the clip lengths.
 BETAS = (0.9, 0.98)
 
 
