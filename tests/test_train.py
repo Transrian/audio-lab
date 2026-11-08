@@ -41,6 +41,7 @@ from audiolab.train.run import (  # noqa: E402
     write_run_config,
 )
 from audiolab.train.runner import Training  # noqa: E402
+from audiolab.train.settings import dataset_config  # noqa: E402
 
 MINIMAL = {"base_model": "/models/base.nemo", "dataset": "fleurs-fr"}
 
@@ -570,6 +571,18 @@ def fake_model(rates: dict | None = None, weightless: tuple = ()) -> FakeModel:
     for part in weightless:
         parts[part] = FakeModule([])
     return FakeModel(groups, **parts)
+
+
+def test_the_dataset_a_run_uses_is_the_one_the_recipe_asks_for(tmp_path):
+    """The manifest is read the project's way, not NeMo's default way."""
+    path = tmp_path / "manifest.jsonl"
+    built = dataset_config(config(batch_size=8), path)
+    assert built["manifest_filepath"] == str(path)
+    assert built["batch_size"] == 8
+    assert built["use_lhotse"] is False and built["is_tarred"] is False
+    # <bos>/<eos> are not part of a transcript: the tokenizer of this family has
+    # none, and a fix-tune must not depend on that staying true.
+    assert built["use_start_end_token"] is False
 
 
 def test_the_rate_check_reads_the_rate_the_schedule_started_from():

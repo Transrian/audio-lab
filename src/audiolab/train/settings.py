@@ -82,7 +82,11 @@ def dataset_config(config: TrainConfig, manifest_path: Path) -> dict:
         "max_duration": config.max_clip_seconds,
         "min_duration": 0.0,
         "trim_silence": False,
-        "use_start_end_token": True,
+        # NeMo wraps a transcript in <bos>/<eos> when this is on. The v3 tokenizer
+        # carries bos = eos = -1, so nothing is added either way today; NeMo's own
+        # fine-tuning recipes leave it off, and another checkpoint's tokenizer
+        # would otherwise put two tokens in every transcript that are not text.
+        "use_start_end_token": False,
     }
 
 
