@@ -115,7 +115,10 @@ against).
    (and its preprocessor) at `lr_encoder`, the decoder and the joint at
    `lr_heads`, with the weight decay of the config. Before any GPU time is spent
    on an update, it checks on the loaded model that each part's parameters really
-   sit in the group that carries their rate.
+   sit in the group that carries their rate. NeMo's training loader is kept but
+   for its shuffle: every epoch reads the clips in a permutation drawn from
+   `seed` and the epoch number alone (`src/audiolab/train/order.py`), so a run
+   that is resumed reads the clips it would have read had it not stopped.
 4. It trains with PyTorch Lightning: `updates` optimizer updates,
    `accumulate_grad_batches=grad_accumulation`, `max_steps=updates`, the
    precision and gradient clipping of the config, and a constant schedule with
@@ -132,7 +135,8 @@ against).
    With `accumulate_grad_batches` above 1, PyTorch Lightning divides each batch
    loss by that number before the backward pass and hands the divided value to
    the hooks; the loop multiplies it back, so a line is on the same scale
-   whether or not the config accumulates. That is the whole progress a run
+   whether or not the config accumulates. On a terminal a progress bar also
+   counts the updates (never in a log file). That is the whole progress a run
    reports: this recipe watches the loss and nothing else. A validation WER
    inside the training process is allowed — it is monitoring, not a result
    ([decision 0008](../decisions/accepted/0008-training-monitoring-vs-official-evaluation.md))
@@ -170,9 +174,34 @@ slot: the next rewrite replaces it, so a run keeps at most one, and a crash neve
 leaves a pile of checkpoints to choose from.
 
 `audiolab train` on an unfinished run directory goes on from that slot, and says
-`resuming from the last resume slot` when it does. Interrupting it (Ctrl-C, a
-killed process, a reboot) is therefore safe: at most `resume_every` updates are
-lost. When the run finishes, the slot is deleted: the final model is `model.nemo`.
+`resuming from the last resume slot` when it does. When the run finishes, the
+slot is deleted: the final model is `model.nemo`.
+
+To stop a run, press Ctrl-C or send it SIGTERM (`kill <pid>`, `systemctl stop`).
+The run finishes the update in progress (with `grad_accumulation` above 1, the
+batches of that update), rewrites the slot, prints
+
+```
+audiolab: training of <name> stopped after update <n> of <updates>, kept in <run>/resume.ckpt; run the same command again to resume
+```
+
+and exits with code 130. A stopped run writes neither `model.nemo` nor
+`train.json` nor `model.yaml`: the directory holds `config.json`, the manifest,
+the log so far and the slot. The same `audiolab train` command goes on from update
+`<n>`, on the clips that came next. What a resume does not restore is the random
+state of the augmentation (SpecAugment's masks are drawn anew), as in any
+Lightning run resumed from a checkpoint. A second Ctrl-C or SIGTERM ends the
+process at once; so do a crash, `kill -9` and a reboot. Then the last rewrite of
+the slot is what the run goes on from, so at most `resume_every` updates are
+lost. `tests/test_train_resume_slot.py`, which runs in the NeMo environment only,
+checks on the CPU that a run stopped in the middle of an update and resumed ends
+with the weights of the run that went on. The slot is written to `resume.ckpt.partial` and renamed, so a process
+killed while writing it keeps the slot before.
+
+Under systemd, `KillMode=mixed` sends SIGTERM to `audiolab` alone and lets it stop
+its data loader workers itself, and `SuccessExitStatus=130` makes a stopped run
+count as a clean stop rather than a failure. `TimeoutStopSec` has to cover one
+update and one slot write (a few seconds for the default recipe).
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the

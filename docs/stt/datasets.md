@@ -83,6 +83,37 @@ dataset under a frozen panel.
 A cached file is trusted once it has been verified: re-preparing a dataset does
 not download it again, so the check happens when the file arrives.
 
+## Stopping a preparation and going on
+
+`audiolab data fetch`, `audiolab data fetch-audio` and the labelling of a talk
+source can be stopped with Ctrl-C or SIGTERM. The task finishes the step in hand
+— the clip it is writing, the block of a download, the talks a model pass is on —
+prints `audiolab: <what> stopped; run the same command again to resume` and
+exits with code 130; a second Ctrl-C or SIGTERM ends it at once. Running the same
+command again goes on:
+
+- A download is written to `<file>.part` in the cache and renamed once its
+  checksum matches. A file pinned by a checksum continues from the bytes already
+  there (an HTTP range request); an unpinned one, such as a talk's video, starts
+  again from the first byte, because nothing would prove that the two halves are
+  one file. A file that does not match its checksum is deleted, as before.
+- A preparation writes each clip's WAV and then its manifest line to
+  `manifest.partial.jsonl` in the dataset directory; `manifest.jsonl` appears
+  only when the preparation is complete, so a stopped dataset is never taken
+  for a prepared one. The next preparation takes a clip from the partial
+  manifest, without decoding it again, only if its WAV is there, every field of
+  its line is the one it would get now, and the partial manifest was written by
+  the same data code and the same versions of numpy, soundfile and soxr
+  (`preparation_key` in `src/audiolab/data/build.py`); otherwise the clip, or
+  the whole partial manifest, is prepared again.
+- The labelling of a talk source caches every model answer per talk (see
+  `peertube-fr-train` below), so the next run reads through what the stopped
+  one did without asking a model again, and asks only for the rest.
+
+On a terminal, a progress bar counts the clips of a preparation (out of the cap
+for a training source), the talks read, and the bytes of a download; a log file
+gets the usual lines only.
+
 ## `fleurs-fr`, `fleurs-en` — read Wikipedia sentences
 
 - **Source**: `google/fleurs`, `data/{fr_fr,en_us}/test.tsv` and
