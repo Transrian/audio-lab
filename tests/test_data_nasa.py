@@ -9,6 +9,7 @@ clips with that text, after every Whisper request of the batch (D-020).
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from contextlib import nullcontext
 from dataclasses import replace
 from functools import partial
@@ -22,9 +23,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.data import nasa, talks  # noqa: E402
-from audiolab.data.aligned_clips import Line  # noqa: E402
+from audiolab.data.aligned_clips import Line, labelled_clips  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
+from audiolab.data.talk_clips import Segment  # noqa: E402
 from audiolab.data.talk_listing import Talk, write_listing  # noqa: E402
 
 SHOW = "gravity-assist"
@@ -158,9 +160,12 @@ def test_the_transcript_starts_after_its_heading_and_reads_every_kind_of_label()
             "<strong>[0:09] Narrator:</strong>The space race began.",
             "NICKY FOX: Three, two, one.",
             "Host:",
-            "Today: the Moon, and what comes next.",
+            "Willie Lyles: Oh, thank you, Gary.",
+            "Steve Altemus 11:32",
             "<strong>[ Music ]</strong>",
             "Volcanoes <strong>have</strong> been here for ages.",
+            "Today: the Moon, and what comes next.",
+            "and we said: no.",
         )
     )
 
@@ -171,10 +176,27 @@ def test_the_transcript_starts_after_its_heading_and_reads_every_kind_of_label()
         Line("Narrator", "The space race began."),
         Line("NICKY FOX", "Three, two, one."),
         Line("Host", ""),
-        Line("", "Today: the Moon, and what comes next."),
+        Line("Willie Lyles", "Oh, thank you, Gary."),
+        Line("Steve Altemus", ""),
         Line("", "[ Music ]"),
         Line("", "Volcanoes have been here for ages."),
+        # Read as a label, a capitalised phrase before a colon costs a clip at most.
+        Line("Today", "the Moon, and what comes next."),
+        Line("", "and we said: no."),
     ]
+
+
+def test_a_plain_label_before_a_colon_keeps_a_clip_from_running_across_two_speakers():
+    host = "So thank you very much for coming on the show today, it was a real pleasure."
+    lines = nasa.transcript_lines(
+        page(f"<strong>Host:</strong> {host}", "Willie Lyles: Oh, thank you, Gary. Appreciate it.")
+    )
+    # Read as speech, the two words of the name would be few enough to label the clip.
+    clips = [Segment(0.0, 9.0, f"{host} Oh, thank you, Gary. Appreciate it.")]
+    tally: Counter[str] = Counter()
+
+    assert labelled_clips(clips, lines, "en", tally) == []
+    assert tally["clips left out: a change of speaker or a note inside"] == 1
 
 
 def test_the_text_after_a_list_inside_a_list_item_is_read():

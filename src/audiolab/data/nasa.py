@@ -321,11 +321,14 @@ def is_transcript_heading(text: str) -> bool:
 def line_of(block: Block) -> Line:
     """One paragraph as a line, its speaker label taken off the speech.
 
-    The shows write a label three ways: bold and alone on its line ("Gary
-    Jordan"), bold or in capitals before a colon ("Host: Welcome…", "NICKY FOX:
-    Three, two, one"), or alone with a colon ("Host:"). A note in a label, such
-    as a timestamp or "(Host)", is not part of the name. A colon in plain speech
-    ("Today: the Moon") is not a label.
+    The shows write a label four ways: bold and alone on its line ("Gary
+    Jordan"), before a colon ("Host: Welcome…", "NICKY FOX: Three, two, one"),
+    alone with a colon ("host:"), or alone with the time it is said at ("Steve
+    Altemus 11:32"). A note in a label, such as a timestamp or "(Host)", is not
+    part of the name. A capitalised phrase before a colon in plain speech
+    ("Today: the Moon") is read as a label too: that only splits a passage, so
+    a clip across it is left out, while a label read as speech would let a
+    clip's label run across a change of speaker.
     """
     text, bold = block.text, NOTE.sub("", block.bold_start).strip()
     # The first colon outside a note: "[0:09] Narrator: …" is labelled Narrator.
@@ -333,7 +336,10 @@ def line_of(block: Block) -> Line:
     before, colon, _ = masked.partition(":")
     name = squash(NOTE.sub("", text[: len(before)]))
     speech = text[len(before) + 1 :].strip()
-    if colon and is_name(name) and (bold.startswith(name) or name.isupper() or not speech):
+    stamped = re.fullmatch(r"([^:]+) \d+:\d\d", text)
+    if stamped and is_name(stamped[1]) and stamped[1][:1].isupper():
+        return Line(stamped[1], "")
+    if colon and is_name(name) and (bold.startswith(name) or name[:1].isupper() or not speech):
         return Line(name, speech)
     if bold and text == block.bold_start and is_name(bold):
         return Line(bold, "")

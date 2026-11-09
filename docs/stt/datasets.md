@@ -934,10 +934,14 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     acknowledged as the source of the material").
 - **The transcript**: the episode's content block, from a "Transcript" heading
   when the page has one (the description above it is text nobody says), to the
-  site's footer. A speaker label is taken off its line — a bold name alone or
-  before a colon (`Host:`, `Andres Almeida (Host):`), a name in capitals before a
-  colon (`NICKY FOX:`), or a short plain name alone on its line that recurs —
-  and remembered: the label changes where the speaker does. Notes in brackets or
+  site's footer. A speaker label is taken off its line — a bold name alone, a
+  capitalised name before the line's first colon, bold or not (`Host:`, `Andres
+  Almeida (Host):`, `NICKY FOX:`, `Willie Lyles:`), a name alone on its line
+  with a time (`Steve Altemus 11:32`), or a short plain name alone on its line
+  that recurs — and remembered: the label changes where the speaker does. A
+  phrase of speech before a colon (`Today: the Moon`) is read as a label too:
+  that only costs the clip across it, while a label read as speech would put a
+  name, and two voices, in a clip. Notes in brackets or
   parentheses (`[Music]`, `(laughs)`) are not words anybody says.
 - **Labels, by alignment** (`src/audiolab/data/aligned_clips.py`): Whisper
   large-v3 hears each episode as the talks are heard (five-minute chunks, raw
