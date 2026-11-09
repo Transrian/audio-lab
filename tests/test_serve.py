@@ -21,6 +21,7 @@ import pytest  # noqa: E402
 from audiolab.core.checkpoint import file_sha256  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
+from audiolab.serve import runtime  # noqa: E402
 from audiolab.serve.config import ServeConfigError, ServeSpec  # noqa: E402
 from audiolab.serve.http import TranscriptionServer, parse_multipart  # noqa: E402
 from audiolab.serve.launcher import (  # noqa: E402
@@ -292,6 +293,19 @@ def test_a_stop_while_the_server_loads_stops_it_and_the_run():
     with pytest.raises(Stopped, match="starting the server stopped"):
         process.wait_until_ready(timeout_s=60)
     assert process.process.poll() is not None, "the child is stopped, not left loading"
+
+
+def test_a_stop_while_audiolab_serve_loads_the_checkpoint_does_not_serve_it(monkeypatch, capsys):
+    """The signal came to the command's handlers (D-021), before the server's own."""
+
+    def loading(spec, transcribe):
+        request_stop()  # what the first Ctrl-C does while the checkpoint loads
+        return fake_backend()
+
+    monkeypatch.setattr(runtime, "build_transcriber", loading)
+    with pytest.raises(Stopped, match="while the checkpoint loaded"):
+        runtime.run_foreground(ServeSpec(checkpoint="x.nemo"), "m")
+    assert runtime.READY_PREFIX not in capsys.readouterr().out
 
 
 def test_a_child_that_cannot_start_says_what_it_printed():

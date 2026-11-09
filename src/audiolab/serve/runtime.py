@@ -17,6 +17,7 @@ import threading
 from collections.abc import Callable
 
 from audiolab.core.gpu import select_gpu
+from audiolab.core.stop import raise_if_stopped
 from audiolab.serve.config import ServeConfigError, ServeSpec
 from audiolab.serve.http import TranscriptionServer
 
@@ -90,11 +91,15 @@ def run_foreground(
     announced; nothing has to be guessed or checked in advance.
     """
     handler = build_transcriber(spec, transcribe)
+    stop = threading.Event()
+    _watch_signals(stop)
+    # A signal received while the checkpoint loaded went to the handlers of the
+    # ``audiolab`` command, which only ask for a stop (D-021); the ones above
+    # replace them, so that request is read here or never.
+    raise_if_stopped("serving stopped while the checkpoint loaded")
     server = TranscriptionServer(
         handler, model_id, host=host, port=port, identity=served_identity(spec)
     )
-    stop = threading.Event()
-    _watch_signals(stop)
     if stop_when_stdin_closes:
         # Whoever started this process holds the read end of the pipe: when it
         # dies, even without cleaning up, the write end closes and the server
