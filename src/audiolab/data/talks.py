@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import math
 import subprocess
+import threading
 import time
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
@@ -363,13 +364,23 @@ def prefetched(
             yield talk, path
 
 
-def in_parallel[T, R](ask: Callable[[T], R], items: Iterable[T]) -> list[R]:
-    """``ask`` on every item, :data:`PARALLEL_REQUESTS` at a time, answers in the items' order."""
+def in_parallel[T, R](
+    ask: Callable[[T], R], items: Iterable[T], stopping: threading.Event | None = None
+) -> list[R]:
+    """``ask`` on every item, :data:`PARALLEL_REQUESTS` at a time, answers in the items' order.
+
+    A stopped run (Ctrl-C, an error) cancels the items not started, sets
+    ``stopping`` and waits for the items in flight: an ``ask`` that watches
+    ``stopping`` ends early.
+    """
     pool = ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS)
     try:
         return list(pool.map(ask, items))
+    except BaseException:
+        if stopping is not None:
+            stopping.set()
+        raise
     finally:
-        # A stopped run waits for the work in flight, not for the work queued.
         pool.shutdown(cancel_futures=True)
 
 
@@ -384,13 +395,21 @@ def heard_talks(
     What runs in parallel is talks, not the chunks of one talk: a chunk starts
     where the last trusted segment of the one before it ends
     (:func:`audiolab.data.talk_clips.segment_audio`), so it cannot be sent first.
+    A stopped run stops the talks in flight at their next chunk; the answers
+    already written stay cached.
     """
+    stopping = threading.Event()
+
+    def whisper_until_stopped(wav: bytes) -> dict:
+        if stopping.is_set():
+            raise TranscriptionError("stopping")
+        return whisper(wav)
 
     def heard(pair: tuple[Talk, Path | None]) -> tuple[TalkInProgress, Counter[str]]:
         counted: Counter[str] = Counter()  # one per talk: threads must not share a Counter
-        return heard_talk(*pair, cache, whisper, counted), counted
+        return heard_talk(*pair, cache, whisper_until_stopped, counted), counted
 
-    results = in_parallel(heard, batch)
+    results = in_parallel(heard, batch, stopping)
     for _, counted in results:
         tally.update(counted)
     return [talk for talk, _ in results]

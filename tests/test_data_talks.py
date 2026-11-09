@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
-from audiolab.data import talk_listing, talk_sources, talks  # noqa: E402
+from audiolab.data import talk_clips, talk_listing, talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
@@ -560,6 +560,41 @@ def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_pa
 
     assert [label for _, label in agreed] == [f"Phrase {i}." for i in (0, 1, 2, 4, 5)]
     assert len(Answers(tmp_path / "q.jsonl").answers) == 6, "every answer is cached, whole"
+
+
+def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
+    in_parallel = talks.in_parallel
+    stopping: list[threading.Event] = []
+
+    def watched(ask, items, stop):
+        stopping.append(stop)
+        return in_parallel(ask, items, stop)
+
+    monkeypatch.setattr(talks, "in_parallel", watched)
+    whisper_asked = threading.Event()
+    calls = []
+
+    def whisper(wav: bytes) -> dict:
+        calls.append(wav)
+        whisper_asked.set()
+        assert stopping[0].wait(timeout=10), "the first chunk is answered once the run stops"
+        return {"segments": [], "text": ""}
+
+    def batch():
+        yield talk("a"), write_tone(tmp_path / "a.wav", seconds=10.0)
+        whisper_asked.wait(timeout=10)
+        raise KeyboardInterrupt  # Ctrl-C while the talk is heard
+
+    with pytest.raises(KeyboardInterrupt):
+        talks.heard_talks(batch(), tmp_path, whisper, Counter())
+
+    assert len(calls) == 1, "the talk in flight stops at its next chunk"
+    assert len(Answers(tmp_path / f"a.{WHISPER}.300s.jsonl").answers) == 1, (
+        "the answer already written stays cached"
+    )
 
 
 def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
