@@ -241,49 +241,48 @@ def fetch_talks(
     """
     listed_on, talks = read_listing(source)
     cache = cache_dir / source.name
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=source.name,
-        builder=builder,
-        language=source.language,
-        source_split="listing",
-        license=license,
-        # A talk is one recording, and its labels are what Qwen wrote, casing
-        # and punctuation included: no talk source differs here.
-        text_has_casing_punct=True,
-        group_kind="recording",
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
-    tally: Counter[str] = Counter()
-    if verbose:
-        say(f"  listing of {listed_on}: {len(talks)} talks")
-    order = reading_order(talks, SEED, source.spread_by)
-    with (
-        http_client() as http,
-        client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
-        client(LABEL_MODEL) as qwen,
-        client(BASE_MODEL) as parakeet,
-        closing(prefetched(order, partial(audio_file, http, cache, source))) as audio_files,
-    ):
-        models = Models(
-            served(whisper, source.language),
-            served(qwen, source.language),
-            served(parakeet, source.language),
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=source.name,
+            builder=builder,
+            language=source.language,
+            source_split="listing",
+            license=license,
+            # A talk is one recording, and its labels are what Qwen wrote, casing
+            # and punctuation included: no talk source differs here.
+            text_has_casing_punct=True,
+            group_kind="recording",
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
         )
-        talks_read = 0
-        bar = progress(desc=f"{source.name} talks", unit="talk")
-        while not take.full():
-            batch = until_stopped(islice(audio_files, batch_size(take, talks_read)), bar)
-            read = prepare_batch(batch, cache, models, take, source, tally, verbose=verbose)
-            if not read:
-                break
-            talks_read += read
-        bar.close()
-    if verbose:
-        say(f"  {report(tally)}")
-        say(f"  {take.report()}")
-    builder.write()
+        tally: Counter[str] = Counter()
+        if verbose:
+            say(f"  listing of {listed_on}: {len(talks)} talks")
+        order = reading_order(talks, SEED, source.spread_by)
+        with (
+            http_client() as http,
+            client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
+            client(LABEL_MODEL) as qwen,
+            client(BASE_MODEL) as parakeet,
+            closing(prefetched(order, partial(audio_file, http, cache, source))) as audio_files,
+            progress(desc=f"{source.name} talks", unit="talk") as bar,
+        ):
+            models = Models(
+                served(whisper, source.language),
+                served(qwen, source.language),
+                served(parakeet, source.language),
+            )
+            talks_read = 0
+            while not take.full():
+                batch = until_stopped(islice(audio_files, batch_size(take, talks_read)), bar)
+                read = prepare_batch(batch, cache, models, take, source, tally, verbose=verbose)
+                if not read:
+                    break
+                talks_read += read
+        if verbose:
+            say(f"  {report(tally)}")
+            say(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

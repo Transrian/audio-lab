@@ -74,19 +74,19 @@ def fetch_librispeech_pc_en_train(
         sha256=PINNED_AUDIO_SHA256,
     )
     texts = read_texts(name, manifests)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
-    dropped = {"without restored text": 0, "with a heading in capitals": 0}
-    take = prepare_train_audio(
-        name,
-        archive,
-        builder,
-        text_for_clip=_restored(texts, dropped),
-        text_has_casing_punct=True,
-    )
-    if verbose:
-        left_out = ", ".join(f"{count} {what}" for what, count in dropped.items())
-        print(f"  {take.report()}; left out by this source: {left_out}")
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        dropped = {"without restored text": 0, "with a heading in capitals": 0}
+        take = prepare_train_audio(
+            name,
+            archive,
+            builder,
+            text_for_clip=_restored(texts, dropped),
+            text_has_casing_punct=True,
+        )
+        if verbose:
+            left_out = ", ".join(f"{count} {what}" for what, count in dropped.items())
+            print(f"  {take.report()}; left out by this source: {left_out}")
+        builder.write()
     return take.kept
 
 

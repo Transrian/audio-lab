@@ -180,41 +180,41 @@ def fetch_ami_fr_speakers_en_train(
         sha256=PINNED_SHA256.get(ANNOTATIONS_NAME, ""),
     )
     channels = read_channels(annotations)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=True,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=True,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
 
-    with zipfile.ZipFile(annotations) as archive:
-        for channel in channels:
-            if take.full():
-                break
-            # A headset file holds a whole meeting: a speaker that already holds
-            # its share of the cap is not downloaded, and the words of one
-            # speaker are read once.
-            if take.group_full(channel.speaker):
-                continue
-            utterances = utterances_of(archive, channel)
-            audio = load_audio(_headset_file(name, cache_dir, channel))
-            for utterance in utterances:
-                if take.full() or take.group_full(channel.speaker):
+        with zipfile.ZipFile(annotations) as archive:
+            for channel in channels:
+                if take.full():
                     break
-                take.offer(
-                    utterance.id,
-                    audio.cut(utterance.start, utterance.end),
-                    text=utterance.text,
-                    group=utterance.speaker,
-                )
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+                # A headset file holds a whole meeting: a speaker that already holds
+                # its share of the cap is not downloaded, and the words of one
+                # speaker are read once.
+                if take.group_full(channel.speaker):
+                    continue
+                utterances = utterances_of(archive, channel)
+                audio = load_audio(_headset_file(name, cache_dir, channel))
+                for utterance in utterances:
+                    if take.full() or take.group_full(channel.speaker):
+                        break
+                    take.offer(
+                        utterance.id,
+                        audio.cut(utterance.start, utterance.end),
+                        text=utterance.text,
+                        group=utterance.speaker,
+                    )
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

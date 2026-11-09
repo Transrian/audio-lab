@@ -112,35 +112,37 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
         cache_dir / name / TRANSCRIPTS_NAME,
         sha256=PINNED_SHA256.get(TRANSCRIPTS_NAME, ""),
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=True,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=True,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
 
-    # The annotation is read first and the audio is downloaded afterwards,
-    # because the cap and the per-speaker share decide which stretches become
-    # clips and that decision can be taken from the transcript alone. Planning
-    # it first downloads the 105 channels a full preparation slices instead of
-    # the 469 the corpus has.
-    segments = merged(read_chunks(transcripts))
-    planned = plan_clips(take, segments)
-    by_channel: dict[tuple[str, str], list[Chunk]] = {}
-    for segment in planned:
-        by_channel.setdefault((segment.meeting, segment.recording), []).append(segment)
-    if verbose:
-        print(f"  {len(by_channel)} channels of audio to decode for {len(planned)} clips")
-    for (meeting, channel), rows in sorted(by_channel.items()):
-        write_clips(take, channel, partial(load_recording, name, cache_dir, meeting, channel), rows)
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+        # The annotation is read first and the audio is downloaded afterwards,
+        # because the cap and the per-speaker share decide which stretches become
+        # clips and that decision can be taken from the transcript alone. Planning
+        # it first downloads the 105 channels a full preparation slices instead of
+        # the 469 the corpus has.
+        segments = merged(read_chunks(transcripts))
+        planned = plan_clips(take, segments)
+        by_channel: dict[tuple[str, str], list[Chunk]] = {}
+        for segment in planned:
+            by_channel.setdefault((segment.meeting, segment.recording), []).append(segment)
+        if verbose:
+            print(f"  {len(by_channel)} channels of audio to decode for {len(planned)} clips")
+        for (meeting, channel), rows in sorted(by_channel.items()):
+            write_clips(
+                take, channel, partial(load_recording, name, cache_dir, meeting, channel), rows
+            )
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

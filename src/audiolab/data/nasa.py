@@ -523,41 +523,41 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
     """Prepare ``nasa-en-train`` up to the clip cap, returning the clip count."""
     listed_on, episodes = read_listing(SOURCE)
     cache = cache / NAME
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=NAME,
-        builder=builder,
-        language=LANGUAGE,
-        source_split="listing",
-        license=LICENSE,
-        text_has_casing_punct=True,
-        group_kind="recording",
-    )
-    tally: Counter[str] = Counter()
-    if verbose:
-        say(f"  listing of {listed_on}: {len(episodes)} episodes")
-    order = reading_order(episodes, SEED, SOURCE.spread_by)
-    with (
-        http_client() as http,
-        client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
-        client(BASE_MODEL) as parakeet_client,
-        closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
-    ):
-        whisper = served(whisper_client, LANGUAGE)
-        parakeet = served(parakeet_client, LANGUAGE)
-        episodes_read = 0
-        while not take.full():
-            batch = list(islice(audio_files, batch_size(take, episodes_read)))
-            if not batch:
-                break
-            label_batch(batch, http, cache, whisper, parakeet, take, tally)
-            episodes_read += len(batch)
-            if verbose:
-                say(f"  {episodes_read} episodes read, {take.kept} clips so far")
-    if verbose:
-        say(f"  {report(tally)}")
-        say(f"  {take.report()}")
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=NAME,
+            builder=builder,
+            language=LANGUAGE,
+            source_split="listing",
+            license=LICENSE,
+            text_has_casing_punct=True,
+            group_kind="recording",
+        )
+        tally: Counter[str] = Counter()
+        if verbose:
+            say(f"  listing of {listed_on}: {len(episodes)} episodes")
+        order = reading_order(episodes, SEED, SOURCE.spread_by)
+        with (
+            http_client() as http,
+            client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
+            client(BASE_MODEL) as parakeet_client,
+            closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
+        ):
+            whisper = served(whisper_client, LANGUAGE)
+            parakeet = served(parakeet_client, LANGUAGE)
+            episodes_read = 0
+            while not take.full():
+                batch = list(islice(audio_files, batch_size(take, episodes_read)))
+                if not batch:
+                    break
+                label_batch(batch, http, cache, whisper, parakeet, take, tally)
+                episodes_read += len(batch)
+                if verbose:
+                    say(f"  {episodes_read} episodes read, {take.kept} clips so far")
+        if verbose:
+            say(f"  {report(tally)}")
+            say(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

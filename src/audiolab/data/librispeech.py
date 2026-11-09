@@ -55,18 +55,19 @@ def fetch_librispeech_en(name: str, cache_dir: Path, dataset_dir: Path, *, verbo
         sha256=PINNED_SHA256.get(ARCHIVE_NAME, ""),
     )
     transcripts = _read_transcripts(name, archive_path)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        with open_archive(archive_path) as handle:
+            for member in handle:
+                if member.name.endswith(".flac"):
+                    text = transcripts.get(Path(member.name).stem)
+                    if text is None:
+                        raise DownloadError(
+                            f"{name}: {member.name} has no transcript in the archive"
+                        )
+                    add_librispeech_clip(builder, name, handle, member, text)
 
-    with open_archive(archive_path) as handle:
-        for member in handle:
-            if member.name.endswith(".flac"):
-                text = transcripts.get(Path(member.name).stem)
-                if text is None:
-                    raise DownloadError(f"{name}: {member.name} has no transcript in the archive")
-                add_librispeech_clip(builder, name, handle, member, text)
-
-    require_clips(name, len(builder.clips), EXPECTED_CLIPS)
-    builder.write()
+        require_clips(name, len(builder.clips), EXPECTED_CLIPS)
+        builder.write()
     return len(builder.clips)
 
 
@@ -79,11 +80,11 @@ def fetch_librispeech_en_train(
         cache_dir / name / TRAIN_ARCHIVE_NAME,
         sha256=PINNED_SHA256.get(TRAIN_ARCHIVE_NAME, ""),
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = prepare_train_audio(name, archive_path, builder)
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = prepare_train_audio(name, archive_path, builder)
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

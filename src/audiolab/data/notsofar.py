@@ -108,38 +108,38 @@ def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
     """Prepare the recorded training meetings of NOTSOFAR-1 up to the cap."""
     release = Release(name, cache_dir)
     meetings = release.meetings()
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=True,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
-    # Which rows become clips is decided on the transcripts, before any clip is
-    # written: 12 speakers allow 2 400 clips at most, so a meeting has to be read
-    # knowing what another meeting has already taken. A meeting is then read in
-    # one piece — its recordings are downloaded at the same time — and only the
-    # rows the plan kept are written, from the recording each of them is on.
-    planned = plan_clips(
-        take, [chunk for meeting in meetings for chunk in merged(meeting.utterances)]
-    )
-    for meeting in meetings:
-        rows = [chunk for chunk in planned if chunk.meeting == meeting.meeting]
-        if not rows:
-            continue
-        audio = release.recordings(meeting, rows)
-        by_recording: dict[str, list[Chunk]] = {}
-        for chunk in rows:
-            by_recording.setdefault(chunk.recording, []).append(chunk)
-        for recording, group in by_recording.items():
-            write_clips(take, recording, audio[recording], group)
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=True,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
+        # Which rows become clips is decided on the transcripts, before any clip is
+        # written: 12 speakers allow 2 400 clips at most, so a meeting has to be read
+        # knowing what another meeting has already taken. A meeting is then read in
+        # one piece — its recordings are downloaded at the same time — and only the
+        # rows the plan kept are written, from the recording each of them is on.
+        planned = plan_clips(
+            take, [chunk for meeting in meetings for chunk in merged(meeting.utterances)]
+        )
+        for meeting in meetings:
+            rows = [chunk for chunk in planned if chunk.meeting == meeting.meeting]
+            if not rows:
+                continue
+            audio = release.recordings(meeting, rows)
+            by_recording: dict[str, list[Chunk]] = {}
+            for chunk in rows:
+                by_recording.setdefault(chunk.recording, []).append(chunk)
+            for recording, group in by_recording.items():
+                write_clips(take, recording, audio[recording], group)
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

@@ -96,18 +96,18 @@ ESC50_GROUPS = {
 def fetch_nonspeech(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare the non-speech battery, returning the number of clips written."""
     cache = cache_dir / name
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
-    for index in range(SILENCE_CLIPS):
-        clip_id = f"{name}:silence-{index:03d}"
-        silence = digital_silence(name, index)
-        builder.add(clip_id, silence, group=clip_id, category="silence", **generated_fields())
-    for index in range(NOISE_CLIPS):
-        clip_id = f"{name}:noise-{index:03d}"
-        noise = low_level_noise(name, index)
-        builder.add(clip_id, noise, group=clip_id, category="noise", **generated_fields())
-    add_esc50_clips(builder, name, cache, verbose)
-    require_clips(name, len(builder.clips), EXPECTED_CLIPS)
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        for index in range(SILENCE_CLIPS):
+            clip_id = f"{name}:silence-{index:03d}"
+            silence = digital_silence(name, index)
+            builder.add(clip_id, silence, group=clip_id, category="silence", **generated_fields())
+        for index in range(NOISE_CLIPS):
+            clip_id = f"{name}:noise-{index:03d}"
+            noise = low_level_noise(name, index)
+            builder.add(clip_id, noise, group=clip_id, category="noise", **generated_fields())
+        add_esc50_clips(builder, name, cache, verbose)
+        require_clips(name, len(builder.clips), EXPECTED_CLIPS)
+        builder.write()
     return len(builder.clips)
 
 

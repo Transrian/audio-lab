@@ -84,49 +84,49 @@ def fetch_african_accented_fr_train(
         sha256=PINNED_SHA256.get(ARCHIVE_NAME, ""),
     )
     transcripts = _read_transcripts(name, archive)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=False,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
-
-    untranscribed = 0
-    prompts = 0
-    with open_archive(archive) as handle:
-        for member in handle:
-            if take.full():
-                break
-            if not _is_speech(member):
-                continue
-            text = transcripts.get(_key(member.name))
-            if text is None:
-                untranscribed += 1
-                continue
-            if PROMPT_MARKER in text:
-                prompts += 1
-                continue
-            # The directory above the recording is the speaker of the train
-            # part (``speech/train/ca16/113/...``, ``speech/train/yaounde/read/
-            # ctell5-78/...``), and one speaker appears in both the read and the
-            # answer recordings of the Yaoundé part.
-            take.offer(
-                _key(member.name),
-                partial(audio_from_archive, handle, member),
-                text=training_text(text),
-                group=Path(member.name).parent.name,
-            )
-    if verbose:
-        print(
-            f"  {take.report()}; audio members with no transcript: {untranscribed}; "
-            f"prompting lines left out: {prompts}"
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=False,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
         )
-    builder.write()
+
+        untranscribed = 0
+        prompts = 0
+        with open_archive(archive) as handle:
+            for member in handle:
+                if take.full():
+                    break
+                if not _is_speech(member):
+                    continue
+                text = transcripts.get(_key(member.name))
+                if text is None:
+                    untranscribed += 1
+                    continue
+                if PROMPT_MARKER in text:
+                    prompts += 1
+                    continue
+                # The directory above the recording is the speaker of the train
+                # part (``speech/train/ca16/113/...``, ``speech/train/yaounde/read/
+                # ctell5-78/...``), and one speaker appears in both the read and the
+                # answer recordings of the Yaoundé part.
+                take.offer(
+                    _key(member.name),
+                    partial(audio_from_archive, handle, member),
+                    text=training_text(text),
+                    group=Path(member.name).parent.name,
+                )
+        if verbose:
+            print(
+                f"  {take.report()}; audio members with no transcript: {untranscribed}; "
+                f"prompting lines left out: {prompts}"
+            )
+        builder.write()
     return take.kept
 
 

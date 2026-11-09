@@ -62,6 +62,23 @@ def test_a_stopped_preparation_keeps_its_clips_and_writes_no_manifest(tmp_path):
     ]
 
 
+def test_a_stopped_preparation_closes_its_progress_bar(tmp_path, monkeypatch):
+    closed = []
+
+    class Bar:
+        def update(self, n=1):
+            pass
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(build, "progress", lambda **_: Bar())
+    request_stop()
+    with pytest.raises(Stopped), ManifestBuilder(tmp_path / "example", verbose=False) as builder:
+        builder.add("example:1", tone, **FIELDS)
+    assert closed
+
+
 def test_the_next_preparation_takes_the_finished_clips_without_reading_them(tmp_path, run_again):
     directory = tmp_path / "example"
     with pytest.raises(Stopped):

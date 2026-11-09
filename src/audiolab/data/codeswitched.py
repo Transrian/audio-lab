@@ -65,25 +65,25 @@ def fetch_servicenow_codeswitched(
         cache_dir / name / FILE_NAME,
         sha256=PINNED_SHA256.get(config, ""),
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
-    for row in rows(path, COLUMNS):
-        # Every sentence is different, so the clip is the group. The corpus has
-        # only two synthetic voices per configuration: as groups they would give
-        # an interval resampled from two values and a sealed panel holding one
-        # whole voice. The voice is kept as the category instead, so a report can
-        # still tell them apart.
-        builder.add(
-            f"{name}:{row['ID']}",
-            partial(audio_of, row["audio"]),
-            language=LANGUAGE,
-            text=row["utterance"],
-            text_has_casing_punct=True,
-            category=f"voice/{row['voice']}",
-            group=f"{name}:{row['ID']}",
-            group_kind="clip",
-            source_split=SPLIT,
-            license=LICENSE,
-        )
-    require_clips(name, len(builder.clips), EXPECTED_CLIPS[config])
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        for row in rows(path, COLUMNS):
+            # Every sentence is different, so the clip is the group. The corpus has
+            # only two synthetic voices per configuration: as groups they would give
+            # an interval resampled from two values and a sealed panel holding one
+            # whole voice. The voice is kept as the category instead, so a report can
+            # still tell them apart.
+            builder.add(
+                f"{name}:{row['ID']}",
+                partial(audio_of, row["audio"]),
+                language=LANGUAGE,
+                text=row["utterance"],
+                text_has_casing_punct=True,
+                category=f"voice/{row['voice']}",
+                group=f"{name}:{row['ID']}",
+                group_kind="clip",
+                source_split=SPLIT,
+                license=LICENSE,
+            )
+        require_clips(name, len(builder.clips), EXPECTED_CLIPS[config])
+        builder.write()
     return len(builder.clips)

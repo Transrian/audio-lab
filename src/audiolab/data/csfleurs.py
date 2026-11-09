@@ -71,12 +71,12 @@ class Subset:
 
 def fetch_cs_fleurs_fr_en(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare every French-English test subset, returning the number of clips written."""
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
-    for directory, category, clips, metadata_sha256 in SUBSETS:
-        subset = Subset(directory, category, clips, metadata_sha256)
-        prepared = _prepare_subset(name, subset, cache_dir, builder, verbose=verbose)
-        require_clips(f"{name} ({directory})", prepared, subset.clips)
-    builder.write()
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        for directory, category, clips, metadata_sha256 in SUBSETS:
+            subset = Subset(directory, category, clips, metadata_sha256)
+            prepared = _prepare_subset(name, subset, cache_dir, builder, verbose=verbose)
+            require_clips(f"{name} ({directory})", prepared, subset.clips)
+        builder.write()
     return len(builder.clips)
 
 

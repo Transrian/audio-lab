@@ -53,37 +53,37 @@ def fetch_granary_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ver
     """Prepare the French pseudo-labelled speech up to the cap, returning the clip count."""
     cache = cache_dir / name
     shards = _shards()
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=True,
-        group_kind=GROUP_KIND,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=True,
+            group_kind=GROUP_KIND,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
 
-    for index, (shard, sha256) in enumerate(shards.items(), start=1):
-        if take.full():
-            break
-        path = download(f"{REPO_URL}/{DIRECTORY}/{shard}", cache / shard, sha256=sha256)
-        if verbose and index % 25 == 0:
-            print(f"  ... shard {index}/{len(shards)}")
-        for row in rows(path, COLUMNS):
+        for index, (shard, sha256) in enumerate(shards.items(), start=1):
             if take.full():
                 break
-            take.offer(
-                row["utt_id"],
-                partial(audio_of, row["audio"]),
-                text=row["text"] or "",
-                group=row["original_audio_id"],
-            )
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+            path = download(f"{REPO_URL}/{DIRECTORY}/{shard}", cache / shard, sha256=sha256)
+            if verbose and index % 25 == 0:
+                print(f"  ... shard {index}/{len(shards)}")
+            for row in rows(path, COLUMNS):
+                if take.full():
+                    break
+                take.offer(
+                    row["utt_id"],
+                    partial(audio_of, row["audio"]),
+                    text=row["text"] or "",
+                    group=row["original_audio_id"],
+                )
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

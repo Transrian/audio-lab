@@ -52,6 +52,10 @@ class ManifestBuilder:
     then; the audio itself is not compared, so the file is only read back by the
     code that wrote it (:func:`preparation_key`). :meth:`write` turns it into the
     manifest, which therefore still never advertises a clip that is not on disk.
+
+    It is used as a context manager, which closes its progress bar however the
+    preparation ends, a stop included, so that what is printed next is not
+    written over the bar.
     """
 
     def __init__(self, dataset_dir: Path, *, verbose: bool, total: int | None = None) -> None:
@@ -65,6 +69,12 @@ class ManifestBuilder:
             # Nothing in it can be taken: a new one starts with this preparation.
             self.partial.unlink(missing_ok=True)
         self.bar = progress(desc=dataset_dir.name, unit="clip", total=total)
+
+    def __enter__(self) -> ManifestBuilder:
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.bar.close()
 
     def prepared(self, clip_id: str, **fields) -> Clip | None:
         """The clip a stopped preparation left with these fields, if its WAV is there."""

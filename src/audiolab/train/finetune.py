@@ -84,6 +84,11 @@ class LossLog(Callback):
     def on_train_end(self, trainer, pl_module) -> None:
         self.bar.close()
 
+    def on_exception(self, trainer, pl_module, exception) -> None:
+        # A run that fails never reaches on_train_end; its bar is closed here.
+        if self.bar is not None:
+            self.bar.close()
+
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
         self.bar.update(trainer.global_step - self.bar.n)
         # Lightning hands this hook the loss already divided by the accumulation

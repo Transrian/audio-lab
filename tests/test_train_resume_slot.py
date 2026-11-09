@@ -17,7 +17,8 @@ pytest.importorskip("nemo")
 from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
 
 from audiolab.core.stop import request_stop  # noqa: E402
-from audiolab.train.finetune import ResumeSlot, clip_order  # noqa: E402
+from audiolab.train import finetune  # noqa: E402
+from audiolab.train.finetune import LossLog, ResumeSlot, clip_order  # noqa: E402
 from audiolab.train.order import ClipOrder  # noqa: E402
 from audiolab.train.run import TrainRunError  # noqa: E402
 
@@ -167,3 +168,25 @@ def test_only_a_shuffled_loader_of_numbered_clips_is_read_in_the_clip_order():
     assert order.batches_per_epoch == 4
     with pytest.raises(TrainRunError, match="settings.dataset_config"):
         clip_order(DataLoader(data, BATCH), seed=7)
+
+
+def test_a_run_that_fails_closes_its_progress_bar(tmp_path, monkeypatch):
+    class Bar:
+        n = 0
+        closed = False
+
+        def update(self, n=1):
+            self.n += n
+
+        def close(self):
+            self.closed = True
+
+    class FailAtBatch(pl.Callback):
+        def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+            raise RuntimeError("out of memory")
+
+    bar = Bar()
+    monkeypatch.setattr(finetune, "progress", lambda **_: bar)
+    with pytest.raises(RuntimeError, match="out of memory"):
+        train(tmp_path / "resume.ckpt", also=[LossLog(tmp_path / "loss.jsonl", 1), FailAtBatch()])
+    assert bar.closed

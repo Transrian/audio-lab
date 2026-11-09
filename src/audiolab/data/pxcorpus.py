@@ -67,31 +67,31 @@ def fetch_pxcorpus_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
         md5=PINNED_MD5.get(ARCHIVE_NAME, ""),
     )
     rows = read_rows(name, archive)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=False,
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=False,
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
 
-    with zipfile.ZipFile(archive) as handle:
-        for row in rows:
-            if take.full():
-                break
-            take.offer(
-                row.id,
-                lambda member=row.member: load_audio(io.BytesIO(handle.read(member))),
-                text=row.text,
-                group=row.speaker,
-            )
-    if verbose:
-        print(f"  {take.report()}")
-    builder.write()
+        with zipfile.ZipFile(archive) as handle:
+            for row in rows:
+                if take.full():
+                    break
+                take.offer(
+                    row.id,
+                    lambda member=row.member: load_audio(io.BytesIO(handle.read(member))),
+                    text=row.text,
+                    group=row.speaker,
+                )
+        if verbose:
+            print(f"  {take.report()}")
+        builder.write()
     return take.kept
 
 

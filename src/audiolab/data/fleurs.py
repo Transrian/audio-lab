@@ -57,28 +57,27 @@ def fetch_fleurs(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
             table_path, {0: "sentence", 2: "transcription"}, key_index=1, min_fields=3
         ).items()
     }
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        with open_archive(archive_path) as archive:
+            for member in archive:
+                row = rows.get(Path(member.name).stem)
+                if row is None:
+                    continue
+                # The recording is the clip; the sentence it reads is the group,
+                # since FLEURS publishes no speaker identity.
+                stem = Path(member.name).stem
+                builder.add(
+                    f"{name}:{stem}",
+                    partial(audio_from_archive, archive, member),
+                    language=language[:2],
+                    text=row["transcription"],
+                    text_has_casing_punct=True,
+                    group=f"{name}:{row['sentence']}",
+                    group_kind="sentence",
+                    source_split="test",
+                    license=LICENSE,
+                )
 
-    with open_archive(archive_path) as archive:
-        for member in archive:
-            row = rows.get(Path(member.name).stem)
-            if row is None:
-                continue
-            # The recording is the clip; the sentence it reads is the group,
-            # since FLEURS publishes no speaker identity.
-            stem = Path(member.name).stem
-            builder.add(
-                f"{name}:{stem}",
-                partial(audio_from_archive, archive, member),
-                language=language[:2],
-                text=row["transcription"],
-                text_has_casing_punct=True,
-                group=f"{name}:{row['sentence']}",
-                group_kind="sentence",
-                source_split="test",
-                license=LICENSE,
-            )
-
-    require_clips(name, len(builder.clips), EXPECTED_CLIPS[name])
-    builder.write()
+        require_clips(name, len(builder.clips), EXPECTED_CLIPS[name])
+        builder.write()
     return len(builder.clips)

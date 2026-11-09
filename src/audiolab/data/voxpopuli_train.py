@@ -60,50 +60,50 @@ def fetch_voxpopuli_fr_train(
     """Prepare the French train split up to the cap, returning the number of clips."""
     cache = cache_dir / name
     shards = _shards(SPLIT_PATH, SHARD_PREFIX)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
-    take = Take(
-        name=name,
-        builder=builder,
-        language=LANGUAGE,
-        source_split=SPLIT,
-        license=LICENSE,
-        text_has_casing_punct=True,
-        excluded=_accented_speakers(cache_dir),
-        cap=TRAIN_CLIP_CAP,
-        cap_per_group=CLIP_CAP_PER_GROUP,
-    )
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+        take = Take(
+            name=name,
+            builder=builder,
+            language=LANGUAGE,
+            source_split=SPLIT,
+            license=LICENSE,
+            text_has_casing_punct=True,
+            excluded=_accented_speakers(cache_dir),
+            cap=TRAIN_CLIP_CAP,
+            cap_per_group=CLIP_CAP_PER_GROUP,
+        )
 
-    not_gold = 0
-    unnamed = 0
-    for shard, sha256 in shards.items():
-        if take.full():
-            break
-        path = download(f"{REPO_URL}/{SPLIT_PATH}/{shard}", cache / shard, sha256=sha256)
-        if verbose:
-            print(f"  ... reading {shard}")
-        for row in rows(path, COLUMNS):
+        not_gold = 0
+        unnamed = 0
+        for shard, sha256 in shards.items():
             if take.full():
                 break
-            if not row["is_gold_transcript"]:
-                not_gold += 1
-                continue
-            if str(row["speaker_id"]).strip().lower() in UNNAMED_SPEAKERS:
-                unnamed += 1
-                continue
-            # The recording is the clip; the speaker is the group, because the
-            # segments of one speaker share a voice, an accent and a room.
-            take.offer(
-                Path(row["audio"]["path"]).stem,
-                partial(audio_of, row["audio"]),
-                text=row["raw_text"] or "",
-                group=row["speaker_id"],
+            path = download(f"{REPO_URL}/{SPLIT_PATH}/{shard}", cache / shard, sha256=sha256)
+            if verbose:
+                print(f"  ... reading {shard}")
+            for row in rows(path, COLUMNS):
+                if take.full():
+                    break
+                if not row["is_gold_transcript"]:
+                    not_gold += 1
+                    continue
+                if str(row["speaker_id"]).strip().lower() in UNNAMED_SPEAKERS:
+                    unnamed += 1
+                    continue
+                # The recording is the clip; the speaker is the group, because the
+                # segments of one speaker share a voice, an accent and a room.
+                take.offer(
+                    Path(row["audio"]["path"]).stem,
+                    partial(audio_of, row["audio"]),
+                    text=row["raw_text"] or "",
+                    group=row["speaker_id"],
+                )
+        if verbose:
+            print(
+                f"  {take.report()}; without a gold transcript: {not_gold}; "
+                f"without a named speaker: {unnamed}"
             )
-    if verbose:
-        print(
-            f"  {take.report()}; without a gold transcript: {not_gold}; "
-            f"without a named speaker: {unnamed}"
-        )
-    builder.write()
+        builder.write()
     return take.kept
 
 

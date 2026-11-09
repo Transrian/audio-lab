@@ -56,35 +56,35 @@ def fetch_voxpopuli_nonnative(
     name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
 ) -> int:
     """Prepare the rows the corpus labels ``en_fr``, returning the number of clips written."""
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
-    for shard in SHARDS:
-        path = download(
-            f"{REPO_URL}/{shard}",
-            cache_dir / name / shard,
-            sha256=PINNED_SHA256.get(shard, ""),
-        )
-        if verbose:
-            print(f"  ... reading {shard}")
-        for row in rows(path, COLUMNS):
-            if row["accent"] != ACCENT:
-                continue
-            if not row["is_gold_transcript"]:
-                raise DownloadError(f"{name}: {row['audio']['path']} is not a gold transcript")
-            # The recording is the clip; the speaker is the group, because one
-            # corpus accent is spoken by several people and their errors are not
-            # independent. The reference has no punctuation, so the formatted
-            # view is not computed for these clips.
-            builder.add(
-                f"{name}:{Path(row['audio']['path']).stem}",
-                partial(audio_of, row["audio"]),
-                language=LANGUAGE,
-                text=row["raw_text"],
-                text_has_casing_punct=False,
-                group=f"{name}:{row['speaker_id']}",
-                group_kind="speaker",
-                source_split=SPLIT,
-                license=LICENSE,
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        for shard in SHARDS:
+            path = download(
+                f"{REPO_URL}/{shard}",
+                cache_dir / name / shard,
+                sha256=PINNED_SHA256.get(shard, ""),
             )
-    require_clips(name, len(builder.clips), EXPECTED_CLIPS)
-    builder.write()
+            if verbose:
+                print(f"  ... reading {shard}")
+            for row in rows(path, COLUMNS):
+                if row["accent"] != ACCENT:
+                    continue
+                if not row["is_gold_transcript"]:
+                    raise DownloadError(f"{name}: {row['audio']['path']} is not a gold transcript")
+                # The recording is the clip; the speaker is the group, because one
+                # corpus accent is spoken by several people and their errors are not
+                # independent. The reference has no punctuation, so the formatted
+                # view is not computed for these clips.
+                builder.add(
+                    f"{name}:{Path(row['audio']['path']).stem}",
+                    partial(audio_of, row["audio"]),
+                    language=LANGUAGE,
+                    text=row["raw_text"],
+                    text_has_casing_punct=False,
+                    group=f"{name}:{row['speaker_id']}",
+                    group_kind="speaker",
+                    source_split=SPLIT,
+                    license=LICENSE,
+                )
+        require_clips(name, len(builder.clips), EXPECTED_CLIPS)
+        builder.write()
     return len(builder.clips)
