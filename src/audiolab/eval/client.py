@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import wave
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -20,6 +21,8 @@ import httpx
 import yaml
 
 from audiolab.core.audio import SAMPLE_RATE
+from audiolab.core.progress import say
+from audiolab.core.stop import Stopped, abandoned_on_stop, stop_requested
 from audiolab.serve.config import ServeSpec
 
 # Transient failures are retried; anything else is reported as it is.
@@ -42,6 +45,10 @@ WARMUP_RETRY_S = 5.0
 # What a server answers while it cannot reach the model yet: busy, no upstream,
 # loading, timed out. A 500 is the model failing, which is an answer.
 NOT_READY_STATUSES = frozenset({429, 502, 503, 504})
+# How a server that is still starting, or loading the model, fails a request.
+# Any other failure (a URL without a scheme, a proxy that refuses) does not get
+# better by waiting.
+NOT_READY_FAILURES = (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError)
 # Servers document their root URL, but they are also handed out as ".../v1";
 # both are accepted, and only one "/v1" ever ends up in a request path.
 V1_SUFFIX = "/v1"
@@ -183,6 +190,7 @@ class TranscriptionClient:
         *,
         transport: httpx.BaseTransport | None = None,
         sleep=time.sleep,
+        clock=time.monotonic,
         timeout_s: float = REQUEST_TIMEOUT_S,
     ):
         self.config = config
@@ -190,6 +198,7 @@ class TranscriptionClient:
         self.url = self.base_url + TRANSCRIPTIONS_PATH
         self.api_key = api_key
         self.sleep = sleep
+        self.clock = clock
         self.client = httpx.Client(transport=transport, timeout=timeout_s)
         # A server that refuses the language field once refuses it always, so it
         # is not asked again for the rest of the run.
@@ -229,38 +238,54 @@ class TranscriptionClient:
             answer=answer,
         )
 
-    def warm_up(self, wait_s: float = WARMUP_WAIT_S) -> None:
+    def warm_up(
+        self, wait_s: float = WARMUP_WAIT_S, *, should_stop: Callable[[], bool] = stop_requested
+    ) -> None:
         """Send half a second of silence and wait until the model answers it (D-022).
 
         A server that loads a model on its first request (llama-swap) may take
-        minutes to answer. While it cannot — the connection fails or times out,
-        or it answers one of :data:`NOT_READY_STATUSES` — the silence is sent again every
-        :data:`WARMUP_RETRY_S` seconds, for up to ``wait_s``. Any other answer,
-        an error included, is the model answering: the requests that follow
-        report their own errors. The warmup is not an item: it goes to no cache
-        and no record, so every run that sends requests sends its own.
+        minutes to answer. While it cannot - the connection is refused, times
+        out or is dropped (:data:`NOT_READY_FAILURES`), or it answers one of
+        :data:`NOT_READY_STATUSES` - the silence is sent again every
+        :data:`WARMUP_RETRY_S` seconds, for about ``wait_s``: an attempt still
+        under way at the deadline is not cut short. Any other answer, an error
+        included, is the model answering: the requests that follow report their
+        own errors. Any other failure raises :class:`NotAnswering` at once. A
+        stop (D-021) gives the wait up with
+        :class:`~audiolab.core.stop.Stopped`, even in the middle of an attempt.
+        The warmup is not an item: it goes to no cache and no record, so every
+        run that sends requests sends its own.
         """
-        deadline = time.monotonic() + wait_s
+        model = self.config.model
+        stopped = f"waiting for {model} to answer stopped"
+        deadline = self.clock() + wait_s
         waiting = False
         while True:
-            try:
-                status = self._post(silence_wav(), "").status_code
-            except httpx.TransportError as failure:
-                status, why = 0, self._redact(f"connection failed: {failure}")
-            else:
-                why = f"HTTP {status}"
-            if status and status not in NOT_READY_STATUSES:
+            if should_stop():
+                raise Stopped(stopped)
+            why = abandoned_on_stop(self._not_ready, stopped, should_stop)
+            if why is None:
                 if waiting:
-                    print(f"{self.config.model} answers", file=sys.stderr, flush=True)
+                    say(f"{model} answers", file=sys.stderr)
                 return
-            if time.monotonic() >= deadline:
-                raise NotAnswering(
-                    f"{self.config.model} did not answer within {wait_s / 60:g} min ({why})"
-                )
+            if self.clock() >= deadline:
+                raise NotAnswering(f"{model} did not answer within {wait_s / 60:g} min ({why})")
             if not waiting:
-                print(f"waiting for {self.config.model} to answer...", file=sys.stderr, flush=True)
+                say(f"waiting for {model} to answer ({why})...", file=sys.stderr)
                 waiting = True
             self.sleep(WARMUP_RETRY_S)
+
+    def _not_ready(self) -> str | None:
+        """Why the model cannot answer the warmup yet; None once it answers."""
+        try:
+            status = self._post(silence_wav(), "").status_code
+        except NOT_READY_FAILURES as failure:
+            return self._redact(f"{type(failure).__name__}: {failure}".removesuffix(": "))
+        except httpx.TransportError as failure:
+            raise NotAnswering(
+                self._redact(f"{self.config.model} cannot be reached: {failure}")
+            ) from failure
+        return f"HTTP {status}" if status in NOT_READY_STATUSES else None
 
     def _attempt(self, audio: bytes, language: str) -> tuple[dict, bool, float, int]:
         """One call with its retries; the time and the attempts of the answer it returns."""

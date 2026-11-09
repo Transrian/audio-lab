@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -13,6 +15,7 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 import soundfile  # noqa: E402
 
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.eval.client import (  # noqa: E402
     ConfigError,
     ModelConfig,
@@ -291,7 +294,9 @@ def test_the_warmup_waits_until_a_model_that_is_loading_answers(capsys):
     client.warm_up()
 
     assert len(requests) == 3 and slept == [5.0, 5.0], "asked again every five seconds"
-    assert capsys.readouterr().err == "waiting for served-id to answer...\nserved-id answers\n"
+    assert capsys.readouterr().err == (
+        "waiting for served-id to answer (ConnectError: connection refused)...\nserved-id answers\n"
+    )
     body = requests[-1].content
     assert silence_wav() in body and b'name="language"' not in body
     samples, rate = soundfile.read(io.BytesIO(silence_wav()))
@@ -312,3 +317,75 @@ def test_a_model_that_never_answers_stops_the_run_with_the_reason():
     with pytest.raises(NotAnswering, match=r"served-id did not answer within 0 min \(HTTP 502\)"):
         client.warm_up(wait_s=0.0)
     assert len(recorder.requests) == 1
+
+
+def test_the_warmup_waits_about_its_deadline_on_the_clock_it_is_given():
+    now = [0.0]
+
+    def sleep(seconds: float) -> None:
+        now[0] += seconds
+
+    def still_loading(request: httpx.Request) -> httpx.Response:
+        now[0] += 1.0  # each attempt takes a second
+        return httpx.Response(503, text="loading")
+
+    client = TranscriptionClient(
+        make_config(),
+        "http://localhost:9",
+        transport=httpx.MockTransport(still_loading),
+        sleep=sleep,
+        clock=lambda: now[0],
+    )
+    with pytest.raises(NotAnswering, match=r"within 1 min \(HTTP 503\)"):
+        client.warm_up(wait_s=60.0)
+    # Attempts start at 0, 6, 12, ... 60 s: the one that ends past the deadline is the last.
+    assert now[0] == 61.0
+
+
+@pytest.mark.parametrize(
+    "failure", [httpx.UnsupportedProtocol("no scheme"), httpx.ProxyError("proxy refused")]
+)
+def test_a_failure_that_waiting_cannot_cure_is_raised_at_once(failure):
+    slept: list[float] = []
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise failure
+
+    client = TranscriptionClient(
+        make_config(),
+        "http://localhost:9",
+        transport=httpx.MockTransport(unreachable),
+        sleep=slept.append,
+    )
+    with pytest.raises(NotAnswering, match="served-id cannot be reached"):
+        client.warm_up()
+    assert slept == [], "no fifteen-minute wait for a URL that will never work"
+
+
+def test_a_stop_ends_the_warmup_before_its_next_attempt():
+    stop = threading.Event()
+    client, recorder, slept = make_client([(503, "loading", "text/plain")] * 3)
+    client.sleep = lambda seconds: stop.set()  # Ctrl-C while the warmup waits
+
+    with pytest.raises(Stopped, match="waiting for served-id to answer stopped"):
+        client.warm_up(should_stop=stop.is_set)
+    assert len(recorder.requests) == 1
+
+
+def test_a_stop_ends_the_warmup_in_the_middle_of_an_attempt_the_server_holds():
+    held = threading.Event()  # llama-swap holds the request while it loads the model
+
+    def loading(request: httpx.Request) -> httpx.Response:
+        held.wait(timeout=60)
+        return httpx.Response(200, json={"text": ""})
+
+    client = TranscriptionClient(
+        make_config(), "http://localhost:9", transport=httpx.MockTransport(loading)
+    )
+    threading.Timer(0.1, request_stop).start()
+    started = time.monotonic()
+
+    with pytest.raises(Stopped):
+        client.warm_up()
+    assert time.monotonic() - started < 5, "the stop does not wait for the server"
+    held.set()

@@ -169,14 +169,18 @@ key can hold.
 **Warmup**: before its first request, a run sends half a second of silence and
 waits until the model answers it ([D-022](../owner/directives.md)), because a
 server that loads models on demand can take minutes to answer the first request
-for one. While the connection fails or times out, or the server answers 429,
-502, 503 or 504, the silence is sent again every 5 s, and stderr says
-`waiting for <model> to answer...`; after 15 minutes the run stops with an error
-and records nothing. Any other answer, an error included, ends the wait. The
-warmup is not a clip: it is neither cached nor recorded, and it is not counted in
-`requests`. A run that has nothing to send sends no warmup. The first clip is
-still flagged `cold` and left out of the latency: a model that answered the
-warmup has not necessarily answered a clip of real speech yet.
+for one. While the connection is refused, times out or is dropped, or the server
+answers 429, 502, 503 or 504, the silence is sent again every 5 s, and stderr
+says `waiting for <model> to answer (<why>)...`, for example `(HTTP 503)`; after
+about 15 minutes (an attempt under way then is not cut short) the run stops with
+an error and records nothing. Any other answer, an error included, ends the
+wait. A failure that waiting cannot cure, such as a URL without `http://` or a
+proxy that refuses, stops the run at once. A Ctrl-C ends the wait within
+seconds, even in the middle of an attempt. The warmup is not a clip: it is
+neither cached nor recorded, and it is not counted in `requests`. A run that has
+nothing to send sends no warmup. The first clip is still flagged `cold` and left
+out of the latency: a model that answered the warmup has not necessarily
+answered a clip of real speech yet.
 
 Sending audio to a model is the slow part; scoring takes seconds. So the
 answers are kept once, in a **transcript cache** shared by every suite, and a

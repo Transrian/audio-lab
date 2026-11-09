@@ -8,7 +8,9 @@ nothing handles it.
 
 A task asks :func:`stop_requested` at its boundaries, or calls
 :func:`raise_if_stopped`, which raises :class:`Stopped`; the ``audiolab``
-command turns that into one line and exit code :data:`EXIT_STOPPED`.
+command turns that into one line and exit code :data:`EXIT_STOPPED`. A single
+call that may wait for minutes without a boundary goes through
+:func:`abandoned_on_stop`.
 """
 
 from __future__ import annotations
@@ -17,11 +19,14 @@ import os
 import signal
 import sys
 import threading
+from collections.abc import Callable
 
 # The exit code of a task that stopped because it was asked to: 128 + SIGINT,
 # what a shell reports for a command stopped with Ctrl-C.
 EXIT_STOPPED = 130
 SIGNALS = (signal.SIGINT, signal.SIGTERM)
+# How often a call that is waited for looks whether a stop was asked for.
+POLL_S = 0.2
 
 _requested = threading.Event()
 # The process that installed the handlers. Worker processes forked from it
@@ -50,6 +55,35 @@ def raise_if_stopped(what: str = "stopped") -> None:
     """Raise :class:`Stopped` if a stop was asked for; call it at a step boundary."""
     if stop_requested():
         raise Stopped(what)
+
+
+def abandoned_on_stop[R](
+    call: Callable[[], R], what: str, should_stop: Callable[[], bool] = stop_requested
+) -> R:
+    """``call()``, given up with :class:`Stopped` as soon as ``should_stop()`` is true.
+
+    For one call that has no step to stop at and may wait for minutes, such as
+    a request a server holds while it loads a model. The call runs in a daemon
+    thread, which a stop leaves behind: the process does not wait for it.
+    """
+    outcome: list = []
+
+    def run() -> None:
+        try:
+            outcome.append((call(), None))
+        except BaseException as failure:
+            outcome.append((None, failure))
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    while thread.is_alive():
+        thread.join(POLL_S)
+        if thread.is_alive() and should_stop():
+            raise Stopped(what)
+    result, failure = outcome[0]
+    if failure is not None:
+        raise failure
+    return result
 
 
 def install_signal_handlers() -> None:

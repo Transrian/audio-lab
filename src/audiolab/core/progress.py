@@ -42,6 +42,6 @@ def progress(
     )
 
 
-def say(line: str) -> None:
-    """Print one line of a task's record, above any bar on screen."""
-    tqdm.write(line, file=sys.stdout)
+def say(line: str, *, file=None) -> None:
+    """Print one line of a task's record, above any bar on screen; to stdout unless ``file``."""
+    tqdm.write(line, file=file or sys.stdout)
