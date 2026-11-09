@@ -371,7 +371,7 @@ screening is a difference between corpora and not between recipes:
 | `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 330 | 12 | 2.1 | 0.2 GiB | 0.8 GiB |
 | `peertube-fr-train` | fr | CC-BY (per video, in the manifest) | listing | 12 000 | 77 | 31.8 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and 7.3 GiB of WAV stays in the cache |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
-| `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 | `nasa-en-train` | en | public domain (US government work) | listing | TBD | TBD | TBD | TBD | TBD |
 
@@ -1079,6 +1079,34 @@ Per instance, as the listing of 2026-11-08 holds them:
 - **Group**: the recording (`group_kind: recording`, the video uuid). A talk
   usually has one speaker, the listing names none, and the questions from the room
   add others.
+- **Labels**: the three passes of the [card of
+  `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french),
+  with its models and thresholds, asked in English (above), cached under
+  `$AUDIOLAB_CACHE/debconf-en-train`.
+- **Prepared** (2026-11-09): the first 65 h of the reading order (106 talks) were
+  downloaded beforehand (`audiolab data fetch-audio debconf-en-train`), and the
+  labelling run read **106 talks, 65.7 h**, in two batches: 86 talks (53.6 h), then
+  20 (12.1 h), sized on the yield of the first (`batch_size`,
+  `src/audiolab/data/talks.py`). Qwen labelled 17 680 candidate clips and **5 680
+  of them (32.1 %) were rejected** because the two models disagree; on the way,
+  1 273 candidates fell outside 0.5–20 s, 15 segments had no duration and 396 no
+  words, and 290 segments lost the words they repeated from the one before. The
+  cap was full after 101 talks, so the last 5 were heard by Whisper and never
+  labelled; one labelled talk, a DebConf 6 venue proposal for Sarajevo spoken in
+  Bosnian, which Whisper translated into English, kept none of its 27 candidates.
+  The result is **12 000 clips (the cap), 34.2 h, 100 groups**, median 9.3 s, all
+  CC BY. Each of the 30 channels gives 1 to 4 talks (`DebConf 4` holds one video);
+  10 talks give their full 200 clips and the smallest gives 1. The prepared set is
+  3.8 GiB, and the 106 talks read leave 7.1 GiB of WAV in the cache.
+- **What the base model gets wrong**: Parakeet's text differs from the label on
+  7 978 of the 12 000 clips (66.5 %); the mean `base_wer` is 8.3 %, and 34 % of
+  the clips have a `base_wer` of 0. This measures the base model against model
+  labels, not against the speech: a wrong label counts as a base-model error.
+- **Known limits**: **the label error of the kept clips is not measured** — no
+  human has checked a sample, so how many wrong labels the agreement test lets
+  through is unknown. What the test lets through, and why a preparation from an
+  empty cache can keep a slightly different set of clips and labels, is in the
+  [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
 
 ### `fosdem-en-train` — FOSDEM talks, seven years of the conference
 
