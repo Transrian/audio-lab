@@ -365,7 +365,7 @@ def ranged_server(content: bytes, *, honours_range: bool = True):
             return httpx.Response(200, content=content)
         first = int(wanted.removeprefix("bytes=").rstrip("-"))
         if first >= len(content):
-            return httpx.Response(416)
+            return httpx.Response(416, headers={"content-range": f"bytes */{len(content)}"})
         return httpx.Response(
             206,
             content=content[first:],
@@ -439,6 +439,24 @@ def test_a_part_longer_than_the_file_is_dropped_and_fetched_again(tmp_path):
         download("https://example.invalid/c", destination, client=client, md5=md5(content))
     assert asked == ["bytes=100-", ""]
     assert destination.read_bytes() == content
+
+
+def test_a_part_that_is_the_whole_file_is_kept_and_checked(tmp_path):
+    """A stop after the last block, or a kill before the rename, leaves the whole file."""
+    content = b"the whole corpus"
+    transport, asked = ranged_server(content)
+    destination = tmp_path / "corpus.zip"
+    destination.with_name("corpus.zip.part").write_bytes(content)
+    with httpx.Client(transport=transport) as client:
+        download("https://example.invalid/c", destination, client=client, md5=md5(content))
+    assert asked == ["bytes=16-"], "nothing is fetched again"
+    assert destination.read_bytes() == content
+
+    other = tmp_path / "other.zip"
+    other.with_name("other.zip.part").write_bytes(b"x" * len(content))  # as long, not the file
+    with httpx.Client(transport=transport) as client, pytest.raises(DownloadError):
+        download("https://example.invalid/c", other, client=client, md5=md5(content))
+    assert not other.with_name("other.zip.part").exists(), "the checksum drops it"
 
 
 def test_an_unpinned_download_never_continues_a_part(tmp_path):

@@ -95,7 +95,8 @@ command again goes on:
 
 - A download is written to `<file>.part` in the cache and renamed once its
   checksum matches. A file pinned by a checksum continues from the bytes already
-  there (an HTTP range request); an unpinned one, such as a talk's video, starts
+  there (an HTTP range request), and a part that already holds the whole file is
+  only checked; an unpinned one, such as a talk's video, starts
   again from the first byte, because nothing would prove that the two halves are
   one file. A file that does not match its checksum is deleted, as before.
 - A preparation writes each clip's WAV and then its manifest line to

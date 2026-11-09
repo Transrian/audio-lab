@@ -92,12 +92,16 @@ def _fetch(http: httpx.Client, url: str, staged: Path, *, resume: bool) -> None:
 
     A server that ignores the range answers with the whole file, which then
     replaces the part; one that cannot serve that range (the part is not the
-    start of the file it holds now) is asked for the whole file. The download
+    start of the file it holds now) is asked for the whole file, unless it says
+    the file is as long as the part: a stop after the last block leaves a whole
+    file under the part's name, and the checksum then decides. The download
     stops between two blocks when a stop is asked for, and keeps what it wrote.
     """
     have = staged.stat().st_size if resume and staged.is_file() else 0
     headers = {"Range": f"bytes={have}-"} if have else {}
     with http.stream("GET", url, headers=headers) as response:
+        if have and _refused_range_size(response) == have:
+            return
         served_from = _range_start(response, have) if have else 0
         if served_from is None:
             whole_again = True
@@ -131,6 +135,17 @@ def _range_start(response: httpx.Response, asked: int) -> int | None:
     # Content-Range: bytes <first>-<last>/<size>
     first = response.headers.get("content-range", "").removeprefix("bytes ").partition("-")[0]
     return asked if first == str(asked) else None
+
+
+def _refused_range_size(response: httpx.Response) -> int | None:
+    """The size of the file, when a server refused a range past its end.
+
+    It says so as ``416`` with ``Content-Range: bytes */<size>``.
+    """
+    if response.status_code != 416:
+        return None
+    size = response.headers.get("content-range", "").removeprefix("bytes */")
+    return int(size) if size.isdecimal() else None
 
 
 def sha256_file(path: Path) -> str:
