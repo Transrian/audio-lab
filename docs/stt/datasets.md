@@ -919,18 +919,16 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   - Each preparation fetches every page it reads again and applies the
     listing's rules to it, so an episode whose page took a notice, or lost its
     transcript, since the listing is skipped and counted.
-  - Music under speech is not NASA's: theme songs and production music with named
-    holders ("Music for the series comes from Universal Production Music", a
-    theme "by SYSTEM Sounds"; 54 listed pages credit music, 51 of them Curious
-    Universe's). Its credit is not taken as a notice, since what a label
-    transcribes is speech, but a clip's audio carries what plays under it. The
-    pipeline keeps clips away from music only where the transcript notes it: a
-    line with a note of a sound (`[ Music ]`, `[Song: …]`, `<Intro Music>`, 530
-    of the 833 transcripts hold one) and the line of text on each side of it are
-    not labelled. Music the transcript does not note is not detected.
-    **Open question for the owner**: is that enough under D-019, or must clips
-    with a music bed be found in the audio (or episode openings and closings
-    dropped) before training?
+  - An episode whose page credits music of a third party is left out whole:
+    the series' library ("Music for the series comes from Universal Production
+    Music"), its theme ("composed by … of SYSTEM Sounds") or a note naming a
+    piece and its composer (`[Song: Ants Instrumental by Taylor Welsh]`). Such
+    music plays under the speech where the transcript does not note it, and its
+    licence is unknown, which D-019 does not train on. That costs 45 episodes,
+    17.2 h, all of NASA's Curious Universe. Elsewhere, clips are kept away
+    from music where the transcript notes it: a line with a note of a sound
+    (`[ Music ]`, `[Song: …]`, `<Intro Music>`) and the line of text on each side
+    of it are not labelled. Music the transcript does not note is not detected.
   - Every clip carries `license: public domain (US government work)`,
     `source_author` "NASA, <show>", `source_title` (the episode) and `source_url`
     (the episode's page), which is the attribution NASA asks for ("NASA should be

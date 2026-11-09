@@ -106,14 +106,23 @@ MAX_WORDS_PER_MINUTE = 250
 # which minutes of the episode it covers. A notice, not a word: guests say
 # "copyright" and "licensed" in passing, and a credit names its source as
 # "used courtesy of" or "used with permission", or says whose a recording is
-# ("Audio from the … conversation provided by Explore Mars"). The credit of the
-# shows' music library ("Music … comes from Universal Production Music") is not
-# a notice: the music is not what a clip's label transcribes (the card in
-# docs/stt/datasets.md says how clips are kept away from it).
+# ("Audio from the … conversation provided by Explore Mars").
 NOTICE = re.compile(
     r"©|\ball rights reserved\b|\bcopyright(?:ed)? (?:by |\d{4})"
     r"|\bused (?:courtesy of|with permission)\b"
     r"|\b(?:audio|recordings?|clips?|footage)\b[^.]{0,80}\b(?:provided by|courtesy of)\b",
+    re.IGNORECASE,
+)
+# A credit for music somebody else made: the music library of Curious Universe
+# ("Music for the series comes from Universal Production Music"), its theme
+# ("composed by … of SYSTEM Sounds"), or a note naming a piece and its composer
+# ("[Song: Ants Instrumental by Taylor Welsh]"). The music plays under the
+# speech where the transcript does not say, and its licence is unknown, which
+# D-019 does not train on: such an episode is left out whole, like one with a
+# notice.
+MUSIC_CREDIT = re.compile(
+    r"\buniversal production music\b|\bsystem sounds\b"
+    r"|\[[^\]]*\b(?:music|song|theme|intro|outro)\b[^\]]*\bby\b",
     re.IGNORECASE,
 )
 # What a title adds when an episode is aired again: "Encore: X", "Mars Ep. 3: X".
@@ -435,6 +444,8 @@ def why_unusable(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool 
         return "page with more text than its episode"
     if plays_recordings(lines):
         return "episode that plays recordings"
+    if any(MUSIC_CREDIT.search(block.text) for block in blocks_of(page)):
+        return "page crediting music of a third party"
     return ""
 
 
@@ -478,6 +489,7 @@ SOURCE = TalkSource(
         "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
         "max_transcript_words_per_minute": MAX_WORDS_PER_MINUTE,
         "copyright_notice": "an episode whose page carries one is left out",
+        "music_credit": "an episode whose page credits music of a third party is left out",
         "played_recordings": "an episode whose transcript notes archival audio, an archive, "
         "a broadcast, a clip, an excerpt or an announcer, or gives one a speaker label, "
         "is left out",

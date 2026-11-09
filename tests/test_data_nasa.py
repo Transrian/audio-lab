@@ -223,7 +223,7 @@ def test_a_plain_name_on_its_own_line_is_a_label_when_it_recurs():
     assert [line.speaker for line in lines] == ["Miles Hatfield", "", "", "", "Miles Hatfield", ""]
 
 
-def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_path):
+def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_path):
     words = " ".join(["word"] * 70)  # the episodes last one minute
     pages = {
         "spoken": page("<strong>Transcript</strong>", words),
@@ -240,6 +240,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "announced": page(words, "Launch announcer: Three, two, one, liftoff."),
         "speech": page(words, "[John F. Kennedy Archive: We choose to go to the Moon.]"),
         "music": page(words, "[ Music ]", "(Distributed Active Archive Center)"),
+        "library": page(words, "Music for the series comes from Universal Production Music."),
+        "theme": page(words, "[Song: Ants Instrumental by Taylor Welsh]"),
     }
     for slug, text in pages.items():
         (tmp_path / f"{slug}.html").write_text(text, encoding="utf-8")
@@ -262,6 +264,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "announced": "episode that plays recordings",
         "speech": "episode that plays recordings",
         "music": "",
+        "library": "page crediting music of a third party",
+        "theme": "page crediting music of a third party",
     }
 
 
