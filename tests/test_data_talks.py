@@ -33,7 +33,7 @@ from audiolab.data.talk_clips import Answers, Segment  # noqa: E402
 from audiolab.data.talk_listing import Talk, TalkSource, write_listing  # noqa: E402
 from audiolab.data.talks import TalkInProgress  # noqa: E402
 from audiolab.data.train import Take  # noqa: E402
-from audiolab.eval.client import ModelConfig, TranscriptionError  # noqa: E402
+from audiolab.eval.client import ModelConfig, NotAnswering, TranscriptionError  # noqa: E402
 
 WHISPER, QWEN, PARAKEET = (
     talks.SEGMENT_MODEL,
@@ -891,6 +891,26 @@ def test_a_pass_warms_its_model_up_once_before_its_first_request():
     assert log.count("warm-up") == 1, "a pass that sends nothing warms nothing up"
     model.one_pass().transcribe(b"wav")
     assert log.count("warm-up") == 2, "the next pass warms the model up again"
+
+
+def test_a_warmup_that_fails_fails_the_pass_without_being_sent_again():
+    warm_ups: list[str] = []
+    in_flight = threading.Barrier(3, timeout=10)
+
+    def warm_up():
+        warm_ups.append("warm-up")
+        raise NotAnswering("served-id did not answer within 15 min (HTTP 503)")
+
+    one_pass = talks.Served(lambda wav: {"text": ""}, concurrency=3, warm_up=warm_up).one_pass()
+
+    def ask(wav: bytes) -> dict:
+        in_flight.wait()  # three requests of the pass wait for its warmup
+        return one_pass.transcribe(wav)
+
+    with pytest.raises(NotAnswering):
+        map_requests(ask, [b"wav"] * 3, 3)
+
+    assert warm_ups == ["warm-up"], "the requests waiting for it fail with it, without a wait each"
 
 
 def test_a_preparation_run_again_on_its_cache_sends_nothing_and_warms_nothing_up(

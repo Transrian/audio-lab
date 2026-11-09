@@ -164,16 +164,24 @@ class Served:
         may have unloaded the model, and loading it again can take minutes, so
         the first request of every pass waits for a warmup. A pass whose answers
         are all cached sends nothing and warms nothing up: it never makes the
-        server load a model for nothing.
+        server load a model for nothing. A warmup that failed (the model did not
+        answer, a stop) fails every request of the pass, without a second one.
         """
         warming = threading.Lock()
         warm = False
+        failed: BaseException | None = None
 
         def transcribe(wav: bytes) -> dict:
-            nonlocal warm
+            nonlocal warm, failed
             with warming:
+                if failed is not None:
+                    raise failed
                 if not warm:
-                    self.warm_up()
+                    try:
+                        self.warm_up()
+                    except BaseException as failure:
+                        failed = failure
+                        raise
                     warm = True
             return self.transcribe(wav)
 
