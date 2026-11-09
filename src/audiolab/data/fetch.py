@@ -2,7 +2,10 @@
 
 Preparation is idempotent: a dataset that already has a manifest is verified
 and left alone, so a second run costs a hash of every clip and nothing else.
-Re-running with ``--force`` deletes and prepares again.
+Re-running with ``--force`` deletes and prepares again. A preparation that was
+stopped (Ctrl-C, SIGTERM) has no manifest yet, only the clips it finished: the
+same command prepares the rest and takes those back without decoding them
+again (:class:`~audiolab.data.build.ManifestBuilder`).
 """
 
 from __future__ import annotations

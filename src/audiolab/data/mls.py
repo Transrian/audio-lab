@@ -15,6 +15,7 @@ also checks that against the prepared test manifest.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -67,7 +68,7 @@ def fetch_mls_fr(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
                 text = _clip_text(name, member.name, segments, transcripts)
                 builder.add(
                     _clip_id(name, member.name),
-                    audio_from_archive(handle, member),
+                    partial(audio_from_archive, handle, member),
                     language=LANGUAGE,
                     text=text,
                     text_has_casing_punct=False,
@@ -132,7 +133,7 @@ def fetch_mls_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose
                     break
                 take.offer(
                     Path(member.name).stem,
-                    audio_from_archive(handle, member),
+                    partial(audio_from_archive, handle, member),
                     text=_clip_text(name, member.name, segments, transcripts),
                     group=_speaker(name, member.name),
                 )

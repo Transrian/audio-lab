@@ -18,3 +18,9 @@ def no_stop_requested(monkeypatch):
     yield
     for received, handler in handlers.items():
         signal.signal(received, handler)
+
+
+@pytest.fixture
+def run_again(monkeypatch):
+    """Call it to start what follows as the next run of a stopped command would: no stop asked."""
+    return lambda: monkeypatch.setattr(stop, "_requested", threading.Event())

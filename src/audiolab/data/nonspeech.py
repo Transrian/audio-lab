@@ -8,6 +8,7 @@ covered — a known gap, see `docs/stt/datasets.md`.
 from __future__ import annotations
 
 import hashlib
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -176,7 +177,7 @@ def add_esc50_clips(builder: ManifestBuilder, name: str, cache: Path, verbose: b
         clip_id = f"{name}:esc50-{path.stem}"
         builder.add(
             clip_id,
-            load_audio(path),
+            partial(load_audio, path),
             group=clip_id,
             category=f"{esc50_group(category)}/{category}",
             **generated_fields(ESC50_LICENSE, split=ESC50_SOURCE_SPLIT),

@@ -20,6 +20,7 @@ one download instead of fetching 4.7 GiB twice.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
@@ -93,7 +94,7 @@ def fetch_voxpopuli_fr_train(
             # segments of one speaker share a voice, an accent and a room.
             take.offer(
                 Path(row["audio"]["path"]).stem,
-                audio_of(row["audio"]),
+                partial(audio_of, row["audio"]),
                 text=row["raw_text"] or "",
                 group=row["speaker_id"],
             )

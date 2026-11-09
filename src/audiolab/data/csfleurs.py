@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path, PurePosixPath
 
 import httpx
@@ -105,7 +106,7 @@ def _prepare_subset(
             )
             builder.add(
                 f"{name}:{record['id']}",
-                load_audio(source),
+                partial(load_audio, source),
                 language=LANGUAGE,
                 text=record["text"],
                 text_has_casing_punct=True,

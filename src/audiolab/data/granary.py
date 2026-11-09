@@ -21,6 +21,7 @@ screening measures.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
@@ -76,7 +77,7 @@ def fetch_granary_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ver
                 break
             take.offer(
                 row["utt_id"],
-                audio_of(row["audio"]),
+                partial(audio_of, row["audio"]),
                 text=row["text"] or "",
                 group=row["original_audio_id"],
             )

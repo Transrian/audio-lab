@@ -85,7 +85,7 @@ def fetch_pxcorpus_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
                 break
             take.offer(
                 row.id,
-                load_audio(io.BytesIO(handle.read(row.member))),
+                lambda member=row.member: load_audio(io.BytesIO(handle.read(member))),
                 text=row.text,
                 group=row.speaker,
             )

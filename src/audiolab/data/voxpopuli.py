@@ -18,6 +18,7 @@ the kept clips are a fifth of the shard's rows.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -75,7 +76,7 @@ def fetch_voxpopuli_nonnative(
             # view is not computed for these clips.
             builder.add(
                 f"{name}:{Path(row['audio']['path']).stem}",
-                audio_of(row["audio"]),
+                partial(audio_of, row["audio"]),
                 language=LANGUAGE,
                 text=row["raw_text"],
                 text_has_casing_punct=False,

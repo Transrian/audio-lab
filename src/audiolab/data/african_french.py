@@ -32,6 +32,7 @@ it writes, and putting them back would take another model. The card in
 from __future__ import annotations
 
 import re
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
@@ -116,7 +117,7 @@ def fetch_african_accented_fr_train(
             # answer recordings of the Yaoundé part.
             take.offer(
                 _key(member.name),
-                audio_from_archive(handle, member),
+                partial(audio_from_archive, handle, member),
                 text=training_text(text),
                 group=Path(member.name).parent.name,
             )

@@ -6,6 +6,7 @@ files, both under the dataset's ``data/<language>`` directory on Hugging Face.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -68,7 +69,7 @@ def fetch_fleurs(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
             stem = Path(member.name).stem
             builder.add(
                 f"{name}:{stem}",
-                audio_from_archive(archive, member),
+                partial(audio_from_archive, archive, member),
                 language=language[:2],
                 text=row["transcription"],
                 text_has_casing_punct=True,

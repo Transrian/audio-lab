@@ -23,6 +23,7 @@ redistributed.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -73,7 +74,7 @@ def fetch_servicenow_codeswitched(
         # still tell them apart.
         builder.add(
             f"{name}:{row['ID']}",
-            audio_of(row["audio"]),
+            partial(audio_of, row["audio"]),
             language=LANGUAGE,
             text=row["utterance"],
             text_has_casing_punct=True,

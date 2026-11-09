@@ -16,6 +16,7 @@ teaches it to drop both: a known confound of the screening, recorded in its card
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder, require_clips
@@ -136,7 +137,7 @@ def prepare_train_audio(
                 text = restored
             take.offer(
                 utterance,
-                audio_from_archive(handle, member),
+                partial(audio_from_archive, handle, member),
                 text=text,
                 group=_speaker_of(name, member),
             )
@@ -174,7 +175,7 @@ def add_librispeech_clip(builder: ManifestBuilder, name: str, handle, member, te
     """Add one archive member; its path gives the speaker (``speaker/chapter/file``)."""
     builder.add(
         f"{name}:{Path(member.name).stem}",
-        audio_from_archive(handle, member),
+        partial(audio_from_archive, handle, member),
         language=LANGUAGE,
         text=text,
         text_has_casing_punct=False,

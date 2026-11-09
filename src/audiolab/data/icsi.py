@@ -49,6 +49,7 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -135,7 +136,7 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
     if verbose:
         print(f"  {len(by_channel)} channels of audio to decode for {len(planned)} clips")
     for (meeting, channel), rows in sorted(by_channel.items()):
-        write_clips(take, channel, load_recording(name, cache_dir, meeting, channel), rows)
+        write_clips(take, channel, partial(load_recording, name, cache_dir, meeting, channel), rows)
     if verbose:
         print(f"  {take.report()}")
     builder.write()

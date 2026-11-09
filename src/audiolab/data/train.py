@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import re
 import string
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -38,7 +38,7 @@ from audiolab.core.audio import Audio
 from audiolab.core.paths import data_dir
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError
-from audiolab.data.store import MANIFEST_NAME, read_manifest
+from audiolab.data.store import MANIFEST_NAME, Clip, read_manifest
 
 # The most clips one training source is prepared with. The screening fine-tunes
 # once per source with the same number of updates, so this is the size every
@@ -150,6 +150,9 @@ class Take:
     beyond_group_cap: int = 0
     per_group: dict[str, int] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        self.builder.bar.total = self.cap
+
     def full(self) -> bool:
         """Whether the cap is reached and the source can stop being read."""
         return self.kept >= self.cap
@@ -199,36 +202,67 @@ class Take:
         return None
 
     def write_clip(
-        self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields
+        self,
+        source_id: str,
+        audio: Audio | Callable[[], Audio],
+        *,
+        text: str,
+        group: str,
+        **extra_fields,
     ) -> None:
         """Write the clip of a row :meth:`decide` took, its label as :func:`plain_label` writes it.
 
         ``extra_fields`` are manifest fields only some sources fill, such as the
         attribution a licence requires to travel with the clip, or a license
-        that is not the same for every row of the source.
+        that is not the same for every row of the source. ``audio`` can be a
+        function that reads it, called only if the clip is not prepared yet.
         """
-        self.builder.add(
-            f"{self.name}:{source_id}",
-            audio,
-            language=self.language,
-            text=plain_label(text),
-            text_has_casing_punct=self.text_has_casing_punct,
-            group=f"{self.name}:{group}",
-            group_kind=self.group_kind,
-            source_split=self.source_split,
-            license=extra_fields.pop("license", self.license),
-            **extra_fields,
-        )
+        clip_id, fields = self._clip(source_id, text, group, extra_fields)
+        self.builder.add(clip_id, audio, **fields)
 
-    def offer(self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields) -> bool:
+    def prepared(self, source_id: str, *, text: str, group: str, **extra_fields) -> Clip | None:
+        """The clip of this row a stopped preparation already wrote, if any."""
+        clip_id, fields = self._clip(source_id, text, group, extra_fields)
+        return self.builder.prepared(clip_id, **fields)
+
+    def _clip(self, source_id: str, text: str, group: str, extra_fields: dict) -> tuple:
+        """The id and the manifest fields of the clip of one row."""
+        fields = {
+            "language": self.language,
+            "text": plain_label(text),
+            "text_has_casing_punct": self.text_has_casing_punct,
+            "group": f"{self.name}:{group}",
+            "group_kind": self.group_kind,
+            "source_split": self.source_split,
+            "license": self.license,
+            **extra_fields,
+        }
+        return f"{self.name}:{source_id}", fields
+
+    def offer(
+        self,
+        source_id: str,
+        audio: Audio | Callable[[], Audio],
+        *,
+        text: str,
+        group: str,
+        **extra_fields,
+    ) -> bool:
         """Offer one row of a source whose audio is on hand; it becomes a clip if it passes.
 
         Whose rows are read as the source is read, one after another, this is the
-        whole path: decide, and write when the decision takes the row.
+        whole path: decide, and write when the decision takes the row. ``audio``
+        can be a function that reads it: a row a stopped preparation already
+        wrote is then decided on the length it was written with, without being
+        read again.
         """
         if self.full():
             return False
-        if self.decide(text=text, group=group, seconds=audio.duration_s) is not None:
+        done = self.prepared(source_id, text=text, group=group, **extra_fields)
+        if done is None and callable(audio):
+            audio = audio()
+        seconds = done.duration_s if done else audio.duration_s
+        if self.decide(text=text, group=group, seconds=seconds) is not None:
             return False
         self.write_clip(source_id, audio, text=text, group=group, **extra_fields)
         return True
@@ -301,7 +335,7 @@ def plan_clips[Row: Plannable](take: Take, rows: Iterable[Row]) -> list[Row]:
 def write_clips[Row: Plannable](
     take: Take,
     recording: str,
-    audio: Audio,
+    audio: Audio | Callable[[], Audio],
     rows: Iterable[Row],
     *,
     tolerance_s: float = END_TOLERANCE_S,
@@ -313,8 +347,16 @@ def write_clips[Row: Plannable](
     and counted by :func:`plan_clips`. A row that reaches past the end of the
     recording is refused rather than clamped: times that do not describe this
     file mean the wrong file was read, and clamping would train on the wrong
-    speech under the right words.
+    speech under the right words. ``audio`` can be a function that reads the
+    recording, called only if one of its clips is not prepared yet.
     """
+    rows = list(rows)
+    if callable(audio):
+        if all(take.prepared(row.id, text=row.text, group=row.speaker) for row in rows):
+            for row in rows:
+                take.write_clip(row.id, audio, text=row.text, group=row.speaker)
+            return
+        audio = audio()
     for row in rows:
         if row.end > audio.duration_s + tolerance_s:
             raise DownloadError(
