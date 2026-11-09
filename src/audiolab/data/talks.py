@@ -163,6 +163,7 @@ def fetch_audio(http: httpx.Client, talk: Talk, destination: Path, source: TalkS
     """
     if destination.is_file():
         return destination
+    raise_if_stopped(f"audio of {talk.url} stopped")  # before asking the host for its file
     video_file = destination.with_suffix(".video")
     download(source.audio_url(http, talk), video_file, client=http)
     partial_wav = destination.with_suffix(".partial.wav")

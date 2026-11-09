@@ -232,6 +232,16 @@ def test_fetch_audio_reports_ffmpeg_failing_and_leaves_nothing_behind(tmp_path, 
     assert list((tmp_path / "cache").iterdir()) == []
 
 
+def test_a_talk_asked_to_stop_before_its_download_asks_the_host_nothing(tmp_path):
+    def never_asked(http, one):
+        raise AssertionError("the host was asked for a file after the stop")
+
+    source = make_source(tmp_path, [talk()], audio_url=never_asked)
+    request_stop()
+    with pytest.raises(Stopped):
+        talks.fetch_audio(None, talk(), tmp_path / "cache" / "v1.wav", source)
+
+
 def test_an_ffmpeg_a_stop_interrupted_keeps_the_video_for_the_next_run(tmp_path, monkeypatch):
     source_file = tmp_path / "remote.mp4"
     source_file.write_bytes(b"pixels and sound")
