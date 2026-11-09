@@ -18,7 +18,7 @@ One config per source, identical except for the dataset, the clip count of a
 source smaller than 10 000 clips, and the GPU:
 [`configs/train/screen-*.yaml`](../../configs/train/). Two batches, each on two
 RTX 5090 in parallel: five sources on 2026-11-08, code at commit `7aede77`, and
-seven on 2026-11-09 ([second batch](#the-second-batch)). The training code is
+eleven on 2026-11-09 ([second batch](#the-second-batch)). The training code is
 the same at every commit used.
 
 | Setting | Value | Why |
@@ -57,15 +57,15 @@ them, so each clip is seen more often:
 | `african-accented-fr-train` | 10 000 | 3.2 | 51 min | 16.2 GiB | `51871cc` |
 | `ami-fr-speakers-en-train` | 3 971 | 8.1 | 51 min | 17.9 GiB | `51871cc` |
 | `peertube-fr-train` | 10 000 | 3.2 | 43 min | 22.4 GiB | `77ceaa2` |
+| `peertube-edu-fr-train` | 10 000 | 3.2 | 42 min | 21.7 GiB | `f587ed4` |
+| `debconf-en-train` | 10 000 | 3.2 | 42 min | 20.4 GiB | `9dc5654` |
+| `fosdem-en-train` | 10 000 | 3.2 | 42 min | 20.5 GiB | `fce23d7` |
+| `nasa-en-train` | 10 000 | 3.2 | 42 min | 20.1 GiB | `fce23d7` |
 
 `african-accented-fr-train` is screened a second time, on its cleaned text
 ([card](datasets.md#african-accented-fr-train--african-accented-french)); the
 first batch trained on the text as published, and that run's evaluation is kept
 as `$AUDIOLAB_RUNS/eval/screen-african-accented-fr-uncleaned-2026-11-08/`.
-
-Four more sources are screened with the same recipe: `peertube-edu-fr-train`,
-`debconf-en-train`, `fosdem-en-train` and `nasa-en-train`. Their runs and
-results are to come.
 
 ## Results
 
@@ -111,27 +111,27 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
 
 The African-accented FR column is the run on the cleaned text.
 
-| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR |
-|---|---|---|---|---|---|---|---|---|
-| fleurs-fr | 4.96 | **+0.29** [+0.05, +0.55] | **+0.26** [+0.02, +0.51] | **−0.20** [−0.40, −0.02] | **+2.02** [+1.47, +2.61] | **+0.94** [+0.52, +1.39] | +0.08 [−0.17, +0.35] | −0.18 [−0.41, +0.06] |
-| mls-fr | 5.61 | −0.21 [−0.55, +0.05] | **+0.58** [+0.02, +1.20] | **−0.30** [−0.59, −0.02] | **+0.95** [+0.39, +1.46] | +0.28 [−0.17, +0.70] | **+2.73** [+1.41, +4.36] | **−0.57** [−1.12, −0.14] |
-| servicenow en-fr | 13.26 | +0.55 [−0.84, +1.94] | +0.62 [−0.63, +1.92] | −1.29 [−2.88, +0.20] | **+1.58** [+0.20, +3.04] | **+10.51** [+7.71, +13.39] | **+6.08** [+4.20, +8.06] | **−2.45** [−4.14, −0.93] |
-| servicenow en-fr-ca | 15.18 | +0.30 [−1.31, +1.89] | −0.60 [−1.98, +0.69] | **−2.13** [−3.81, −0.53] | −1.26 [−3.13, +0.51] | **+5.33** [+2.26, +8.65] | **+12.87** [+8.31, +17.66] | **−3.65** [−5.63, −1.82] |
-| cs-fleurs-fr-en | 16.27 | **−2.13** [−3.06, −1.28] | −0.64 [−1.71, +0.35] | **−1.89** [−2.97, −0.95] | **−1.28** [−2.39, −0.28] | **+1.59** [+0.35, +2.75] | **+3.23** [+1.63, +4.99] | **−2.10** [−3.19, −1.13] |
-| voxpopuli-en-nonnative | 20.44 | **−6.16** [−7.46, −5.34] | **−5.13** [−6.33, −4.36] | **−1.61** [−2.64, −1.03] | −0.16 [−1.83, +3.33] | **+5.14** [+3.50, +7.37] | **−3.66** [−4.82, −2.13] | **−6.63** [−7.69, −5.70] |
-| fleurs-en | 5.24 | −0.20 [−0.51, +0.14] | +0.09 [−0.23, +0.41] | −0.09 [−0.29, +0.12] | **+0.66** [+0.20, +1.18] | +0.24 [−0.15, +0.63] | +0.13 [−0.21, +0.45] | **−0.31** [−0.54, −0.08] |
-| librispeech-en | 2.04 | −0.01 [−0.20, +0.18] | +0.13 [−0.08, +0.32] | −0.16 [−0.35, +0.01] | +0.13 [−0.13, +0.38] | +0.10 [−0.12, +0.34] | +0.01 [−0.13, +0.15] | −0.09 [−0.25, +0.07] |
-| nonspeech (hallucination) | 5.00 | +0.71 [−1.79, +3.21] | +2.14 [−0.71, +5.00] | +0.71 [−1.07, +2.86] | −1.79 [−4.64, +1.07] | **−3.93** [−6.79, −1.43] | +0.36 [−2.50, +2.86] | **−3.57** [−6.07, −1.07] |
+| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR | PeerTube EDU FR | DebConf EN | FOSDEM EN | NASA EN |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| fleurs-fr | 4.96 | **+0.29** [+0.05, +0.55] | **+0.26** [+0.02, +0.51] | **−0.20** [−0.40, −0.02] | **+2.02** [+1.47, +2.61] | **+0.94** [+0.52, +1.39] | +0.08 [−0.17, +0.35] | −0.18 [−0.41, +0.06] | −0.18 [−0.44, +0.10] | −0.15 [−0.38, +0.07] | −0.15 [−0.35, +0.04] | **−0.37** [−0.59, −0.15] |
+| mls-fr | 5.61 | −0.21 [−0.55, +0.05] | **+0.58** [+0.02, +1.20] | **−0.30** [−0.59, −0.02] | **+0.95** [+0.39, +1.46] | +0.28 [−0.17, +0.70] | **+2.73** [+1.41, +4.36] | **−0.57** [−1.12, −0.14] | **−0.59** [−1.13, −0.20] | **−0.35** [−0.82, −0.00] | **−0.43** [−0.97, −0.05] | −0.36 [−0.96, +0.09] |
+| servicenow en-fr | 13.26 | +0.55 [−0.84, +1.94] | +0.62 [−0.63, +1.92] | −1.29 [−2.88, +0.20] | **+1.58** [+0.20, +3.04] | **+10.51** [+7.71, +13.39] | **+6.08** [+4.20, +8.06] | **−2.45** [−4.14, −0.93] | −0.98 [−2.42, +0.46] | **−1.37** [−2.43, −0.35] | −1.03 [−2.18, +0.05] | **+1.93** [+0.52, +3.38] |
+| servicenow en-fr-ca | 15.18 | +0.30 [−1.31, +1.89] | −0.60 [−1.98, +0.69] | **−2.13** [−3.81, −0.53] | −1.26 [−3.13, +0.51] | **+5.33** [+2.26, +8.65] | **+12.87** [+8.31, +17.66] | **−3.65** [−5.63, −1.82] | **−3.14** [−5.00, −1.44] | **−2.51** [−4.39, −0.68] | **−2.75** [−4.67, −1.01] | −0.39 [−2.17, +1.23] |
+| cs-fleurs-fr-en | 16.27 | **−2.13** [−3.06, −1.28] | −0.64 [−1.71, +0.35] | **−1.89** [−2.97, −0.95] | **−1.28** [−2.39, −0.28] | **+1.59** [+0.35, +2.75] | **+3.23** [+1.63, +4.99] | **−2.10** [−3.19, −1.13] | **−2.10** [−3.23, −1.12] | **−1.06** [−2.12, −0.11] | **−1.46** [−2.58, −0.43] | **−2.20** [−3.33, −1.17] |
+| voxpopuli-en-nonnative | 20.44 | **−6.16** [−7.46, −5.34] | **−5.13** [−6.33, −4.36] | **−1.61** [−2.64, −1.03] | −0.16 [−1.83, +3.33] | **+5.14** [+3.50, +7.37] | **−3.66** [−4.82, −2.13] | **−6.63** [−7.69, −5.70] | **−6.01** [−7.02, −5.01] | **−7.41** [−8.71, −6.26] | **−7.37** [−8.77, −6.21] | **−3.94** [−5.48, −2.46] |
+| fleurs-en | 5.24 | −0.20 [−0.51, +0.14] | +0.09 [−0.23, +0.41] | −0.09 [−0.29, +0.12] | **+0.66** [+0.20, +1.18] | +0.24 [−0.15, +0.63] | +0.13 [−0.21, +0.45] | **−0.31** [−0.54, −0.08] | **−0.38** [−0.64, −0.14] | **−0.42** [−0.67, −0.18] | **−0.38** [−0.66, −0.12] | **+0.61** [+0.11, +1.11] |
+| librispeech-en | 2.04 | −0.01 [−0.20, +0.18] | +0.13 [−0.08, +0.32] | −0.16 [−0.35, +0.01] | +0.13 [−0.13, +0.38] | +0.10 [−0.12, +0.34] | +0.01 [−0.13, +0.15] | −0.09 [−0.25, +0.07] | −0.14 [−0.34, +0.04] | −0.04 [−0.23, +0.17] | −0.06 [−0.26, +0.14] | **+1.16** [+0.66, +1.76] |
+| nonspeech (hallucination) | 5.00 | +0.71 [−1.79, +3.21] | +2.14 [−0.71, +5.00] | +0.71 [−1.07, +2.86] | −1.79 [−4.64, +1.07] | **−3.93** [−6.79, −1.43] | +0.36 [−2.50, +2.86] | **−3.57** [−6.07, −1.07] | **−2.86** [−5.36, −0.71] | −1.79 [−3.93, +0.00] | +0.00 [−2.50, +2.50] | **+5.36** [+2.50, +8.57] |
 
 Formatted WER, absolute:
 
-| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR |
-|---|---|---|---|---|---|---|---|---|
-| fleurs-fr | 8.85 | 9.86 | 9.35 | 8.74 | 22.49 | 21.23 | 9.20 | 8.61 |
-| servicenow en-fr | 16.15 | 18.17 | 16.15 | 15.22 | 28.76 | 37.36 | 19.63 | 14.40 |
-| servicenow en-fr-ca | 18.25 | 23.50 | 17.42 | 16.19 | 19.76 | 32.67 | 29.27 | 15.62 |
-| cs-fleurs-fr-en | 20.87 | 20.35 | 20.09 | 19.14 | 26.47 | 32.22 | 23.79 | 18.99 |
-| fleurs-en | 11.21 | 11.17 | 11.17 | 11.10 | 23.16 | 19.85 | 11.42 | 10.40 |
+| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR | PeerTube EDU FR | DebConf EN | FOSDEM EN | NASA EN |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| fleurs-fr | 8.85 | 9.86 | 9.35 | 8.74 | 22.49 | 21.23 | 9.20 | 8.61 | 8.39 | 8.59 | 8.89 | 8.89 |
+| servicenow en-fr | 16.15 | 18.17 | 16.15 | 15.22 | 28.76 | 37.36 | 19.63 | 14.40 | 15.96 | 14.98 | 15.34 | 20.45 |
+| servicenow en-fr-ca | 18.25 | 23.50 | 17.42 | 16.19 | 19.76 | 32.67 | 29.27 | 15.62 | 16.13 | 17.10 | 16.62 | 21.79 |
+| cs-fleurs-fr-en | 20.87 | 20.35 | 20.09 | 19.14 | 26.47 | 32.22 | 23.79 | 18.99 | 18.98 | 19.89 | 19.46 | 19.62 |
+| fleurs-en | 11.21 | 11.17 | 11.17 | 11.10 | 23.16 | 19.85 | 11.42 | 10.40 | 10.33 | 10.29 | 10.42 | 11.91 |
 
 ### What each source does alone
 
@@ -200,24 +200,70 @@ Second batch:
   agrees: [card](datasets.md#peertube-fr-train--capitole-du-libre-talks-in-french))
   is the first source that improves every panel: separably on seven of the
   nine, by intervals that include zero on fleurs-fr (−0.18) and librispeech-en
-  (−0.09). It is the only source separably better on all three code-switched
-  panels (servicenow en-fr-ca −3.65, en-fr −2.45, cs-fleurs-fr-en −2.10), the
-  panels closest to the target use of D-009, and its formatted WER is better on
-  all five panels (servicenow en-fr-ca 18.25 → 15.62). Its −6.63 on non-native
-  English is of the same size as ICSI's, and likely of the same kind.
+  (−0.09). It and DebConf EN are the only sources separably better on all three
+  code-switched panels (servicenow en-fr-ca −3.65, en-fr −2.45, cs-fleurs-fr-en
+  −2.10), the panels closest to the target use of D-009, and its formatted WER
+  is better on all five panels (servicenow en-fr-ca 18.25 → 15.62). Its −6.63 on
+  non-native English is of the same size as ICSI's, and likely of the same kind.
+- **PeerTube EDU FR, DebConf EN and FOSDEM EN**, the other three talk sources
+  labelled by Qwen3-ASR where Whisper agrees, do what PeerTube FR does: no point
+  estimate on any panel is worse than the base (FOSDEM leaves the hallucination
+  rate unchanged, +0.00), so no harm shows anywhere. All four talk sources gain
+  separably on cs-fleurs-fr-en (−1.06 to −2.10), servicenow en-fr-ca (−2.51 to
+  −3.65), mls-fr (−0.35 to −0.59) and fleurs-en (−0.31 to −0.42), and PeerTube
+  FR (−2.45) and DebConf (−1.37) on servicenow en-fr as well. The two
+  English sources gain on mls-fr and on the code-switched panels too, by less
+  on cs-fleurs-fr-en (−1.06 and −1.46 against −2.10 for both French ones): the
+  gain does not follow the language of the source. Their formatted WER is better
+  than the base on every panel but FOSDEM's fleurs-fr (8.85 → 8.89). Their −6.0
+  to −7.4 on non-native English is likely style, as for ICSI
+  ([below](#what-the-voxpopuli-en-nonnative-gains-are)).
+- **NASA EN** (podcasts labelled from NASA's own near-verbatim transcripts:
+  [card](datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts))
+  is mixed. It gains on cs-fleurs-fr-en (−2.20), non-native English (−3.94) and
+  fleurs-fr (−0.37 [−0.59, −0.15], the largest separable gain of any source on
+  that panel), and harms librispeech-en (+1.16), fleurs-en (+0.61), servicenow
+  en-fr (+1.93) and the hallucination rate on non-speech (5.0 % → 10.4 %); its
+  formatted WER is worse on fleurs-en and on both servicenow panels (en-fr
+  16.15 → 20.45). Most of its harm on the English and code-switched panels is
+  a defect of its text. NASA writes every apostrophe as a typographic `’`, and
+  its quotes and dashes the same way (`“ ” — –`); the tokenizer of this model has no piece for them and no
+  byte fallback, so the model learns to write its unknown token, which the
+  answers show as `⁇` (`I don ⁇ t know`) and the scorer reads as a word break.
+  The run writes it in 96 of the 600 librispeech-en answers, 69 of the 515 of
+  fleurs-en and 96 of the 238 of servicenow en-fr; the base model in 3 answers
+  of the whole suite. A diagnostic re-scoring (not the official score) that reads
+  `⁇` between two words as an apostrophe leaves librispeech-en at +0.00
+  [−0.21, +0.22], fleurs-en at −0.48 [−0.79, −0.17], servicenow en-fr at −0.53
+  [−1.79, +0.75] and en-fr-ca at −0.78 [−2.61, +0.83], with cs-fleurs-fr-en at
+  −2.35, non-native English at −5.48 and fleurs-fr unchanged; the formatted WER
+  of fleurs-en falls to 10.39, and both servicenow panels stay worse (en-fr
+  17.12, en-fr-ca 21.22). The hallucinations do not move: the run's 29 answers
+  on non-speech are short phrases ("Yeah.", "So they use the two microphones.") over animal,
+  human and object sounds. Sound a podcast plays under the speech without the
+  transcript noting it (music beds, jingles) is one possible cause, not
+  analysed: the card's rules keep clips away from noted sounds only.
+- **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
+  label style**, the model learning to write like a stronger ASR model (a kind
+  of distillation), since the human-labelled podcast does not give all of it:
+  even through the diagnostic, NASA does not gain separably on servicenow
+  en-fr-ca or mls-fr, and it raises the hallucination rate. NASA also differs
+  from the talks in register, recording and editing, so this screening cannot
+  tell the two apart; a test that changes only the labels would, for example the
+  same NASA clips labelled as the talks are.
 
 Both batches:
 
 - **Hallucinations**: every French source of the first batch, the cleaned
-  African-accented French and PeerTube cut the hallucination rate on non-speech
-  from 5.0 % to 1.1–2.5 %; PxCorpus moved it by −1.79, an interval that includes
-  zero. No English source moved it measurably (−0.36 to +2.14). That points at
-  the French data rather than at fine-tuning itself, which the first batch alone
-  could not tell.
+  African-accented French and both PeerTube sources cut the hallucination rate on
+  non-speech from 5.0 % to 1.1–2.5 %; PxCorpus moved it by −1.79, an interval
+  that includes zero. No English source lowered it measurably (−1.79 to +2.14),
+  and NASA raised it (+5.36). That points at the French data rather than at
+  fine-tuning itself, which the first batch alone could not tell.
 
 ### What the voxpopuli-en-nonnative gains are
 
-The gains of 5 to 7 points of ICSI, NOTSOFAR and PeerTube on
+The gains of 5 to 7.4 points of ICSI, NOTSOFAR and the four talk sources on
 [`voxpopuli-en-nonnative`](datasets.md#voxpopuli-en-nonnative--english-spoken-by-non-native-speakers-in-the-european-parliament)
 are mostly transcription style, not recognition. The base model writes like the
 European Parliament's edited report: it drops the chair's "thank you", writes
@@ -230,8 +276,8 @@ also normalizes contractions, courtesy formulas, near repeats and runs of words
 deleted at the edges leaves ICSI at −1.41, NOTSOFAR at −1.59 and
 LibriSpeech-PC at −0.17 points: an upper bound of their real gain. Deletions
 carry the official gain: in ICSI's run they fall from 8.05 to 3.31 points of
-WER. Fillers play no part, since the normalizer drops `uh` and `um`. The
-PeerTube and AMI runs were not re-scored.
+WER. Fillers play no part, since the normalizer drops `uh` and `um`. The runs of
+the talk sources, NASA and AMI were not re-scored.
 
 ICSI's −2.13 on cs-fleurs-fr-en is real but concentrated: the base model
 collapses on some long code-switched clips (it translates them into English or
@@ -240,11 +286,11 @@ the gain.
 
 ### What the base model already saw
 
-No source made the main French panel better by more than a hair: the only
-interval on fleurs-fr that excludes zero is LibriSpeech-PC's −0.20
-[−0.40, −0.02], an English source, and the best French one is VoxPopuli FR's
-−0.21 [−0.45, +0.02]. One likely reason is that the base model has seen most of
-this data already. Its
+No source made the main French panel better by more than a hair: the intervals
+on fleurs-fr that exclude zero are LibriSpeech-PC's −0.20 [−0.40, −0.02] and
+NASA's −0.37 [−0.59, −0.15], two English sources, and the best French one is
+VoxPopuli FR's −0.21 [−0.45, +0.02]. One likely reason is that the base model
+has seen most of this data already. Its
 [model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) says it was
 trained on about 660 000 hours of Granary, its main training set, and 10 000
 hours of human-transcribed speech, and cites among its sources YODAS and
@@ -258,9 +304,9 @@ Two consequences:
 - **Gains in French need data the base model has not seen**: the target use of
   D-009 (a developer dictating, French with English words and technical terms)
   rather than more of the same corpora. The candidates are in the
-  [source register](sources.md). PeerTube FR, the first source of that kind
-  screened, is the first to gain on all three code-switched panels; one result
-  agrees with this, it does not prove it.
+  [source register](sources.md). The four talk sources, the first of that kind
+  screened and none of them among the corpora the card cites, all gain on the
+  code-switched panels; four results agree with this, they do not prove it.
 - **Granary as an anchor in a mix.** Because Granary is close to what the model
   learned, and harms nothing alone, it could hold the scores in a mix: a new
   source that improves one panel and degrades another would be trained together
@@ -323,6 +369,14 @@ trained with it.
   isolate it: the same audio harms every speech panel with uppercase text and
   none with casing and punctuation. Read the formatted WER, not only the
   normalized one.
+- **So do characters.** A character the tokenizer cannot write is learned as its
+  unknown token: NASA's typographic apostrophes account for most of its harm on
+  the English and code-switched panels ([above](#what-each-source-does-alone)), which says little about its
+  speech or its transcripts.
+- **Model labels or human labels.** The four talk sources are labelled by
+  models, and how many of their labels are wrong is not measured. The one
+  human-labelled source of the same register, NASA, differs from them in more
+  than its labels, so the screening does not say what model labels cost or bring.
 - **A panel can reward a style.** `voxpopuli-en-nonnative` has verbatim
   references and the base model writes like an edited report, so a source with
   verbatim transcripts gains there without recognizing more words
