@@ -204,7 +204,11 @@ class Block:
 
 
 class _Blocks(HTMLParser):
-    """The paragraphs, list items and headings of a stretch of HTML, in order."""
+    """The paragraphs, list items and headings of a stretch of HTML, in order.
+
+    A list item can hold a paragraph or a list of its own; what follows that
+    inner block, up to the item's end, is one more block.
+    """
 
     BLOCKS = frozenset({"p", "li", "h1", "h2", "h3", "h4", "h5", "h6"})
     BOLD = frozenset({"strong", "b"})
@@ -216,11 +220,13 @@ class _Blocks(HTMLParser):
         self.bold_parts: list[str] = []
         self.starting = False  # still in the bold text the paragraph opens with
         self.bold = 0
+        self.open_items = 0  # list items started and not yet ended
 
     def handle_starttag(self, tag: str, attrs) -> None:
         if tag in self.BLOCKS:
-            self.handle_endtag(tag)  # a paragraph left open ends where the next starts
-            self.parts, self.bold_parts, self.starting = [], [], True
+            self.end_block()  # a paragraph left open ends where the next starts
+            self.open_items += tag == "li"
+            self.start_block()
         elif tag in self.BOLD:
             self.bold += 1
         elif tag == "br":
@@ -229,7 +235,17 @@ class _Blocks(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag in self.BOLD:
             self.bold = max(0, self.bold - 1)
-        elif tag in self.BLOCKS and self.parts is not None:
+        elif tag in self.BLOCKS:
+            self.end_block()
+            self.open_items = max(0, self.open_items - (tag == "li"))
+            if self.open_items:
+                self.start_block()  # the rest of the item that holds this block
+
+    def start_block(self) -> None:
+        self.parts, self.bold_parts, self.starting = [], [], True
+
+    def end_block(self) -> None:
+        if self.parts is not None:
             self.blocks.append(Block(squash("".join(self.parts)), squash("".join(self.bold_parts))))
             self.parts = None
 

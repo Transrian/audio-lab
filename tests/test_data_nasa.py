@@ -177,6 +177,22 @@ def test_the_transcript_starts_after_its_heading_and_reads_every_kind_of_label()
     ]
 
 
+def test_the_text_after_a_list_inside_a_list_item_is_read():
+    body = (
+        '<div class="hds-podcast-content"><ul><li><strong>Joe Westlake</strong>'
+        "<ul><li>(Joe appeared in Episode 1)</li><li>Totality changes you.</li></ul>"
+        "and then he thanked the listeners.</li></ul><p>Next.</p></div>"
+    )
+
+    assert [block.text for block in nasa.blocks_of(body)] == [
+        "Joe Westlake",
+        "(Joe appeared in Episode 1)",
+        "Totality changes you.",
+        "and then he thanked the listeners.",
+        "Next.",
+    ]
+
+
 def test_a_plain_name_on_its_own_line_is_a_label_when_it_recurs():
     lines = nasa.transcript_lines(
         page("Miles Hatfield", "Hello there.", "Peter Elstner", "Hi.", "Miles Hatfield", "Ohh")
