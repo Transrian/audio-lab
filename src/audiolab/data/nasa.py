@@ -8,16 +8,16 @@ not a model's, and :mod:`audiolab.data.aligned_clips` is what places it in time.
 - ``audiolab data list-talks nasa-en-train`` reads the feeds of :data:`SHOWS`,
   drops the repeats (:func:`without_repeats`), fetches every episode page once
   into the cache, and pins the episodes whose page holds a transcript and no
-  copyright notice. The listing holds metadata only; the raw pages stay in
+  copyright notice (:func:`why_unusable`). The listing holds metadata only; the raw pages stay in
   ``$AUDIOLAB_CACHE/nasa-en-train/pages``.
 - ``audiolab data fetch nasa-en-train`` (:func:`fetch_nasa_en_train`) reads the
   listing in a seeded order spread over the shows and runs, batch by batch: the
   listing's checks on each page fetched again, the Whisper pass of the other
-  talk sources (:func:`audiolab.data.talks.heard_talk`: chunks, raw answers
-  cached), the alignment of each episode's transcript to its candidate clips (no
-  model), then the Parakeet pass, which keeps a clip only when Parakeet hears
-  the label's first and last words at its edges and records ``base_wer``
-  (:func:`audiolab.data.talks.offer_talk`). Every Whisper request of a batch is
+  talk sources (:func:`audiolab.data.talks.heard_talks`: several episodes at
+  once, chunks, raw answers cached), the alignment of each episode's transcript
+  to its candidate clips (no model), then the Parakeet pass, which keeps a clip
+  only when Parakeet hears the label's first and last words at its edges and
+  records ``base_wer`` (:func:`audiolab.data.talks.offer_talk`). Every Whisper request of a batch is
   sent before the first Parakeet one (D-020).
 
 The licence is public domain: a work of the US government is not protected by
@@ -60,7 +60,7 @@ from audiolab.data.talks import (
     batch_size,
     client,
     clips_file,
-    heard_talk,
+    heard_talks,
     http_client,
     offer_talk,
     prefetched,
@@ -577,7 +577,7 @@ def label_batch(
             tally[f"episodes left out at preparation: {reason}"] += 1
         else:
             usable.append((episode, path))
-    heard = [heard_talk(episode, path, cache, whisper, tally) for episode, path in usable]
+    heard = heard_talks(usable, cache, whisper, tally)
     labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
     room = take.cap - take.kept
     sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
