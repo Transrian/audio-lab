@@ -179,6 +179,15 @@ def make_take(directory: Path) -> Take:
     )
 
 
+def test_a_stop_is_honoured_while_rows_are_left_out(tmp_path):
+    take = make_take(tmp_path / "example-train")
+    assert not take.offer("1", tone(seconds=0.1), text="Trop court.", group="a")
+    request_stop()
+    with pytest.raises(Stopped, match="preparation of example-train stopped"):
+        take.offer("2", tone(seconds=0.1), text="Trop court.", group="a")
+    assert take.rows_read == 1
+
+
 def test_a_resumed_training_source_decides_on_the_written_length_without_reading(
     tmp_path, run_again
 ):
@@ -187,7 +196,7 @@ def test_a_resumed_training_source_decides_on_the_written_length_without_reading
     rows = [("a", 1.0), ("b", 30.0), ("c", 2.0), ("d", 1.5)]  # b is too long
     with pytest.raises(Stopped):
         for source_id, seconds in rows:
-            if source_id == "c":
+            if source_id == "d":  # c is written, then the stop comes
                 request_stop()
             take.offer(source_id, lambda s=seconds: tone(s), text="Un mot.", group="spk")
     run_again()

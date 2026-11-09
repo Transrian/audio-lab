@@ -36,6 +36,7 @@ from typing import Protocol
 
 from audiolab.core.audio import Audio
 from audiolab.core.paths import data_dir
+from audiolab.core.stop import raise_if_stopped
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError
 from audiolab.data.store import MANIFEST_NAME, Clip, read_manifest
@@ -251,8 +252,10 @@ class Take:
         whole path: decide, and write when the decision takes the row. ``audio``
         can be a function that reads it: a row a stopped preparation already
         wrote is then decided on the length it was written with, without being
-        read again.
+        read again. A stop is honoured here too, and not only when a clip is
+        written: a source can read many rows in a row that it leaves out.
         """
+        raise_if_stopped(f"preparation of {self.builder.dataset_dir.name} stopped")
         if self.full():
             return False
         done = self.prepared(source_id, text=text, group=group, **extra_fields)
