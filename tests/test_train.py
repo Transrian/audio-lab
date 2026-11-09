@@ -19,6 +19,7 @@ import yaml  # noqa: E402
 from helpers import make_clip  # noqa: E402
 
 from audiolab.core.checkpoint import CheckpointError  # noqa: E402
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import TrainConfig, TrainConfigError  # noqa: E402
@@ -295,6 +296,7 @@ class FakeResult:
     wall_seconds: float = 32.0
     peak_vram_gib: float = 7.25
     device: str = "Fake GPU"
+    stopped: bool = False
 
 
 class FakeStep:
@@ -411,6 +413,53 @@ def test_a_run_that_stopped_is_continued_from_its_slot(tmp_path, monkeypatch):
     )
     assert step.calls[0].resuming is True
     assert train_json(directory)["resumed"] is True
+
+
+class StoppedStep:
+    """A run asked to stop: it writes its slot and says it stopped."""
+
+    def __call__(self, training: Training, *, print_line=print):
+        (training.directory / RESUME_NAME).write_bytes(b"optimizer state at update 1")
+        return FakeResult(updates=1, stopped=True)
+
+
+def test_a_stopped_run_keeps_its_slot_writes_no_record_and_the_same_command_resumes(
+    tmp_path, monkeypatch
+):
+    dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    loaded = run_config(tmp_path, clips=4, updates=2)
+    monkeypatch.setattr(runner, "train_checkpoint", StoppedStep())
+    with pytest.raises(Stopped, match="stopped after update 1 of 2") as stopped:
+        runner.run_training(
+            loaded, data_dir=dataset, runs_root=tmp_path / "runs", print_line=lambda _: None
+        )
+    assert "run the same command again to resume" in str(stopped.value)
+    directory = run_dir("example", tmp_path / "runs")
+    assert (directory / RESUME_NAME).is_file()
+    assert not is_finished(directory)
+    assert not (directory / MODEL_CONFIG).exists()
+
+    step = FakeStep()
+    monkeypatch.setattr(runner, "train_checkpoint", step)
+    runner.run_training(
+        loaded, data_dir=dataset, runs_root=tmp_path / "runs", print_line=lambda _: None
+    )
+    assert step.calls[0].resuming is True
+    assert is_finished(directory) and not (directory / RESUME_NAME).exists()
+
+
+def test_a_stop_asked_before_training_starts_trains_nothing(tmp_path, monkeypatch):
+    step = FakeStep()
+    monkeypatch.setattr(runner, "train_checkpoint", step)
+    request_stop()
+    with pytest.raises(Stopped, match="before it started"):
+        runner.run_training(
+            run_config(tmp_path, clips=4, updates=2),
+            data_dir=write_dataset(tmp_path / "data", "fleurs-fr", 20),
+            runs_root=tmp_path / "runs",
+            print_line=lambda _: None,
+        )
+    assert step.calls == []
 
 
 def test_what_a_run_was_started_as_is_on_disk_before_it_trains(tmp_path, monkeypatch):

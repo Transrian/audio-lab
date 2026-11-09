@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 from audiolab.core.checkpoint import Checkpoint
 from audiolab.core.gpu import select_gpu
+from audiolab.core.progress import say
+from audiolab.core.stop import Stopped, raise_if_stopped
 from audiolab.eval.records import git_commit
 from audiolab.train.config import TrainConfig
 from audiolab.train.data import (
@@ -66,9 +68,7 @@ class Training:
     resuming: bool
 
 
-def train_checkpoint(
-    training: Training, *, print_line: Callable[[str], None] = print
-) -> TrainResult:
+def train_checkpoint(training: Training, *, print_line: Callable[[str], None] = say) -> TrainResult:
     """The one heavy step. Kept behind a name so the tests can replace it."""
     try:
         from audiolab.train import finetune
@@ -90,9 +90,14 @@ def run_training(
     data_dir: Path | None = None,
     runs_root: Path | None = None,
     fresh: bool = False,
-    print_line: Callable[[str], None] = print,
+    print_line: Callable[[str], None] = say,
 ) -> Path:
-    """Train one config and return the run directory that now holds the result."""
+    """Train one config and return the run directory that now holds the result.
+
+    A run asked to stop raises :class:`~audiolab.core.stop.Stopped` once its
+    resume slot is written; it writes neither a checkpoint nor a record, so the
+    directory says what it is: a run that has not finished.
+    """
     directory = run_dir(config.name, runs_root)
     # Before anything is read, so a finished run costs a second rather than a
     # checkpoint load and a dataset scan.
@@ -138,7 +143,13 @@ def run_training(
         if training.resuming
         else f"starting from {base} ({base_identity})"
     )
+    raise_if_stopped(f"training of {config.name} stopped before it started")
     result = train_checkpoint(training, print_line=print_line)
+    if result.stopped:
+        raise Stopped(
+            f"training of {config.name} stopped after update {result.updates} of "
+            f"{config.updates}, kept in {directory / RESUME_NAME}"
+        )
 
     # The record is written last, and the resume slot removed after it: a run
     # directory with no train.json is a run that stopped, whatever else is in it.
