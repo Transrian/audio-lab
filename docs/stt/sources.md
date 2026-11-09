@@ -75,12 +75,14 @@ five are `used` below; its results are in [per-source screening](screening.md).
 GLOBE V2 was not prepared (no accent labels to select French speakers by), and
 its row stays a candidate.
 
-Later the same day, five more were prepared and are not screened yet:
+Later the same day, five more were prepared:
 `librispeech-pc-en-train`, `pxcorpus-fr-train`, `ami-fr-speakers-en-train`,
-`icsi-en-train` and `notsofar-en-train` (rows below); and the text of `african-accented-fr-train` was cleaned, so its
-screening result describes the uncleaned text. `peertube-fr-train` and
+`icsi-en-train` and `notsofar-en-train` (rows below); and the text of
+`african-accented-fr-train` was cleaned. `peertube-fr-train` and
 `peertube-edu-fr-train` followed on 2026-11-09 ([French variety](#french-variety),
-rows 3 bis and 22), not screened yet either.
+rows 3 bis and 22). The second batch of the screening (2026-11-09) trained on
+those five, on the cleaned African-accented text and on `peertube-fr-train`; its
+results are in [per-source screening](screening.md#second-batch-2026-11-09).
 
 ## Used — trained on here
 

@@ -14,14 +14,17 @@ the baseline of [decision 0004](../decisions/accepted/0004-parakeet-fr-baseline-
 
 ## The runs
 
-One config per source, identical except for the dataset and the GPU:
-[`configs/train/screen-*.yaml`](../../configs/train/). Run on 2026-11-08, two
-RTX 5090 in parallel, code at commit `7aede77`.
+One config per source, identical except for the dataset, the clip count of a
+source smaller than 10 000 clips, and the GPU:
+[`configs/train/screen-*.yaml`](../../configs/train/). Two batches, each on two
+RTX 5090 in parallel: five sources on 2026-11-08, code at commit `7aede77`, and
+seven on 2026-11-09 ([second batch](#the-second-batch)). The training code is
+the same at every commit used.
 
 | Setting | Value | Why |
 |---|---|---|
 | Base model | `nvidia/parakeet-tdt-0.6b-v3` | the model to improve (D-005) |
-| Clips per source | 10 000 | the same for every source; the smallest prepared source has 11 435 |
+| Clips per source | 10 000, or all the clips of a smaller source | the smallest source of the first batch has 11 435 |
 | Updates | 2 000 | the same for every source |
 | Clips per update | 16 (2 per step × 8 accumulated) | 4 clips of up to 20 s of dense read speech already overflow 32 GB |
 | Clip length | 0.5–20 s | the window the sources were prepared with |
@@ -30,26 +33,54 @@ RTX 5090 in parallel, code at commit `7aede77`.
 | Precision | bf16-mixed | |
 
 **Same clips, same updates.** Every source gets 32 000 clip presentations
-(2 000 updates × 16 clips, 3.2 passes over its 10 000 clips) and the same number
-of optimizer steps, so a difference in the scores comes from the data. As a rule
-of thumb, Adam's step is close to the learning rate whatever the batch, so 2 000
-updates at these rates should move the weights about as far as 2 000 updates of
-the earlier screening.
+(2 000 updates × 16 clips, 3.2 passes over 10 000 clips, more over a smaller
+source) and the same number of optimizer steps, so a difference in the scores
+comes from the data. As a rule of thumb, Adam's step is close to the learning
+rate whatever the batch, so 2 000 updates at these rates should move the weights
+about as far as 2 000 updates of the earlier screening.
 
 **The rates were not searched.** They are a reasonable fine-tuning rate for this
 model, not a tuned one; a source that looks harmful here could look different at
 another rate or length.
 
+### The second batch
+
+Run on 2026-11-09. Four sources have fewer than 10 000 clips and train on all of
+them, so each clip is seen more often:
+
+| Dataset | Clips | Times each clip is seen | Training time | Peak memory | Commit |
+|---|---|---|---|---|---|
+| `icsi-en-train` | 8 752 | 3.7 | 53 min | 19.9 GiB | `4658150` |
+| `notsofar-en-train` | 2 330 | 13.7 | 56 min | 18.1 GiB | `51871cc` |
+| `librispeech-pc-en-train` | 10 000 | 3.2 | 53 min | 17.7 GiB | `4658150` |
+| `pxcorpus-fr-train` | 1 912 | 16.7 | 60 min | 15.9 GiB | `51871cc` |
+| `african-accented-fr-train` | 10 000 | 3.2 | 51 min | 16.2 GiB | `51871cc` |
+| `ami-fr-speakers-en-train` | 3 971 | 8.1 | 51 min | 17.9 GiB | `51871cc` |
+| `peertube-fr-train` | 10 000 | 3.2 | 43 min | 22.4 GiB | `77ceaa2` |
+
+`african-accented-fr-train` is screened a second time, on its cleaned text
+([card](datasets.md#african-accented-fr-train--african-accented-french)); the
+first batch trained on the text as published, and that run's evaluation is kept
+as `$AUDIOLAB_RUNS/eval/screen-african-accented-fr-uncleaned-2026-11-08/`.
+
+Four more sources are screened with the same recipe: `peertube-edu-fr-train`,
+`debconf-en-train`, `fosdem-en-train` and `nasa-en-train`. Their runs and
+results are to come.
+
 ## Results
 
 Normalized WER on the full suite (hallucination rate for `nonspeech`). The base
-column is the base model served by `audiolab serve`, exactly like the five
+column is the base model served by `audiolab serve`, exactly like the
 fine-tunes, in %; each other cell is the change against it in points, with its
 95 % confidence interval, and **bold** when the interval excludes zero. Negative
 is better. "servicenow en-fr" and "en-fr-ca" are the panels
 `servicenow-codeswitched-en-fr` and `servicenow-codeswitched-en-fr-ca`. The
 mls-fr intervals rest on fewer than 20 groups, and `audiolab compare` marks them
 approximate.
+
+### First batch (2026-11-08)
+
+The African-accented FR column is the run on the uncleaned text.
 
 | panel | base | Granary | VoxPopuli FR | MLS FR | African-accented FR | LibriSpeech EN |
 |---|---|---|---|---|---|---|
@@ -76,6 +107,32 @@ references carry them:
 
 Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
 
+### Second batch (2026-11-09)
+
+The African-accented FR column is the run on the cleaned text.
+
+| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR |
+|---|---|---|---|---|---|---|---|---|
+| fleurs-fr | 4.96 | **+0.29** [+0.05, +0.55] | **+0.26** [+0.02, +0.51] | **−0.20** [−0.40, −0.02] | **+2.02** [+1.47, +2.61] | **+0.94** [+0.52, +1.39] | +0.08 [−0.17, +0.35] | −0.18 [−0.41, +0.06] |
+| mls-fr | 5.61 | −0.21 [−0.55, +0.05] | **+0.58** [+0.02, +1.20] | **−0.30** [−0.59, −0.02] | **+0.95** [+0.39, +1.46] | +0.28 [−0.17, +0.70] | **+2.73** [+1.41, +4.36] | **−0.57** [−1.12, −0.14] |
+| servicenow en-fr | 13.26 | +0.55 [−0.84, +1.94] | +0.62 [−0.63, +1.92] | −1.29 [−2.88, +0.20] | **+1.58** [+0.20, +3.04] | **+10.51** [+7.71, +13.39] | **+6.08** [+4.20, +8.06] | **−2.45** [−4.14, −0.93] |
+| servicenow en-fr-ca | 15.18 | +0.30 [−1.31, +1.89] | −0.60 [−1.98, +0.69] | **−2.13** [−3.81, −0.53] | −1.26 [−3.13, +0.51] | **+5.33** [+2.26, +8.65] | **+12.87** [+8.31, +17.66] | **−3.65** [−5.63, −1.82] |
+| cs-fleurs-fr-en | 16.27 | **−2.13** [−3.06, −1.28] | −0.64 [−1.71, +0.35] | **−1.89** [−2.97, −0.95] | **−1.28** [−2.39, −0.28] | **+1.59** [+0.35, +2.75] | **+3.23** [+1.63, +4.99] | **−2.10** [−3.19, −1.13] |
+| voxpopuli-en-nonnative | 20.44 | **−6.16** [−7.46, −5.34] | **−5.13** [−6.33, −4.36] | **−1.61** [−2.64, −1.03] | −0.16 [−1.83, +3.33] | **+5.14** [+3.50, +7.37] | **−3.66** [−4.82, −2.13] | **−6.63** [−7.69, −5.70] |
+| fleurs-en | 5.24 | −0.20 [−0.51, +0.14] | +0.09 [−0.23, +0.41] | −0.09 [−0.29, +0.12] | **+0.66** [+0.20, +1.18] | +0.24 [−0.15, +0.63] | +0.13 [−0.21, +0.45] | **−0.31** [−0.54, −0.08] |
+| librispeech-en | 2.04 | −0.01 [−0.20, +0.18] | +0.13 [−0.08, +0.32] | −0.16 [−0.35, +0.01] | +0.13 [−0.13, +0.38] | +0.10 [−0.12, +0.34] | +0.01 [−0.13, +0.15] | −0.09 [−0.25, +0.07] |
+| nonspeech (hallucination) | 5.00 | +0.71 [−1.79, +3.21] | +2.14 [−0.71, +5.00] | +0.71 [−1.07, +2.86] | −1.79 [−4.64, +1.07] | **−3.93** [−6.79, −1.43] | +0.36 [−2.50, +2.86] | **−3.57** [−6.07, −1.07] |
+
+Formatted WER, absolute:
+
+| panel | base | ICSI EN | NOTSOFAR EN | LibriSpeech-PC EN | PxCorpus FR | African-accented FR | AMI FR speakers | PeerTube FR |
+|---|---|---|---|---|---|---|---|---|
+| fleurs-fr | 8.85 | 9.86 | 9.35 | 8.74 | 22.49 | 21.23 | 9.20 | 8.61 |
+| servicenow en-fr | 16.15 | 18.17 | 16.15 | 15.22 | 28.76 | 37.36 | 19.63 | 14.40 |
+| servicenow en-fr-ca | 18.25 | 23.50 | 17.42 | 16.19 | 19.76 | 32.67 | 29.27 | 15.62 |
+| cs-fleurs-fr-en | 20.87 | 20.35 | 20.09 | 19.14 | 26.47 | 32.22 | 23.79 | 18.99 |
+| fleurs-en | 11.21 | 11.17 | 11.17 | 11.10 | 23.16 | 19.85 | 11.42 | 10.40 |
+
 ### What each source does alone
 
 - **Granary** is the only source with no measurable harm anywhere. It gains a
@@ -99,38 +156,111 @@ Each run trained 2 000 updates in 38 to 54 minutes, at a peak of 16 to 24 GiB.
   [+0.55, +1.54], mls-fr at +0.46 [−0.05, +0.91], fleurs-en at +0.46
   [+0.12, +0.82], and still a real cost on code-switched speech
   (servicenow en-fr-ca +7.66, en-fr +12.25, cs-fleurs-fr-en +2.06) and on
-  non-native English (+5.03, with 46 empty answers out of 600). Its text was fixed after
-  the screening (apostrophes and spacing), so these numbers describe the old
-  text.
+  non-native English (+5.03, with 46 empty answers out of 600). Its text was
+  cleaned after this run (apostrophes and spacing); the second batch trains on
+  the cleaned text.
 - **LibriSpeech EN** is unusable as it is prepared: its transcripts are all
   uppercase, the model learns to write in capitals (`HE HOPED THERE WOULD BE
   STEW FOR DINNER`), which this tokenizer spells poorly, and it gets worse even
   on LibriSpeech. Alone it also loses French, as an English-only fine-tune
-  should. A cased and punctuated version of the same audio would be the one to
-  test.
-- **Hallucinations**: every French source cut the hallucination rate on
-  non-speech from 5.0 % to 1.1–2.5 %. Whether that comes from the data or from
-  fine-tuning at all, this screening cannot tell.
+  should. The cased and punctuated version of the same audio is
+  LibriSpeech-PC EN, in the second batch.
+
+Second batch:
+
+- **LibriSpeech-PC EN**, the same audio with casing and punctuation, gains a
+  little almost everywhere and harms nothing: cs-fleurs-fr-en −1.89, servicenow
+  en-fr-ca −2.13, mls-fr −0.30, fleurs-fr −0.20, and a better formatted WER on
+  all five panels. The uppercase text alone made LibriSpeech EN unusable.
+- **ICSI EN** gains on non-native English (−6.16, mostly style:
+  [below](#what-the-voxpopuli-en-nonnative-gains-are)) and on cs-fleurs-fr-en
+  (−2.13), and costs a little on fleurs-fr (+0.29). Its formatted WER is worse on
+  the French panels (servicenow en-fr-ca 18.25 → 23.50), which the normalized
+  view does not show; the cause is not analysed.
+- **NOTSOFAR EN** gains on non-native English (−5.13, mostly style) and costs a
+  little on fleurs-fr (+0.26) and mls-fr (+0.58); nothing else changes
+  measurably.
+- **AMI FR speakers** gains on non-native English (−3.66, not analysed for
+  style) but harms French and code-switching: servicenow en-fr-ca +12.87, en-fr
+  +6.08, cs-fleurs-fr-en +3.23, mls-fr +2.73.
+- **PxCorpus FR** harms French and English (fleurs-fr +2.02, mls-fr +0.95,
+  fleurs-en +0.66, servicenow en-fr +1.58) and gains only on cs-fleurs-fr-en
+  (−1.28). Its lowercase, unpunctuated text more than doubles the formatted WER
+  of fleurs-fr (8.85 → 22.49) and fleurs-en.
+- **NOTSOFAR, AMI and PxCorpus** see each clip 13.7, 8.1 and 16.7 times, against
+  3.2 for a source of 10 000 clips: their harm may come from the repetition
+  rather than from the corpus.
+- **African-accented FR, cleaned text**: the cleaning removed most of the
+  damage (fleurs-fr +11.45 → +0.94, mls-fr +12.86 → +0.28, cs-fleurs-fr-en
+  +10.52 → +1.59), close to what the diagnostic above predicted. It still harms
+  the code-switched panels (servicenow en-fr +10.51, en-fr-ca +5.33) and
+  non-native English (+5.14), and its lowercase, unpunctuated text more than
+  doubles the formatted WER of fleurs-fr (8.85 → 21.23).
+- **PeerTube FR** (Capitole du Libre talks labelled by Qwen3-ASR where Whisper
+  agrees: [card](datasets.md#peertube-fr-train--capitole-du-libre-talks-in-french))
+  is the first source that improves every panel: separably on seven of the
+  nine, by intervals that include zero on fleurs-fr (−0.18) and librispeech-en
+  (−0.09). It is the only source separably better on all three code-switched
+  panels (servicenow en-fr-ca −3.65, en-fr −2.45, cs-fleurs-fr-en −2.10), the
+  panels closest to the target use of D-009, and its formatted WER is better on
+  all five panels (servicenow en-fr-ca 18.25 → 15.62). Its −6.63 on non-native
+  English is of the same size as ICSI's, and likely of the same kind.
+
+Both batches:
+
+- **Hallucinations**: every French source of the first batch, the cleaned
+  African-accented French and PeerTube cut the hallucination rate on non-speech
+  from 5.0 % to 1.1–2.5 %; PxCorpus moved it by −1.79, an interval that includes
+  zero. No English source moved it measurably (−0.36 to +2.14). That points at
+  the French data rather than at fine-tuning itself, which the first batch alone
+  could not tell.
+
+### What the voxpopuli-en-nonnative gains are
+
+The gains of 5 to 7 points of ICSI, NOTSOFAR and PeerTube on
+[`voxpopuli-en-nonnative`](datasets.md#voxpopuli-en-nonnative--english-spoken-by-non-native-speakers-in-the-european-parliament)
+are mostly transcription style, not recognition. The base model writes like the
+European Parliament's edited report: it drops the chair's "thank you", writes
+"Mr President", expands contractions ("it's" → "it is"), smooths repetitions
+and drops words at the edges of a clip. The panel's references are raw
+verbatim, and a fine-tune on verbatim transcripts unlearns that style.
+
+A diagnostic re-scoring (not the official score, no confidence interval) that
+also normalizes contractions, courtesy formulas, near repeats and runs of words
+deleted at the edges leaves ICSI at −1.41, NOTSOFAR at −1.59 and
+LibriSpeech-PC at −0.17 points: an upper bound of their real gain. Deletions
+carry the official gain: in ICSI's run they fall from 8.05 to 3.31 points of
+WER. Fillers play no part, since the normalizer drops `uh` and `um`. The
+PeerTube and AMI runs were not re-scored.
+
+ICSI's −2.13 on cs-fleurs-fr-en is real but concentrated: the base model
+collapses on some long code-switched clips (it translates them into English or
+cuts them short), ICSI's run less often, and the top 5 % of items carry 90 % of
+the gain.
 
 ### What the base model already saw
 
-No source made the main French panel better: the best change on fleurs-fr is
-−0.21 [−0.45, +0.02], which does not exclude zero. One likely reason is that the
-base model has seen most of this data already. Its
+No source made the main French panel better by more than a hair: the only
+interval on fleurs-fr that excludes zero is LibriSpeech-PC's −0.20
+[−0.40, −0.02], an English source, and the best French one is VoxPopuli FR's
+−0.21 [−0.45, +0.02]. One likely reason is that the base model has seen most of
+this data already. Its
 [model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) says it was
 trained on about 660 000 hours of Granary, its main training set, and 10 000
 hours of human-transcribed speech, and cites among its sources YODAS and
 YouTube-Commons (where `granary-fr-train` comes from), MOSEL (pseudo-labels over
 VoxPopuli audio), MLS, FLEURS and CoVoST 2. The card does not list the exact
-corpora per language, so the overlap is likely, not checked. Of the five sources,
-only African-accented French is not among those cited.
+corpora per language, so the overlap is likely, not checked. Of the five sources
+of the first batch, only African-accented French is not among those cited.
 
 Two consequences:
 
 - **Gains in French need data the base model has not seen**: the target use of
   D-009 (a developer dictating, French with English words and technical terms)
   rather than more of the same corpora. The candidates are in the
-  [source register](sources.md).
+  [source register](sources.md). PeerTube FR, the first source of that kind
+  screened, is the first to gain on all three code-switched panels; one result
+  agrees with this, it does not prove it.
 - **Granary as an anchor in a mix.** Because Granary is close to what the model
   learned, and harms nothing alone, it could hold the scores in a mix: a new
   source that improves one panel and degrades another would be trained together
@@ -183,10 +313,21 @@ trained with it.
 - **Same clips is not same hours.** Granary clips are short (8.3 h for 12 000
   clips), MLS clips long (49.8 h): at the same clip count, MLS trains on six
   times more audio.
-- **Text style travels.** MLS and the African-accented French set are lowercase
-  without punctuation, LibriSpeech is uppercase: a model trained on them alone
-  can unlearn casing and punctuation. Read the formatted WER, not only the
+- **Fewer clips, more repetition.** A source smaller than 10 000 clips is seen
+  more often (up to 16.7 times for PxCorpus, [second
+  batch](#the-second-batch)): its score mixes what the corpus brings with what
+  repeating it costs, and this screening cannot separate the two.
+- **Text style travels.** MLS, the African-accented French set and PxCorpus are
+  lowercase without punctuation, LibriSpeech is uppercase: a model trained on
+  them alone can unlearn casing and punctuation. The two LibriSpeech arms
+  isolate it: the same audio harms every speech panel with uppercase text and
+  none with casing and punctuation. Read the formatted WER, not only the
   normalized one.
+- **A panel can reward a style.** `voxpopuli-en-nonnative` has verbatim
+  references and the base model writes like an edited report, so a source with
+  verbatim transcripts gains there without recognizing more words
+  ([above](#what-the-voxpopuli-en-nonnative-gains-are)). Its gains do not measure
+  non-native English until the style is separated from the errors.
 - **In-domain advantage.** A source scored on a panel of the same corpus (MLS
   train and the MLS panel, LibriSpeech train and the LibriSpeech panel) gains
   from the domain match, not only from the data quality; no speaker is shared.
