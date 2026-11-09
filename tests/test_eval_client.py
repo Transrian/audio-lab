@@ -2,21 +2,29 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
+import soundfile  # noqa: E402
 
 from audiolab.eval.client import (  # noqa: E402
     ConfigError,
     ModelConfig,
+    NotAnswering,
     TranscriptionClient,
     TranscriptionError,
+    concurrency_from_env,
+    map_requests,
     server_root,
+    silence_wav,
 )
 
 
@@ -243,3 +251,140 @@ def test_a_base_url_of_only_v1_is_refused():
     with pytest.raises(ConfigError, match="not a server URL"):
         server_root("/v1/")
     assert server_root("https://server.example/v1/") == "https://server.example"
+
+
+# Sending N requests at a time (D-022).
+
+
+def test_requests_are_sent_n_at_a_time_and_answered_in_the_items_order():
+    together = threading.Barrier(3, timeout=10)  # three in flight, or none is answered
+    in_flight, most = [0], [0]
+    lock = threading.Lock()
+
+    def ask(number: int) -> int:
+        with lock:
+            in_flight[0] += 1
+            most[0] = max(most[0], in_flight[0])
+        if number < 3:
+            together.wait()
+        time.sleep(0.01 * (5 - number))  # the later items answer first
+        with lock:
+            in_flight[0] -= 1
+        return number * 10
+
+    assert map_requests(ask, range(6), concurrency=3) == [0, 10, 20, 30, 40, 50]
+    assert most[0] == 3, "never more than N requests at once"
+
+
+def test_one_at_a_time_reads_the_items_as_the_requests_go():
+    log: list[str] = []
+
+    def items():
+        for number in range(3):
+            log.append(f"take {number}")
+            yield number
+
+    def ask(number: int) -> int:
+        log.append(f"ask {number}")
+        return number
+
+    assert map_requests(ask, items()) == [0, 1, 2]
+    assert log == ["take 0", "ask 0", "take 1", "ask 1", "take 2", "ask 2"]
+
+
+def test_a_failed_request_stops_the_others_and_is_raised_once_they_are_done():
+    failing = threading.Event()
+    started: list[int] = []
+    finished: list[int] = []
+
+    def ask(number: int) -> int:
+        started.append(number)
+        if number == 1:
+            raise TranscriptionError("HTTP 500")
+        assert failing.wait(timeout=10), "the failure sets the event the asks watch"
+        finished.append(number)
+        return number
+
+    with pytest.raises(TranscriptionError, match="HTTP 500"):
+        map_requests(ask, range(10), concurrency=2, failing=failing)
+
+    assert sorted(started) == [0, 1], "no item starts once a request failed"
+    assert finished == [0], "the request in flight finishes"
+
+
+def test_a_stopped_run_starts_no_new_request_and_returns_those_it_started():
+    stop = threading.Event()
+
+    def ask(number: int) -> int:
+        if number == 2:
+            stop.set()  # Ctrl-C while the third request is answered
+        return number
+
+    assert map_requests(ask, range(10), should_stop=stop.is_set) == [0, 1, 2]
+    assert map_requests(ask, range(10), concurrency=3, should_stop=stop.is_set) == []
+
+
+def test_a_concurrency_below_one_is_refused():
+    with pytest.raises(ValueError, match="at least 1"):
+        map_requests(str, [1], concurrency=0)
+
+
+def test_the_concurrency_of_a_model_comes_from_the_environment_and_defaults_to_one(monkeypatch):
+    whisper, other = make_config(model="stt-v-whisper-large-v3"), make_config(model="other")
+    monkeypatch.delenv("AUDIOLAB_CONCURRENCY", raising=False)
+    assert concurrency_from_env(whisper) == 1
+
+    monkeypatch.setenv("AUDIOLAB_CONCURRENCY", " stt-v-whisper-large-v3=10 , qwen=4,")
+    assert (concurrency_from_env(whisper), concurrency_from_env(other)) == (10, 1)
+
+    for wrong in ("stt-v-whisper-large-v3", "stt-v-whisper-large-v3=0", "=3", "a=many"):
+        monkeypatch.setenv("AUDIOLAB_CONCURRENCY", wrong)
+        with pytest.raises(ConfigError, match="<served model id>=<N>"):
+            concurrency_from_env(whisper)
+
+
+# The warmup (D-022).
+
+
+def test_the_warmup_waits_until_a_model_that_is_loading_answers(capsys):
+    outcomes = iter(["refused", 503, 200])
+    requests: list[httpx.Request] = []
+
+    def loading(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        outcome = next(outcomes)
+        if outcome == "refused":
+            raise httpx.ConnectError("connection refused", request=request)
+        return httpx.Response(outcome, json={"text": ""})
+
+    slept: list[float] = []
+    client = TranscriptionClient(
+        make_config(),
+        "http://localhost:9",
+        transport=httpx.MockTransport(loading),
+        sleep=slept.append,
+    )
+    client.warm_up()
+
+    assert len(requests) == 3 and slept == [5.0, 5.0], "asked again every five seconds"
+    assert capsys.readouterr().err == "waiting for served-id to answer...\nserved-id answers\n"
+    body = requests[-1].content
+    assert silence_wav() in body and b'name="language"' not in body
+    samples, rate = soundfile.read(io.BytesIO(silence_wav()))
+    assert (len(samples), rate, abs(samples).max()) == (8000, 16000, 0.0), "0.5 s of silence"
+
+
+def test_a_model_that_answers_at_once_is_not_waited_for(capsys):
+    for status in (200, 404, 500):
+        client, recorder, slept = make_client([answer("", status=status)])
+        client.warm_up()
+        assert (len(recorder.requests), slept) == (1, []), "an error is an answer too"
+    assert capsys.readouterr().err == ""
+
+
+def test_a_model_that_never_answers_stops_the_run_with_the_reason():
+    client, recorder, slept = make_client([(502, "no upstream", "text/plain")])
+
+    with pytest.raises(NotAnswering, match=r"served-id did not answer within 0 min \(HTTP 502\)"):
+        client.warm_up(wait_s=0.0)
+    assert len(recorder.requests) == 1

@@ -226,6 +226,29 @@ def test_a_run_through_the_command_line(prepared, capsys):
     assert '"verdict": "not separable"' in out
 
 
+def test_eval_sends_as_many_requests_at_once_as_the_flag_or_the_environment_says(
+    prepared, monkeypatch, capsys
+):
+    asked: list[int] = []
+
+    def run_suite(context):
+        asked.append(context.concurrency)
+        return prepared["runs_dir"]
+
+    monkeypatch.setattr(cli, "run_suite", run_suite)
+    command = ["eval", "--model", str(prepared["model"]), "--suite", str(prepared["suite"])]
+    monkeypatch.delenv("AUDIOLAB_CONCURRENCY", raising=False)
+    assert cli.main(command) == 0
+    monkeypatch.setenv("AUDIOLAB_CONCURRENCY", "served-id=4")
+    assert cli.main(command) == 0
+    assert cli.main([*command, "--concurrency", "2"]) == 0
+    assert asked == [1, 4, 2]
+
+    with pytest.raises(SystemExit):
+        cli.main([*command, "--concurrency", "0"])
+    assert "at least 1" in capsys.readouterr().err
+
+
 def test_a_missing_endpoint_variable_exits_with_two(prepared, capsys, monkeypatch):
     monkeypatch.delenv("FAKE_URL", raising=False)
     code = cli.main(

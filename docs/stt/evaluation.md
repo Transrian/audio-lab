@@ -153,6 +153,31 @@ audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.ya
 audiolab eval --model configs/models/example.yaml --suite configs/suites/full.yaml --concurrency 4
 ```
 
+**Requests at once**: a run sends one request at a time unless told otherwise,
+because what a server supports varies ([D-022](../owner/directives.md)).
+`--concurrency N` sends N at once. Without it, the run reads
+`AUDIOLAB_CONCURRENCY`, the same variable the labelling of the talk sources
+reads ([datasets](datasets.md#peertube-fr-train--capitole-du-libre-talks-in-french)):
+comma-separated `<served model id>=<N>` entries, for example
+`AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`; a model
+it does not name gets 1. Like the URL, it is a fact of the server, so it lives in
+the environment (`.env`), not in a model config. It is not part of the cache
+key: a server that batches requests (vLLM) may answer a clip slightly
+differently depending on what was sent beside it, but that is timing, which no
+key can hold.
+
+**Warmup**: before its first request, a run sends half a second of silence and
+waits until the model answers it ([D-022](../owner/directives.md)), because a
+server that loads models on demand can take minutes to answer the first request
+for one. While the connection fails or times out, or the server answers 429,
+502, 503 or 504, the silence is sent again every 5 s, and stderr says
+`waiting for <model> to answer...`; after 15 minutes the run stops with an error
+and records nothing. Any other answer, an error included, ends the wait. The
+warmup is not a clip: it is neither cached nor recorded, and it is not counted in
+`requests`. A run that has nothing to send sends no warmup. The first clip is
+still flagged `cold` and left out of the latency: a model that answered the
+warmup has not necessarily answered a clip of real speech yet.
+
 Sending audio to a model is the slow part; scoring takes seconds. So the
 answers are kept once, in a **transcript cache** shared by every suite, and a
 suite's run directory is rebuilt from it on every run.
@@ -367,7 +392,7 @@ Speech panels:
 | failed requests | calls that never produced text; they are counted, never scored as empty | HTTP 500 after three attempts |
 | scoring errors | hypotheses that came back but that scoring could not read; they are counted, named in the report, and left out of every other number | a number the reader cannot verbalize |
 | latency | median and p95 of the warm calls' **successful request**, cold excluded, plus mean and median RTF | 0.42 s for a 6 s clip = 0.07 |
-| requests | how many HTTP requests the run sent, retries included | 60 items, 2 retries = 62 |
+| requests | how many HTTP requests the run sent, retries included, the warmup not | 60 items, 2 retries = 62 |
 
 A request that failed and a hypothesis that could not be scored are different
 things, and both are counted rather than dropped: the first never came back, the

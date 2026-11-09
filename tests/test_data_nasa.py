@@ -323,7 +323,12 @@ class FakeModels:
     def serve(self, monkeypatch) -> None:
         """Stand in for the two model clients ``nasa`` opens."""
         monkeypatch.setattr(nasa, "client", lambda model, request=None: nullcontext(model))
-        monkeypatch.setattr(nasa, "answer", lambda model, language: partial(self.hear, model))
+        monkeypatch.setattr(nasa, "served", lambda model, language: self.served(model))
+
+    def served(self, model: str) -> talks.Served:
+        return talks.Served(
+            partial(self.hear, model), warm_up=lambda: self.log.append(f"warm-up {model}")
+        )
 
     def hear(self, model: str, wav: bytes) -> dict:
         self.log.append(model)
@@ -385,7 +390,9 @@ def test_a_preparation_labels_its_clips_with_the_transcript_after_every_whisper_
 
     assert count == 3
     # One Parakeet request per clip: the base model's WER reuses the edge check's answer.
-    assert models.log == [nasa.SEGMENT_MODEL] * 2 + [nasa.BASE_MODEL] * 4
+    whisper, parakeet = nasa.SEGMENT_MODEL, nasa.BASE_MODEL
+    each_pass_warmed = [f"warm-up {whisper}", whisper, whisper, f"warm-up {parakeet}"]
+    assert models.log == each_pass_warmed + [parakeet] * 4
     clips = read_manifest(tmp_path / "dataset")
     assert sorted((clip.source_url, clip.text) for clip in clips) == [
         (f"{PAGES}/one/", "Thanks, Jim. Mars has 2 moons."),

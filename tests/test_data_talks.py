@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -31,7 +32,7 @@ from audiolab.data.talk_clips import Answers, Segment  # noqa: E402
 from audiolab.data.talk_listing import Talk, TalkSource, write_listing  # noqa: E402
 from audiolab.data.talks import TalkInProgress  # noqa: E402
 from audiolab.data.train import Take  # noqa: E402
-from audiolab.eval.client import TranscriptionError  # noqa: E402
+from audiolab.eval.client import ModelConfig, TranscriptionError  # noqa: E402
 
 WHISPER, QWEN, PARAKEET = (
     talks.SEGMENT_MODEL,
@@ -349,7 +350,9 @@ def test_a_talk_short_of_its_share_sends_only_the_clips_it_still_wants(tmp_path)
     texts[5.5] = "Rien."
     qwen, calls = answering_by_length(texts)
 
-    agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 3, Counter())
+    agreed = talks.agreeing(
+        one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 3, Counter(), concurrency=10
+    )
 
     assert [label for _, label in agreed] == ["Phrase 0.", "Phrase 2.", "Phrase 3."]
     assert sorted(calls[:3]) == [5.4, 5.5, 5.6] and calls[3:] == [5.7], (
@@ -425,12 +428,16 @@ class FakeClient:
 
     def __init__(self, model: str, answer, log: list[str], language: str = "fr"):
         self.model, self.answer, self.log, self.language = model, answer, log, language
+        self.config = ModelConfig(name=model, model=model)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
         pass
+
+    def warm_up(self):
+        self.log.append(f"warm-up {self.model}")
 
     def transcribe(self, wav: bytes, language: str):
         assert language == self.language, "a model is asked in the language of its source"
@@ -439,6 +446,8 @@ class FakeClient:
 
 
 def serve_fakes(monkeypatch, listed, answers: dict, log: list[str], language: str = "fr") -> None:
+    monkeypatch.delenv("AUDIOLAB_CONCURRENCY", raising=False)  # one request at a time
+
     def fetch_audio(http, one, destination, source):
         log.append(f"download {one.id}")
         return write_tone(destination, seconds=12.0)
@@ -471,12 +480,14 @@ def test_each_batch_runs_the_three_passes_one_model_after_the_other(tmp_path, mo
 
     assert count == 3
     requests = [entry for entry in log if not entry.startswith("download")]
-    first_batch = [WHISPER] * 2 + [QWEN] * 4 + [PARAKEET] * 2
+    first_batch = [f"warm-up {WHISPER}"] + [WHISPER] * 2
+    first_batch += [f"warm-up {QWEN}"] + [QWEN] * 4 + [f"warm-up {PARAKEET}"] + [PARAKEET] * 2
     # The second batch reads two talks, at the one clip a talk seen so far, x 1.3;
     # the last clip fills the cap, and the fourth talk is not labelled.
-    second_batch = [WHISPER] * 2 + [QWEN] + [PARAKEET]
+    second_batch = [f"warm-up {WHISPER}"] + [WHISPER] * 2
+    second_batch += [f"warm-up {QWEN}", QWEN, f"warm-up {PARAKEET}", PARAKEET]
     assert requests == first_batch + second_batch, (
-        "each pass sends every request of its batch before the next pass starts"
+        "each pass warms its model up, then sends every request of its batch before the next"
     )
     clips = read_manifest(tmp_path / "dataset")
     assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 3
@@ -529,8 +540,12 @@ def test_a_stopped_labelling_writes_no_manifest_and_the_next_run_asks_only_the_r
     assert label() == 3
     requests = [entry for entry in log if not entry.startswith("download")]
     # Only what the stopped run did not ask: the second talk of the first batch
-    # for the base model, then the whole second batch.
-    assert requests == [PARAKEET] + [WHISPER] * 2 + [QWEN] + [PARAKEET]
+    # for the base model, then the whole second batch. A pass whose answers are
+    # all cached sends no warmup.
+    first_batch = [f"warm-up {PARAKEET}", PARAKEET]
+    second_batch = [f"warm-up {WHISPER}", WHISPER, WHISPER]
+    second_batch += [f"warm-up {QWEN}", QWEN, f"warm-up {PARAKEET}", PARAKEET]
+    assert requests == first_batch + second_batch
     clips = read_manifest(tmp_path / "dataset")
     assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 3
 
@@ -547,7 +562,6 @@ def test_a_stop_during_the_whisper_pass_reads_no_further_talk_and_labels_nothing
     answers = {WHISPER: whisper, QWEN: lambda wav: {"text": "Bonjour."}, PARAKEET: None}
     log: list[str] = []
     serve_fakes(monkeypatch, None, answers, log)
-    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 1)
     monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 3)
     monkeypatch.setattr(talks, "EXPECTED_CLIPS_PER_TALK", 1)
     source = make_source(tmp_path, [talk(uuid) for uuid in "abcd"])
@@ -659,8 +673,7 @@ def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
     assert waited == [True], "only the next talk downloads before Whisper starts, not the batch"
 
 
-def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_path, monkeypatch):
-    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 3)
+def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_path):
     # Three requests must be in flight together for any of them to be answered.
     together = threading.Barrier(3, timeout=10)
     one = make_pass(
@@ -678,16 +691,13 @@ def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_pa
         together.wait()
         return by_length(wav)
 
-    agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, Counter())
+    agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, Counter(), 3)
 
     assert [label for _, label in agreed] == [f"Phrase {i}." for i in (0, 1, 2, 4, 5)]
     assert len(Answers(tmp_path / "q.jsonl").answers) == 6, "every answer is cached, whole"
 
 
-def test_the_whisper_pass_hears_talks_at_once_and_returns_them_in_batch_order(
-    tmp_path, monkeypatch
-):
-    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 2)
+def test_the_whisper_pass_hears_talks_at_once_and_returns_them_in_batch_order(tmp_path):
     # Both talks must be in flight together for either of them to be answered.
     together = threading.Barrier(2, timeout=10)
     short_one_failed = threading.Event()
@@ -707,7 +717,7 @@ def test_the_whisper_pass_hears_talks_at_once_and_returns_them_in_batch_order(
     ]
     tally = Counter({"talks that could not be downloaded": 2})
 
-    heard = talks.heard_talks(batch, tmp_path, whisper, tally)
+    heard = talks.heard_talks(batch, tmp_path, whisper, tally, concurrency=2)
 
     assert [one.talk.id for one in heard] == ["a", "b", "c"]
     assert heard[1].segments == [segment("Bonjour.", 0.0, 5.0)], "a failing talk spoils no other"
@@ -719,14 +729,14 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
-    in_parallel = talks.in_parallel
+    map_requests = talks.map_requests
     stopping: list[threading.Event] = []
 
-    def watched(ask, items, stop):
-        stopping.append(stop)
-        return in_parallel(ask, items, stop)
+    def watched(ask, items, concurrency, should_stop, failing):
+        stopping.append(failing)
+        return map_requests(ask, items, concurrency, should_stop=should_stop, failing=failing)
 
-    monkeypatch.setattr(talks, "in_parallel", watched)
+    monkeypatch.setattr(talks, "map_requests", watched)
     whisper_asked = threading.Event()
     calls = []
 
@@ -742,7 +752,7 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
         raise KeyboardInterrupt  # Ctrl-C while the talk is heard
 
     with pytest.raises(KeyboardInterrupt):
-        talks.heard_talks(batch(), tmp_path, whisper, Counter())
+        talks.heard_talks(batch(), tmp_path, whisper, Counter(), concurrency=2)
 
     assert len(calls) == 1, "the talk in flight stops at its next chunk"
     assert len(Answers(tmp_path / f"a.{WHISPER}.300s.jsonl").answers) == 1, (
@@ -750,12 +760,115 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     )
 
 
+def test_a_whisper_pass_asked_to_stop_starts_no_talk_and_ends_the_one_in_flight(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
+    stop = threading.Event()
+    calls = []
+
+    def whisper(wav: bytes) -> dict:
+        calls.append(wav)
+        stop.set()  # Ctrl-C while the first chunk is heard
+        return {"segments": [], "text": ""}
+
+    batch = [(talk(uuid), write_tone(tmp_path / f"{uuid}.wav", seconds=10.0)) for uuid in "ab"]
+    heard = talks.heard_talks(batch, tmp_path, whisper, Counter(), should_stop=stop.is_set)
+
+    assert [one.talk.id for one in heard] == ["a"], "the second talk never starts"
+    assert len(calls) == 1, "the talk in flight stops at its next chunk"
+
+
+def test_the_parakeet_pass_sends_clips_at_once_and_offers_them_in_order(tmp_path):
+    together = threading.Barrier(2, timeout=10)  # two in flight, or none is answered
+    one = make_pass(tmp_path, [], seconds=20.0, id="v1")
+    one.agreed = [
+        (segment("Bonjour à tous.", 0.0, 6.0), "Bonjour à tous."),
+        (segment("On parle de Kubernetes.", 6.0, 10.0), "On parle de Kubernetes."),
+    ]
+    by_length, _ = answering_by_length({6.0: "bonjour à tous", 4.0: "On parle de cube air net."})
+
+    def parakeet(wav: bytes) -> dict:
+        together.wait()
+        return by_length(wav)
+
+    take = make_take(tmp_path)
+    kept = talks.offer_talk(
+        one, Answers(tmp_path / "p.jsonl"), parakeet, take, "fr", Counter(), concurrency=2
+    )
+    take.builder.write()
+
+    assert kept == 2
+    clips = read_manifest(tmp_path / "dataset")
+    assert [clip.text for clip in clips] == ["Bonjour à tous.", "On parle de Kubernetes."]
+    assert clips[0].base_wer == 0.0 and clips[1].base_wer > 0
+
+
+def test_each_model_is_sent_as_many_requests_at_once_as_the_environment_says(monkeypatch):
+    monkeypatch.setenv("AUDIOLAB_CONCURRENCY", f"{WHISPER}=10,{QWEN}=4")
+    log: list[str] = []
+
+    concurrency = {
+        model: talks.served(FakeClient(model, None, log), "fr").concurrency
+        for model in (WHISPER, QWEN, PARAKEET)
+    }
+
+    assert concurrency == {WHISPER: 10, QWEN: 4, PARAKEET: 1}, "a model not named gets one"
+
+
+def test_a_pass_warms_its_model_up_once_before_its_first_request():
+    log: list[str] = []
+    warm = threading.Event()
+
+    def warm_up():
+        log.append("warm-up")
+        time.sleep(0.05)  # the other requests wait for it
+        warm.set()
+
+    def transcribe(wav: bytes) -> dict:
+        assert warm.is_set(), "no request is sent before the model answers the warmup"
+        log.append("request")
+        return {"text": ""}
+
+    model = talks.Served(transcribe, concurrency=3, warm_up=warm_up)
+    one_pass = model.one_pass()
+    talks.map_requests(one_pass.transcribe, [b"wav"] * 5, 3)
+    assert log == ["warm-up"] + ["request"] * 5
+    model.one_pass()
+    assert log.count("warm-up") == 1, "a pass that sends nothing warms nothing up"
+    model.one_pass().transcribe(b"wav")
+    assert log.count("warm-up") == 2, "the next pass warms the model up again"
+
+
+def test_a_preparation_run_again_on_its_cache_sends_nothing_and_warms_nothing_up(
+    tmp_path, monkeypatch
+):
+    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    source = make_source(tmp_path, [talk(uuid) for uuid in "ab"])
+    serve_fakes(monkeypatch, None, answers, log)
+    for dataset in ("first", "again"):
+        talks.fetch_talks(
+            source, tmp_path / "cache", tmp_path / dataset, license="CC-BY", verbose=False
+        )
+        if dataset == "first":
+            assert log.count(f"warm-up {WHISPER}") == 1
+            log.clear()
+
+    assert [entry for entry in log if not entry.startswith("download")] == []
+
+
 def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
     answers = Answers(tmp_path / "answers.jsonl")
     keys = [f"{index}.00-{index + 1}.00" for index in range(200)]
     text = "mot " * 2000
 
-    talks.in_parallel(lambda key: answers.answer(key, lambda: {"text": text}), keys)
+    talks.map_requests(lambda key: answers.answer(key, lambda: {"text": text}), keys, 10)
 
     assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}
     lines = (tmp_path / "answers.jsonl").read_text(encoding="utf-8").splitlines()

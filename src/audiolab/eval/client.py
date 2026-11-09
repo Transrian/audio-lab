@@ -8,14 +8,21 @@ broken request for an empty transcript.
 
 from __future__ import annotations
 
+import io
 import os
+import sys
+import threading
 import time
+import wave
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
 import yaml
 
+from audiolab.core.audio import SAMPLE_RATE
 from audiolab.serve.config import ServeSpec
 
 # Transient failures are retried; anything else is reported as it is.
@@ -27,6 +34,17 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 BACKOFF_SECONDS = (1.0, 2.0)
 REQUEST_TIMEOUT_S = 120.0
 TRANSCRIPTIONS_PATH = "/v1/audio/transcriptions"
+# How many requests each served model takes at once; see concurrency_from_env.
+CONCURRENCY_ENV = "AUDIOLAB_CONCURRENCY"
+# The warmup (D-022): half a second of silence, sent again every few seconds
+# until the model answers. A server that loads models on demand can take minutes
+# to load one.
+WARMUP_SECONDS = 0.5
+WARMUP_WAIT_S = 15 * 60.0
+WARMUP_RETRY_S = 5.0
+# What a server answers while it cannot reach the model yet: busy, no upstream,
+# loading, timed out. A 500 is the model failing, which is an answer.
+NOT_READY_STATUSES = frozenset({429, 502, 503, 504})
 # Servers document their root URL, but they are also handed out as ".../v1";
 # both are accepted, and only one "/v1" ever ends up in a request path.
 V1_SUFFIX = "/v1"
@@ -52,6 +70,10 @@ class TranscriptionError(RuntimeError):
 
 class ConfigError(ValueError):
     """A model config file that cannot be used as written."""
+
+
+class NotAnswering(RuntimeError):
+    """A model that did not answer its warmup in time: it would answer no request either."""
 
 
 @dataclass(frozen=True)
@@ -210,6 +232,39 @@ class TranscriptionClient:
             answer=answer,
         )
 
+    def warm_up(self, wait_s: float = WARMUP_WAIT_S) -> None:
+        """Send half a second of silence and wait until the model answers it (D-022).
+
+        A server that loads a model on its first request (llama-swap) may take
+        minutes to answer. While it cannot — the connection fails or times out,
+        or it answers one of :data:`NOT_READY_STATUSES` — the silence is sent again every
+        :data:`WARMUP_RETRY_S` seconds, for up to ``wait_s``. Any other answer,
+        an error included, is the model answering: the requests that follow
+        report their own errors. The warmup is not an item: it goes to no cache
+        and no record, so every run that sends requests sends its own.
+        """
+        deadline = time.monotonic() + wait_s
+        waiting = False
+        while True:
+            try:
+                status = self._post(silence_wav(), "").status_code
+            except httpx.TransportError as failure:
+                status, why = 0, self._redact(f"connection failed: {failure}")
+            else:
+                why = f"HTTP {status}"
+            if status and status not in NOT_READY_STATUSES:
+                if waiting:
+                    print(f"{self.config.model} answers", file=sys.stderr, flush=True)
+                return
+            if time.monotonic() >= deadline:
+                raise NotAnswering(
+                    f"{self.config.model} did not answer within {wait_s / 60:g} min ({why})"
+                )
+            if not waiting:
+                print(f"waiting for {self.config.model} to answer...", file=sys.stderr, flush=True)
+                waiting = True
+            self.sleep(WARMUP_RETRY_S)
+
     def _attempt(self, audio: bytes, language: str) -> tuple[dict, bool, float, int]:
         """One call with its retries; the time and the attempts of the answer it returns."""
         attempt = 0
@@ -278,6 +333,17 @@ def _read_answer(response: httpx.Response) -> dict:
     return {"text": response.text}
 
 
+def silence_wav(seconds: float = WARMUP_SECONDS) -> bytes:
+    """Silence as a 16 kHz mono 16-bit WAV: what a warmup sends."""
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(SAMPLE_RATE)
+        wav.writeframes(bytes(2 * round(seconds * SAMPLE_RATE)))
+    return buffer.getvalue()
+
+
 def _short(text: str, limit: int = 200) -> str:
     collapsed = " ".join(text.split())
     return collapsed if len(collapsed) <= limit else collapsed[:limit] + "..."
@@ -300,3 +366,86 @@ def api_key_from_env(config: ModelConfig) -> str:
     if not config.api_key_env:
         return ""
     return os.environ.get(config.api_key_env, "").strip()
+
+
+def concurrency_from_env(config: ModelConfig) -> int:
+    """How many requests the served model takes at once: one, unless the environment says more.
+
+    ``$AUDIOLAB_CONCURRENCY`` holds ``<served model id>=<N>`` entries separated
+    by commas, for example ``stt-v-whisper-large-v3=10``. What an engine
+    supports varies, so a model it does not name is sent one request at a time
+    (D-022). Like the URL, it is a fact of the server, and stays out of the
+    config files.
+    """
+    counts: dict[str, int] = {}
+    for entry in os.environ.get(CONCURRENCY_ENV, "").split(","):
+        if not entry.strip():
+            continue
+        model, _, count = entry.strip().rpartition("=")
+        if not model or not count.isdigit() or int(count) < 1:
+            raise ConfigError(
+                f"${CONCURRENCY_ENV} holds {entry.strip()!r}; "
+                "each entry must be <served model id>=<N>, with N at least 1"
+            )
+        counts[model] = int(count)
+    return counts.get(config.model, 1)
+
+
+def never() -> bool:
+    """The stop condition of a run nothing asks to stop."""
+    return False
+
+
+def map_requests[T, R](
+    ask: Callable[[T], R],
+    items: Iterable[T],
+    concurrency: int = 1,
+    *,
+    should_stop: Callable[[], bool] = never,
+    failing: threading.Event | None = None,
+) -> list[R]:
+    """``ask`` on every item, ``concurrency`` at a time; the results in the items' order.
+
+    This is how every caller sends requests N at a time (D-022). It runs the
+    requests of one model only: a caller that asks several models through a
+    hot-swapping server sends every request of one model, through one call,
+    before the next model's (D-020), so concurrency never mixes two models.
+
+    The items are taken in order, one at a time, as a worker becomes free, so
+    an iterator that is still producing them (a talk still downloading) is read
+    as the requests go. No item starts once ``should_stop()`` is true: the items
+    in flight finish, and the results returned are those of the items started,
+    the first ones. An ``ask`` that fails, or an interrupted caller, sets
+    ``failing``: no item starts either, an ``ask`` watching it can end early,
+    and the failure is raised once the items in flight are done.
+    """
+    if concurrency < 1:
+        raise ValueError(f"concurrency must be at least 1, not {concurrency}")
+    failing = threading.Event() if failing is None else failing
+    numbered = enumerate(items)
+    taking = threading.Lock()
+    results: dict[int, R] = {}
+
+    def work() -> None:
+        try:
+            while True:
+                with taking:
+                    stopped = failing.is_set() or should_stop()
+                    entry = None if stopped else next(numbered, None)
+                if entry is None:
+                    return
+                index, item = entry
+                results[index] = ask(item)
+        except BaseException:
+            failing.set()
+            raise
+
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        workers = [pool.submit(work) for _ in range(concurrency)]
+        try:
+            for worker in workers:
+                worker.result()
+        except BaseException:
+            failing.set()
+            raise
+    return [results[index] for index in range(len(results))]

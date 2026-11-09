@@ -912,12 +912,24 @@ published.
 
   The server holds one model at a time, so the passes run over a batch of talks:
   every Whisper request, then every Qwen one, then every Parakeet one
-  ([D-020](../owner/directives.md)). Whisper and Qwen get up to 10 requests at once
-  (`PARALLEL_REQUESTS`: several talks for Whisper, several clips of one talk for
-  Qwen), and their answers are read in the order a one-at-a-time pass would read
-  them, so the clips kept do not depend on which answer arrives first; Parakeet
-  gets one at a time. A talk is no longer labelled once it holds its 200 clips or
-  the cap is full. Every raw answer is cached per talk and per model under
+  ([D-020](../owner/directives.md)). Each model is sent as many requests at once
+  as its entry in `AUDIOLAB_CONCURRENCY` says, and one when it has none
+  ([D-022](../owner/directives.md); the variable is described in
+  [evaluation](evaluation.md#4-run-and-read-the-result)): several talks at once
+  for Whisper, several clips of one talk for Qwen and Parakeet. The answers are
+  read in the order a one-at-a-time pass would read them, so the clips kept do
+  not depend on which answer arrives first. On the owner's home server, vLLM
+  takes 10 requests per model at once and answers an eleventh with HTTP 429, and
+  CrispASR answers one request after the other (ten Parakeet clips sent at once
+  took as long as ten in a row), so the preparations there run with
+  `AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`.
+  Before its first request, each pass waits for its model to answer a warmup, as
+  an evaluation does ([evaluation](evaluation.md#4-run-and-read-the-result)): the
+  server may have unloaded the model since its last pass, and loading it again
+  can take minutes. A pass whose answers are all cached sends nothing, warmup
+  included, so a resumed preparation makes the server load no model for nothing.
+  A talk is no longer labelled once it holds its 200 clips or the cap is full.
+  Every raw answer is cached per talk and per model under
   `$AUDIOLAB_CACHE/peertube-fr-train`, so an interrupted preparation resumes where
   it stopped.
 - **Prepared** (2026-11-09): the first 65 h of the reading order (84 talks) were
