@@ -57,6 +57,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+from copy import copy
 from dataclasses import dataclass, field, replace
 from functools import partial
 from itertools import islice
@@ -175,7 +176,10 @@ class Served:
             nonlocal warm, failed
             with warming:
                 if failed is not None:
-                    raise failed
+                    # Each request that waited raises an exception of its own, of
+                    # the same kind: one instance raised in several threads would
+                    # gather all their tracebacks, and a stop must still be a stop.
+                    raise copy(failed) from failed
                 if not warm:
                     try:
                         self.warm_up()

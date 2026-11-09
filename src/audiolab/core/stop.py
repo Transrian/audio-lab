@@ -37,7 +37,12 @@ class Stopped(Exception):
     """A task stopped at a step boundary because a stop was asked for."""
 
     def __init__(self, what: str = "stopped") -> None:
-        super().__init__(f"{what}; run the same command again to resume")
+        # ``what`` alone is the argument, so a copy says the same thing once.
+        super().__init__(what)
+        self.what = what
+
+    def __str__(self) -> str:
+        return f"{self.what}; run the same command again to resume"
 
 
 def request_stop() -> None:

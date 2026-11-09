@@ -987,6 +987,24 @@ def test_a_warmup_that_fails_fails_the_pass_without_being_sent_again():
     assert warm_ups == ["warm-up"], "the requests waiting for it fail with it, without a wait each"
 
 
+def test_every_request_waiting_for_a_failed_warmup_raises_its_own_exception():
+    """Of the same kind (a stop stays a stop), never one instance raised in several threads."""
+
+    def warm_up():
+        raise Stopped("waiting for served-id to answer stopped")
+
+    one_pass = talks.Served(lambda wav: {"text": ""}, warm_up=warm_up).one_pass()
+    raised = []
+    for _ in range(3):
+        with pytest.raises(Stopped) as caught:
+            one_pass.transcribe(b"wav")
+        raised.append(caught.value)
+    first, *others = raised
+    assert len({id(failure) for failure in raised}) == 3
+    assert all(failure.__cause__ is first for failure in others)
+    assert all(str(failure) == str(first) for failure in others)
+
+
 def test_a_preparation_run_again_on_its_cache_sends_nothing_and_warms_nothing_up(
     tmp_path, monkeypatch
 ):
