@@ -349,10 +349,19 @@ screening is a difference between corpora and not between recipes:
   punctuated human text, and Granary is cased, punctuated model output that
   nobody verified. That difference is part of what the screening measures, so
   nothing was rewritten to
-  make the arms look alike. Transport defects of a published transcript are the
-  one exception, and the card of the source says which: SLR57 writes a space
-  after every apostrophe (`j' ai`), which the training text drops because the
-  model learns it and the scorer counts two words.
+  make the arms look alike. Two exceptions. Transport defects of a published
+  transcript, which the card of the source names: SLR57 writes a space after
+  every apostrophe (`j' ai`), which the training text drops because the model
+  learns it and the scorer counts two words. And characters the base model cannot
+  write: its tokenizer has no piece for them and no byte fallback, so each one
+  trains `<unk>` ("I don ⁇ t know"). Every label is written through `plain_label`
+  (`src/audiolab/data/train.py`): `’` and `‘` become `'`; quotation marks (`“ ”
+  " « »`), parentheses and brackets are dropped; `;` becomes `,`; an em dash, or a
+  dash between spaces, becomes a break between words; an en dash becomes `-`
+  (`2014-2020`); `…` becomes `...`. A clip whose label still holds a character
+  outside the vocabulary (`+ & @ # ° _`, a letter such as `ş`) is left out and
+  counted in the fetch report. The rule dates from 2026-11-09: a source prepared
+  earlier keeps its published characters until it is prepared again.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
   below.
@@ -1329,7 +1338,9 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   are matched, on both sides; and no run of more than two words is unmatched on
   either side. The label is then the stretch of the
   transcript between the first and the last matched word, as NASA wrote it:
-  cased, punctuated, digits kept. A transcript is near-verbatim, not verbatim —
+  cased, punctuated, digits kept, its typography in the characters the base model
+  writes (`I don’t know` is labelled `I don't know`, `“ ”` are dropped, `—` is a
+  break; the rule is under [Training sources](#training-sources)). A transcript is near-verbatim, not verbatim —
   "um" and false starts are often edited out — and the two thresholds bound how
   far a label may stray from the audio. No second model labels the clips, so
   there is no Qwen pass, and Parakeet TDT 0.6B v3 is the one model that hears a
