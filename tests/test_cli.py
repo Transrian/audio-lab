@@ -17,6 +17,7 @@ from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.core.gpu import parse_nvidia_smi  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import MANIFEST_NAME, read_manifest, write_manifest  # noqa: E402
+from audiolab.eval.client import NotAnswering  # noqa: E402
 
 PANEL = "fake-fr-fast"
 
@@ -244,9 +245,21 @@ def test_eval_sends_as_many_requests_at_once_as_the_flag_or_the_environment_says
     assert cli.main([*command, "--concurrency", "2"]) == 0
     assert asked == [1, 4, 2]
 
-    with pytest.raises(SystemExit):
-        cli.main([*command, "--concurrency", "0"])
-    assert "at least 1" in capsys.readouterr().err
+    for wrong in ("0", "²"):  # a superscript is a digit, not a number int() reads
+        with pytest.raises(SystemExit):
+            cli.main([*command, "--concurrency", wrong])
+        assert "at least 1" in capsys.readouterr().err
+
+
+def test_a_model_that_does_not_answer_its_warmup_exits_with_two(prepared, monkeypatch, capsys):
+    def run_suite(context):
+        raise NotAnswering("served-id did not answer within 15 min (HTTP 503)")
+
+    monkeypatch.setattr(cli, "run_suite", run_suite)
+    command = ["eval", "--model", str(prepared["model"]), "--suite", str(prepared["suite"])]
+
+    assert cli.main(command) == 2
+    assert "audiolab: served-id did not answer within 15 min" in capsys.readouterr().err
 
 
 def test_a_missing_endpoint_variable_exits_with_two(prepared, capsys, monkeypatch):

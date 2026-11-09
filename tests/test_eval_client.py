@@ -264,7 +264,7 @@ def test_the_concurrency_of_a_model_comes_from_the_environment_and_defaults_to_o
     monkeypatch.setenv("AUDIOLAB_CONCURRENCY", " stt-v-whisper-large-v3=10 , qwen=4,")
     assert (concurrency_from_env(whisper), concurrency_from_env(other)) == (10, 1)
 
-    for wrong in ("stt-v-whisper-large-v3", "stt-v-whisper-large-v3=0", "=3", "a=many"):
+    for wrong in ("stt-v-whisper-large-v3", "stt-v-whisper-large-v3=0", "=3", "a=many", "a=²"):
         monkeypatch.setenv("AUDIOLAB_CONCURRENCY", wrong)
         with pytest.raises(ConfigError, match="<served model id>=<N>"):
             concurrency_from_env(whisper)

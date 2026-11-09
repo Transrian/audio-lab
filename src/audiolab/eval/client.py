@@ -404,7 +404,7 @@ def concurrency_from_env(config: ModelConfig) -> int:
         if not entry.strip():
             continue
         model, _, count = entry.strip().rpartition("=")
-        if not model or not count.isdigit() or int(count) < 1:
+        if not model or not count.isdecimal() or int(count) < 1:
             raise ConfigError(
                 f"${CONCURRENCY_ENV} holds {entry.strip()!r}; "
                 "each entry must be <served model id>=<N>, with N at least 1"

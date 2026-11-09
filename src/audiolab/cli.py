@@ -96,7 +96,7 @@ def cmd_data_fetch_audio(args: argparse.Namespace) -> int:
 
 def at_least_one(text: str) -> int:
     """A count of at least one, for a command-line option."""
-    if not text.isdigit() or int(text) < 1:
+    if not text.isdecimal() or int(text) < 1:
         raise argparse.ArgumentTypeError(f"{text!r} is not a whole number of at least 1")
     return int(text)
 
