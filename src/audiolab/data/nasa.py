@@ -584,6 +584,7 @@ def label_batch(
             tally[f"episodes left out at preparation: {reason}"] += 1
         else:
             usable.append((episode, path))
+    whisper, parakeet = whisper.one_pass(), parakeet.one_pass()
     heard = heard_talks(usable, cache, whisper.transcribe, tally, whisper.concurrency)
     labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
     room = take.cap - take.kept

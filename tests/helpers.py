@@ -79,8 +79,9 @@ def start_transcription_server(respond):
     """Start a local OpenAI-compatible endpoint for a test.
 
     ``respond`` receives the request headers and returns ``(status, body,
-    content_type)``. The server listens on localhost and a random port, so tests
-    never touch the network and never use a fixed address.
+    content_type)``. The server answers a run's warmup itself, so ``respond``
+    sees only the requests of the clips. The server listens on localhost and a
+    random port, so tests never touch the network and never use a fixed address.
     """
     import http.server
     import threading
@@ -88,8 +89,10 @@ def start_transcription_server(respond):
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802 - the name is fixed by http.server
             length = int(self.headers.get("Content-Length", 0))
-            self.rfile.read(length)
-            status, body, content_type = respond(self.headers)
+            if is_warmup(self.rfile.read(length)):
+                status, body, content_type = 200, '{"text": ""}', "application/json"
+            else:
+                status, body, content_type = respond(self.headers)
             payload = body.encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", content_type)
@@ -103,3 +106,10 @@ def start_transcription_server(respond):
     server = http.server.ThreadingHTTPServer(("localhost", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://localhost:{server.server_port}"
+
+
+def is_warmup(content: bytes) -> bool:
+    """Whether a request body is the warmup a run sends before its first request."""
+    from audiolab.eval.client import silence_wav
+
+    return silence_wav() in content

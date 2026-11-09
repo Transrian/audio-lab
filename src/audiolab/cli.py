@@ -29,7 +29,7 @@ from audiolab.data.panels import (
 from audiolab.data.talk_listing import Talk, write_listing
 from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
-from audiolab.eval.client import ConfigError, ModelConfig, concurrency_from_env
+from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
 from audiolab.eval.report import (
     REPORT_NAME,
     SUMMARY_NAME,
@@ -486,7 +486,14 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["AUDIOLAB_DATA"] = args.data_dir
     try:
         return args.func(args)
-    except (ConfigError, RunError, ValueError, FileNotFoundError, FileExistsError) as failure:
+    except (
+        ConfigError,
+        NotAnswering,
+        RunError,
+        ValueError,
+        FileNotFoundError,
+        FileExistsError,
+    ) as failure:
         print(f"{parser.prog}: {failure}", file=sys.stderr)
         return 2
 

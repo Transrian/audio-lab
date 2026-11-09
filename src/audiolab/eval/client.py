@@ -8,9 +8,12 @@ broken request for an empty transcript.
 
 from __future__ import annotations
 
+import io
 import os
+import sys
 import threading
 import time
+import wave
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -19,6 +22,7 @@ from pathlib import Path
 import httpx
 import yaml
 
+from audiolab.core.audio import SAMPLE_RATE
 from audiolab.serve.config import ServeSpec
 
 # Transient failures are retried; anything else is reported as it is.
@@ -32,6 +36,15 @@ REQUEST_TIMEOUT_S = 120.0
 TRANSCRIPTIONS_PATH = "/v1/audio/transcriptions"
 # How many requests each served model takes at once; see concurrency_from_env.
 CONCURRENCY_ENV = "AUDIOLAB_CONCURRENCY"
+# The warmup (D-022): half a second of silence, sent again every few seconds
+# until the model answers. A server that loads models on demand can take minutes
+# to load one.
+WARMUP_SECONDS = 0.5
+WARMUP_WAIT_S = 15 * 60.0
+WARMUP_RETRY_S = 5.0
+# What a server answers while it cannot reach the model yet: busy, no upstream,
+# loading, timed out. A 500 is the model failing, which is an answer.
+NOT_READY_STATUSES = frozenset({429, 502, 503, 504})
 # Servers document their root URL, but they are also handed out as ".../v1";
 # both are accepted, and only one "/v1" ever ends up in a request path.
 V1_SUFFIX = "/v1"
@@ -57,6 +70,10 @@ class TranscriptionError(RuntimeError):
 
 class ConfigError(ValueError):
     """A model config file that cannot be used as written."""
+
+
+class NotAnswering(RuntimeError):
+    """A model that did not answer its warmup in time: it would answer no request either."""
 
 
 @dataclass(frozen=True)
@@ -215,6 +232,39 @@ class TranscriptionClient:
             answer=answer,
         )
 
+    def warm_up(self, wait_s: float = WARMUP_WAIT_S) -> None:
+        """Send half a second of silence and wait until the model answers it (D-022).
+
+        A server that loads a model on its first request (llama-swap) may take
+        minutes to answer. While it cannot — the connection fails or times out,
+        or it answers one of :data:`NOT_READY_STATUSES` — the silence is sent again every
+        :data:`WARMUP_RETRY_S` seconds, for up to ``wait_s``. Any other answer,
+        an error included, is the model answering: the requests that follow
+        report their own errors. The warmup is not an item: it goes to no cache
+        and no record, so every run that sends requests sends its own.
+        """
+        deadline = time.monotonic() + wait_s
+        waiting = False
+        while True:
+            try:
+                status = self._post(silence_wav(), "").status_code
+            except httpx.TransportError as failure:
+                status, why = 0, self._redact(f"connection failed: {failure}")
+            else:
+                why = f"HTTP {status}"
+            if status and status not in NOT_READY_STATUSES:
+                if waiting:
+                    print(f"{self.config.model} answers", file=sys.stderr, flush=True)
+                return
+            if time.monotonic() >= deadline:
+                raise NotAnswering(
+                    f"{self.config.model} did not answer within {wait_s / 60:g} min ({why})"
+                )
+            if not waiting:
+                print(f"waiting for {self.config.model} to answer...", file=sys.stderr, flush=True)
+                waiting = True
+            self.sleep(WARMUP_RETRY_S)
+
     def _attempt(self, audio: bytes, language: str) -> tuple[dict, bool, float, int]:
         """One call with its retries; the time and the attempts of the answer it returns."""
         attempt = 0
@@ -281,6 +331,17 @@ def _read_answer(response: httpx.Response) -> dict:
             raise TranscriptionError("JSON answer without a 'text' field")
         return payload
     return {"text": response.text}
+
+
+def silence_wav(seconds: float = WARMUP_SECONDS) -> bytes:
+    """Silence as a 16 kHz mono 16-bit WAV: what a warmup sends."""
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(SAMPLE_RATE)
+        wav.writeframes(bytes(2 * round(seconds * SAMPLE_RATE)))
+    return buffer.getvalue()
 
 
 def _short(text: str, limit: int = 200) -> str:

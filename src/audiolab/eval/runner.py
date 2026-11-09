@@ -374,9 +374,10 @@ def _transcribe_pending(
 ) -> None:
     """Send every pending item, appending each answer to the cache as it arrives.
 
-    The items are sent ``context.concurrency`` at a time (D-022). One client
-    serves the whole run: it holds the connection pool, and creating one per
-    item would open a connection per request and never close it.
+    A warmup waits until the model answers, then the items are sent
+    ``context.concurrency`` at a time (D-022). One client serves the whole run:
+    it holds the connection pool, and creating one per item would open a
+    connection per request and never close it.
     """
     lock = threading.Lock()
     paths = {item.panel: clip_paths(item.panel, context.data_dir) for item in pending}
@@ -399,6 +400,7 @@ def _transcribe_pending(
                 _report_progress(index + 1, len(pending), record)
 
     with closing(factory(context, base_url)) as client:
+        client.warm_up()
         map_requests(work, enumerate(pending), context.concurrency)
 
 

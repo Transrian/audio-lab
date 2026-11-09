@@ -891,8 +891,14 @@ published.
   takes 10 requests per model at once and answers an eleventh with HTTP 429, and
   CrispASR answers one request after the other (ten Parakeet clips sent at once
   took as long as ten in a row), so the preparations there run with
-  `AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`. A
-  talk is no longer labelled once it holds its 200 clips or the cap is full. Every raw answer is cached per talk and per model under
+  `AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`.
+  Before its first request, each pass waits for its model to answer a warmup, as
+  an evaluation does ([evaluation](evaluation.md#4-run-and-read-the-result)): the
+  server may have unloaded the model since its last pass, and loading it again
+  can take minutes. A pass whose answers are all cached sends nothing, warmup
+  included, so a resumed preparation makes the server load no model for nothing.
+  A talk is no longer labelled once it holds its 200 clips or the cap is full.
+  Every raw answer is cached per talk and per model under
   `$AUDIOLAB_CACHE/peertube-fr-train`, so an interrupted preparation resumes where
   it stopped.
 - **Prepared** (2026-11-09): the first 65 h of the reading order (84 talks) were

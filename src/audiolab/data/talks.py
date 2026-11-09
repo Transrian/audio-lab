@@ -36,14 +36,15 @@ how many talks a batch reads. A pass sends as many requests at once as its
 model takes (:attr:`Served.concurrency`, one unless the environment says more;
 D-022) — several talks for Whisper, several clips of one talk for Qwen and
 Parakeet — and reads the answers in the order a pass sending one at a time
-would, so the clips kept do not depend on which answer arrives first. Talks
-are read in a seeded order (:func:`reading_order`), and every answer is cached
-per talk under ``$AUDIOLAB_CACHE/<name>``, in files named after the model, so an
-interrupted preparation resumes where it stopped. The cache is
-also what keeps a resumed preparation consistent: vLLM does not answer bit for
-bit the same when the requests sent beside one change (a comma, a capital
-letter). A talk that cannot be downloaded and a request that fails are counted
-and skipped, and asked again by the next preparation.
+would, so the clips kept do not depend on which answer arrives first. Its
+first request waits for the model to answer a warmup (:meth:`Served.one_pass`).
+Talks are read in a seeded order (:func:`reading_order`), and every answer is
+cached per talk under ``$AUDIOLAB_CACHE/<name>``, in files named after the
+model, so an interrupted preparation resumes where it stopped. The cache is also
+what keeps a resumed preparation consistent: vLLM does not answer bit for bit
+the same when the requests sent beside one change (a comma, a capital letter).
+A talk that cannot be downloaded and a request that fails are counted and
+skipped, and asked again by the next preparation.
 """
 
 from __future__ import annotations
@@ -147,11 +148,35 @@ class TalkInProgress:
 class Served:
     """One served model as a pass asks it: a WAV in, its JSON answer out.
 
-    ``concurrency`` is how many of its requests a pass sends at once (D-022).
+    ``concurrency`` is how many of its requests a pass sends at once, and
+    ``warm_up`` waits until the model answers (D-022).
     """
 
     transcribe: Transcribe
     concurrency: int = 1
+    warm_up: Callable[[], None] = lambda: None
+
+    def one_pass(self) -> Served:
+        """This model for one pass, warmed up before the first request the pass sends.
+
+        A pass is the batch of one model (D-020). Since its last pass, the server
+        may have unloaded the model, and loading it again can take minutes, so
+        the first request of every pass waits for a warmup. A pass whose answers
+        are all cached sends nothing and warms nothing up: it never makes the
+        server load a model for nothing.
+        """
+        warming = threading.Lock()
+        warm = False
+
+        def transcribe(wav: bytes) -> dict:
+            nonlocal warm
+            with warming:
+                if not warm:
+                    self.warm_up()
+                    warm = True
+            return self.transcribe(wav)
+
+        return replace(self, transcribe=transcribe)
 
 
 @dataclass(frozen=True)
@@ -339,7 +364,11 @@ def prepare_batch(
     The batch is read as the Whisper pass goes, so the next talk downloads while
     the ones before it are transcribed. Returns the number of talks read.
     """
-    whisper, qwen, parakeet = models.whisper, models.qwen, models.parakeet
+    whisper, qwen, parakeet = (
+        models.whisper.one_pass(),
+        models.qwen.one_pass(),
+        models.parakeet.one_pass(),
+    )
     started = time.monotonic()
     talks = heard_talks(batch, cache, whisper.transcribe, tally, whisper.concurrency)
     segmented = time.monotonic()
@@ -599,4 +628,5 @@ def served(model: TranscriptionClient, language: str) -> Served:
     return Served(
         transcribe=lambda wav: model.transcribe(wav, language).answer,
         concurrency=concurrency_from_env(model.config),
+        warm_up=model.warm_up,
     )

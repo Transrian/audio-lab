@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
-from helpers import make_clip, start_transcription_server, write_tone  # noqa: E402
+from helpers import is_warmup, make_clip, start_transcription_server, write_tone  # noqa: E402
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
@@ -292,6 +292,8 @@ def test_a_run_sends_its_requests_n_at_a_time(workspace):
     lock = threading.Lock()
 
     def respond(request):
+        if is_warmup(request.content):
+            return httpx.Response(200, json={"text": ""})
         with lock:
             sent.append(len(sent))
             first_three = len(sent) <= 3
@@ -308,6 +310,33 @@ def test_a_run_sends_its_requests_n_at_a_time(workspace):
     records = read_records(run_dir / RECORDS_NAME)
     assert len(sent) == len(records) == panel_size(workspace)
     assert all(record["hypothesis"] == "bonjour tout le monde" for record in records)
+
+
+def test_a_run_warms_its_model_up_and_neither_records_nor_caches_the_warmup(workspace):
+    sent: list[bool] = []
+
+    def slow_to_start(request):
+        sent.append(is_warmup(request.content))
+        if sent.count(True) < 3:
+            return httpx.Response(503, text="loading")
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        transport = httpx.MockTransport(slow_to_start)
+        return TranscriptionClient(context_.model, base_url, transport=transport, sleep=lambda _: 0)
+
+    run_dir = run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    clips = panel_size(workspace)
+    assert sent == [True] * 3 + [False] * clips, "three warmups, then the clips"
+    records = read_records(run_dir / RECORDS_NAME)
+    assert len(records) == len(cache_lines(workspace)) == clips
+    assert all(record["attempts"] == 1 and not record["error"] for record in records), (
+        "the first clip finds the model ready"
+    )
+
+    sent.clear()
+    run_suite(context(workspace, base_url="http://server.test"), client_factory=factory)
+    assert sent == [], "a run with nothing to send warms nothing up"
 
 
 def test_fresh_sends_every_clip_again(workspace):
@@ -383,6 +412,8 @@ def test_a_refused_language_field_is_not_sent_again(workspace):
     sent_language: list[bool] = []
 
     def respond(request):
+        if is_warmup(request.content):
+            return httpx.Response(200, json={"text": ""})
         asked = b'name="language"' in request.content
         sent_language.append(asked)
         if asked:
@@ -449,7 +480,7 @@ def test_a_failed_item_is_sent_again_on_the_next_run(workspace):
     state = {"fail": True}
 
     def respond(request):
-        if state["fail"]:
+        if state["fail"] and not is_warmup(request.content):
             return httpx.Response(503, text="unavailable")
         return httpx.Response(200, json={"text": "bonjour tout le monde"})
 
@@ -681,7 +712,7 @@ def test_the_report_says_when_a_panel_cost_more_requests_than_clips(workspace):
     state = {"first": True}
 
     def respond(request):
-        if state["first"]:
+        if state["first"] and not is_warmup(request.content):
             state["first"] = False
             return httpx.Response(503, text="unavailable")
         return httpx.Response(200, json={"text": "bonjour tout le monde"})
@@ -750,6 +781,8 @@ def test_compare_leaves_out_the_ids_a_run_failed_on(workspace, tmp_path):
     state = {"failing": False, "order": []}
 
     def respond(request):
+        if is_warmup(request.content):
+            return httpx.Response(200, json={"text": ""})
         # The clip, not the request: the multipart boundary differs every time.
         content = request.content
         start = content.index(b"RIFF")
@@ -872,7 +905,8 @@ def fake_serving(calls: list, text: str = "bonjour tout le monde"):
     """
 
     def transcribe(audio: bytes, language: str = "") -> str:
-        calls.append((audio, language))
+        if not is_warmup(audio):
+            calls.append((audio, language))
         return text
 
     @contextmanager
@@ -986,7 +1020,8 @@ def test_a_serve_config_pointed_at_a_server_belongs_to_that_server(workspace, tm
     calls: list = []
 
     def transcribe(audio: bytes, language: str = "") -> str:
-        calls.append(audio)
+        if not is_warmup(audio):
+            calls.append(audio)
         return "bonjour tout le monde"
 
     first = TranscriptionServer(transcribe, "parakeet-tdt-0.6b-v3").start()

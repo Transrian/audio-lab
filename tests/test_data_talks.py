@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -409,6 +410,9 @@ class FakeClient:
     def __exit__(self, *_):
         pass
 
+    def warm_up(self):
+        self.log.append(f"warm-up {self.model}")
+
     def transcribe(self, wav: bytes, language: str):
         assert language == self.language, "a model is asked in the language of its source"
         self.log.append(self.model)
@@ -450,12 +454,14 @@ def test_each_batch_runs_the_three_passes_one_model_after_the_other(tmp_path, mo
 
     assert count == 3
     requests = [entry for entry in log if not entry.startswith("download")]
-    first_batch = [WHISPER] * 2 + [QWEN] * 4 + [PARAKEET] * 2
+    first_batch = [f"warm-up {WHISPER}"] + [WHISPER] * 2
+    first_batch += [f"warm-up {QWEN}"] + [QWEN] * 4 + [f"warm-up {PARAKEET}"] + [PARAKEET] * 2
     # The second batch reads two talks, at the one clip a talk seen so far, x 1.3;
     # the last clip fills the cap, and the fourth talk is not labelled.
-    second_batch = [WHISPER] * 2 + [QWEN] + [PARAKEET]
+    second_batch = [f"warm-up {WHISPER}"] + [WHISPER] * 2
+    second_batch += [f"warm-up {QWEN}", QWEN, f"warm-up {PARAKEET}", PARAKEET]
     assert requests == first_batch + second_batch, (
-        "each pass sends every request of its batch before the next pass starts"
+        "each pass warms its model up, then sends every request of its batch before the next"
     )
     clips = read_manifest(tmp_path / "dataset")
     assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 3
@@ -710,6 +716,53 @@ def test_each_model_is_sent_as_many_requests_at_once_as_the_environment_says(mon
     }
 
     assert concurrency == {WHISPER: 10, QWEN: 4, PARAKEET: 1}, "a model not named gets one"
+
+
+def test_a_pass_warms_its_model_up_once_before_its_first_request():
+    log: list[str] = []
+    warm = threading.Event()
+
+    def warm_up():
+        log.append("warm-up")
+        time.sleep(0.05)  # the other requests wait for it
+        warm.set()
+
+    def transcribe(wav: bytes) -> dict:
+        assert warm.is_set(), "no request is sent before the model answers the warmup"
+        log.append("request")
+        return {"text": ""}
+
+    model = talks.Served(transcribe, concurrency=3, warm_up=warm_up)
+    one_pass = model.one_pass()
+    talks.map_requests(one_pass.transcribe, [b"wav"] * 5, 3)
+    assert log == ["warm-up"] + ["request"] * 5
+    model.one_pass()
+    assert log.count("warm-up") == 1, "a pass that sends nothing warms nothing up"
+    model.one_pass().transcribe(b"wav")
+    assert log.count("warm-up") == 2, "the next pass warms the model up again"
+
+
+def test_a_preparation_run_again_on_its_cache_sends_nothing_and_warms_nothing_up(
+    tmp_path, monkeypatch
+):
+    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    source = make_source(tmp_path, [talk(uuid) for uuid in "ab"])
+    serve_fakes(monkeypatch, None, answers, log)
+    for dataset in ("first", "again"):
+        talks.fetch_talks(
+            source, tmp_path / "cache", tmp_path / dataset, license="CC-BY", verbose=False
+        )
+        if dataset == "first":
+            assert log.count(f"warm-up {WHISPER}") == 1
+            log.clear()
+
+    assert [entry for entry in log if not entry.startswith("download")] == []
 
 
 def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):

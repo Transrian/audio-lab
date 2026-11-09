@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 import threading
@@ -12,15 +13,18 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
+import soundfile  # noqa: E402
 
 from audiolab.eval.client import (  # noqa: E402
     ConfigError,
     ModelConfig,
+    NotAnswering,
     TranscriptionClient,
     TranscriptionError,
     concurrency_from_env,
     map_requests,
     server_root,
+    silence_wav,
 )
 
 
@@ -337,3 +341,50 @@ def test_the_concurrency_of_a_model_comes_from_the_environment_and_defaults_to_o
         monkeypatch.setenv("AUDIOLAB_CONCURRENCY", wrong)
         with pytest.raises(ConfigError, match="<served model id>=<N>"):
             concurrency_from_env(whisper)
+
+
+# The warmup (D-022).
+
+
+def test_the_warmup_waits_until_a_model_that_is_loading_answers(capsys):
+    outcomes = iter(["refused", 503, 200])
+    requests: list[httpx.Request] = []
+
+    def loading(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        outcome = next(outcomes)
+        if outcome == "refused":
+            raise httpx.ConnectError("connection refused", request=request)
+        return httpx.Response(outcome, json={"text": ""})
+
+    slept: list[float] = []
+    client = TranscriptionClient(
+        make_config(),
+        "http://localhost:9",
+        transport=httpx.MockTransport(loading),
+        sleep=slept.append,
+    )
+    client.warm_up()
+
+    assert len(requests) == 3 and slept == [5.0, 5.0], "asked again every five seconds"
+    assert capsys.readouterr().err == "waiting for served-id to answer...\nserved-id answers\n"
+    body = requests[-1].content
+    assert silence_wav() in body and b'name="language"' not in body
+    samples, rate = soundfile.read(io.BytesIO(silence_wav()))
+    assert (len(samples), rate, abs(samples).max()) == (8000, 16000, 0.0), "0.5 s of silence"
+
+
+def test_a_model_that_answers_at_once_is_not_waited_for(capsys):
+    for status in (200, 404, 500):
+        client, recorder, slept = make_client([answer("", status=status)])
+        client.warm_up()
+        assert (len(recorder.requests), slept) == (1, []), "an error is an answer too"
+    assert capsys.readouterr().err == ""
+
+
+def test_a_model_that_never_answers_stops_the_run_with_the_reason():
+    client, recorder, slept = make_client([(502, "no upstream", "text/plain")])
+
+    with pytest.raises(NotAnswering, match=r"served-id did not answer within 0 min \(HTTP 502\)"):
+        client.warm_up(wait_s=0.0)
+    assert len(recorder.requests) == 1
