@@ -55,10 +55,10 @@ from audiolab.data.talks import (
     SEED,
     SEGMENT_MODEL,
     TalkInProgress,
-    _answer,
-    _audio_file,
-    _client,
+    answer,
+    audio_file,
     batch_size,
+    client,
     clips_file,
     heard_talk,
     http_client,
@@ -498,12 +498,12 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
     order = reading_order(episodes, SEED, SOURCE.spread_by)
     with (
         http_client() as http,
-        _client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
-        _client(BASE_MODEL) as parakeet_client,
-        closing(prefetched(order, partial(_audio_file, http, cache, SOURCE))) as audio_files,
+        client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
+        client(BASE_MODEL) as parakeet_client,
+        closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
     ):
-        whisper = _answer(whisper_client, LANGUAGE)
-        parakeet = _answer(parakeet_client, LANGUAGE)
+        whisper = answer(whisper_client, LANGUAGE)
+        parakeet = answer(parakeet_client, LANGUAGE)
         episodes_read = 0
         while not take.full():
             batch = list(islice(audio_files, batch_size(take, episodes_read)))

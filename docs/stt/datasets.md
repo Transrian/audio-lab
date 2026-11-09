@@ -941,11 +941,11 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   parentheses (`[Music]`, `(laughs)`) are not words anybody says.
 - **Labels, by alignment** (`src/audiolab/data/aligned_clips.py`): Whisper
   large-v3 hears each episode as the talks are heard (five-minute chunks, raw
-  answers cached, segments joined into candidate clips of 19 s at most). Its
+  answers cached, segments joined into candidate clips of 20 s at most). Its
   words and the transcript's are put in the normalized view of the scorer —
   `Crew-4` and `crew four` are one word stream, `2,000` and `two thousand` too —
   and aligned with `difflib.SequenceMatcher`. A candidate clip is labelled when
-  it lasts 1 s to 19 s; its first and last words are matched; no transcript
+  it lasts 1 s to 20 s; its first and last words are matched; no transcript
   word is left unmatched just outside it (it would be audio the label misses);
   its edges fall on whole written words; it holds no speaker change and no note,
   and is not on or next to a line that notes a sound; at least 90 % of its words
