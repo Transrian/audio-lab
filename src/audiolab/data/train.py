@@ -17,10 +17,18 @@ to 20 seconds, the length of a dictated sentence and what the training recipe
 batches comfortably.
 Nothing here decides what a source is worth — it only makes the prepared set
 comparable between sources.
+
+Every label is written in the characters the base model can write
+(:func:`plain_label`), and a clip whose label still holds another one is left
+out: the tokenizer of Parakeet TDT 0.6B v3 has no piece for ``’`` or ``"`` and
+no byte fallback, so such a character becomes ``<unk>``, and a model trained on
+it learns to write ``<unk>`` ("I don ⁇ t know").
 """
 
 from __future__ import annotations
 
+import re
+import string
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,6 +61,63 @@ MAX_SECONDS = 20.0
 # rounding away from its end, one that ends well past it means the file is not
 # the recording the annotation describes.
 END_TOLERANCE_S = 1.0
+# The characters of the base model's vocabulary: those of the pieces of the
+# tokenizer.vocab inside parakeet-tdt-0.6b-v3.nemo, without "▁" and the special
+# tokens. Any other character is <unk> to the tokenizer ("…" too, except that its
+# normalization reads it as "...", which plain_label writes anyway).
+VOCAB_CHARACTERS = frozenset(
+    string.ascii_letters
+    + string.digits
+    + "!$%',-./:?¡£¿€"
+    + "ÀÁÂÃÄÅÆÇÈÉÊÌÍÎÓÔÕÖØÚÜÝßàáâãäåæçèéêëìíîïñòóôõöøùúûüý"
+    + "ĀāĂăĄąĆćĊċČčĎďđĒēĖėĘęĚěĠġĢģĦħĪīĮįĶķĺĻļĽľŁłŃńŅņŇňŐőŒœŕŘřŚśŠšŤťŪūŮůŰűŲųŹźŻżŽžȘșȚț"
+    + "ΆΈΉΌΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩάέήίαβγδεζηθικλμνξοπρστυφχψωϊόύώ"
+    + "ЄІЇАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяєіїҐґ"
+)
+# What a label writes for punctuation the vocabulary has no piece for: the plain
+# apostrophe for the curly ones, nothing for quotation marks, parentheses and
+# brackets (nobody says them), a comma for a semicolon, a space for an em dash (a
+# break between words, as the scorer reads it), a hyphen for an en dash
+# ("2014–2020"), and three points for an ellipsis.
+PLAIN_PUNCTUATION = str.maketrans(
+    {
+        "’": "'",
+        "‘": "'",
+        "“": None,
+        "”": None,
+        '"': None,
+        "«": None,
+        "»": None,
+        "(": None,
+        ")": None,
+        "[": None,
+        "]": None,
+        ";": ",",
+        "—": " ",
+        "–": "-",
+        "…": "...",
+    }
+)
+# A dash between spaces ("word – word") is a break, which the model writes as nothing.
+LONE_DASH = re.compile(r"(?<!\S)-+(?!\S)")
+
+
+def plain_label(text: str) -> str:
+    """A label in the punctuation of the base model's vocabulary, one space between words.
+
+    French sets a semicolon off with a space ("mot ; mot"), which a comma never
+    is in either language, so the comma that replaces it closes up.
+
+    >>> plain_label("I don’t know — “maybe” – later…")
+    "I don't know maybe later..."
+    """
+    words = LONE_DASH.sub(" ", text.translate(PLAIN_PUNCTUATION)).split()
+    return " ".join(words).replace(" ,", ",")
+
+
+def unwritable(label: str) -> str:
+    """The characters of a label the base model cannot write, in the order they come."""
+    return "".join(dict.fromkeys(c for c in label if c != " " and c not in VOCAB_CHARACTERS))
 
 
 @dataclass
@@ -80,6 +145,7 @@ class Take:
     too_short: int = 0
     too_long: int = 0
     without_text: int = 0
+    unwritable_text: int = 0
     in_evaluation_set: int = 0
     beyond_group_cap: int = 0
     per_group: dict[str, int] = field(default_factory=dict)
@@ -109,9 +175,13 @@ class Take:
         annotation first, then the audio — decides once and counts once.
         """
         self.rows_read += 1
-        if not text.strip():
+        label = plain_label(text)
+        if not label:
             self.without_text += 1
             return "without text"
+        if unwritable(label):
+            self.unwritable_text += 1
+            return "with a character the base model cannot write"
         if group in self.excluded:
             self.in_evaluation_set += 1
             return "in an evaluation set"
@@ -131,7 +201,7 @@ class Take:
     def write_clip(
         self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields
     ) -> None:
-        """Write the clip of a row :meth:`decide` took.
+        """Write the clip of a row :meth:`decide` took, its label as :func:`plain_label` writes it.
 
         ``extra_fields`` are manifest fields only some sources fill, such as the
         attribution a licence requires to travel with the clip, or a license
@@ -141,7 +211,7 @@ class Take:
             f"{self.name}:{source_id}",
             audio,
             language=self.language,
-            text=text,
+            text=plain_label(text),
             text_has_casing_punct=self.text_has_casing_punct,
             group=f"{self.name}:{group}",
             group_kind=self.group_kind,
@@ -170,6 +240,7 @@ class Take:
             f"{self.name}: {self.kept} clips ({state}), {self.rows_read} rows read; left out: "
             f"{self.too_short} shorter than {MIN_SECONDS} s, {self.too_long} longer than "
             f"{MAX_SECONDS:g} s, {self.without_text} without text, "
+            f"{self.unwritable_text} with a character the base model cannot write, "
             f"{self.in_evaluation_set} already in an evaluation set, "
             f"{self.beyond_group_cap} beyond the {self.cap_per_group}-clip share of a group"
         )

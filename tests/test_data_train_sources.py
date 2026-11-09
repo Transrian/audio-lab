@@ -1442,9 +1442,10 @@ def test_icsi_reads_the_mrt_segments_and_groups_by_participant(dirs, monkeypatch
     assert first.language == "en"
     assert first.license == "CC-BY-4.0"
     # A vocal sound is not a word, and an emphasised word is: the markup goes,
-    # the words it was written around stay.
+    # the words it was written around stay. The dash of a restart ("Is - is") is
+    # a break, which the label writes as nothing (plain_label).
     assert clips["icsi-en-train:Btr001.fe069.0001"].text == (
-        "Is - is M- So, is - is Marisa's close enough?"
+        "Is is M- So, is is Marisa's close enough?"
     )
     # A token written letter by letter is the word it spells, as in AMI.
     assert clips["icsi-en-train:Btr001.fe068.0002"].text == "OK. So that is fine."

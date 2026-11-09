@@ -28,9 +28,12 @@ from audiolab.data.train import (  # noqa: E402
     MIN_GROUPS,
     MIN_SECONDS,
     TRAIN_CLIP_CAP,
+    VOCAB_CHARACTERS,
     Take,
     evaluation_groups,
+    plain_label,
     plan_clips,
+    unwritable,
     write_clips,
 )
 
@@ -125,6 +128,81 @@ def test_take_writes_the_attribution_and_license_of_one_row(tmp_path):
     assert (second.license, second.source_url) == ("CC-BY-4.0", "")
 
 
+@pytest.mark.parametrize(
+    ("label", "plain"),
+    [
+        ("I don’t know", "I don't know"),  # a NASA transcript's apostrophe
+        ("‘cause it’s", "'cause it's"),
+        ("he said “go” then", "he said go then"),
+        ('he said "go" then', "he said go then"),
+        ("c’est « libre »", "c'est libre"),
+        ("the plan (roughly) [laughs]", "the plan roughly laughs"),
+        ("first; then", "first, then"),
+        ("d'abord ; ensuite", "d'abord, ensuite"),
+        ("It’s just — it’s the landscape", "It's just it's the landscape"),
+        ("cannot—not tux", "cannot not tux"),
+        ("the 2014–2020 budget", "the 2014-2020 budget"),
+        ("focused – on it", "focused on it"),
+        ("so - well", "so well"),
+        ("wait…", "wait..."),
+        ("-5 degrees and a cut wo- word", "-5 degrees and a cut wo- word"),
+    ],
+)
+def test_plain_label_writes_punctuation_the_base_model_has(label, plain):
+    assert plain_label(label) == plain
+    assert not unwritable(plain_label(label))
+
+
+def test_the_vocabulary_has_none_of_the_punctuation_plain_label_replaces():
+    """Each replaced character would be <unk>, and each replacement is not."""
+    assert not set('’‘“”"«»()[];—–…') & VOCAB_CHARACTERS
+    assert set("'-,.") <= VOCAB_CHARACTERS
+
+
+def test_unwritable_names_each_character_once():
+    assert unwritable("Hawaiʻi at 5 °C, ±5 °C") == "ʻ°±"
+    assert unwritable("Élodie a dit : où ? ¿qué? 5 €") == ""
+
+
+def test_take_writes_the_label_in_the_punctuation_of_the_base_model(tmp_path):
+    take = make_take(tmp_path)
+    take.offer("u1", tone(2.5), text="I don’t know — “maybe”", group="spk1")
+    assert [clip.text for clip in take.builder.clips] == ["I don't know maybe"]
+
+
+def test_take_leaves_out_a_label_the_base_model_cannot_write(tmp_path):
+    """Trained on, a character with no piece in the vocabulary teaches the model <unk>."""
+    take = make_take(tmp_path)
+    assert not take.offer("u1", tone(2.5), text="it was 5 °C", group="spk1")
+    assert not take.offer("u2", tone(2.5), text="R&D", group="spk1")
+    assert take.offer("u3", tone(2.5), text="R and D", group="spk1")
+    assert (take.unwritable_text, take.kept) == (2, 1)
+    assert "2 with a character the base model cannot write" in take.report()
+
+
+def test_a_label_of_quotation_marks_alone_is_without_text(tmp_path):
+    take = make_take(tmp_path)
+    assert not take.offer("u1", tone(2.5), text="“ ”", group="spk1")
+    assert take.without_text == 1
+
+
+def test_an_evaluation_reference_keeps_its_own_punctuation(tmp_path):
+    """Only training labels are rewritten: a reference is scored as its source wrote it."""
+    builder = ManifestBuilder(tmp_path, verbose=False)
+    builder.add(
+        "eval:u1",
+        tone(2.5),
+        language="en",
+        text="I don’t know — “maybe”",
+        text_has_casing_punct=True,
+        group="eval:spk1",
+        group_kind="speaker",
+        source_split="test",
+        license="CC-BY-4.0",
+    )
+    assert builder.clips[0].text == "I don’t know — “maybe”"
+
+
 def test_take_report_says_how_much_of_the_source_was_needed(tmp_path):
     take = make_take(tmp_path, cap=1)
     take.offer("u1", tone(0.2), text="bonjour", group="spk1")
@@ -132,7 +210,7 @@ def test_take_report_says_how_much_of_the_source_was_needed(tmp_path):
     report = take.report()
     assert "1 clips (cap reached)" in report
     assert "1 shorter than 0.5 s" in report
-    assert "without text, 0 already in an evaluation set" in report
+    assert "0 without text, 0 with a character the base model cannot write" in report
 
 
 def test_take_report_notices_a_source_that_is_smaller_than_the_cap(tmp_path):
