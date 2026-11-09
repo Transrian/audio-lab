@@ -31,7 +31,7 @@ from lightning.fabric.utilities.seed import pl_worker_init_function
 from lightning.pytorch.callbacks import Callback
 from nemo.collections.asr.models import ASRModel
 from omegaconf import OmegaConf, open_dict
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset, RandomSampler
 
 from audiolab.core.checkpoint import Checkpoint
 from audiolab.core.progress import progress, say
@@ -39,7 +39,7 @@ from audiolab.core.stop import install_signal_handlers, raise_if_stopped, stop_r
 from audiolab.train.config import TrainConfig
 from audiolab.train.loss import UpdateLoss, as_float, batch_loss, last_logged_loss, write_loss_line
 from audiolab.train.order import ClipOrder
-from audiolab.train.run import MODEL_NAME, RESUME_NAME
+from audiolab.train.run import MODEL_NAME, RESUME_NAME, TrainRunError
 from audiolab.train.settings import (
     check_rates,
     dataset_config,
@@ -150,6 +150,7 @@ class ResumeSlot(Callback):
         self.batches_trained = 0
         self.saved_at = -1  # the update the slot on disk was written after
         self.stopped = False
+        self.restored = False
 
     def state_dict(self) -> dict:
         return {"batches_trained": self.batches_trained}
@@ -157,8 +158,17 @@ class ResumeSlot(Callback):
     def load_state_dict(self, state_dict: dict) -> None:
         # Lightning restores this before it asks for the first batch.
         self.batches_trained = self.order.start = state_dict["batches_trained"]
+        self.restored = True
 
     def on_train_start(self, trainer, pl_module) -> None:
+        if trainer.global_step > 0 and not self.restored:
+            # A slot that Lightning's ModelCheckpoint wrote, before this callback:
+            # it does not say which clips were trained, so no resume is exact.
+            raise TrainRunError(
+                f"{self.path} does not say how many batches it trained, so it cannot be "
+                "resumed in the clip order; resume it with the audiolab that wrote it, "
+                "or start a new run with --fresh"
+            )
         install_signal_handlers()
         self.saved_at = trainer.global_step
 
@@ -190,8 +200,21 @@ def clip_order(loader: DataLoader, seed: int) -> ClipOrder:
 
     Every piece of it is kept — its dataset, batch size, collation, workers —
     except the shuffle. Lightning seeds the workers of the loaders it sees, and
-    it does not see these, so they are seeded the way it would seed them.
+    it does not see these, so they are seeded the way it would seed them. Only
+    a shuffled loader over a dataset of numbered clips can be read this way;
+    any other is refused rather than read in another order than it would be.
     """
+    if (
+        not isinstance(loader.sampler, RandomSampler)
+        or isinstance(loader.dataset, IterableDataset)
+        or loader.batch_size is None
+    ):
+        raise TrainRunError(
+            f"NeMo built a training loader that is not shuffled batches of numbered clips "
+            f"({type(loader.dataset).__name__}, {type(loader.sampler).__name__}, "
+            f"batch size {loader.batch_size}); the train_ds of settings.dataset_config "
+            "must keep use_lhotse and is_tarred off and shuffle on"
+        )
 
     def read(indices: list[int]) -> DataLoader:
         return DataLoader(

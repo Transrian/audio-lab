@@ -17,8 +17,9 @@ pytest.importorskip("nemo")
 from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
 
 from audiolab.core.stop import request_stop  # noqa: E402
-from audiolab.train.finetune import ResumeSlot  # noqa: E402
+from audiolab.train.finetune import ResumeSlot, clip_order  # noqa: E402
 from audiolab.train.order import ClipOrder  # noqa: E402
+from audiolab.train.run import TrainRunError  # noqa: E402
 
 CLIPS = 10
 BATCH = 3
@@ -121,3 +122,48 @@ def test_the_slot_is_rewritten_between_two_updates_every_so_many(tmp_path):
     steps = sorted({step for step, _ in written})
     assert steps == [3, 6]
     assert dict(written)[3] == {"batches_trained": 3 * ACCUMULATION}
+
+
+class CrashAtBatch(StopAtBatch):
+    """Die after one batch, as a run killed in the middle of an update would."""
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.batches += 1
+        if self.batches == self.batch:
+            raise RuntimeError("killed")
+
+
+def test_a_run_that_died_goes_on_exactly_from_the_last_periodic_slot(tmp_path):
+    went_on, _, _ = train(tmp_path / "whole.ckpt")
+
+    slot = tmp_path / "resume.ckpt"
+    with pytest.raises(RuntimeError, match="killed"):
+        # The 13th batch is the first half of update 7; the slot was rewritten after update 6.
+        train(slot, also=[CrashAtBatch(6 * ACCUMULATION + 1)])
+    assert torch.load(slot, weights_only=False)["global_step"] == 6
+
+    resumed, _, trainer = train(slot, resume=True)
+    assert trainer.global_step == UPDATES
+    assert resumed.seen == went_on.seen[6 * ACCUMULATION :], "the half update lost is read again"
+    for after_resume, uninterrupted in zip(resumed.parameters(), went_on.parameters(), strict=True):
+        assert torch.equal(after_resume, uninterrupted)
+
+
+def test_a_slot_that_does_not_say_how_many_batches_it_trained_is_refused(tmp_path, run_again):
+    slot = tmp_path / "resume.ckpt"
+    train(slot, also=[StopAtBatch(1)])
+    older = torch.load(slot, weights_only=False)
+    del older["callbacks"]["ResumeSlot"]  # what Lightning's ModelCheckpoint wrote
+    torch.save(older, slot)
+
+    run_again()
+    with pytest.raises(TrainRunError, match="--fresh"):
+        train(slot, resume=True)
+
+
+def test_only_a_shuffled_loader_of_numbered_clips_is_read_in_the_clip_order():
+    data = TensorDataset(torch.zeros(CLIPS, 2), torch.zeros(CLIPS), torch.arange(CLIPS))
+    order = clip_order(DataLoader(data, BATCH, shuffle=True), seed=7)
+    assert order.batches_per_epoch == 4
+    with pytest.raises(TrainRunError, match="settings.dataset_config"):
+        clip_order(DataLoader(data, BATCH), seed=7)
