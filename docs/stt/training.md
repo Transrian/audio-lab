@@ -118,7 +118,10 @@ against).
    sit in the group that carries their rate. NeMo's training loader is kept but
    for its shuffle: every epoch reads the clips in a permutation drawn from
    `seed` and the epoch number alone (`src/audiolab/train/order.py`), so a run
-   that is resumed reads the clips it would have read had it not stopped.
+   that is resumed reads the clips it would have read had it not stopped. The
+   order is `random.Random(f"{seed}/{epoch}")` and every update sums exactly
+   `grad_accumulation` batches, so a run trained before this order is not
+   reproduced bit for bit.
 4. It trains with PyTorch Lightning: `updates` optimizer updates,
    `accumulate_grad_batches=grad_accumulation`, `max_steps=updates`, the
    precision and gradient clipping of the config, and a constant schedule with
@@ -193,15 +196,16 @@ state of the augmentation (SpecAugment's masks are drawn anew), as in any
 Lightning run resumed from a checkpoint. A second Ctrl-C or SIGTERM ends the
 process at once; so do a crash, `kill -9` and a reboot. Then the last rewrite of
 the slot is what the run goes on from, so at most `resume_every` updates are
-lost. `tests/test_train_resume_slot.py`, which runs in the NeMo environment only,
-checks on the CPU that a run stopped in the middle of an update and resumed ends
-with the weights of the run that went on. The slot is written to `resume.ckpt.partial` and renamed, so a process
+lost. `tests/test_train_resume_slot.py`, which runs in the NeMo environment
+only, checks on the CPU that a run stopped in the middle of an update, or killed
+after a rewrite of the slot, and resumed ends with the weights of the run that
+went on. The slot is written to `resume.ckpt.partial` and renamed, so a process
 killed while writing it keeps the slot before.
 
 Under systemd, `KillMode=mixed` sends SIGTERM to `audiolab` alone and lets it stop
 its data loader workers itself, and `SuccessExitStatus=130` makes a stopped run
 count as a clean stop rather than a failure. `TimeoutStopSec` has to cover one
-update and one slot write (a few seconds for the default recipe).
+update and one slot write (tens of seconds for the default recipe).
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the
@@ -209,10 +213,13 @@ config, the base model's identity, or the clips the same seed now draws from a
 dataset that was prepared again — refuses to resume and names what changed. Put
 the old value back, or start another run with `--fresh`. A slot with no
 `config.json` beside it is refused too: nothing on disk would say which run it
-belongs to. `train.json` records whether the run was resumed.
+belongs to, and so is a slot that does not record how many batches it trained
+(written by an audiolab older than the clip order of §3): resume it with that
+audiolab, or start over with `--fresh`. `train.json` records whether the run was
+resumed.
 
 The slot is the size of the weights plus the optimizer state — about 7 GiB for a
-0.6 B model — and writing it takes a few seconds, so a small `resume_every` costs
+0.6 B model — and writing it takes tens of seconds, so a small `resume_every` costs
 time; the default is a good compromise, and the smoke tests that use 5 or 10 pay
 for it visibly.
 
