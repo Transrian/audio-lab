@@ -8,6 +8,7 @@ the evaluation runner uses.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -267,6 +268,16 @@ def test_the_server_is_stopped_when_the_serving_block_ends():
         assert httpx.get(f"{base_url}/v1/models", timeout=5).status_code == 200
     with pytest.raises(httpx.TransportError):
         httpx.get(f"{base_url}/v1/models", timeout=2)
+
+
+def test_a_ctrl_c_in_the_terminal_does_not_reach_the_server_child():
+    """The task stops after its step and needs the server until then (D-021)."""
+    process = start_server(ServeSpec(checkpoint="x.nemo"), "m", command_factory=fake_command)
+    try:
+        assert os.getpgid(process.process.pid) != os.getpgid(0)
+    finally:
+        process.stop()
+    assert process.process.poll() is not None
 
 
 def test_a_child_that_cannot_start_says_what_it_printed():

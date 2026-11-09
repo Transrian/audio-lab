@@ -108,6 +108,11 @@ class ServingProcess:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            # Out of the terminal's process group: a Ctrl-C asks the task that
+            # started the server to stop after its current step (D-021), which
+            # needs the server for the requests in flight. The server stops when
+            # that task closes its stdin, or when the task dies and the pipe closes.
+            start_new_session=True,
         )
         threading.Thread(target=self._read_output, daemon=True).start()
 
