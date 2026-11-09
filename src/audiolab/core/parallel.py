@@ -1,7 +1,8 @@
 """Running one function over many items, a few at a time (D-022).
 
-The items are requests to a served model: what an engine takes at once varies,
-so how many run together is the caller's to say, one by default.
+Each item is one call that mostly waits on the network: a request to a served
+model, or a page fetched from a website. What the other side takes at once
+varies, so how many run together is the caller's to say, one by default.
 """
 
 from __future__ import annotations
@@ -23,10 +24,11 @@ def map_requests[T, R](
 ) -> list[R]:
     """``ask`` on every item, ``concurrency`` at a time; the results in the items' order.
 
-    This is how every caller sends requests N at a time (D-022). It runs the
-    requests of one model only: a caller that asks several models through a
-    hot-swapping server sends every request of one model, through one call,
-    before the next model's (D-020), so concurrency never mixes two models.
+    This is how every caller makes its calls N at a time (D-022). Calls to a
+    served model are those of one model only: a caller that asks several
+    models through a hot-swapping server sends every request of one model,
+    through one call, before the next model's (D-020), so concurrency never
+    mixes two models.
 
     The items are taken in order, one at a time, as a worker becomes free, so
     an iterator that is still producing them (a talk still downloading) is read
