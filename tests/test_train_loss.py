@@ -84,6 +84,13 @@ def test_a_repeated_update_number_is_never_logged_twice():
     assert updates.batch(2, 1.0) == (2, 1.0)
 
 
+def test_a_resumed_run_does_not_log_its_starting_update_again():
+    """The slot of a run stopped at update 70 resumes at 70, already logged."""
+    updates = UpdateLoss(every=10, start=70)
+    assert updates.batch(70, 9.0) is None
+    assert updates.batch(80, 1.0) == (80, 5.0)
+
+
 def test_the_final_loss_is_the_last_line_of_the_log(tmp_path):
     assert last_logged_loss(tmp_path / "absent.jsonl") != last_logged_loss(
         tmp_path / "absent.jsonl"

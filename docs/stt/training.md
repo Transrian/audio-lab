@@ -205,7 +205,14 @@ killed while writing it keeps the slot before.
 Under systemd, `KillMode=mixed` sends SIGTERM to `audiolab` alone and lets it stop
 its data loader workers itself, and `SuccessExitStatus=130` makes a stopped run
 count as a clean stop rather than a failure. `TimeoutStopSec` has to cover one
-update and one slot write (tens of seconds for the default recipe).
+update and one slot write: a stop took about a minute in our runs, and a slot
+write took up to five when two runs wrote theirs at once, so give it ten minutes.
+
+On a GPU (2026-11-09), a 120-update run stopped by SIGINT and then SIGTERM, and
+killed once outright, resumed each time from its slot and finished; its losses
+up to the first stop were those of an uninterrupted twin to the last digit, and
+after a resume they stayed within the twin's noise, since the random state of the
+augmentation is not saved.
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the
@@ -219,7 +226,7 @@ audiolab, or start over with `--fresh`. `train.json` records whether the run was
 resumed.
 
 The slot is the size of the weights plus the optimizer state — about 7 GiB for a
-0.6 B model — and writing it takes tens of seconds, so a small `resume_every` costs
+0.6 B model — and writing it takes about a minute, so a small `resume_every` costs
 time; the default is a good compromise, and the smoke tests that use 5 or 10 pay
 for it visibly.
 

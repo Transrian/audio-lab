@@ -50,11 +50,15 @@ class UpdateLoss:
     carries the new number, and the earlier ones repeat the previous update. The
     mean over the batches since the last line is the loss the run is at, on the
     same scale whatever the accumulation is.
+
+    A resumed run starts at the update its slot holds, which the stopped run
+    already logged: ``start`` keeps that line from being written twice, with
+    the loss of only the batches the resume has trained so far.
     """
 
-    def __init__(self, every: int) -> None:
+    def __init__(self, every: int, start: int = 0) -> None:
         self.every = every
-        self.logged = 0
+        self.logged = start
         self._batch_losses: list[float] = []
 
     def batch(self, update: int, loss) -> tuple[int, float] | None:

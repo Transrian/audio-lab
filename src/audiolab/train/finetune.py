@@ -77,6 +77,7 @@ class LossLog(Callback):
         self.bar = None
 
     def on_train_start(self, trainer, pl_module) -> None:
+        self.updates = UpdateLoss(self.updates.every, start=trainer.global_step)
         self.bar = progress(
             desc="training", unit="update", total=trainer.max_steps, initial=trainer.global_step
         )
