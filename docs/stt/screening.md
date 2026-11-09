@@ -242,7 +242,10 @@ Second batch:
   on non-speech are short phrases ("Yeah.", "So they use the two microphones.") over animal,
   human and object sounds. Sound a podcast plays under the speech without the
   transcript noting it (music beds, jingles) is one possible cause, not
-  analysed: the card's rules keep clips away from noted sounds only.
+  analysed: the card's rules keep clips away from noted sounds only. The
+  training labels are now written in the characters the base model can write
+  ([Training sources](datasets.md#training-sources)) and `nasa-en-train` was
+  prepared again; its new screen is to come.
 - **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
   label style**, the model learning to write like a stronger ASR model (a kind
   of distillation), since the human-labelled podcast does not give all of it:

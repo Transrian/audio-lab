@@ -382,7 +382,7 @@ screening is a difference between corpora and not between recipes:
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.7 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
-| `nasa-en-train` | en | public domain (US government work) | listing | 12 000 | 265 | 34.8 | 3.7 GiB | not measured: the MP3 files are deleted once their sound is out, and the 265 episodes read leave 15.0 GiB of WAV in the cache |
+| `nasa-en-train` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 3.7 GiB | not measured: the MP3 files are deleted once their sound is out, and the 265 episodes read leave 15.0 GiB of WAV in the cache |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -1390,24 +1390,30 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   Parakeet heard 13 834 of the labelled clips: in 1 834 of them (13.3 %) the
   first or last word it hears is not the label's, and the 12 000 others were
   kept. The other 5 185 labelled clips were never sent to it, being past their
-  episode's share of 200 or past the room left under the cap. The result is
-  **12 000 clips (the cap), 34.8 h, 265 groups**, median 9.3 s, all public domain
+  episode's share of 200 or past the room left under the cap. That first set
+  had 12 000 clips (the cap), 34.8 h, and wrote NASA's typography (Known limits).
+  It was prepared again the same day, from the cache only, with the labels in
+  the characters the base model can write ([Training sources](#training-sources)):
+  6 916 labels rewritten, 38 clips left out for a character still outside the
+  vocabulary (`+ & # @ ° ō ʻ`), and 6 that would have needed a new request. The
+  result is **11 956 clips, 34.6 h, 265 groups**, a subset of the first set
+  (same audio, same `base_wer`), median 9.3 s, all public domain
   (US government work). Every episode read keeps clips, 1 to 176 (median 44), so
   none gives its full 200; six of the eight that give fewer than 10 are trailers
   and season introductions of under 3 minutes:
 
   | show | episodes | clips | hours |
   | --- | --- | --- | --- |
-  | Houston We Have a Podcast | 65 | 4 002 | 11.5 |
-  | Gravity Assist | 65 | 2 923 | 8.6 |
-  | Small Steps, Giant Leaps | 64 | 2 913 | 8.9 |
-  | NASA in Silicon Valley | 64 | 1 910 | 5.2 |
-  | NASA's Curious Universe | 7 | 252 | 0.6 |
+  | Houston We Have a Podcast | 65 | 3 990 | 11.5 |
+  | Gravity Assist | 65 | 2 918 | 8.6 |
+  | Small Steps, Giant Leaps | 64 | 2 897 | 8.8 |
+  | NASA in Silicon Valley | 64 | 1 903 | 5.1 |
+  | NASA's Curious Universe | 7 | 248 | 0.6 |
 
   The prepared set is 3.7 GiB, and the 265 episodes read leave 15.0 GiB of WAV
   in the cache.
 - **What the base model gets wrong**: Parakeet's text differs from the label on
-  7 269 of the 12 000 clips (60.6 %); the mean `base_wer` is 5.3 %, and 39 % of
+  7 229 of the 11 956 clips (60.5 %); the mean `base_wer` is 5.3 %, and 39 % of
   the clips have a `base_wer` of 0. By show, it differs on 29 % (NASA's Curious
   Universe) to 73 % (NASA in Silicon Valley) of the clips. The labels are human
   text, so this is closer to the base model's own error than on the talk
@@ -1416,13 +1422,13 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   first and last words Parakeet already hears.
 - **Known limits**: **the label error of the kept clips is not measured** — the
   thresholds bound how far a label may stray from Whisper's words, and nobody
-  has checked a sample against the audio. The labels keep NASA's typography:
-  `’` for every apostrophe (6 452 clips hold one, none a straight `'`), and
+  has checked a sample against the audio. The first set kept NASA's typography:
+  `’` for every apostrophe (6 452 clips held one, none a straight `'`), and
   `“ ”`, `—` and `–`. The tokenizer of Parakeet TDT 0.6B v3 has no piece for
-  them, so a model trained on these labels learns to write its unknown token,
+  them, so a model trained on those labels learned to write its unknown token,
   which is most of this source's harm on English in the
-  [screening](screening.md#what-each-source-does-alone); the training text does
-  not replace them yet.
+  [screening](screening.md#what-each-source-does-alone). The set prepared again
+  writes none of them; it is not screened yet.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of
