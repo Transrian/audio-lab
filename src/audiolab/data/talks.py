@@ -65,9 +65,9 @@ from pathlib import Path
 import httpx
 
 from audiolab.core.audio import SAMPLE_RATE, load_audio
-from audiolab.core.parallel import map_requests, never
+from audiolab.core.parallel import map_requests
 from audiolab.core.progress import progress, say
-from audiolab.core.stop import raise_if_stopped, stop_requested
+from audiolab.core.stop import Stopped, raise_if_stopped, stop_requested
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
 from audiolab.data.talk_clips import (
@@ -444,24 +444,26 @@ def heard_talks(
     whisper: Transcribe,
     tally: Counter[str],
     concurrency: int = 1,
-    should_stop: Callable[[], bool] = never,
+    should_stop: Callable[[], bool] = stop_requested,
 ) -> list[TalkInProgress]:
     """The Whisper pass on a batch: :func:`heard_talk` on ``concurrency`` talks at once.
 
-    The talks come back in batch order; once ``should_stop()`` is true, no talk
-    starts and only the talks started come back (:func:`map_requests`).
+    The talks come back in batch order. What runs in parallel is talks, not the
+    chunks of one talk: a chunk starts where the last trusted segment of the
+    one before it ends (:func:`audiolab.data.talk_clips.segment_audio`), so it
+    cannot be sent first.
 
-    What runs in parallel is talks, not the chunks of one talk: a chunk starts
-    where the last trusted segment of the one before it ends
-    (:func:`audiolab.data.talk_clips.segment_audio`), so it cannot be sent first.
-    A stopped run, or a failed one, stops the talks in flight at their next
-    chunk; the answers already written stay cached.
+    Once ``should_stop()`` is true, by default once a stop was asked for
+    (D-021), no talk starts, and the talks in flight end at their next chunk
+    with :class:`~audiolab.core.stop.Stopped`, which is not a talk Whisper
+    failed on. A failed talk ends the others the same way, and its failure is
+    raised. Either way the answers already written stay cached.
     """
     failing = threading.Event()
 
     def whisper_until_stopped(wav: bytes) -> dict:
         if failing.is_set() or should_stop():
-            raise TranscriptionError("stopping")
+            raise Stopped("labelling stopped")
         return whisper(wav)
 
     def heard(pair: tuple[Talk, Path | None]) -> tuple[TalkInProgress, Counter[str]]:
@@ -529,7 +531,9 @@ def agreeing(
         group = list(islice(pending, min(concurrency, share - len(agreed))))
         if not group:
             break
-        for candidate, label in zip(group, map_requests(ask_qwen, group, concurrency), strict=True):
+        labels = map_requests(ask_qwen, group, concurrency)
+        raise_if_stopped("labelling stopped")
+        for candidate, label in zip(group, labels, strict=True):
             if label is None:
                 tally["clips Qwen failed on"] += 1
             else:
@@ -577,6 +581,7 @@ def offer_talk(
         return round(counts(label, heard, language, "normalized").wer, 4)
 
     base_wers = map_requests(ask_parakeet, talk.agreed, concurrency)
+    raise_if_stopped("labelling stopped")
     source_talk = talk.talk
     kept = 0
     for (clip, label), base_wer in zip(talk.agreed, base_wers, strict=True):

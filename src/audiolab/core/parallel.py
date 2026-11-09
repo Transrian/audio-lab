@@ -10,10 +10,7 @@ import threading
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 
-
-def never() -> bool:
-    """The stop condition of a run nothing asks to stop."""
-    return False
+from audiolab.core.stop import stop_requested
 
 
 def map_requests[T, R](
@@ -21,7 +18,7 @@ def map_requests[T, R](
     items: Iterable[T],
     concurrency: int = 1,
     *,
-    should_stop: Callable[[], bool] = never,
+    should_stop: Callable[[], bool] = stop_requested,
     failing: threading.Event | None = None,
 ) -> list[R]:
     """``ask`` on every item, ``concurrency`` at a time; the results in the items' order.
@@ -33,11 +30,14 @@ def map_requests[T, R](
 
     The items are taken in order, one at a time, as a worker becomes free, so
     an iterator that is still producing them (a talk still downloading) is read
-    as the requests go. No item starts once ``should_stop()`` is true: the items
-    in flight finish, and the results returned are those of the items started,
-    the first ones. An ``ask`` that fails, or an interrupted caller, sets
-    ``failing``: no item starts either, an ``ask`` watching it can end early,
-    and the failure is raised once the items in flight are done.
+    as the requests go. No item starts once ``should_stop()`` is true, by
+    default once a stop was asked for (D-021): the items in flight finish, and
+    the results returned are those of the items started, the first ones. A
+    caller therefore calls :func:`~audiolab.core.stop.raise_if_stopped` right
+    after, so that a stopped run is not taken for a finished one. An ``ask``
+    that fails, or an interrupted caller, sets ``failing``: no item starts
+    either, an ``ask`` watching it can end early, and the first failure is
+    raised once the items in flight are done.
     """
     if concurrency < 1:
         raise ValueError(f"concurrency must be at least 1, not {concurrency}")
@@ -45,6 +45,7 @@ def map_requests[T, R](
     numbered = enumerate(items)
     taking = threading.Lock()
     results: dict[int, R] = {}
+    failures: list[BaseException] = []
 
     def work() -> None:
         try:
@@ -56,9 +57,11 @@ def map_requests[T, R](
                     return
                 index, item = entry
                 results[index] = ask(item)
-        except BaseException:
+        except BaseException as failure:
+            # The first failure is the one raised: an ask that ends early because
+            # of it fails after it.
+            failures.append(failure)
             failing.set()
-            raise
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         workers = [pool.submit(work) for _ in range(concurrency)]
@@ -68,4 +71,6 @@ def map_requests[T, R](
         except BaseException:
             failing.set()
             raise
+    if failures:
+        raise failures[0]
     return [results[index] for index in range(len(results))]

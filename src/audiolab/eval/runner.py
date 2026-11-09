@@ -26,6 +26,7 @@ import yaml
 from audiolab import __version__
 from audiolab.core.parallel import map_requests
 from audiolab.core.paths import runs_dir
+from audiolab.core.stop import raise_if_stopped
 from audiolab.data.panels import DEFAULT_PANELS_DIR
 from audiolab.eval.cache import (
     answer_key,
@@ -375,7 +376,9 @@ def _transcribe_pending(
     """Send every pending item, appending each answer to the cache as it arrives.
 
     A warmup waits until the model answers, then the items are sent
-    ``context.concurrency`` at a time (D-022). One client serves the whole run:
+    ``context.concurrency`` at a time (D-022). A stop (D-021) lets the items in
+    flight finish, sends no other, and raises :class:`~audiolab.core.stop.Stopped`
+    before anything is written or scored. One client serves the whole run:
     it holds the connection pool, and creating one per item would open a
     connection per request and never close it.
     """
@@ -402,6 +405,9 @@ def _transcribe_pending(
     with closing(factory(context, base_url)) as client:
         client.warm_up()
         map_requests(work, enumerate(pending), context.concurrency)
+    # A stopped run sent only some of its items: it is not written as complete,
+    # and the next one sends the rest, the cache holding what this one received.
+    raise_if_stopped("evaluation stopped")
 
 
 def _transcribe_one(client, item: Item, audio_file: Path, *, cold: bool) -> dict:

@@ -87,7 +87,8 @@ not download it again, so the check happens when the file arrives.
 
 `audiolab data fetch`, `audiolab data fetch-audio` and the labelling of a talk
 source can be stopped with Ctrl-C or SIGTERM. The task finishes the step in hand
-— the clip it is writing, the block of a download, the talks a model pass is on —
+— the clip it is writing, the block of a download, the requests a model pass has
+in flight (a talk Whisper is hearing ends after its current 300 s chunk) —
 prints `audiolab: <what> stopped; run the same command again to resume` and
 exits with code 130; a second Ctrl-C or SIGTERM ends it at once. Running the same
 command again goes on:

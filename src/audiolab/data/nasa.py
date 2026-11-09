@@ -44,6 +44,7 @@ import httpx
 from audiolab.core.audio import load_audio
 from audiolab.core.parallel import map_requests
 from audiolab.core.paths import cache_dir
+from audiolab.core.stop import raise_if_stopped
 from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError
@@ -587,6 +588,7 @@ def label_batch(
             usable.append((episode, path))
     whisper, parakeet = whisper.one_pass(), parakeet.one_pass()
     heard = heard_talks(usable, cache, whisper.transcribe, tally, whisper.concurrency)
+    raise_if_stopped("labelling stopped")
     labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
     room = take.cap - take.kept
     sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
@@ -656,6 +658,7 @@ def with_clean_edges(
             return None
 
     texts = map_requests(ask_parakeet, [clip for clip, _ in clips], concurrency)
+    raise_if_stopped("labelling stopped")
     kept = []
     for (clip, label), heard in zip(clips, texts, strict=True):
         if heard is None:

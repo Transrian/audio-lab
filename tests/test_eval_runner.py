@@ -18,6 +18,7 @@ import pytest  # noqa: E402
 from helpers import is_warmup, make_clip, start_transcription_server, write_tone  # noqa: E402
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
 from audiolab.eval import metrics, runner, stats  # noqa: E402
@@ -310,6 +311,44 @@ def test_a_run_sends_its_requests_n_at_a_time(workspace):
     records = read_records(run_dir / RECORDS_NAME)
     assert len(sent) == len(records) == panel_size(workspace)
     assert all(record["hypothesis"] == "bonjour tout le monde" for record in records)
+
+
+def test_a_stopped_run_sends_no_further_clip_writes_no_run_and_the_next_one_sends_the_rest(
+    workspace, run_again
+):
+    together = threading.Barrier(2, timeout=10)  # both in flight when the stop comes
+    sent: list[int] = []
+    lock = threading.Lock()
+
+    def respond(request):
+        if is_warmup(request.content):
+            return httpx.Response(200, json={"text": ""})
+        with lock:
+            sent.append(len(sent))
+            if len(sent) == 2:
+                request_stop()  # Ctrl-C while the first two clips are answered
+        if len(sent) <= 2:
+            together.wait()
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(context_.model, base_url, transport=httpx.MockTransport(respond))
+
+    def evaluate() -> Path:
+        return run_suite(
+            context(workspace, base_url="http://server.test", concurrency=2), client_factory=factory
+        )
+
+    with pytest.raises(Stopped, match="evaluation stopped"):
+        evaluate()
+    assert len(sent) == 2, "the clips in flight finish, no other is sent"
+    assert len(cache_lines(workspace)) == 2, "their answers are kept"
+    assert not list(workspace["runs_dir"].rglob(SUMMARY_NAME)), "no run is written as complete"
+
+    run_again()
+    run_dir = evaluate()
+    assert len(sent) == panel_size(workspace), "the next run sends only the rest"
+    assert len(read_records(run_dir / RECORDS_NAME)) == panel_size(workspace)
 
 
 def test_a_run_warms_its_model_up_and_neither_records_nor_caches_the_warmup(workspace):

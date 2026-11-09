@@ -532,7 +532,7 @@ def test_a_stopped_labelling_writes_no_manifest_and_the_next_run_asks_only_the_r
             source, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=False
         )
 
-    with pytest.raises(Stopped, match="preparation of dataset stopped"):
+    with pytest.raises(Stopped, match="labelling stopped"):
         label()
     assert not (tmp_path / "dataset" / "manifest.jsonl").exists()
 
@@ -698,6 +698,33 @@ def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_pa
     assert len(Answers(tmp_path / "q.jsonl").answers) == 6, "every answer is cached, whole"
 
 
+def test_a_stop_during_a_qwen_or_parakeet_pass_ends_it_after_the_requests_in_flight(
+    tmp_path, run_again
+):
+    one = make_pass(
+        tmp_path,
+        [segment(f"Phrase {i}.", 1.0 + 6.0 * i, 6.0 + 6.0 * i + i / 10) for i in range(6)],
+        seconds=40.0,
+    )
+    by_length, calls = answering_by_length({round(5.4 + i / 10, 2): "Phrase." for i in range(6)})
+
+    def stopping(wav: bytes) -> dict:
+        request_stop()  # Ctrl-C during the first request
+        return by_length(wav)
+
+    with pytest.raises(Stopped, match="labelling stopped"):
+        talks.agreeing(one, Answers(tmp_path / "q.jsonl"), stopping, "fr", 200, Counter(), 3)
+    assert len(calls) <= 3, "only the clips in flight are sent, not the next three"
+
+    run_again()
+    calls.clear()
+    one.agreed = [(segment("Phrase.", 1.0, 6.0), "Phrase."), (segment("Phrase.", 7.0, 12.1), "x")]
+    take = make_take(tmp_path)
+    with pytest.raises(Stopped, match="labelling stopped"):
+        talks.offer_talk(one, Answers(tmp_path / "p.jsonl"), stopping, take, "fr", Counter())
+    assert len(calls) == 1 and take.kept == 0, "no clip is sent or offered after the stop"
+
+
 def test_the_whisper_pass_hears_talks_at_once_and_returns_them_in_batch_order(tmp_path):
     # Both talks must be in flight together for either of them to be answered.
     together = threading.Barrier(2, timeout=10)
@@ -773,10 +800,36 @@ def test_a_whisper_pass_asked_to_stop_starts_no_talk_and_ends_the_one_in_flight(
         return {"segments": [], "text": ""}
 
     batch = [(talk(uuid), write_tone(tmp_path / f"{uuid}.wav", seconds=10.0)) for uuid in "ab"]
-    heard = talks.heard_talks(batch, tmp_path, whisper, Counter(), should_stop=stop.is_set)
+    with pytest.raises(Stopped, match="labelling stopped"):
+        talks.heard_talks(batch, tmp_path, whisper, Counter(), should_stop=stop.is_set)
 
-    assert [one.talk.id for one in heard] == ["a"], "the second talk never starts"
-    assert len(calls) == 1, "the talk in flight stops at its next chunk"
+    assert len(calls) == 1, "the talk in flight stops at its next chunk, the second never starts"
+
+
+def test_a_stop_ends_the_talks_in_flight_at_their_next_chunk_and_is_no_whisper_failure(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
+    in_flight = threading.Barrier(3, timeout=10)
+    calls = []
+
+    def whisper(wav: bytes) -> dict:
+        calls.append(wav)
+        in_flight.wait()  # three talks are heard at once
+        request_stop()  # Ctrl-C during their first chunk
+        return {"segments": [], "text": ""}
+
+    batch = [(talk(f"t{n}"), write_tone(tmp_path / f"t{n}.wav", seconds=10.0)) for n in range(8)]
+    tally: Counter[str] = Counter()
+    with pytest.raises(Stopped, match="labelling stopped"):
+        talks.heard_talks(batch, tmp_path, whisper, tally, concurrency=3)
+
+    assert len(calls) == 3, "each talk in flight ends at its next chunk, no other starts"
+    assert tally == Counter() and "warning" not in capsys.readouterr().out, (
+        "a stop is not a talk Whisper failed on"
+    )
+    cached = [Answers(tmp_path / f"t{n}.{WHISPER}.300s.jsonl").answers for n in range(8)]
+    assert [len(answers) for answers in cached] == [1, 1, 1, 0, 0, 0, 0, 0]
 
 
 def test_the_parakeet_pass_sends_clips_at_once_and_offers_them_in_order(tmp_path):
