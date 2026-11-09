@@ -1,5 +1,6 @@
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -47,6 +48,24 @@ def test_clip_from_dict_refuses_unknown_and_missing_fields():
         clip_from_dict({"whoops": 1})
     with pytest.raises(ValueError, match="missing fields"):
         clip_from_dict({"id": "d:001"})
+
+
+def test_a_line_without_the_optional_fields_reads_with_them_empty():
+    line = json.loads(make_clip("d:001").manifest_line())
+    assert not {"source_url", "source_title", "source_author", "base_wer"} & set(line), (
+        "a source without attribution writes the lines it always wrote"
+    )
+    del line["category"]
+    clip = clip_from_dict(line)
+    assert (clip.category, clip.source_url, clip.source_title, clip.source_author) == ("",) * 4
+    assert clip.base_wer is None
+
+
+def test_per_recording_fields_are_written_when_set():
+    clip = replace(make_clip("d:001"), source_url="https://example.org/v", base_wer=0.0)
+    line = json.loads(clip.manifest_line())
+    assert line["source_url"] == "https://example.org/v" and line["base_wer"] == 0.0
+    assert clip_from_dict(line) == clip
 
 
 def test_verify_clips_reports_missing_and_altered_audio(tmp_path):

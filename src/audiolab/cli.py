@@ -10,11 +10,12 @@ import argparse
 import json
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 from audiolab import __version__
 from audiolab.core.gpu import add_gpu_argument, list_gpus
-from audiolab.core.paths import data_dir, runs_dir
+from audiolab.core.paths import cache_dir, data_dir, runs_dir
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fetch import fetch_dataset
 from audiolab.data.panels import (
@@ -25,6 +26,9 @@ from audiolab.data.panels import (
     load_dataset_clips,
     panel_path,
 )
+from audiolab.data.talk_listing import Talk, write_listing
+from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
+from audiolab.data.talks import HOURS_PER_CAP, http_client
 from audiolab.eval.client import ConfigError, ModelConfig
 from audiolab.eval.report import (
     REPORT_NAME,
@@ -68,6 +72,30 @@ def cmd_data_fetch(args: argparse.Namespace) -> int:
         print(f"fetching {name} into {data_dir() / name}")
         fetch_dataset(name, force=args.force)
     return 0
+
+
+def cmd_data_list_talks(args: argparse.Namespace) -> int:
+    """Read one talk source's catalogue and pin it as its listing."""
+    name = args.name
+    with http_client() as http:
+        talks = list_talks(name, http)
+    source = SOURCES[name]
+    write_listing(source, listed_on=date.today().isoformat(), talks=talks)
+    print(f"{source.listing_path}: {len(talks)} talks, {hours_of(talks):.1f} h")
+    return 0
+
+
+def cmd_data_fetch_audio(args: argparse.Namespace) -> int:
+    """Download the audio of the first talks of a talk source, without labelling them."""
+    name = args.name
+    print(f"preparing the audio of {name} into {cache_dir() / name}")
+    prepared = prepare_talk_audio(name, cache_dir(), args.hours)
+    return 0 if prepared.talks else 1
+
+
+def hours_of(talks: list[Talk]) -> float:
+    """How long the talks of a listing last together."""
+    return sum(talk.duration_s for talk in talks) / 3600
 
 
 def cmd_data_panels(args: argparse.Namespace) -> int:
@@ -223,6 +251,38 @@ def _add_data_commands(commands: argparse._SubParsersAction) -> None:
     fetch.add_argument("names", nargs="*", help="dataset names; all of them when omitted")
     fetch.add_argument("--force", action="store_true", help="prepare again even if already present")
     fetch.set_defaults(func=cmd_data_fetch)
+
+    listing_talks = _command(
+        data_commands,
+        "list-talks",
+        "pin the talks of one talk source from its live catalogue",
+        "Asks a PeerTube instance, or a conference's file tree, for the talks the "
+        "source may use and writes the pinned listing its preparation reads "
+        "(metadata only). Re-run it to refresh a source; a change to a listing is a "
+        "change to the dataset and is committed.",
+        "audiolab data list-talks debconf-en-train",
+    )
+    listing_talks.add_argument("name", choices=sorted(SOURCES), help="talk dataset name")
+    listing_talks.set_defaults(func=cmd_data_list_talks)
+
+    fetch_audio = _command(
+        data_commands,
+        "fetch-audio",
+        "download the audio of a talk source without labelling it",
+        "Downloads the talks a labelling run reads first, into the cache the run "
+        "reads them from. No model is asked anything, so this can run while the "
+        "speech server is busy with another dataset (D-020).",
+        "audiolab data fetch-audio debconf-en-train --hours 65",
+    )
+    fetch_audio.add_argument("name", choices=sorted(SOURCES), help="talk dataset name")
+    fetch_audio.add_argument(
+        "--hours",
+        type=float,
+        default=HOURS_PER_CAP,
+        help=f"how much talk to prepare (default {HOURS_PER_CAP:g} h, which is what "
+        "the 12 000-clip cap needs at the measured yield)",
+    )
+    fetch_audio.set_defaults(func=cmd_data_fetch_audio)
 
     panels = _command(
         data_commands,

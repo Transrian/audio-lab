@@ -22,7 +22,15 @@ GROUP_KINDS = ("speaker", "recording", "sentence", "clip")
 
 @dataclass(frozen=True)
 class Clip:
-    """One prepared utterance: where its audio is, what was said, how to group it."""
+    """One prepared utterance: where its audio is, what was said, how to group it.
+
+    ``source_url``, ``source_title`` and ``source_author`` are empty unless the
+    source's license asks for attribution per recording (CC BY on a video): the
+    manifest line is what travels with the clip, so the attribution goes there.
+    ``base_wer`` is set only where a model wrote the label: the normalized word
+    error rate of the base model on the clip, against that label, so that a
+    training mix can pick the clips the base model gets wrong.
+    """
 
     id: str
     audio: str
@@ -36,17 +44,34 @@ class Clip:
     source_split: str
     license: str
     category: str = ""
+    source_url: str = ""
+    source_title: str = ""
+    source_author: str = ""
+    base_wer: float | None = None
 
     def manifest_line(self) -> str:
-        return json.dumps(asdict(self), ensure_ascii=False, sort_keys=True)
+        """The clip as one JSON line, without the per-recording fields it does not use.
+
+        So the manifests of the sources that have none read as they always did.
+        """
+        fields = asdict(self)
+        for name in PER_RECORDING_FIELDS:
+            if fields[name] == Clip.__dataclass_fields__[name].default:
+                del fields[name]
+        return json.dumps(fields, ensure_ascii=False, sort_keys=True)
+
+
+# The fields only some sources fill in, left out of a manifest line when unset.
+PER_RECORDING_FIELDS = ("source_url", "source_title", "source_author", "base_wer")
 
 
 def clip_from_dict(data: dict) -> Clip:
     """Rebuild a clip, refusing unknown or missing fields instead of guessing."""
+    optional = {"category", *PER_RECORDING_FIELDS}
     unknown = set(data) - set(Clip.__dataclass_fields__)
     if unknown:
         raise ValueError(f"manifest line has unknown fields: {sorted(unknown)}")
-    missing = set(Clip.__dataclass_fields__) - set(data) - {"category"}
+    missing = set(Clip.__dataclass_fields__) - set(data) - optional
     if missing:
         raise ValueError(f"manifest line is missing fields: {sorted(missing)}")
     return Clip(**data)

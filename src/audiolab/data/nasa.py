@@ -1,0 +1,668 @@
+"""NASA's podcasts: episodes labelled by the transcripts NASA publishes with them.
+
+NASA publishes each episode twice: as an MP3 in the show's RSS feed, and as a
+page on nasa.gov whose body is a near-verbatim transcript, cased and punctuated,
+with the speakers named. The labels of ``nasa-en-train`` are that human text,
+not a model's, and :mod:`audiolab.data.aligned_clips` is what places it in time.
+
+- ``audiolab data list-talks nasa-en-train`` reads the feeds of :data:`SHOWS`,
+  drops the repeats (:func:`without_repeats`), fetches every episode page once
+  into the cache, and pins the episodes whose page holds a transcript and no
+  copyright notice (:func:`why_unusable`). The listing holds metadata only; the raw pages stay in
+  ``$AUDIOLAB_CACHE/nasa-en-train/pages``.
+- ``audiolab data fetch nasa-en-train`` (:func:`fetch_nasa_en_train`) reads the
+  listing in a seeded order spread over the shows and runs, batch by batch: the
+  listing's checks on each page fetched again, the Whisper pass of the other
+  talk sources (:func:`audiolab.data.talks.heard_talks`: several episodes at
+  once, chunks, raw answers cached), the alignment of each episode's transcript
+  to its candidate clips (no model), then the Parakeet pass, which keeps a clip
+  only when Parakeet hears the label's first and last words at its edges and
+  records ``base_wer`` (:func:`audiolab.data.talks.offer_talk`). Every Whisper request of a batch is
+  sent before the first Parakeet one (D-020).
+
+The licence is public domain: a work of the US government is not protected by
+copyright in the United States, and D-019 allows public domain. The evidence and
+the rules that follow from it are on the source's card in `docs/stt/datasets.md`.
+"""
+
+from __future__ import annotations
+
+import re
+import xml.etree.ElementTree as ET
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
+from dataclasses import dataclass
+from functools import partial
+from html.parser import HTMLParser
+from itertools import islice
+from pathlib import Path
+from urllib.parse import urlparse
+
+import httpx
+
+from audiolab.core.audio import load_audio
+from audiolab.core.paths import cache_dir
+from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
+from audiolab.data.build import ManifestBuilder
+from audiolab.data.download import DownloadError
+from audiolab.data.talk_clips import Answers, Segment, Transcribe, candidates, clip_text
+from audiolab.data.talk_listing import Talk, TalkSource, read_listing, reading_order
+from audiolab.data.talks import (
+    BASE_MODEL,
+    BASE_WRONG,
+    KEPT,
+    SEED,
+    SEGMENT_MODEL,
+    TalkInProgress,
+    answer,
+    audio_file,
+    batch_size,
+    client,
+    clips_file,
+    heard_talks,
+    http_client,
+    offer_talk,
+    prefetched,
+)
+from audiolab.data.train import Take
+from audiolab.eval.client import TranscriptionError
+
+NAME = "nasa-en-train"
+LANGUAGE = "en"
+LICENSE = "public domain (US government work)"
+LISTING_PATH = Path(__file__).parent / "nasa_listing.json"
+FEED = "https://www.nasa.gov/feeds/podcasts/{show}"
+# The shows this source reads, by the slug of their feed, with their names.
+# On a Mission is left out: it is made by JPL, which Caltech runs for NASA, and
+# its feed names "NASA/JPL/Caltech" as the copyright holder, so it is not a
+# work of the US government.
+SHOWS = {
+    "houston-we-have-a-podcast": "Houston We Have a Podcast",
+    "small-steps-giant-leaps": "Small Steps, Giant Leaps",
+    "nasa-in-silicon-valley": "NASA in Silicon Valley",
+    "curious-universe": "NASA's Curious Universe",
+    "gravity-assist": "Gravity Assist",
+}
+# What the feed of a show may name as its copyright holder: NASA, or NASA's own
+# knowledge programme (APPEL). A feed that names anyone else is refused, so a
+# change of hands is seen at the next listing rather than trained on.
+FEED_COPYRIGHTS = frozenset({"NASA", "NASA/APPEL Knowledge Services"})
+ITUNES = "{http://www.itunes.com/dtds/podcast-1.0.dtd}"
+# Where an episode page is: www.nasa.gov/podcasts/<section>/<slug>/.
+PAGE_HOST, PAGE_SECTION = "www.nasa.gov", "podcasts"
+# A page has a transcript when its text holds at least this many words for each
+# minute of audio; people say about 150. A "Live" episode's page holds a
+# caption and a video link, an older page only its description.
+MIN_WORDS_PER_MINUTE = 60
+# A page with more words than this for each minute of audio holds more than
+# its episode: the pages of 2026-11-08 above it each hold their transcript
+# twice. Nobody keeps up 250 words a minute for a whole episode; the median
+# page holds 168, and the fastest of the others 239.
+MAX_WORDS_PER_MINUTE = 250
+# NASA's media guidelines: third-party material NASA uses is "identified as
+# copyright protected with the name of the copyright holder". An episode whose
+# page carries such a notice is left out whole, since the notice does not say
+# which minutes of the episode it covers. A notice, not a word: guests say
+# "copyright" and "licensed" in passing, and a credit names its source as
+# "used courtesy of" or "used with permission", or says whose a recording is
+# ("Audio from the … conversation provided by Explore Mars").
+NOTICE = re.compile(
+    r"©|\ball rights reserved\b|\bcopyright(?:ed)? (?:by |\d{4})"
+    r"|\bused (?:courtesy of|with permission)\b"
+    r"|\b(?:audio|recordings?|clips?|footage)\b[^.]{0,80}\b(?:provided by|courtesy of)\b",
+    re.IGNORECASE,
+)
+# A credit for music somebody else made: the music library of Curious Universe
+# ("Music for the series comes from Universal Production Music"), its theme
+# ("composed by … of SYSTEM Sounds"), or a note naming a piece and its composer
+# ("[Song: Ants Instrumental by Taylor Welsh]"). The music plays under the
+# speech where the transcript does not say, and its licence is unknown, which
+# D-019 does not train on: such an episode is left out whole, like one with a
+# notice.
+MUSIC_CREDIT = re.compile(
+    r"\buniversal production music\b|\bsystem sounds\b"
+    r"|\[[^\]]*\b(?:music|song|theme|intro|outro)\b[^\]]*\bby\b",
+    re.IGNORECASE,
+)
+# What a title adds when an episode is aired again: "Encore: X", "Mars Ep. 3: X".
+RERUN_TITLE = re.compile(r"\bencore\b|^.*?\b(?:ep|episode)\.? ?\d+ ?:", re.IGNORECASE)
+# What the page of an episode aired again says of it: "This episode originally
+# aired May 1, 2020, as Episode 142", "the rebroadcast of a conversation".
+MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
+RERUN_PAGE = re.compile(
+    rf"\boriginally (?:aired|released)(?: on)? (?:as )?(?:episode\b|(?:{MONTHS}) \d)"
+    r"|\brebroadcast of\b",
+    re.IGNORECASE,
+)
+# A recording the show plays, as its transcript notes one or names its speaker:
+# "[ARCHIVAL Apollo 11 Broadcast: …]", "APOLLO 8 ARCHIVAL: …", "[Clip of
+# Sidedoor podcast begins]", "[NBC NIGHTLINE's CHRIS WALLACE: …]", "[Audio from
+# STS-129 Launch: …]", "[Meteorologist audio: …]", "Launch announcer:",
+# "Unidentified launch voice 1:", "Voyager excerpt:", "[John F. Kennedy
+# Archive: …]". "Archive" counts with its colon only: "Distributed Active
+# Archive Centers" is a name said on the show.
+PLAYED = re.compile(
+    r"\barchival\b|\bbroadcasts?\b|\bclips?\b|\bnightline\b|\bnasa tv\b"
+    r"|\baudio (?:from|of)\b|\w audio:|\bannouncer\b|\blaunch (?:audio|voices?)\b"
+    r"|\bexcerpts?\b|\barchive:",
+    re.IGNORECASE,
+)
+# The episodes whose transcript writes the transcriber's notes as words of the
+# speech, with no bracket to tell them apart ("those phone calls laughter",
+# "it's pause — it was"): a label would carry them as said.
+NOTES_AS_SPEECH = frozenset({"a-seismic-journey"})
+# Pages come from one public website: three at a time, as the audio downloads.
+PAGE_WORKERS = 3
+# The counts of the labelling report, beside those of the Parakeet pass.
+CANDIDATES = "candidate clips"
+TRANSCRIPT_LABELLED = "clips labelled from the transcript"
+EDGES_UNHEARD = "labelled clips whose first or last word the base model does not hear"
+
+
+# The feeds.
+
+
+def feed_episodes(feed: str, show: str) -> list[Talk]:
+    """The episodes of one show's RSS feed that have a page and an MP3.
+
+    A few items link to no page, or to a page outside the podcast section of
+    nasa.gov, where no transcript is found: they are left out.
+    """
+    channel = ET.fromstring(feed).find("channel")
+    holder = (channel.findtext("copyright") or "").strip()
+    if holder not in FEED_COPYRIGHTS:
+        raise DownloadError(f"the feed of {show} names {holder!r} as its copyright holder")
+    episodes = []
+    for item in channel.iter("item"):
+        page = (item.findtext("link") or "").strip()
+        enclosure = item.find("enclosure")
+        audio = enclosure.get("url", "").strip() if enclosure is not None else ""
+        if not episode_slug(page) or not audio:
+            continue
+        episodes.append(
+            Talk(
+                id=episode_slug(page),
+                url=page,
+                title=" ".join((item.findtext("title") or "").split()),
+                duration_s=seconds_of(item.findtext(f"{ITUNES}duration") or ""),
+                license=LICENSE,
+                author=f"NASA, {SHOWS[show]}",
+                channel=show,
+                file=audio,
+            )
+        )
+    return episodes
+
+
+def seconds_of(duration: str) -> int:
+    """A feed's duration in seconds, written in seconds ("1448") or as a time ("1:02:03")."""
+    seconds = 0
+    for part in duration.strip().split(":"):
+        seconds = seconds * 60 + int(part or 0)
+    return seconds
+
+
+def episode_slug(url: str) -> str:
+    """The last part of an episode page's path, or nothing for a URL that is not one."""
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split("/") if part]
+    if parsed.netloc != PAGE_HOST or len(parts) != 3 or parts[0] != PAGE_SECTION:
+        return ""
+    return parts[2]
+
+
+def without_repeats(episodes: list[Talk]) -> list[Talk]:
+    """Each episode once: the first copy of it in the order given.
+
+    A show airs an episode again under a new page and a new MP3, as an "Encore"
+    or in a series ("Mars Ep. 3: X"), and once in a while posts it twice. Two
+    episodes are the same when they share a page, an MP3 file or a title once
+    :data:`RERUN_TITLE` and punctuation are set aside. The listing passes the
+    episodes oldest first, so the copy kept is the one aired first.
+    """
+    seen: set[tuple[str, str]] = set()
+    kept = []
+    for episode in episodes:
+        keys = {
+            ("page", episode.url),
+            ("audio", urlparse(episode.file).path.rsplit("/", 1)[-1]),
+            ("title", title_key(episode.title)),
+        }
+        if not keys & seen:
+            kept.append(episode)
+        seen |= keys
+    return kept
+
+
+def title_key(title: str) -> str:
+    """What two copies of one episode's title share: its words, without a rerun's prefix."""
+    return " ".join(re.findall(r"[a-z0-9]+", RERUN_TITLE.sub(" ", title.lower())))
+
+
+# The episode pages.
+
+
+@dataclass(frozen=True)
+class Block:
+    """One paragraph of a page: its text, and the bold text it starts with."""
+
+    text: str
+    bold_start: str
+
+
+class _Blocks(HTMLParser):
+    """The paragraphs, list items and headings of a stretch of HTML, in order.
+
+    A list item can hold a paragraph or a list of its own; what follows that
+    inner block, up to the item's end, is one more block.
+    """
+
+    BLOCKS = frozenset({"p", "li", "h1", "h2", "h3", "h4", "h5", "h6"})
+    BOLD = frozenset({"strong", "b"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[Block] = []
+        self.parts: list[str] | None = None
+        self.bold_parts: list[str] = []
+        self.starting = False  # still in the bold text the paragraph opens with
+        self.bold = 0
+        self.open_items = 0  # list items started and not yet ended
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in self.BLOCKS:
+            self.end_block()  # a paragraph left open ends where the next starts
+            self.open_items += tag == "li"
+            self.start_block()
+        elif tag in self.BOLD:
+            self.bold += 1
+        elif tag == "br":
+            self.handle_data(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self.BOLD:
+            self.bold = max(0, self.bold - 1)
+        elif tag in self.BLOCKS:
+            self.end_block()
+            self.open_items = max(0, self.open_items - (tag == "li"))
+            if self.open_items:
+                self.start_block()  # the rest of the item that holds this block
+
+    def start_block(self) -> None:
+        self.parts, self.bold_parts, self.starting = [], [], True
+
+    def end_block(self) -> None:
+        if self.parts is not None:
+            self.blocks.append(Block(squash("".join(self.parts)), squash("".join(self.bold_parts))))
+            self.parts = None
+
+    def handle_data(self, data: str) -> None:
+        if self.parts is None:
+            return
+        self.parts.append(data)
+        if self.starting and self.bold:
+            self.bold_parts.append(data)
+        elif data.strip():
+            self.starting = False
+
+
+def squash(text: str) -> str:
+    return " ".join(text.split())
+
+
+def episode_body(page: str) -> str:
+    """The HTML of the episode itself: from its content block to the site's footer."""
+    start = page.find('<div class="hds-podcast-content')
+    if start < 0:
+        return ""
+    end = page.find("<footer", start)
+    return page[start : end if end > 0 else len(page)]
+
+
+def blocks_of(page: str) -> list[Block]:
+    """The paragraphs of an episode's content that hold any text."""
+    parser = _Blocks()
+    parser.feed(episode_body(page))
+    return [block for block in parser.blocks if block.text]
+
+
+def transcript_lines(blocks: list[Block]) -> list[Line]:
+    """The transcript of an episode page, from its blocks, as lines with their speakers.
+
+    The transcript starts after a "Transcript" heading when the page has one, and
+    with the episode's content otherwise; a description that comes before it on
+    such a page is text nobody says, which the alignment finds no audio for.
+    """
+    headings = [n for n, block in enumerate(blocks) if is_transcript_heading(block.text)]
+    start = headings[0] + 1 if headings else 0
+    lines = [line_of(block) for block in blocks[start:]]
+    return with_name_lines(lines)
+
+
+def is_transcript_heading(text: str) -> bool:
+    return text.rstrip(":").strip().lower() == "transcript"
+
+
+def line_of(block: Block) -> Line:
+    """One paragraph as a line, its speaker label taken off the speech.
+
+    The shows write a label four ways: bold and alone on its line ("Gary
+    Jordan"), before a colon ("Host: Welcome…", "NICKY FOX: Three, two, one"),
+    alone with a colon ("host:"), or alone with the time it is said at ("Steve
+    Altemus 11:32"). A note in a label, such as a timestamp or "(Host)", is not
+    part of the name. A capitalised phrase before a colon in plain speech
+    ("Today: the Moon") is read as a label too: that only splits a passage, so
+    a clip across it is left out, while a label read as speech would let a
+    clip's label run across a change of speaker.
+    """
+    text, bold = block.text, NOTE.sub("", block.bold_start).strip()
+    # The first colon outside a note: "[0:09] Narrator: …" is labelled Narrator.
+    masked = NOTE.sub(lambda note: "#" * len(note.group()), text)
+    before, colon, _ = masked.partition(":")
+    name = squash(NOTE.sub("", text[: len(before)]))
+    speech = text[len(before) + 1 :].strip()
+    stamped = re.fullmatch(r"([^:]+) \d+:\d\d", text)
+    if stamped and is_name(stamped[1]) and stamped[1][:1].isupper():
+        return Line(stamped[1], "")
+    if colon and is_name(name) and (bold.startswith(name) or name[:1].isupper() or not speech):
+        return Line(name, speech)
+    if bold and text == block.bold_start and is_name(bold):
+        return Line(bold, "")
+    return Line("", text)
+
+
+def is_name(text: str) -> bool:
+    """Whether a label can be a speaker's name: a few words, not a sentence."""
+    return 0 < len(text.split()) <= 6 and not text.endswith((".", "?", "!", ",", ";"))
+
+
+def with_name_lines(lines: list[Line]) -> list[Line]:
+    """The lines, with plain names on a line of their own read as labels.
+
+    Some pages write the speaker in plain text above what they say ("Miles
+    Hatfield"). Such a line is a label when it looks like a name (two to four
+    capitalised words, no punctuation) and recurs: a line of speech that short
+    rarely comes back word for word.
+    """
+    counts = Counter(line.text for line in lines if not line.speaker)
+    names = {
+        text
+        for text, count in counts.items()
+        if count >= 2 and re.fullmatch(r"[A-Z][\w'’.-]*(?: [A-Z][\w'’.-]*){1,3}", text)
+    }
+    return [Line(line.text, "") if line.text in names else line for line in lines]
+
+
+def words_in(lines: list[Line]) -> int:
+    """How many words of speech a transcript holds."""
+    return sum(len(NOTE.sub(" ", line.text).split()) for line in lines)
+
+
+def plays_recordings(lines: list[Line]) -> bool:
+    """Whether a transcript notes a recording the show plays, or names one as a speaker."""
+    notes = [note for line in lines for note in NOTE.findall(line.text)]
+    return any(PLAYED.search(mark) for mark in notes + [line.speaker for line in lines])
+
+
+def page_text(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = False) -> str:
+    """An episode's page, kept raw in ``pages``: fetched once, or again when ``fresh``.
+
+    The raw page is kept rather than what was read from it, so a change to the
+    reading never reuses an old reading.
+    """
+    path = pages / f"{episode.id}.html"
+    if fresh or not path.is_file():
+        response = http.get(episode.url)
+        if response.status_code != 200:
+            raise DownloadError(f"{episode.url}: HTTP {response.status_code}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial_path = path.with_suffix(".partial")
+        partial_path.write_text(response.text, encoding="utf-8")
+        partial_path.rename(path)
+    return path.read_text(encoding="utf-8")
+
+
+def why_unusable(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = False) -> str:
+    """Why an episode cannot be trained on, or an empty string when it can."""
+    if episode.id in NOTES_AS_SPEECH:
+        return "transcript with its notes written as speech"
+    try:
+        page = page_text(http, episode, pages, fresh=fresh)
+    except (DownloadError, httpx.HTTPError):
+        return "page not fetched"
+    return why_page_unusable(page, episode.duration_s)
+
+
+def why_page_unusable(page: str, duration_s: int) -> str:
+    """Why its page rules out an episode lasting ``duration_s``, or an empty string.
+
+    An episode that plays recordings (:data:`PLAYED`) is left out whole: some
+    belong to another broadcaster (a network's news report, another show's
+    clip), the page does not say whose each one is, and a transcript sometimes
+    writes their words as lines of the show, which a clip would then carry.
+    """
+    blocks = blocks_of(page)
+    texts = [block.text for block in blocks]
+    if any(NOTICE.search(text) for text in texts):
+        return "page with a copyright notice"
+    if RERUN_PAGE.search(" ".join(texts)):
+        return "page of an episode aired before"
+    lines = transcript_lines(blocks)
+    minutes = max(duration_s / 60, 1.0)
+    if words_in(lines) < MIN_WORDS_PER_MINUTE * minutes:
+        return "page without a transcript"
+    if words_in(lines) > MAX_WORDS_PER_MINUTE * minutes:
+        return "page with more text than its episode"
+    if plays_recordings(lines):
+        return "episode that plays recordings"
+    if any(MUSIC_CREDIT.search(text) for text in texts):
+        return "page crediting music of a third party"
+    return ""
+
+
+# The listing.
+
+
+def list_episodes(http: httpx.Client) -> list[Talk]:
+    """The episodes ``audiolab data list-talks`` pins: every show, repeats out, pages read."""
+    episodes: list[Talk] = []
+    for show in SHOWS:
+        response = http.get(FEED.format(show=show))
+        response.raise_for_status()
+        # A feed lists the newest episode first; a repeat is newer than its original.
+        episodes += reversed(feed_episodes(response.text, show))
+    unique = without_repeats(episodes)
+    slugs = Counter(episode.id for episode in unique)
+    if max(slugs.values(), default=0) > 1:
+        raise DownloadError(f"two episode pages share a slug: {slugs.most_common(1)}")
+    pages = cache_dir() / NAME / "pages"
+    with ThreadPoolExecutor(max_workers=PAGE_WORKERS) as fetches:
+        reasons = list(fetches.map(partial(why_unusable, http, pages=pages), unique))
+    left_out = Counter(reason for reason in reasons if reason)
+    print(
+        f"  {len(episodes)} episodes in the feeds, {len(episodes) - len(unique)} repeats; "
+        f"left out: {dict(left_out) or 'none'}"
+    )
+    return [episode for episode, reason in zip(unique, reasons, strict=True) if not reason]
+
+
+SOURCE = TalkSource(
+    name=NAME,
+    language=LANGUAGE,
+    allowed_licenses=frozenset({LICENSE}),
+    listing_path=LISTING_PATH,
+    listing_filter={
+        "feeds": [FEED.format(show=show) for show in SHOWS],
+        "feed_copyright_holders": sorted(FEED_COPYRIGHTS),
+        "page": f"https://{PAGE_HOST}/{PAGE_SECTION}/<section>/<slug>/",
+        "repeats": "the first aired of the episodes sharing a page, an MP3 file or a title "
+        "without 'Encore' or a series' 'Ep. N:'; no page saying it aired before",
+        "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
+        "max_transcript_words_per_minute": MAX_WORDS_PER_MINUTE,
+        "copyright_notice": "an episode whose page carries one is left out",
+        "notes_written_as_speech": sorted(NOTES_AS_SPEECH),
+        "music_credit": "an episode whose page credits music of a third party is left out",
+        "played_recordings": "an episode whose transcript notes archival audio, an archive, "
+        "a broadcast, a clip, an excerpt or an announcer, or gives one a speaker label, "
+        "is left out",
+    },
+    lister=list_episodes,
+    audio_url=lambda http, episode: episode.file,
+    spread_by=lambda episode: episode.channel,
+)
+
+
+# The preparation.
+
+
+def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: bool) -> int:
+    """Prepare ``nasa-en-train`` up to the clip cap, returning the clip count."""
+    listed_on, episodes = read_listing(SOURCE)
+    cache = cache / NAME
+    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    take = Take(
+        name=NAME,
+        builder=builder,
+        language=LANGUAGE,
+        source_split="listing",
+        license=LICENSE,
+        text_has_casing_punct=True,
+        group_kind="recording",
+    )
+    tally: Counter[str] = Counter()
+    if verbose:
+        print(f"  listing of {listed_on}: {len(episodes)} episodes")
+    order = reading_order(episodes, SEED, SOURCE.spread_by)
+    with (
+        http_client() as http,
+        client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
+        client(BASE_MODEL) as parakeet_client,
+        closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
+    ):
+        whisper = answer(whisper_client, LANGUAGE)
+        parakeet = answer(parakeet_client, LANGUAGE)
+        episodes_read = 0
+        while not take.full():
+            batch = list(islice(audio_files, batch_size(take, episodes_read)))
+            if not batch:
+                break
+            label_batch(batch, http, cache, whisper, parakeet, take, tally)
+            episodes_read += len(batch)
+            if verbose:
+                print(f"  {episodes_read} episodes read, {take.kept} clips so far")
+    if verbose:
+        print(f"  {report(tally)}")
+        print(f"  {take.report()}")
+    builder.write()
+    return take.kept
+
+
+def label_batch(
+    batch: list[tuple[Talk, Path | None]],
+    http: httpx.Client,
+    cache: Path,
+    whisper: Transcribe,
+    parakeet: Transcribe,
+    take: Take,
+    tally: Counter[str],
+) -> None:
+    """The pages read again, Whisper on the episodes left, the alignments, then Parakeet.
+
+    Each page is fetched again before any request (:func:`why_unusable`), so an
+    episode whose page has changed since the listing in a way the listing
+    refuses — a copyright notice added, a transcript taken down — is skipped.
+    The room left under the cap is shared over the batch (:func:`shares`), so no
+    Parakeet request is sent for a clip the cap cannot take.
+    """
+    pages = cache / "pages"
+    usable = []
+    for episode, path in batch:
+        reason = why_unusable(http, episode, pages, fresh=True)
+        if reason:
+            tally[f"episodes left out at preparation: {reason}"] += 1
+        else:
+            usable.append((episode, path))
+    heard = heard_talks(usable, cache, whisper, tally)
+    labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
+    room = take.cap - take.kept
+    sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
+    for episode, clips, size in zip(heard, labelled, sizes, strict=True):
+        answers = Answers(cache / clips_file(episode.talk, BASE_MODEL))
+        episode.agreed = with_clean_edges(episode, clips[:size], answers, parakeet, tally)
+        offer_talk(episode, answers, parakeet, take, LANGUAGE, tally)
+
+
+def aligned(episode: TalkInProgress, page: str, tally: Counter[str]) -> list[tuple[Segment, str]]:
+    """An episode's candidate clips its transcript labels, each with its label."""
+    if not episode.segments:
+        return []
+    clips = candidates(episode.segments, LANGUAGE, tally)
+    labelled = labelled_clips(clips, transcript_lines(blocks_of(page)), LANGUAGE, tally)
+    tally[CANDIDATES] += len(clips)
+    tally[TRANSCRIPT_LABELLED] += len(labelled)
+    return labelled
+
+
+def shares(sizes: list[int], room: int, cap: int) -> list[int]:
+    """How many clips each episode of a batch gives, one from each in turn.
+
+    An episode gives at most ``cap`` clips (the cap's share of a group) and the
+    batch at most ``room``. Taken in turn, like the talks of the reading order
+    (:func:`audiolab.data.talk_listing.spread`), a room smaller than the batch
+    can give is spread over its episodes instead of going to the first ones.
+    """
+    given = [0] * len(sizes)
+    while room > 0:
+        open_episodes = [n for n, size in enumerate(sizes) if given[n] < min(size, cap)][:room]
+        if not open_episodes:
+            break
+        for n in open_episodes:
+            given[n] += 1
+        room -= len(open_episodes)
+    return given
+
+
+def with_clean_edges(
+    episode: TalkInProgress,
+    clips: list[tuple[Segment, str]],
+    answers: Answers,
+    parakeet: Transcribe,
+    tally: Counter[str],
+) -> list[tuple[Segment, str]]:
+    """The clips whose cut the base model confirms (:func:`same_edges`).
+
+    Parakeet is the only model that hears a clip of this source alone, as Qwen
+    does for the other talk sources. Its answers are cached, so
+    :func:`offer_talk` reads them again for its ``base_wer`` rather than asking
+    twice. A clip whose edge word it gets wrong for any other reason is left
+    out too: the cost is counted, in :data:`EDGES_UNHEARD`.
+    """
+    if not clips:
+        return []
+    audio = load_audio(episode.audio_path)
+    kept = []
+    for clip, label in clips:
+        try:
+            heard = clip_text(answers, clip, audio, parakeet)
+        except TranscriptionError:
+            tally["clips Parakeet failed on"] += 1
+            continue
+        if same_edges(label, heard, LANGUAGE):
+            kept.append((clip, label))
+        else:
+            tally[EDGES_UNHEARD] += 1
+    return kept
+
+
+def report(tally: Counter[str]) -> str:
+    """One line on the labelling: the share the transcripts label, the base model, the rest."""
+    seen, labelled = tally[CANDIDATES], tally[TRANSCRIPT_LABELLED]
+    kept, wrong = tally[KEPT], tally[BASE_WRONG]
+    shown = {CANDIDATES, TRANSCRIPT_LABELLED, KEPT, BASE_WRONG}
+    others = [f"{count} {reason}" for reason, count in sorted(tally.items()) if reason not in shown]
+    return (
+        f"{labelled} of {seen} candidate clips ({labelled / max(seen, 1):.1%}) "
+        f"labelled from the transcripts; the base model gets {wrong} of the {kept} kept clips "
+        f"wrong ({wrong / max(kept, 1):.1%}); also {', '.join(others) or 'nothing else'}"
+    )

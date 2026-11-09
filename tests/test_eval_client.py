@@ -66,6 +66,16 @@ def test_json_answer_is_read():
     assert recorder.requests[0].url.path == "/v1/audio/transcriptions"
 
 
+def test_the_whole_json_answer_is_kept_for_a_caller_that_asked_for_more():
+    verbose = {"text": "bonjour", "segments": [{"start": 0.0, "end": 1.2, "text": "bonjour"}]}
+    config = make_config(request={"response_format": "verbose_json"})
+    client, recorder, _ = make_client([(200, json.dumps(verbose), "application/json")], config)
+    result = client.transcribe(b"wav", "fr")
+    assert result.text == "bonjour"
+    assert result.answer == verbose
+    assert b"verbose_json" in recorder.requests[0].content
+
+
 def test_plain_text_answer_is_accepted_verbatim():
     """The client never "fixes" an answer: normalizing happens in scoring."""
     client, _, _ = make_client([(200, "bonjour\n", "text/plain")])

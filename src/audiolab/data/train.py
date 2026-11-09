@@ -128,8 +128,15 @@ class Take:
         self.per_group[group] = self.per_group.get(group, 0) + 1
         return None
 
-    def write_clip(self, source_id: str, audio: Audio, *, text: str, group: str) -> None:
-        """Write the clip of a row :meth:`decide` took."""
+    def write_clip(
+        self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields
+    ) -> None:
+        """Write the clip of a row :meth:`decide` took.
+
+        ``extra_fields`` are manifest fields only some sources fill, such as the
+        attribution a licence requires to travel with the clip, or a license
+        that is not the same for every row of the source.
+        """
         self.builder.add(
             f"{self.name}:{source_id}",
             audio,
@@ -139,10 +146,11 @@ class Take:
             group=f"{self.name}:{group}",
             group_kind=self.group_kind,
             source_split=self.source_split,
-            license=self.license,
+            license=extra_fields.pop("license", self.license),
+            **extra_fields,
         )
 
-    def offer(self, source_id: str, audio: Audio, *, text: str, group: str) -> bool:
+    def offer(self, source_id: str, audio: Audio, *, text: str, group: str, **extra_fields) -> bool:
         """Offer one row of a source whose audio is on hand; it becomes a clip if it passes.
 
         Whose rows are read as the source is read, one after another, this is the
@@ -152,7 +160,7 @@ class Take:
             return False
         if self.decide(text=text, group=group, seconds=audio.duration_s) is not None:
             return False
-        self.write_clip(source_id, audio, text=text, group=group)
+        self.write_clip(source_id, audio, text=text, group=group, **extra_fields)
         return True
 
     def report(self) -> str:

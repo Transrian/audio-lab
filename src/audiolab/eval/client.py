@@ -142,12 +142,15 @@ class Transcription:
     ``latency_s`` is the time the successful request took and nothing else: a
     retry after a refusal, or a backoff sleep, is not part of how long the model
     took to answer. ``attempts`` counts the requests sent for this item.
+    ``answer`` is the whole JSON answer, for a caller that asked the server for
+    more than the text (``response_format: verbose_json`` adds timestamps).
     """
 
     text: str
     language_sent: bool
     latency_s: float
     attempts: int = 1
+    answer: dict = field(default_factory=dict, compare=False, repr=False)
 
 
 class TranscriptionClient:
@@ -191,22 +194,23 @@ class TranscriptionClient:
         """
         sends_language = bool(language) and self.config.send_language and not self.language_refused
         sent_language = language if sends_language else ""
-        text, refused, latency_s, attempts = self._attempt(audio, sent_language)
+        answer, refused, latency_s, attempts = self._attempt(audio, sent_language)
         if refused:
             # The server rejected the language field: send the same audio once
             # more without it, and remember that this is what happened.
             self.language_refused = True
             sent_language = ""
-            text, _, latency_s, more = self._attempt(audio, "")
+            answer, _, latency_s, more = self._attempt(audio, "")
             attempts += more
         return Transcription(
-            text=text,
+            text=str(answer["text"]),
             language_sent=bool(sent_language),
             latency_s=latency_s,
             attempts=attempts,
+            answer=answer,
         )
 
-    def _attempt(self, audio: bytes, language: str) -> tuple[str, bool, float, int]:
+    def _attempt(self, audio: bytes, language: str) -> tuple[dict, bool, float, int]:
         """One call with its retries; the time and the attempts of the answer it returns."""
         attempt = 0
         while True:
@@ -231,13 +235,13 @@ class TranscriptionClient:
                 self.sleep(BACKOFF_SECONDS[min(attempt - 1, len(BACKOFF_SECONDS) - 1)])
                 continue
             if response.status_code == 400 and language and "language" in response.text.lower():
-                return ("", True, 0.0, attempt)
+                return ({}, True, 0.0, attempt)
             if response.status_code >= 400:
                 raise TranscriptionError(
                     self._redact(f"HTTP {response.status_code}: {_short(response.text)}"),
                     attempts=attempt,
                 )
-            return (_read_text(response), False, took, attempt)
+            return (_read_answer(response), False, took, attempt)
 
     def _redact(self, message: str) -> str:
         """A message without the API key, whatever the server put in it.
@@ -264,14 +268,14 @@ class TranscriptionClient:
         )
 
 
-def _read_text(response: httpx.Response) -> str:
-    """The transcript, from JSON when the server answers JSON and plainly otherwise."""
+def _read_answer(response: httpx.Response) -> dict:
+    """The answer as JSON, with its transcript under ``text`` even when it is plain text."""
     if "json" in response.headers.get("content-type", ""):
         payload = response.json()
         if not isinstance(payload, dict) or "text" not in payload:
             raise TranscriptionError("JSON answer without a 'text' field")
-        return str(payload["text"])
-    return response.text
+        return payload
+    return {"text": response.text}
 
 
 def _short(text: str, limit: int = 200) -> str:

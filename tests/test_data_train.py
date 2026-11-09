@@ -113,6 +113,16 @@ def test_take_writes_the_fields_a_later_recipe_needs(tmp_path):
     assert written[0].text_has_casing_punct is False
     assert written[0].duration_s == pytest.approx(2.5, abs=1e-3)
     assert written[0].audio == "audio/example-train_u1.wav"
+    assert written[0].source_url == ""
+
+
+def test_take_writes_the_attribution_and_license_of_one_row(tmp_path):
+    take = make_take(tmp_path)
+    take.offer("u1", tone(2.5), text="bonjour", group="v", license="CC0-1.0", source_url="u")
+    take.offer("u2", tone(2.5), text="salut", group="v")
+    first, second = read_manifest(take.builder.write().parent)
+    assert (first.license, first.source_url) == ("CC0-1.0", "u")
+    assert (second.license, second.source_url) == ("CC-BY-4.0", "")
 
 
 def test_take_report_says_how_much_of_the_source_was_needed(tmp_path):

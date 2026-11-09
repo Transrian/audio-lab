@@ -369,6 +369,10 @@ screening is a difference between corpora and not between recipes:
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 752 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
 | `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 330 | 12 | 2.1 | 0.2 GiB | 0.8 GiB |
+| `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `nasa-en-train` | en | public domain (US government work) | listing | TBD | TBD | TBD | TBD | TBD |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -794,6 +798,382 @@ costs nothing and a fresh clone downloads all of it again.
   `mls-fr-train` in the other language, and the corpus the English evaluation
   panel comes from, with its test speakers left out.
 
+The sources below, like `peertube-fr-train`, are **talks** rather than corpora: a
+pinned listing of videos, read in a seeded order, whose audio is labelled by two
+speech models where they agree. Three modules hold that machinery for all of
+them (`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and
+each source is a listing module plus one entry in
+`src/audiolab/data/talk_sources.py`, which says what the
+listing must hold, in which language the talks are labelled, where a talk's audio
+comes from and what a seeded selection spreads over. What is specific to a
+source — its catalogue, its licence, its selection, its size — is in its card;
+everything else is the same for the four and is described in the card of
+`peertube-fr-train`. All of them depart from the rules above for the same three
+reasons: no splits (a video platform has none), a seeded order instead of the
+catalogue's, and model labels instead of a transcript somebody published.
+
+### `peertube-edu-fr-train` — the education ministry's French videos
+
+- **Source**: the eleven PeerTube instances the French ministry of education runs on
+  `apps.education.fr`, one per teaching area or school level, each with its own
+  catalogue and its own REST API. `audiolab data list-talks peertube-edu-fr-train`
+  asks every instance for its own videos in French under licence CC BY (PeerTube
+  licence id 1) or CC0 (id 7) and writes the answer to
+  [`peertube_edu_listing.json`](../../src/audiolab/data/peertube_edu_listing.json).
+  The eleven instances are committed in `src/audiolab/data/peertube_edu.py`: they
+  are the hosts the PeerTube instance index (`instances.joinpeertube.org`) lists
+  under that domain (checked 2026-11-08); the ministry's own `tube-test` instance is
+  left out. The listing of 2026-11-08 holds **2 595 videos, 1 481.2 h** — every
+  instance is in it, the shortest video is 600 s and the median 1 192 s. The videos
+  and the hours per instance, which the table at the end of this card holds, are
+  lopsided: the largest instance (`tube-arts-lettres-sciences-humaines`) holds 649
+  of the 2 595 videos, which is why a seeded selection spreads over the instance and
+  not over the listing.
+- **License and attribution**: per video, as each uploader declared it: PeerTube
+  licence id 1 ("Attribution") is recorded as `CC-BY` and id 7 ("Public Domain
+  Dedication") as `CC0-1.0` — PeerTube names a licence without a version, so the
+  manifest records none. 2 433 videos are CC BY and 162 CC0. Every clip carries its
+  own video's `source_url`, `source_title`, `source_author` (the PeerTube account)
+  and `license`; the channel — a teacher's channel, a mission, a discipline — is the
+  collection the video sits in.
+- **Language**: French, from the video's own language tag, and the tag is required:
+  an untagged video is not listed. These instances tag their videos (unlike the
+  Debian one, whose card says how that is handled), and a video another instance
+  tagged in another language is not this source's.
+- **What the filter leaves out**: videos shorter than ten minutes, videos the
+  instance does not host itself, videos under another licence, channels whose
+  name holds a word of music, song or the stage (`NON_SPEECH_WORDS` in
+  `src/audiolab/data/peertube_edu.py`), and videos whose title names a performance
+  (`PERFORMANCE_WORDS`: a concert, a choir, a show, a musical). Those words are
+  matched whole, so `Éducation musicale et chant choral` and `Ville en choeur 2026`
+  are left out where `Main chantallayoussaint channel` is not. The title words are
+  the fewer of the two because a lesson is often about music or the stage (`Le
+  professeur de musique`, `Interview radio théâtre`), and a teacher's own channel
+  holds the lesson and the end-of-year concert alike. What escapes both lists
+  yields few clips, the two labelling models not agreeing on music. The
+  classes, the staff meetings and the teachers explaining a lesson are what the
+  source keeps — the ministry's videos are lessons and webinars, not conference
+  talks only.
+- **Split and order**: `source_split` is `listing`; the listing is written in uuid
+  order and read in a seeded shuffle (`SEED`) spread over the instance, so the first
+  talks of a preparation cover all eleven catalogues instead of the biggest one.
+  Audio comes from the smallest file the instance serves for a video, converted to
+  16 kHz mono WAV; the video is deleted once its sound is out.
+- **Why it is here**: it is the French arm that is neither a conference nor a
+  published corpus — teachers and the ministry speaking French, on every school
+  subject, in a register no evaluation set of this repository has. It is the French
+  counterpart of the conference sources with a wider vocabulary: one speaker per
+  video, on arithmetic as well as on physics.
+- **Group**: the recording (`group_kind: recording`, the video uuid). A video
+  usually holds one speaker; the listing names none, and a video that records a
+  class holds the pupils' voices as well.
+
+Per instance, as the listing of 2026-11-08 holds them:
+
+| instance | videos | hours |
+| --- | --- | --- |
+| `tube-action-educative` | 236 | 163.4 |
+| `tube-arts-lettres-sciences-humaines` | 649 | 423.8 |
+| `tube-cycle-2` | 96 | 42.8 |
+| `tube-cycle-3` | 113 | 53.5 |
+| `tube-education-physique-et-sportive` | 28 | 17.4 |
+| `tube-enseignement-professionnel` | 84 | 41.4 |
+| `tube-institutionnel` | 120 | 82.9 |
+| `tube-langues-vivantes` | 29 | 18.5 |
+| `tube-maternelle` | 85 | 56.7 |
+| `tube-numerique-educatif` | 518 | 313.4 |
+| `tube-sciences-technologies` | 637 | 267.5 |
+
+### `debconf-en-train` — DebConf talks on the Debian instance
+
+- **Source**: [`peertube.debian.social`](https://peertube.debian.social), the
+  Debian project's own PeerTube instance. `audiolab data list-talks
+  debconf-en-train` asks its REST API for every local video under licence CC BY
+  (PeerTube licence id 1) or CC0 (id 7) whose channel or account name holds
+  `debconf`, and writes the answer to
+  [`debconf_listing.json`](../../src/audiolab/data/debconf_listing.json). The
+  listing of 2026-11-08 holds **1 919 videos, 1 244.4 h**, in 30 channels: the
+  yearly conference from DebConf 4 to DebConf 26, six mini-DebConfs, and the `QA
+  Meetings` channel (12 videos) that a DebConf account publishes talks under;
+  616 s is the shortest and 2 467 s the median video. A preparation reads that
+  file and not the live instance, so a talk published or removed later changes
+  nothing.
+- **License and attribution**: CC BY, as each uploader declared it; PeerTube names
+  the licence ("Attribution") without a Creative Commons version, so the manifest
+  says `CC-BY` and no version, and no listed video is CC0. CC BY asks for
+  attribution, so every clip carries its video's `source_url`, `source_title` and
+  `source_author` (the PeerTube account), and its `license`. Attribution also
+  rests on the instance and the conference the video belongs to, both of which the
+  card and the channel name record.
+- **Language, and why the filter is not about the language tag**: the instance
+  leaves the language of most of its videos unset — the DebConf uploads were made
+  in bulk — so requiring `en` would keep 121 of the 2 779 local videos the
+  instance hosts under those two licences (4 %), where 2 343 of them carry no
+  language tag at all. That is also why this listing is a PeerTube-specific
+  filter and not a language one: the tag would answer a question the corpus never
+  asked. The filter
+  therefore accepts a video tagged English **or untagged**, and takes the
+  conference's language as its own: DebConf is held in English, and the editions
+  that are not held in English are left out by name — `argentina`, `brazil`,
+  `brasil`, `es`, `france`, `gatherings`, `india`, `portugal` in a channel or
+  account name (`DebConf ES`, MiniDebConf Brasil and Portugal, the Debian Brasil
+  channel, the mini-DebConf France, the German Debian-edu gatherings and the
+  miniDebConf India 2021, held in Hindi, Malayalam, Marathi and Telugu). Those
+  words are matched as whole words, so an account called `Andreas @ DebConf` is
+  not dropped by the `es` of its name.
+- **Talks in another language at an English DebConf**: a DebConf has talks in
+  the language of its host country too, and the instance tags them no more than
+  the others — Spanish at DebConf 9, 12, 20 and 26, Portuguese at DebConf 19,
+  Chinese at DebConf 18, Malayalam and Telugu at DebConf 20 and 21. Labelled as
+  English, such a talk is translated by Whisper, and the two models can agree on
+  the translation. So a talk is left out when its title is not written in English
+  (`english_title` in `src/audiolab/data/debconf.py`): a title in another script,
+  or holding a Spanish, Portuguese, French or German word that English titles do
+  not use (`en`, `para`, `avec`, `mit`, …) or a letter English does not write
+  (`ñ`, `ç`, `ó`, …). In the catalogue read on 2026-11-08, the miniDebConf India,
+  the mini-DebConf France and the Debian-edu gatherings hold 91 videos of at least
+  ten minutes (55.4 h), and the title rule leaves out 75 more (51.8 h). A talk
+  given in another language under an English title still escapes the filter, and
+  an English title that names a place such as `Brasília` is lost to it. Videos
+  shorter than ten minutes, videos under another licence and videos the instance
+  does not host itself are left out as in the other talk sources.
+- **Labels are English**: this is the first source of the repository labelled in
+  another language than French, so the language is not a constant any more: the
+  three models are asked to transcribe in English (`send_language`), the clips are
+  cut and normalized as English (`candidates`, `doubt`, `disagreement`), and each
+  manifest line says `language: en`. A French speaker reading English words
+  therefore yields an English label, and the source is the English arm of the
+  screening that is not read speech.
+- **Split and order**: `source_split` is `listing`; the listing is written in uuid
+  order, which only keeps the file stable, and the talks are read in a seeded
+  shuffle of it (`SEED`) spread over the **conference** — the 30 channels are
+  covered one after the other, so the talks of a first cap come from every edition
+  instead of the one that happens to sort first. Audio comes from the smallest
+  file the instance serves for a video, converted to 16 kHz mono WAV; the video is
+  deleted once its sound is out, and a talk already in the cache is not fetched
+  again.
+- **Group**: the recording (`group_kind: recording`, the video uuid). A talk
+  usually has one speaker, the listing names none, and the questions from the room
+  add others.
+
+### `fosdem-en-train` — FOSDEM talks, seven years of the conference
+
+- **Source**: FOSDEM publishes a talk twice, and neither side is enough on its
+  own. The schedule (`https://fosdem.org/<year>/schedule/xml`, which redirects to
+  FOSDEM's archive) holds one `<event>` per talk with its title, speakers, room,
+  language and slot, and lists talks whose recording was never published; the
+  video tree (`https://video.fosdem.org/<year>/<room>/`) is a plain HTTP directory
+  of `.mp4` and `.webm` files, and a file name says nothing about who spoke. A
+  talk is therefore listed when the schedule points at a file the tree **actually
+  serves** — the join is a match on the URL, decoded on both sides, because the
+  tree percent-encodes a room whose name holds a space (`H.1301%20%28Cornil%29/`)
+  and the schedule does not — and the schedule is where the metadata comes from.
+  The listing of 2026-11-08 holds **5 477 talks, 2 574.3 h**, in 108 rooms over
+  the seven years 2020 to 2026 ([`fosdem_listing.json`](
+  ../../src/audiolab/data/fosdem_listing.json)). Those hours are the **lengths
+  of the schedule's slots**, not of the recordings, which the listing never
+  reads: a talk can end before its slot does, and a recording can be cut short.
+  The tree goes back to 2003, which this source does not read: seven years
+  already cover every devroom and topic the conference has.
+- **The join, year by year**: the schedule of 2020 lists 872 events, 818 of them
+  with a link into the tree; 811 of those last ten minutes and are in English, and
+  811 are listed, the one difference being an event whose recording the tree does
+  not have. The same holds for 2021 (773 events, 644 listed), 2022 (730, 644),
+  2023 (780, 713), 2024 (874, 799), 2025 (1 105, 923) and 2026 (1 079, 943). The
+  listing holds what a viewer of the conference could watch, not what it
+  announced.
+- **License and attribution**: CC BY 2.0 BE, stated on the tree's own pages, whose
+  footer links to <https://creativecommons.org/licenses/by/2.0/be/deed.en>
+  (checked 2026-11-08, on the pages of several years). That is the one source here
+  whose licence is a version of CC BY with a jurisdiction, so the manifest records
+  `CC-BY-2.0-BE` rather than `CC-BY`. Every clip carries the talk's `source_url`
+  (the event's page in the schedule, which names the talk, its speakers and the
+  recording: the `<url>` the schedule gives, or `/<year>/schedule/event/<slug>/`
+  for the years whose schedule gives none), `source_title` and `source_author`
+  (the speakers the schedule names, joined with commas); 16 of the 5 477 talks
+  name no speaker at all — a lightning-talk slot, a stand — and their lines carry
+  no author.
+- **Language**: the schedules of 2020 to 2023 tag no language at all — every
+  event of those years has an empty `<language>` — and those of 2024 to 2026 tag
+  every event `en`. So the language rule drops nothing over the years listed: a
+  talk is taken as English when its year says so or says nothing, FOSDEM being
+  held in English, and it would leave out an event a year tags in another
+  language. A talk that was not given in English in an untagged year is therefore
+  labelled as English like the others, and its clips go through the same
+  agreement test; the programme is in English, so this is a defect of the source
+  and not a rule of the filter. Talks shorter than ten minutes are left out as in
+  the other sources.
+- **Split and order**: `source_split` is `listing`; talks are read in a seeded
+  shuffle (`SEED`) spread over **year and room**, so a first cap covers every year
+  and every devroom instead of the biggest one. The audio is the MP4 the listing
+  pinned — preferred over the WebM because it plays everywhere, and over the AV1
+  WebM, which a decoder may refuse — converted to 16 kHz mono WAV.
+- **Group**: the recording (`group_kind: recording`), the talk. Its id is the
+  year and the schedule's event id (`2025-6712`): an event id is unique within one
+  year only, and a slug — over 200 characters for some talks — would make cache
+  file names close to the length a file system allows.
+
+### `nasa-en-train` — NASA's podcasts, labelled from NASA's own transcripts
+
+This source is listed and downloaded like the talks above, but its labels are not
+model output: NASA publishes a transcript with each episode, and that human text,
+cased and punctuated, is the label. A model only says *when* each word was said.
+
+- **Source**: five NASA shows, read from their RSS feeds
+  (`https://www.nasa.gov/feeds/podcasts/<show>`): each item gives the episode's
+  MP3 and the page on `www.nasa.gov/podcasts/` whose body holds the transcript.
+  `audiolab data list-talks nasa-en-train` reads the feeds, fetches every episode
+  page once (kept raw in `$AUDIOLAB_CACHE/nasa-en-train/pages`, never in the
+  repository) and pins the episodes in
+  [`nasa_listing.json`](../../src/audiolab/data/nasa_listing.json): show, title,
+  page, MP3 and duration, no text. The listing of 2026-11-09 holds **774
+  episodes, 523.0 h**, the median episode 38 minutes long:
+
+  | show | episodes | hours |
+  | --- | --- | --- |
+  | Houston We Have a Podcast | 419 | 373.5 |
+  | Small Steps, Giant Leaps | 150 | 65.3 |
+  | NASA in Silicon Valley | 102 | 46.9 |
+  | Gravity Assist | 96 | 35.9 |
+  | NASA's Curious Universe | 7 | 1.4 |
+
+- **What the listing leaves out**, from the 993 items of the five feeds, each
+  rule in `src/audiolab/data/nasa.py`:
+  - 50 items that link no page under `www.nasa.gov/podcasts/` (no link, or a page
+    on `appel.nasa.gov`);
+  - 20 repeats, an episode aired again being listed once, under its first airing.
+    Two episodes are the same when they share a page, an MP3 file or a title once
+    an "Encore" or a series' "Ep. N:" prefix and punctuation are set aside: the
+    11 episodes of Houston We Have a Podcast's "Mars Ep. N" series, which air
+    earlier episodes again, 3 "Encore" republications and 6 episodes posted
+    twice. The feeds are read oldest first, so the copy kept is the first aired.
+    3 more pages say their episode aired before ("This episode originally aired
+    as episode 355", "Podcast Archive 2009 … originally aired on", "the
+    rebroadcast of a conversation");
+  - 48 pages without a transcript, all of NASA in Silicon Valley (its "Live"
+    video streams and its short news pieces, whose page holds a caption or a
+    link), a page counting as a transcript when it holds 60 words per minute of
+    audio (people say about 150); and 3 pages that hold more than 250 words per
+    minute, each with its transcript written twice (the median page holds 168,
+    the fastest of the others 239);
+  - 47 episodes that play recordings, 42 of them from NASA's Curious Universe: a
+    transcript note or a speaker label names archival audio, a broadcast or a
+    clip, an archive, an excerpt or an announcer (`[ARCHIVAL Apollo 11
+    Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of Sidedoor podcast begins]`,
+    `[NBC NIGHTLINE's CHRIS WALLACE: …]`, `[Meteorologist audio: …]`,
+    `[John F. Kennedy Archive: …]`, `Voyager excerpt:`, `Launch announcer:`,
+    `Unidentified launch voice 1:`). The episode is left out whole: some of those
+    recordings are another broadcaster's, the page does not say whose each one
+    is, and a transcript sometimes writes their words as lines of the show
+    (`Archival: 5…4…3…2…1 and liftoff…`), which a clip would then carry;
+  - 1 transcript that writes its notes as plain words (below, under *The
+    transcript*);
+  - 2 pages with a copyright notice and 45 pages crediting music of a third
+    party (below).
+- **License and attribution**: public domain. A work of the US government is not
+  protected by copyright in the United States (17 U.S.C. § 105), and NASA's media
+  guidelines (<https://www.nasa.gov/nasa-brand-center/images-and-media/>, checked
+  2026-11-08) say that NASA content, audio included, "generally [is] not subject
+  to copyright in the United States", and that "NASA occasionally uses
+  copyright-protected material of third parties", which is then "identified as
+  copyright protected with the name of the copyright holder".
+  - What § 105 covers: a "work of the United States Government" is one prepared
+    by an officer or employee of the government as part of their official duties
+    (17 U.S.C. § 101). Work a contractor makes for NASA is not one: it can be
+    under copyright, the contractor's or assigned to the government, which
+    § 105 lets the government hold. The pages do not say which minutes, if any,
+    a contractor produced. For those, the source relies on NASA's statement and
+    its rule of naming a holder, through the two rules below; that is NASA's
+    word, not a proof for each minute.
+  - A show is read only when its feed names NASA, or NASA's knowledge programme
+    ("NASA/APPEL Knowledge Services"), as the copyright holder; a feed naming
+    anyone else is refused at the next listing. That leaves out the sixth NASA
+    show, **On a Mission**, whose feed names "NASA/JPL/Caltech": JPL is run for
+    NASA by Caltech, so its work is not a US government work.
+  - An episode whose page carries a notice — a ©, "all rights reserved",
+    "copyright" followed by a holder or a year, material "used courtesy of"
+    or "used with permission", or audio, a recording, a clip or footage
+    "provided by" or "courtesy of" someone — is left out whole, since a notice
+    does not say which minutes it covers. A notice and not a word: guests say
+    "copyright" in passing. The two episodes left out play archive clips "used
+    courtesy of the New Mexico Public Media Collection"
+    (`sun-series-soaring-toward-the-sun`) and audio of a conversation "provided
+    by Explore Mars and the Planetary Society"
+    (`gravity-assist-what-if-we-found-life-on-mars`).
+  - Each preparation fetches every page it reads again and applies the
+    listing's rules to it, so an episode whose page took a notice, or lost its
+    transcript, since the listing is skipped and counted.
+  - An episode whose page credits music of a third party is left out whole:
+    the series' library ("Music for the series comes from Universal Production
+    Music"), its theme ("composed by … of SYSTEM Sounds") or a note naming a
+    piece and its composer (`[Song: Ants Instrumental by Taylor Welsh]`). Such
+    music plays under the speech where the transcript does not note it, and its
+    licence is unknown, which D-019 does not train on. That costs 45 episodes,
+    17.2 h, all of NASA's Curious Universe (the episodes no other rule leaves
+    out; the show keeps 7, 1.4 h). Elsewhere, clips are kept away
+    from music where the transcript notes it: a line with a note of a sound
+    (`[ Music ]`, `[Song: …]`, `<Intro Music>`) and the line of text on each side
+    of it are not labelled. Music the transcript does not note is not detected.
+  - Every clip carries `license: public domain (US government work)`,
+    `source_author` "NASA, <show>", `source_title` (the episode) and `source_url`
+    (the episode's page), which is the attribution NASA asks for ("NASA should be
+    acknowledged as the source of the material").
+- **The transcript**: the episode's content block, from a "Transcript" heading
+  when the page has one (the description above it is text nobody says), to the
+  site's footer. A speaker label is taken off its line — a bold name alone, a
+  capitalised name before the line's first colon, bold or not (`Host:`, `Andres
+  Almeida (Host):`, `NICKY FOX:`, `Willie Lyles:`), a name alone on its line
+  with a time (`Steve Altemus 11:32`), or a short plain name alone on its line
+  that recurs — and remembered: the label changes where the speaker does. A
+  phrase of speech before a colon (`Today: the Moon`) is read as a label too:
+  that only costs the clip across it, while a label read as speech would put a
+  name, and two voices, in a clip. Notes in brackets, parentheses, braces or
+  asterisks (`[Music]`, `(laughs)`, `{Laughter}`, `*cough*`) are not words
+  anybody says. The one transcript that writes its notes as plain words
+  (`a-seismic-journey`: "those phone calls laughter") is left out, by name.
+- **Labels, by alignment** (`src/audiolab/data/aligned_clips.py`): Whisper
+  large-v3 hears each episode as the talks are heard (five-minute chunks, raw
+  answers cached, segments joined into candidate clips of 20 s at most). Its
+  words and the transcript's are put in the normalized view of the scorer —
+  `Crew-4` and `crew four` are one word stream, `2,000` and `two thousand` too —
+  and aligned with `difflib.SequenceMatcher`. A candidate clip is labelled when
+  it lasts 1 s to 20 s; its first and last words are matched; no transcript
+  word is left unmatched just outside it (it would be audio the label misses);
+  its edges fall on whole written words; it holds no speaker change and no note,
+  and is not on or next to a line that notes a sound; at least 90 % of its words
+  are matched, on both sides; and no run of more than two words is unmatched on
+  either side. The label is then the stretch of the
+  transcript between the first and the last matched word, as NASA wrote it:
+  cased, punctuated, digits kept. A transcript is near-verbatim, not verbatim —
+  "um" and false starts are often edited out — and the two thresholds bound how
+  far a label may stray from the audio. No second model labels the clips, so
+  there is no Qwen pass, and Parakeet TDT 0.6B v3 is the one model that hears a
+  clip alone: Whisper heard its words in the whole episode, so its timestamps
+  can cut the first or last word, or let in one of the next sentence. A clip is
+  kept only when the first and last words Parakeet hears in it, normalized, are
+  the label's; the same answer records its `base_wer`. That also drops a clip
+  whose edge word Parakeet gets wrong for another reason; the report counts
+  them. The room left under the cap is shared over the episodes of a batch one
+  clip at a time, and every Whisper request of a batch is sent before the first
+  Parakeet one.
+- **Split and order**: `source_split` is `listing`; episodes are read in a seeded
+  shuffle (`SEED`) spread over the show, so a first cap covers the five shows
+  rather than Houston We Have a Podcast, which holds 71 % of the hours. The
+  audio is the MP3 the listing pinned, converted to 16 kHz mono WAV.
+- **Prepared audio**: before the labelling run, the first 65 h of the reading
+  order of the listing of 2026-11-09 — 128 episodes, 66.0 h: 30 or 31 per
+  show, and the 7 left of NASA's Curious Universe — were
+  downloaded (`audiolab data fetch-audio nasa-en-train --hours 65`) and kept as
+  16 kHz mono WAV, 7.0 GiB in the pipeline's cache (`$AUDIOLAB_CACHE`,
+  `.cache/audiolab` by default, git-ignored; the MP3 is deleted once its sound is
+  out). Every episode of that selection arrived.
+- **Group**: the recording (`group_kind: recording`), the episode, by the slug of
+  its page; at most 200 clips from one episode, as for every source.
+- **Why it is here**: conversational technical English — interviews of
+  engineers, scientists and astronauts, several voices per episode — with labels
+  a human wrote. It is the one English source of that register whose labels are
+  not a model's, so its arm says what the talks' model labels cost.
+
 ### No overlap with the evaluation sets
 
 [Decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)
@@ -817,10 +1197,14 @@ fetch`) before the training source is, because the check reads its manifest.
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
+| `nasa-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | none: no evaluation set comes from this corpus, and the dev and eval splits the challenge publishes are not read either | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
+| `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
+| `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
+| `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the sources that are not evaluation sets at all

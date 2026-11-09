@@ -1,0 +1,12 @@
+# Whisper large-v3 (native f16), served by vLLM on the owner's home server. The
+# URL and the key are read from the environment, never written here (D-015).
+# It segments the talk sources (docs/stt/datasets.md), which ask it for
+# timestamped segments.
+name: whisper-large-v3-vllm
+api: transcriptions
+base_url_env: STT_BASE_URL
+api_key_env: STT_API_KEY
+model: stt-v-whisper-large-v3
+send_language: true
+server_label: owner's home server
+request: {}

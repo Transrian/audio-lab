@@ -182,6 +182,77 @@ DATASETS: dict[str, DatasetInfo] = {
         "docs/stt/datasets.md. MLS keeps the speakers of its splits apart, and "
         "the speakers of the test split are excluded anyway. No panels.",
     ),
+    "peertube-edu-fr-train": DatasetInfo(
+        name="peertube-edu-fr-train",
+        source="the French education ministry's PeerTube instances on apps.education.fr "
+        "(PeerTube API; the pinned list of videos is "
+        "src/audiolab/data/peertube_edu_listing.json)",
+        license="CC-BY / CC0-1.0",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data for the per-source screening: the ministry's own French "
+        "videos, ten minutes or longer, from channels that are not music or stage "
+        "performances, labelled as described in docs/stt/datasets.md. Labels are "
+        "model output, not human transcripts. Every clip carries the attribution of "
+        "its video (channel, title, URL, license). No panels.",
+    ),
+    "debconf-en-train": DatasetInfo(
+        name="debconf-en-train",
+        source="https://peertube.debian.social (PeerTube API; the pinned list of videos "
+        "is src/audiolab/data/debconf_listing.json)",
+        license="CC-BY",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data for the per-source screening: the DebConf and mini-DebConf "
+        "talks of the Debian project, in English, labelled in English, as described in "
+        "docs/stt/datasets.md. Labels are model output, not human transcripts. Every "
+        "clip carries the attribution of its video (channel, title, URL, license). "
+        "No panels.",
+    ),
+    "fosdem-en-train": DatasetInfo(
+        name="fosdem-en-train",
+        source="https://video.fosdem.org (the video tree, joined to the per-year schedule "
+        "XML; the pinned list of talks is src/audiolab/data/fosdem_listing.json)",
+        license="CC-BY-2.0-BE",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = talk slug)",
+        notes="Training data for the per-source screening: FOSDEM talks of 2020 to 2026, "
+        "at least ten minutes long, labelled in English as described in "
+        "docs/stt/datasets.md. Labels are model output, not human transcripts. Every "
+        "clip carries the attribution CC BY asks for (speakers, title, URL, license). "
+        "No panels.",
+    ),
+    "nasa-en-train": DatasetInfo(
+        name="nasa-en-train",
+        source="https://www.nasa.gov/podcasts/ (five shows' RSS feeds and the episode pages; "
+        "the pinned list of episodes is src/audiolab/data/nasa_listing.json)",
+        license="public domain (US government work)",
+        split="listing",
+        reference_style="NASA's own transcript of each episode, cased and punctuated, "
+        "aligned to the audio by Whisper large-v3; speaker labels and notes removed",
+        grouping="recording (group = episode page slug)",
+        notes="Training data for the per-source screening: conversational technical "
+        "English from NASA's podcasts, labelled from human transcripts as described in "
+        "docs/stt/datasets.md. Shows and episodes that name another copyright holder "
+        "are left out. Every clip carries its attribution (NASA and the show, episode "
+        "title, page URL). No panels.",
+    ),
+    "peertube-fr-train": DatasetInfo(
+        name="peertube-fr-train",
+        source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "
+        "videos is src/audiolab/data/peertube_listing.json)",
+        license="CC-BY",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data for the per-source screening: free-software talks in French "
+        "with English technical terms, labelled as described in docs/stt/datasets.md. "
+        "Labels are model output, not human transcripts. Every clip carries the "
+        "attribution of its video (author, title, URL, license). No panels.",
+    ),
     "voxpopuli-fr-train": DatasetInfo(
         name="voxpopuli-fr-train",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config fr, split train)",
