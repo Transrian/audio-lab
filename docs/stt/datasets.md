@@ -848,16 +848,16 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   page once (kept raw in `$AUDIOLAB_CACHE/nasa-en-train/pages`, never in the
   repository) and pins the episodes in
   [`nasa_listing.json`](../../src/audiolab/data/nasa_listing.json): show, title,
-  page, MP3 and duration, no text. The listing of 2026-11-09 holds **833
-  episodes, 546.1 h**, the median episode 36 minutes long:
+  page, MP3 and duration, no text. The listing of 2026-11-09 holds **774
+  episodes, 523.0 h**, the median episode 38 minutes long:
 
   | show | episodes | hours |
   | --- | --- | --- |
-  | Houston We Have a Podcast | 421 | 374.7 |
+  | Houston We Have a Podcast | 419 | 373.5 |
   | Small Steps, Giant Leaps | 150 | 65.3 |
   | NASA in Silicon Valley | 102 | 46.9 |
-  | Gravity Assist | 97 | 36.6 |
-  | NASA's Curious Universe | 63 | 22.6 |
+  | Gravity Assist | 96 | 35.9 |
+  | NASA's Curious Universe | 7 | 1.4 |
 
 - **What the listing leaves out**, from the 993 items of the five feeds, each
   rule in `src/audiolab/data/nasa.py`:
@@ -878,7 +878,7 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     audio (people say about 150); and 3 pages that hold more than 250 words per
     minute, each with its transcript written twice (the median page holds 168,
     the fastest of the others 239);
-  - 35 episodes that play recordings, 31 of them from NASA's Curious Universe: a
+  - 47 episodes that play recordings, 42 of them from NASA's Curious Universe: a
     transcript note or a speaker label names archival audio, a broadcast or a
     clip, an archive, an excerpt or an announcer (`[ARCHIVAL Apollo 11
     Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of Sidedoor podcast begins]`,
@@ -888,7 +888,10 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     recordings are another broadcaster's, the page does not say whose each one
     is, and a transcript sometimes writes their words as lines of the show
     (`Archival: 5…4…3…2…1 and liftoff…`), which a clip would then carry;
-  - 1 page with a copyright notice (below).
+  - 1 transcript that writes its notes as plain words (below, under *The
+    transcript*);
+  - 2 pages with a copyright notice and 45 pages crediting music of a third
+    party (below).
 - **License and attribution**: public domain. A work of the US government is not
   protected by copyright in the United States (17 U.S.C. § 105), and NASA's media
   guidelines (<https://www.nasa.gov/nasa-brand-center/images-and-media/>, checked
@@ -912,10 +915,13 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   - An episode whose page carries a notice — a ©, "all rights reserved",
     "copyright" followed by a holder or a year, material "used courtesy of"
     or "used with permission", or audio, a recording, a clip or footage
-    "provided by" or "courtesy of" someone — is left out whole, since a notice does not say
-    which minutes it covers. A notice and not a word: guests say "copyright" in
-    passing. The one episode left out, `sun-series-soaring-toward-the-sun`, plays
-    archive clips "used courtesy of the New Mexico Public Media Collection".
+    "provided by" or "courtesy of" someone — is left out whole, since a notice
+    does not say which minutes it covers. A notice and not a word: guests say
+    "copyright" in passing. The two episodes left out play archive clips "used
+    courtesy of the New Mexico Public Media Collection"
+    (`sun-series-soaring-toward-the-sun`) and audio of a conversation "provided
+    by Explore Mars and the Planetary Society"
+    (`gravity-assist-what-if-we-found-life-on-mars`).
   - Each preparation fetches every page it reads again and applies the
     listing's rules to it, so an episode whose page took a notice, or lost its
     transcript, since the listing is skipped and counted.
@@ -925,7 +931,8 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     piece and its composer (`[Song: Ants Instrumental by Taylor Welsh]`). Such
     music plays under the speech where the transcript does not note it, and its
     licence is unknown, which D-019 does not train on. That costs 45 episodes,
-    17.2 h, all of NASA's Curious Universe. Elsewhere, clips are kept away
+    17.2 h, all of NASA's Curious Universe (the episodes no other rule leaves
+    out; the show keeps 7, 1.4 h). Elsewhere, clips are kept away
     from music where the transcript notes it: a line with a note of a sound
     (`[ Music ]`, `[Song: …]`, `<Intro Music>`) and the line of text on each side
     of it are not labelled. Music the transcript does not note is not detected.
@@ -976,7 +983,8 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   rather than Houston We Have a Podcast, which holds two thirds of the hours. The
   audio is the MP3 the listing pinned, converted to 16 kHz mono WAV.
 - **Prepared audio**: before the labelling run, the first 65 h of the reading
-  order of the listing of 2026-11-09 — 131 episodes, 26 or 27 per show — were
+  order of the listing of 2026-11-09 — 128 episodes, 66.0 h: 30 or 31 per
+  show, and the 7 left of NASA's Curious Universe — were
   downloaded (`audiolab data fetch-audio nasa-en-train --hours 65`) and kept as
   16 kHz mono WAV, 7.0 GiB in the pipeline's cache (`$AUDIOLAB_CACHE`,
   `.cache/audiolab` by default, git-ignored; the MP3 is deleted once its sound is
