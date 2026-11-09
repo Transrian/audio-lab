@@ -242,6 +242,7 @@ def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_pa
         "music": page(words, "[ Music ]", "(Distributed Active Archive Center)"),
         "library": page(words, "Music for the series comes from Universal Production Music."),
         "theme": page(words, "[Song: Ants Instrumental by Taylor Welsh]"),
+        "a-seismic-journey": page(words, "Yeah, those phone calls laughter. It's fine!"),
     }
     for slug, text in pages.items():
         (tmp_path / f"{slug}.html").write_text(text, encoding="utf-8")
@@ -266,6 +267,7 @@ def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_pa
         "music": "",
         "library": "page crediting music of a third party",
         "theme": "page crediting music of a third party",
+        "a-seismic-journey": "transcript with its notes written as speech",
     }
 
 

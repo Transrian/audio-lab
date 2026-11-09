@@ -148,6 +148,10 @@ PLAYED = re.compile(
     r"|\bexcerpts?\b|\barchive:",
     re.IGNORECASE,
 )
+# The episodes whose transcript writes the transcriber's notes as words of the
+# speech, with no bracket to tell them apart ("those phone calls laughter",
+# "it's pause — it was"): a label would carry them as said.
+NOTES_AS_SPEECH = frozenset({"a-seismic-journey"})
 # Pages come from one public website: three at a time, as the audio downloads.
 PAGE_WORKERS = 3
 # The counts of the labelling report, beside those of the Parakeet pass.
@@ -428,6 +432,8 @@ def why_unusable(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool 
     clip), the page does not say whose each one is, and a transcript sometimes
     writes their words as lines of the show, which a clip would then carry.
     """
+    if episode.id in NOTES_AS_SPEECH:
+        return "transcript with its notes written as speech"
     try:
         page = page_text(http, episode, pages, fresh=fresh)
     except (DownloadError, httpx.HTTPError):
@@ -489,6 +495,7 @@ SOURCE = TalkSource(
         "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
         "max_transcript_words_per_minute": MAX_WORDS_PER_MINUTE,
         "copyright_notice": "an episode whose page carries one is left out",
+        "notes_written_as_speech": sorted(NOTES_AS_SPEECH),
         "music_credit": "an episode whose page credits music of a third party is left out",
         "played_recordings": "an episode whose transcript notes archival audio, an archive, "
         "a broadcast, a clip, an excerpt or an announcer, or gives one a speaker label, "

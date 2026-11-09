@@ -39,14 +39,27 @@ def test_the_transcript_stream_leaves_out_labels_and_notes_and_numbers_its_passa
     assert stream.passage_of_written == [1, 1, 1, 2, 2, 2, 2, 4, 4]
 
 
-def test_a_note_left_open_or_in_angle_brackets_is_not_said():
+def test_a_note_left_open_or_in_angle_brackets_braces_or_asterisks_is_not_said():
     lines = [
         Line("", "<Intro Music> Hello."),
         Line("", "[ARCHIVAL AUDIO: Three, two, one, liftoff"),
         Line("", "[Song: Theme by Someone} Goodbye."),
+        Line("", "{Laughter} Right. *cough* Sorry. *Quacking sound*"),
+        Line("", "We paid 2 * 3 dollars."),
     ]
 
-    assert transcript(lines, "en").written == ["Hello.", "Goodbye."]
+    assert transcript(lines, "en").written == [
+        "Hello.",
+        "Goodbye.",
+        "Right.",
+        "Sorry.",
+        "We",
+        "paid",
+        "2",
+        "*",
+        "3",
+        "dollars.",
+    ]
 
 
 def test_the_alignment_pairs_the_shared_words_around_insertions_and_deletions():

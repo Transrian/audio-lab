@@ -40,11 +40,11 @@ MIN_MATCHED_SHARE = 0.9
 MAX_UNMATCHED_RUN = 2
 MIN_CLIP_SECONDS = 1.0
 # A note of the transcriber, which nobody says: "[ Music ]", "[[Sound: Beep]]",
-# "(laughs)", "<Intro Music>", a timestamp such as "[00:01:26]". A bracket a
-# transcriber left open ("[Song: Theme}", "[ARCHIVAL AUDIO: Launch") ends at
-# the end of its line. A note ends a passage, like a change of speaker (see
-# Transcript).
-NOTE = re.compile(r"\[+[^\]}]*(?:\]+|}|$)|\([^)]*\)|<[^>]*>")
+# "(laughs)", "<Intro Music>", "{Laughter}", "*cough*", a timestamp such as
+# "[00:01:26]". A bracket a transcriber left open ("[Song: Theme}", "[ARCHIVAL
+# AUDIO: Launch") ends at the end of its line. A note ends a passage, like a
+# change of speaker (see Transcript).
+NOTE = re.compile(r"\[+[^\]}]*(?:\]+|}|$)|\([^)]*\)|<[^>]*>|\{[^}]*\}|\*[^*\s][^*]*\*")
 # A note of a sound under or between the words: music, a song, a recording
 # played on the show. A clip next to one may carry it under the speech, so a
 # line with such a note and the lines on each side of it are not labelled.

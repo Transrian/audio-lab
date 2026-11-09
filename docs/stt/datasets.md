@@ -942,8 +942,10 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   that recurs — and remembered: the label changes where the speaker does. A
   phrase of speech before a colon (`Today: the Moon`) is read as a label too:
   that only costs the clip across it, while a label read as speech would put a
-  name, and two voices, in a clip. Notes in brackets or
-  parentheses (`[Music]`, `(laughs)`) are not words anybody says.
+  name, and two voices, in a clip. Notes in brackets, parentheses, braces or
+  asterisks (`[Music]`, `(laughs)`, `{Laughter}`, `*cough*`) are not words
+  anybody says. The one transcript that writes its notes as plain words
+  (`a-seismic-journey`: "those phone calls laughter") is left out, by name.
 - **Labels, by alignment** (`src/audiolab/data/aligned_clips.py`): Whisper
   large-v3 hears each episode as the talks are heard (five-minute chunks, raw
   answers cached, segments joined into candidate clips of 20 s at most). Its
