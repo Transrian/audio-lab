@@ -29,7 +29,7 @@ from audiolab.data.panels import (
 from audiolab.data.talk_listing import Talk, write_listing
 from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
-from audiolab.eval.client import ConfigError, ModelConfig
+from audiolab.eval.client import ConfigError, ModelConfig, concurrency_from_env
 from audiolab.eval.report import (
     REPORT_NAME,
     SUMMARY_NAME,
@@ -93,6 +93,13 @@ def cmd_data_fetch_audio(args: argparse.Namespace) -> int:
     return 0 if prepared.talks else 1
 
 
+def at_least_one(text: str) -> int:
+    """A count of at least one, for a command-line option."""
+    if not text.isdigit() or int(text) < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number of at least 1")
+    return int(text)
+
+
 def hours_of(talks: list[Talk]) -> float:
     """How long the talks of a listing last together."""
     return sum(talk.duration_s for talk in talks) / 3600
@@ -139,7 +146,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
         data_dir=args.data_dir,
         runs_root=args.runs_dir or runs_dir(),
         base_url=args.base_url or "",
-        concurrency=args.concurrency,
+        concurrency=args.concurrency or concurrency_from_env(model),
         sealed=args.sealed,
         fresh=args.fresh,
         gpu=args.gpu,
@@ -371,7 +378,10 @@ def _add_eval_command(
         "--suite", required=True, help="suite config, for example configs/suites/fast.yaml"
     )
     evaluate.add_argument(
-        "--concurrency", type=int, default=1, help="requests in flight (default: 1)"
+        "--concurrency",
+        type=at_least_one,
+        default=None,
+        help="requests in flight (default: the model's entry in $AUDIOLAB_CONCURRENCY, else 1)",
     )
     evaluate.add_argument(
         "--sealed", action="store_true", help="allow the sealed panel (one-time act)"

@@ -323,7 +323,9 @@ class FakeModels:
     def serve(self, monkeypatch) -> None:
         """Stand in for the two model clients ``nasa`` opens."""
         monkeypatch.setattr(nasa, "client", lambda model, request=None: nullcontext(model))
-        monkeypatch.setattr(nasa, "answer", lambda model, language: partial(self.hear, model))
+        monkeypatch.setattr(
+            nasa, "served", lambda model, language: talks.Served(partial(self.hear, model))
+        )
 
     def hear(self, model: str, wav: bytes) -> dict:
         self.log.append(model)

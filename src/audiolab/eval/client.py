@@ -30,6 +30,8 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 BACKOFF_SECONDS = (1.0, 2.0)
 REQUEST_TIMEOUT_S = 120.0
 TRANSCRIPTIONS_PATH = "/v1/audio/transcriptions"
+# How many requests each served model takes at once; see concurrency_from_env.
+CONCURRENCY_ENV = "AUDIOLAB_CONCURRENCY"
 # Servers document their root URL, but they are also handed out as ".../v1";
 # both are accepted, and only one "/v1" ever ends up in a request path.
 V1_SUFFIX = "/v1"
@@ -303,6 +305,29 @@ def api_key_from_env(config: ModelConfig) -> str:
     if not config.api_key_env:
         return ""
     return os.environ.get(config.api_key_env, "").strip()
+
+
+def concurrency_from_env(config: ModelConfig) -> int:
+    """How many requests the served model takes at once: one, unless the environment says more.
+
+    ``$AUDIOLAB_CONCURRENCY`` holds ``<served model id>=<N>`` entries separated
+    by commas, for example ``stt-v-whisper-large-v3=10``. What an engine
+    supports varies, so a model it does not name is sent one request at a time
+    (D-022). Like the URL, it is a fact of the server, and stays out of the
+    config files.
+    """
+    counts: dict[str, int] = {}
+    for entry in os.environ.get(CONCURRENCY_ENV, "").split(","):
+        if not entry.strip():
+            continue
+        model, _, count = entry.strip().rpartition("=")
+        if not model or not count.isdigit() or int(count) < 1:
+            raise ConfigError(
+                f"${CONCURRENCY_ENV} holds {entry.strip()!r}; "
+                "each entry must be <served model id>=<N>, with N at least 1"
+            )
+        counts[model] = int(count)
+    return counts.get(config.model, 1)
 
 
 def map_requests[T, R](

@@ -153,6 +153,19 @@ audiolab eval --model configs/models/example.yaml --suite configs/suites/fast.ya
 audiolab eval --model configs/models/example.yaml --suite configs/suites/full.yaml --concurrency 4
 ```
 
+**Requests at once**: a run sends one request at a time unless told otherwise,
+because what a server supports varies ([D-022](../owner/directives.md)).
+`--concurrency N` sends N at once. Without it, the run reads
+`AUDIOLAB_CONCURRENCY`, the same variable the labelling of the talk sources
+reads ([datasets](datasets.md#peertube-fr-train--capitole-du-libre-talks-in-french)):
+comma-separated `<served model id>=<N>` entries, for example
+`AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`; a model
+it does not name gets 1. Like the URL, it is a fact of the server, so it lives in
+the environment (`.env`), not in a model config. It is not part of the cache
+key: a server that batches requests (vLLM) may answer a clip slightly
+differently depending on what was sent beside it, but that is timing, which no
+key can hold.
+
 Sending audio to a model is the slow part; scoring takes seconds. So the
 answers are kept once, in a **transcript cache** shared by every suite, and a
 suite's run directory is rebuilt from it on every run.

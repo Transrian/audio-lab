@@ -54,8 +54,8 @@ from audiolab.data.talks import (
     KEPT,
     SEED,
     SEGMENT_MODEL,
+    Served,
     TalkInProgress,
-    answer,
     audio_file,
     batch_size,
     client,
@@ -64,9 +64,10 @@ from audiolab.data.talks import (
     http_client,
     offer_talk,
     prefetched,
+    served,
 )
 from audiolab.data.train import Take
-from audiolab.eval.client import TranscriptionError
+from audiolab.eval.client import TranscriptionError, map_requests
 
 NAME = "nasa-en-train"
 LANGUAGE = "en"
@@ -540,8 +541,8 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
         client(BASE_MODEL) as parakeet_client,
         closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
     ):
-        whisper = answer(whisper_client, LANGUAGE)
-        parakeet = answer(parakeet_client, LANGUAGE)
+        whisper = served(whisper_client, LANGUAGE)
+        parakeet = served(parakeet_client, LANGUAGE)
         episodes_read = 0
         while not take.full():
             batch = list(islice(audio_files, batch_size(take, episodes_read)))
@@ -562,8 +563,8 @@ def label_batch(
     batch: list[tuple[Talk, Path | None]],
     http: httpx.Client,
     cache: Path,
-    whisper: Transcribe,
-    parakeet: Transcribe,
+    whisper: Served,
+    parakeet: Served,
     take: Take,
     tally: Counter[str],
 ) -> None:
@@ -583,14 +584,16 @@ def label_batch(
             tally[f"episodes left out at preparation: {reason}"] += 1
         else:
             usable.append((episode, path))
-    heard = heard_talks(usable, cache, whisper, tally)
+    heard = heard_talks(usable, cache, whisper.transcribe, tally, whisper.concurrency)
     labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
     room = take.cap - take.kept
     sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
     for episode, clips, size in zip(heard, labelled, sizes, strict=True):
         answers = Answers(cache / clips_file(episode.talk, BASE_MODEL))
-        episode.agreed = with_clean_edges(episode, clips[:size], answers, parakeet, tally)
-        offer_talk(episode, answers, parakeet, take, LANGUAGE, tally)
+        episode.agreed = with_clean_edges(
+            episode, clips[:size], answers, parakeet.transcribe, tally, parakeet.concurrency
+        )
+        offer_talk(episode, answers, parakeet.transcribe, take, LANGUAGE, tally)
 
 
 def aligned(episode: TalkInProgress, page: str, tally: Counter[str]) -> list[tuple[Segment, str]]:
@@ -629,8 +632,9 @@ def with_clean_edges(
     answers: Answers,
     parakeet: Transcribe,
     tally: Counter[str],
+    concurrency: int = 1,
 ) -> list[tuple[Segment, str]]:
-    """The clips whose cut the base model confirms (:func:`same_edges`).
+    """The clips whose cut the base model confirms (:func:`same_edges`), ``concurrency`` at once.
 
     Parakeet is the only model that hears a clip of this source alone, as Qwen
     does for the other talk sources. Its answers are cached, so
@@ -641,14 +645,20 @@ def with_clean_edges(
     if not clips:
         return []
     audio = load_audio(episode.audio_path)
-    kept = []
-    for clip, label in clips:
+
+    def ask_parakeet(clip: Segment) -> str | None:
+        """Parakeet's text for one clip; None when the request fails."""
         try:
-            heard = clip_text(answers, clip, audio, parakeet)
+            return clip_text(answers, clip, audio, parakeet)
         except TranscriptionError:
+            return None
+
+    texts = map_requests(ask_parakeet, [clip for clip, _ in clips], concurrency)
+    kept = []
+    for (clip, label), heard in zip(clips, texts, strict=True):
+        if heard is None:
             tally["clips Parakeet failed on"] += 1
-            continue
-        if same_edges(label, heard, LANGUAGE):
+        elif same_edges(label, heard, LANGUAGE):
             kept.append((clip, label))
         else:
             tally[EDGES_UNHEARD] += 1

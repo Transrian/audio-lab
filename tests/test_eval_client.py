@@ -18,6 +18,7 @@ from audiolab.eval.client import (  # noqa: E402
     ModelConfig,
     TranscriptionClient,
     TranscriptionError,
+    concurrency_from_env,
     map_requests,
     server_root,
 )
@@ -321,3 +322,17 @@ def test_a_stopped_run_starts_no_new_request_and_returns_those_it_started():
 def test_a_concurrency_below_one_is_refused():
     with pytest.raises(ValueError, match="at least 1"):
         map_requests(str, [1], concurrency=0)
+
+
+def test_the_concurrency_of_a_model_comes_from_the_environment_and_defaults_to_one(monkeypatch):
+    whisper, other = make_config(model="stt-v-whisper-large-v3"), make_config(model="other")
+    monkeypatch.delenv("AUDIOLAB_CONCURRENCY", raising=False)
+    assert concurrency_from_env(whisper) == 1
+
+    monkeypatch.setenv("AUDIOLAB_CONCURRENCY", " stt-v-whisper-large-v3=10 , qwen=4,")
+    assert (concurrency_from_env(whisper), concurrency_from_env(other)) == (10, 1)
+
+    for wrong in ("stt-v-whisper-large-v3", "stt-v-whisper-large-v3=0", "=3", "a=many"):
+        monkeypatch.setenv("AUDIOLAB_CONCURRENCY", wrong)
+        with pytest.raises(ConfigError, match="<served model id>=<N>"):
+            concurrency_from_env(whisper)
