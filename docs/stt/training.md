@@ -191,16 +191,30 @@ audiolab: training of <name> stopped after update <n> of <updates>, kept in <run
 and exits with code 130. A stopped run writes neither `model.nemo` nor
 `train.json` nor `model.yaml`: the directory holds `config.json`, the manifest,
 the log so far and the slot. The same `audiolab train` command goes on from update
-`<n>`, on the clips that came next. What a resume does not restore is the random
-state of the augmentation (SpecAugment's masks are drawn anew), as in any
-Lightning run resumed from a checkpoint. A second Ctrl-C or SIGTERM ends the
-process at once; so do a crash, `kill -9` and a reboot. Then the last rewrite of
-the slot is what the run goes on from, so at most `resume_every` updates are
-lost. `tests/test_train_resume_slot.py`, which runs in the NeMo environment
-only, checks on the CPU that a run stopped in the middle of an update, or killed
-after a rewrite of the slot, and resumed ends with the weights of the run that
-went on. The slot is written to `resume.ckpt.partial` and renamed, so a process
-killed while writing it keeps the slot before.
+`<n>`, on the clips that came next, with the random state it stopped at (below).
+A second Ctrl-C or SIGTERM ends the process at once; so do a crash, `kill -9` and
+a reboot. Then the last rewrite of the slot is what the run goes on from, so at
+most `resume_every` updates are lost. The slot is written to
+`resume.ckpt.partial` and renamed, so a process killed while writing it keeps the
+slot before.
+
+A resumed run trains what the run that went on would have, to the bit when the
+run is deterministic. The slot carries the random generators of Python, NumPy,
+PyTorch and every GPU, which draw the dither, SpecAugment's masks, the dropouts
+and the batches the TDT loss trains with the plain RNN-T loss instead; the resume
+puts them back before its first batch. One random state lives outside them: on
+a GPU, cuDNN draws the dropout between the two layers of the prediction
+network's LSTM from a state of its own, and PyTorch draws that state again from
+the GPU's generator only after the generator is set. So the run sets the
+generator to its own state before every batch, and the cuDNN state is drawn from
+what the slot carries (`redraw_cudnn_dropout` in
+`src/audiolab/train/finetune.py`). An audiolab without this redraw drew other
+LSTM masks, so a run it trained is not reproduced bit for bit.
+`tests/test_train_resume_slot.py`, which runs in the NeMo environment only,
+checks with a small model that draws from PyTorch's and Python's generators and
+runs a two-layer LSTM with dropout that a run stopped in the middle of an update, or killed after
+a rewrite of the slot, and resumed ends with the weights of the run that went on,
+to the bit: on the CPU, and on the GPU when the machine has one.
 
 Under systemd, `KillMode=mixed` sends SIGTERM to `audiolab` alone and lets it stop
 its data loader workers itself, and `SuccessExitStatus=130` makes a stopped run
@@ -211,8 +225,9 @@ write took up to five when two runs wrote theirs at once, so give it ten minutes
 On a GPU (2026-11-09), a 120-update run stopped by SIGINT and then SIGTERM, and
 killed once outright, resumed each time from its slot and finished; its losses
 up to the first stop were those of an uninterrupted twin to the last digit, and
-after a resume they stayed within the twin's noise, since the random state of the
-augmentation is not saved.
+after a resume they stayed within the twin's noise only: its slot did not carry
+the random state yet. A resume of the real model that carries it has not been
+compared with its twin on a GPU yet.
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the

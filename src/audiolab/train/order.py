@@ -12,9 +12,8 @@ from the run's seed and the epoch's number alone, so it is the same in every
 process; the only state is the number of batches already trained, which the
 resume slot carries. A run resumed after ``n`` batches reads, from the epoch
 ``n`` falls in, the clips after those ``n`` batches, then the next epochs as
-the run that did not stop would have. What it does not restore is the random
-state of the augmentation (spec augment, dither): those draws are new after a
-resume, as they are in any NeMo run resumed from a checkpoint.
+the run that did not stop would have. The random state (dither, SpecAugment,
+dropout) is not this module's: the resume slot carries it (``finetune.py``).
 
 This module needs no PyTorch: ``read`` is what turns some clip indices into
 batches (a DataLoader over those indices, in ``finetune.py``).

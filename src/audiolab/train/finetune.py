@@ -20,12 +20,14 @@ ordinary checkpoint, served and evaluated like any other.
 from __future__ import annotations
 
 import os
+import random
 import time
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
 import lightning.pytorch as pl
+import numpy as np
 import torch
 from lightning.fabric.utilities.seed import pl_worker_init_function
 from lightning.pytorch.callbacks import Callback
@@ -146,7 +148,12 @@ class ResumeSlot(Callback):
     its own SIGTERM handler while it trains, which stops after the batch, in the
     middle of an accumulation, and saves nothing; training takes the handlers
     back when it starts. The slot also carries the number of batches trained,
-    which tells the :class:`ClipOrder` where the resumed run reads from.
+    which tells the :class:`ClipOrder` where the resumed run reads from, and the
+    random state at that point (dither, SpecAugment's masks, dropout, the TDT
+    loss's choice of loss), put back before the first batch of the resume: the
+    resumed run trains what the run that went on would have, to the bit when
+    the run is deterministic (see :func:`redraw_cudnn_dropout` for the one
+    random state the generators do not hold).
     """
 
     def __init__(self, path: Path, every: int, order: ClipOrder) -> None:
@@ -157,13 +164,15 @@ class ResumeSlot(Callback):
         self.saved_at = -1  # the update the slot on disk was written after
         self.stopped = False
         self.restored = False
+        self.random_state = None  # restored, waiting for the first batch
 
     def state_dict(self) -> dict:
-        return {"batches_trained": self.batches_trained}
+        return {"batches_trained": self.batches_trained, "random_state": random_state()}
 
     def load_state_dict(self, state_dict: dict) -> None:
         # Lightning restores this before it asks for the first batch.
         self.batches_trained = self.order.start = state_dict["batches_trained"]
+        self.random_state = state_dict.get("random_state")
         self.restored = True
 
     def on_train_start(self, trainer, pl_module) -> None:
@@ -179,6 +188,12 @@ class ResumeSlot(Callback):
         self.saved_at = trainer.global_step
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:
+        if self.random_state is not None:
+            # Only now: starting the data loader draws from the random state, as
+            # it did once at the start of the run that went on.
+            set_random_state(self.random_state)
+            self.random_state = None
+        redraw_cudnn_dropout()
         if trainer.global_step != self.saved_at and trainer.global_step % self.every == 0:
             self.save(trainer)
 
@@ -199,6 +214,39 @@ class ResumeSlot(Callback):
         trainer.save_checkpoint(str(written))
         os.replace(written, self.path)
         self.saved_at = trainer.global_step
+
+
+def random_state() -> dict:
+    """Every random generator training draws from, as it stands."""
+    return {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch": torch.get_rng_state(),
+        "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+    }
+
+
+def set_random_state(state: dict) -> None:
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+    torch.set_rng_state(state["torch"])
+    if state["cuda"] and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(state["cuda"])
+
+
+def redraw_cudnn_dropout() -> None:
+    """Make cuDNN draw the dropout of an LSTM from the CUDA generator again.
+
+    On a GPU, an LSTM of several layers (the prediction network of a transducer)
+    runs in cuDNN, which draws the dropout between its layers from a random state
+    of its own, outside the CUDA generator, so the slot does not hold it. PyTorch
+    draws that state again from the generator at the first LSTM after the
+    generator is set. Setting the generator to its own state before every batch
+    makes the generator the only random state, in the run that goes on as in the
+    resumed one.
+    """
+    if torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(torch.cuda.get_rng_state_all())
 
 
 def clip_order(loader: DataLoader, seed: int) -> ClipOrder:

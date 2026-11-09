@@ -4,9 +4,13 @@ This needs PyTorch, Lightning and NeMo, which the default environment does not
 install, so it is skipped there; run it on the CPU with the environment of
 `scripts/nemo-venv.sh`:
 `CUDA_VISIBLE_DEVICES= .venv-nemo/bin/python -m pytest tests/test_train_resume_slot.py`.
+On a machine with a GPU, the resumes are also checked on it, where cuDNN runs
+the LSTM.
 """
 
 from __future__ import annotations
+
+import random
 
 import pytest
 
@@ -29,12 +33,20 @@ UPDATES = 8
 
 
 class Tiny(pl.LightningModule):
-    """A linear regression that records the clips of every batch it trains on."""
+    """A linear regression that records the clips of every batch it trains on.
+
+    It draws from the random generators at every batch (a dropout, the dropout
+    between the layers of an LSTM, and a scale from Python's), like the
+    augmentation and the prediction network of a real run: a resume that did
+    not put the random state back would end with other weights.
+    """
 
     def __init__(self, order: ClipOrder) -> None:
         super().__init__()
         torch.manual_seed(0)
+        random.seed(0)
         self.layer = torch.nn.Linear(2, 1)
+        self.memory = torch.nn.LSTM(2, 2, num_layers=2, dropout=0.5, batch_first=True)
         self.order = order
         self.seen: list[list[int]] = []
 
@@ -44,7 +56,10 @@ class Tiny(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         inputs, targets, clips = batch
         self.seen.append(clips.tolist())
-        return ((self.layer(inputs).squeeze(1) - targets) ** 2).mean()
+        inputs = torch.nn.functional.dropout(inputs, 0.5, training=True)
+        inputs = inputs + self.memory(inputs.unsqueeze(1))[0].squeeze(1)
+        scale = 1 + random.random()
+        return scale * ((self.layer(inputs).squeeze(1) - targets) ** 2).mean()
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=0.1)
@@ -63,7 +78,20 @@ class StopAtBatch(pl.Callback):
             request_stop()
 
 
-def train(slot, *, also=(), resume: bool = False):
+@pytest.fixture(
+    params=[
+        "cpu",
+        pytest.param(
+            "cuda",
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="no GPU"),
+        ),
+    ]
+)
+def accelerator(request):
+    return request.param
+
+
+def train(slot, *, also=(), resume: bool = False, accelerator: str = "cpu"):
     generator = torch.Generator().manual_seed(1)
     data = TensorDataset(
         torch.randn(CLIPS, 2, generator=generator),
@@ -74,7 +102,7 @@ def train(slot, *, also=(), resume: bool = False):
     model = Tiny(order)
     callback = ResumeSlot(slot, every=3, order=order)
     trainer = pl.Trainer(
-        accelerator="cpu",
+        accelerator=accelerator,
         devices=1,
         max_steps=UPDATES,
         accumulate_grad_batches=ACCUMULATION,
@@ -89,20 +117,20 @@ def train(slot, *, also=(), resume: bool = False):
 
 
 def test_a_stop_ends_after_the_update_in_progress_and_the_resume_goes_on_exactly(
-    tmp_path, run_again
+    tmp_path, run_again, accelerator
 ):
-    went_on, _, _ = train(tmp_path / "whole.ckpt")
+    went_on, _, _ = train(tmp_path / "whole.ckpt", accelerator=accelerator)
 
     slot = tmp_path / "resume.ckpt"
     # The fifth batch is the first half of the third update: the stop waits for
     # the second half, then writes the slot.
-    stopped, callback, trainer = train(slot, also=[StopAtBatch(5)])
+    stopped, callback, trainer = train(slot, also=[StopAtBatch(5)], accelerator=accelerator)
     assert callback.stopped and trainer.global_step == 3
     assert len(stopped.seen) == 6
     assert slot.is_file() and not slot.with_name("resume.ckpt.partial").exists()
 
     run_again()
-    resumed, callback, trainer = train(slot, resume=True)
+    resumed, callback, trainer = train(slot, resume=True, accelerator=accelerator)
     assert not callback.stopped and trainer.global_step == UPDATES
     assert stopped.seen + resumed.seen == went_on.seen
     for after_resume, uninterrupted in zip(resumed.parameters(), went_on.parameters(), strict=True):
@@ -122,7 +150,7 @@ def test_the_slot_is_rewritten_between_two_updates_every_so_many(tmp_path):
     train(slot, also=[Watch()])
     steps = sorted({step for step, _ in written})
     assert steps == [3, 6]
-    assert dict(written)[3] == {"batches_trained": 3 * ACCUMULATION}
+    assert dict(written)[3]["batches_trained"] == 3 * ACCUMULATION
 
 
 class CrashAtBatch(StopAtBatch):
@@ -134,16 +162,16 @@ class CrashAtBatch(StopAtBatch):
             raise RuntimeError("killed")
 
 
-def test_a_run_that_died_goes_on_exactly_from_the_last_periodic_slot(tmp_path):
-    went_on, _, _ = train(tmp_path / "whole.ckpt")
+def test_a_run_that_died_goes_on_exactly_from_the_last_periodic_slot(tmp_path, accelerator):
+    went_on, _, _ = train(tmp_path / "whole.ckpt", accelerator=accelerator)
 
     slot = tmp_path / "resume.ckpt"
     with pytest.raises(RuntimeError, match="killed"):
         # The 13th batch is the first half of update 7; the slot was rewritten after update 6.
-        train(slot, also=[CrashAtBatch(6 * ACCUMULATION + 1)])
+        train(slot, also=[CrashAtBatch(6 * ACCUMULATION + 1)], accelerator=accelerator)
     assert torch.load(slot, weights_only=False)["global_step"] == 6
 
-    resumed, _, trainer = train(slot, resume=True)
+    resumed, _, trainer = train(slot, resume=True, accelerator=accelerator)
     assert trainer.global_step == UPDATES
     assert resumed.seen == went_on.seen[6 * ACCUMULATION :], "the half update lost is read again"
     for after_resume, uninterrupted in zip(resumed.parameters(), went_on.parameters(), strict=True):
