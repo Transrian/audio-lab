@@ -84,6 +84,7 @@ from audiolab.eval.client import (
     TranscriptionError,
     api_key_from_env,
     base_url_from_env,
+    map_requests,
 )
 from audiolab.eval.metrics import counts
 
@@ -364,26 +365,6 @@ def prefetched(
             yield talk, path
 
 
-def in_parallel[T, R](
-    ask: Callable[[T], R], items: Iterable[T], stopping: threading.Event | None = None
-) -> list[R]:
-    """``ask`` on every item, :data:`PARALLEL_REQUESTS` at a time, answers in the items' order.
-
-    A stopped run (Ctrl-C, an error) cancels the items not started, sets
-    ``stopping`` and waits for the items in flight: an ``ask`` that watches
-    ``stopping`` ends early.
-    """
-    pool = ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS)
-    try:
-        return list(pool.map(ask, items))
-    except BaseException:
-        if stopping is not None:
-            stopping.set()
-        raise
-    finally:
-        pool.shutdown(cancel_futures=True)
-
-
 def heard_talks(
     batch: Iterable[tuple[Talk, Path | None]],
     cache: Path,
@@ -409,7 +390,7 @@ def heard_talks(
         counted: Counter[str] = Counter()  # one per talk: threads must not share a Counter
         return heard_talk(*pair, cache, whisper_until_stopped, counted), counted
 
-    results = in_parallel(heard, batch, stopping)
+    results = map_requests(heard, batch, PARALLEL_REQUESTS, stopping)
     for _, counted in results:
         tally.update(counted)
     return [talk for talk, _ in results]
@@ -468,7 +449,9 @@ def agreeing(
         group = list(islice(pending, min(PARALLEL_REQUESTS, share - len(agreed))))
         if not group:
             break
-        for candidate, label in zip(group, in_parallel(ask_qwen, group), strict=True):
+        for candidate, label in zip(
+            group, map_requests(ask_qwen, group, PARALLEL_REQUESTS), strict=True
+        ):
             if label is None:
                 tally["clips Qwen failed on"] += 1
             else:

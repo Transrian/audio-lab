@@ -7,6 +7,7 @@ import json
 import os
 import stat
 import sys
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -283,6 +284,30 @@ def test_answers_given_without_a_language_are_counted(workspace):
     summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
     assert summary["panels"][PANEL]["answered_without_language"] == panel_size(workspace)
     assert "without a language hint" in (run_dir / REPORT_NAME).read_text(encoding="utf-8")
+
+
+def test_a_run_sends_its_requests_n_at_a_time(workspace):
+    together = threading.Barrier(3, timeout=10)  # three in flight, or none is answered
+    sent: list[int] = []
+    lock = threading.Lock()
+
+    def respond(request):
+        with lock:
+            sent.append(len(sent))
+            first_three = len(sent) <= 3
+        if first_three:
+            together.wait()
+        return httpx.Response(200, json={"text": "bonjour tout le monde"})
+
+    def factory(context_, base_url):
+        return TranscriptionClient(context_.model, base_url, transport=httpx.MockTransport(respond))
+
+    run_dir = run_suite(
+        context(workspace, base_url="http://server.test", concurrency=3), client_factory=factory
+    )
+    records = read_records(run_dir / RECORDS_NAME)
+    assert len(sent) == len(records) == panel_size(workspace)
+    assert all(record["hypothesis"] == "bonjour tout le monde" for record in records)
 
 
 def test_fresh_sends_every_clip_again(workspace):

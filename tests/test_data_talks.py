@@ -624,14 +624,14 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
-    in_parallel = talks.in_parallel
+    map_requests = talks.map_requests
     stopping: list[threading.Event] = []
 
-    def watched(ask, items, stop):
+    def watched(ask, items, concurrency, stop):
         stopping.append(stop)
-        return in_parallel(ask, items, stop)
+        return map_requests(ask, items, concurrency, stop)
 
-    monkeypatch.setattr(talks, "in_parallel", watched)
+    monkeypatch.setattr(talks, "map_requests", watched)
     whisper_asked = threading.Event()
     calls = []
 
@@ -660,7 +660,7 @@ def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
     keys = [f"{index}.00-{index + 1}.00" for index in range(200)]
     text = "mot " * 2000
 
-    talks.in_parallel(lambda key: answers.answer(key, lambda: {"text": text}), keys)
+    talks.map_requests(lambda key: answers.answer(key, lambda: {"text": text}), keys, 10)
 
     assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}
     lines = (tmp_path / "answers.jsonl").read_text(encoding="utf-8").splitlines()
