@@ -30,7 +30,6 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from dataclasses import dataclass
 from functools import partial
@@ -480,8 +479,8 @@ def list_episodes(http: httpx.Client) -> list[Talk]:
     if max(slugs.values(), default=0) > 1:
         raise DownloadError(f"two episode pages share a slug: {slugs.most_common(1)}")
     pages = cache_dir() / NAME / "pages"
-    with ThreadPoolExecutor(max_workers=PAGE_WORKERS) as fetches:
-        reasons = list(fetches.map(partial(why_unusable, http, pages=pages), unique))
+    reasons = map_requests(partial(why_unusable, http, pages=pages), unique, PAGE_WORKERS)
+    raise_if_stopped("listing stopped")  # the pages read are cached
     left_out = Counter(reason for reason in reasons if reason)
     print(
         f"  {len(episodes)} episodes in the feeds, {len(episodes) - len(unique)} repeats; "

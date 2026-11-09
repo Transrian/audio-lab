@@ -26,6 +26,7 @@ import yaml
 from audiolab import __version__
 from audiolab.core.parallel import map_requests
 from audiolab.core.paths import runs_dir
+from audiolab.core.progress import progress, say
 from audiolab.core.stop import raise_if_stopped
 from audiolab.data.panels import DEFAULT_PANELS_DIR
 from audiolab.eval.cache import (
@@ -392,17 +393,21 @@ def _transcribe_pending(
         record = _transcribe_one(client, item, paths[item.panel][item.id], cold=index == 0)
         with lock:
             append_record(cache_path, record)
+            bar.update()
             if client.language_refused and not refused:
                 refused = True
                 if context.verbose:
-                    print(
+                    say(
                         "warning: the server refused the language field; "
                         "it is not sent again for the rest of this run"
                     )
             if context.verbose:
                 _report_progress(index + 1, len(pending), record)
 
-    with closing(factory(context, base_url)) as client:
+    with (
+        closing(factory(context, base_url)) as client,
+        progress(desc=f"{context.model.name} clips", unit="clip", total=len(pending)) as bar,
+    ):
         client.warm_up()
         map_requests(work, enumerate(pending), context.concurrency)
     # A stopped run sent only some of its items: it is not written as complete,
@@ -450,7 +455,7 @@ def _now() -> str:
 
 def _report_progress(done: int, total: int, record: dict) -> None:
     state = "error" if record["error"] else "ok"
-    print(f"[{done}/{total}] {record['id']} {state} ({record['latency_s']:.2f}s)", flush=True)
+    say(f"[{done}/{total}] {record['id']} {state} ({record['latency_s']:.2f}s)")
 
 
 def _announce(context: RunContext, run_dir: Path, cache_path: Path, *, sent: int) -> int:

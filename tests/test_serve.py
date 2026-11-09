@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -18,10 +19,12 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 
 from audiolab.core.checkpoint import file_sha256  # noqa: E402
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.eval.client import ModelConfig, TranscriptionClient  # noqa: E402
 from audiolab.serve.config import ServeConfigError, ServeSpec  # noqa: E402
 from audiolab.serve.http import TranscriptionServer, parse_multipart  # noqa: E402
 from audiolab.serve.launcher import (  # noqa: E402
+    ServingProcess,
     reported_identity,
     serve_command,
     serving,
@@ -278,6 +281,17 @@ def test_a_ctrl_c_in_the_terminal_does_not_reach_the_server_child():
     finally:
         process.stop()
     assert process.process.poll() is not None
+
+
+def test_a_stop_while_the_server_loads_stops_it_and_the_run():
+    def loading_command(spec=None, model_id: str = "") -> list[str]:
+        return [sys.executable, "-c", "import sys; sys.stdin.read()"]  # loads until told to stop
+
+    process = ServingProcess(loading_command())
+    threading.Timer(0.1, request_stop).start()
+    with pytest.raises(Stopped, match="starting the server stopped"):
+        process.wait_until_ready(timeout_s=60)
+    assert process.process.poll() is not None, "the child is stopped, not left loading"
 
 
 def test_a_child_that_cannot_start_says_what_it_printed():

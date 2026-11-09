@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from helpers import write_tone  # noqa: E402
 
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import nasa, talks  # noqa: E402
 from audiolab.data.aligned_clips import Line, labelled_clips  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
@@ -307,6 +308,28 @@ def test_the_listing_reads_each_feed_and_caches_each_page_once(tmp_path, monkeyp
     pages_asked = [path for path in asked if not path.startswith("/feeds/")]
     assert len(pages_asked) == 4, "each page is fetched once"
     assert (tmp_path / "cache" / nasa.NAME / "pages" / f"{SHOW}-one.html").is_file()
+
+
+def test_a_stopped_listing_reads_no_further_page(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUDIOLAB_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setattr(nasa, "PAGE_WORKERS", 1)
+    items = [item(f"{SHOW}-{n}") for n in range(5)]
+    transcript = page("<strong>Transcript</strong>", " ".join(["word"] * 70))
+    pages_asked: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        if "/feeds/" in request.url.path:
+            return httpx.Response(200, text=feed(*items))
+        pages_asked.append(request.url.path)
+        request_stop()  # Ctrl-C while the first page is read
+        return httpx.Response(200, text=transcript)
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(answer)) as http,
+        pytest.raises(Stopped, match="listing stopped"),
+    ):
+        nasa.list_episodes(http)
+    assert len(pages_asked) == 1
 
 
 # The preparation.

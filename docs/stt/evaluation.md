@@ -182,6 +182,14 @@ nothing to send sends no warmup. The first clip is still flagged `cold` and left
 out of the latency: a model that answered the warmup has not necessarily
 answered a clip of real speech yet.
 
+**Stopping**: a run can be stopped with Ctrl-C or SIGTERM
+([D-021](../owner/directives.md)). The requests in flight finish and no other is
+sent; the run prints `audiolab: evaluation stopped; run the same command again to
+resume`, exits with code 130 and writes and scores nothing. The answers it
+received are in the cache, so the same command sends only the rest. A checkpoint
+the run is still loading is stopped with it. On a terminal, a progress bar
+counts the clips sent; the `[i/N] <id> ok` lines stay the run's printed record.
+
 Sending audio to a model is the slow part; scoring takes seconds. So the
 answers are kept once, in a **transcript cache** shared by every suite, and a
 suite's run directory is rebuilt from it on every run.

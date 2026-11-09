@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from collections import deque
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -21,6 +22,7 @@ from queue import Empty, Queue
 
 import httpx
 
+from audiolab.core.stop import POLL_S, Stopped, stop_requested
 from audiolab.serve.config import ServeConfigError, ServeSpec
 from audiolab.serve.http import MODELS_PATH
 from audiolab.serve.runtime import DEFAULT_HOST, READY_PREFIX
@@ -124,12 +126,28 @@ class ServingProcess:
             self._queue.put(line)
         self._queue.put(None)
 
-    def wait_until_ready(self, timeout_s: float = READY_TIMEOUT_S) -> str:
-        """Wait for the child's ready line; return the address it serves."""
+    def wait_until_ready(
+        self,
+        timeout_s: float = READY_TIMEOUT_S,
+        *,
+        should_stop: Callable[[], bool] = stop_requested,
+    ) -> str:
+        """Wait for the child's ready line; return the address it serves.
+
+        A stop (D-021) stops the child, which has served nothing yet, and raises
+        :class:`~audiolab.core.stop.Stopped`: loading a checkpoint is no step a
+        run would want to finish first.
+        """
+        deadline = time.monotonic() + timeout_s
         while True:
             try:
-                line = self._queue.get(timeout=timeout_s)
+                line = self._queue.get(timeout=POLL_S)
             except Empty:
+                if should_stop():
+                    self.stop()
+                    raise Stopped("starting the server stopped") from None
+                if time.monotonic() < deadline:
+                    continue
                 self.stop()
                 raise ServeConfigError(
                     f"the server for {self.command[0]} did not start within "
