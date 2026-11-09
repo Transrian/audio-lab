@@ -26,7 +26,7 @@ precision: bf16-mixed
 grad_clip: 1.0
 
 workers: 4
-gpu: "1"
+gpu: "0"
 seed: 20261107
 resume_every: 500
 log_every: 50
