@@ -848,34 +848,60 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   page once (kept raw in `$AUDIOLAB_CACHE/nasa-en-train/pages`, never in the
   repository) and pins the episodes in
   [`nasa_listing.json`](../../src/audiolab/data/nasa_listing.json): show, title,
-  page, MP3 and duration, no text. The listing of 2026-11-08 holds **885
-  episodes, 577.2 h**, the median episode 35 minutes long:
+  page, MP3 and duration, no text. The listing of 2026-11-09 holds **833
+  episodes, 546.1 h**, the median episode 36 minutes long:
 
   | show | episodes | hours |
   | --- | --- | --- |
-  | Houston We Have a Podcast | 437 | 389.4 |
-  | Small Steps, Giant Leaps | 151 | 65.7 |
-  | NASA in Silicon Valley | 104 | 47.6 |
-  | NASA's Curious Universe | 95 | 37.5 |
-  | Gravity Assist | 98 | 37.0 |
+  | Houston We Have a Podcast | 421 | 374.7 |
+  | Small Steps, Giant Leaps | 150 | 65.3 |
+  | NASA in Silicon Valley | 102 | 46.9 |
+  | Gravity Assist | 97 | 36.6 |
+  | NASA's Curious Universe | 63 | 22.6 |
 
-- **What the listing leaves out**, from the 993 items of the five feeds: 50 items
-  that link no page under `www.nasa.gov/podcasts/` (no link, or a page on
-  `appel.nasa.gov`); 9 repeats, an episode being the same as another when they
-  share a page, an MP3 file or a title once "Encore" and punctuation are set
-  aside — 3 "Encore" republications, kept under their original, and 6 episodes
-  posted twice; 48 pages without a transcript, all of NASA in Silicon Valley (its
-  "Live" video streams and its short news pieces, whose page holds a caption or a
-  link), a page counting as a transcript when it holds 60 words per minute of
-  audio (people say about 150); and 1 page with a third-party copyright notice.
+- **What the listing leaves out**, from the 993 items of the five feeds, each
+  rule in `src/audiolab/data/nasa.py`:
+  - 50 items that link no page under `www.nasa.gov/podcasts/` (no link, or a page
+    on `appel.nasa.gov`);
+  - 20 repeats, an episode aired again being listed once, under its first airing.
+    Two episodes are the same when they share a page, an MP3 file or a title once
+    an "Encore" or a series' "Ep. N:" prefix and punctuation are set aside: the
+    11 episodes of Houston We Have a Podcast's "Mars Ep. N" series, which air
+    earlier episodes again, 3 "Encore" republications and 6 episodes posted
+    twice. The feeds are read oldest first, so the copy kept is the first aired.
+    3 more pages say their episode aired before ("This episode originally aired
+    as episode 355", "Podcast Archive 2009 … originally aired on", "the
+    rebroadcast of a conversation");
+  - 48 pages without a transcript, all of NASA in Silicon Valley (its "Live"
+    video streams and its short news pieces, whose page holds a caption or a
+    link), a page counting as a transcript when it holds 60 words per minute of
+    audio (people say about 150); and 3 pages that hold more than 250 words per
+    minute, each with its transcript written twice (the median page holds 168,
+    the fastest of the others 239);
+  - 35 episodes that play recordings, 31 of them from NASA's Curious Universe: a
+    transcript note or a speaker label names archival audio, a broadcast or a
+    clip (`[ARCHIVAL Apollo 11 Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of
+    Sidedoor podcast begins]`, `[NBC NIGHTLINE's CHRIS WALLACE: …]`,
+    `[Meteorologist audio: …]`). The episode is left out whole: some of those
+    recordings are another broadcaster's, the page does not say whose each one
+    is, and a transcript sometimes writes their words as lines of the show
+    (`Archival: 5…4…3…2…1 and liftoff…`), which a clip would then carry;
+  - 1 page with a copyright notice (below).
 - **License and attribution**: public domain. A work of the US government is not
   protected by copyright in the United States (17 U.S.C. § 105), and NASA's media
   guidelines (<https://www.nasa.gov/nasa-brand-center/images-and-media/>, checked
   2026-11-08) say that NASA content, audio included, "generally [is] not subject
   to copyright in the United States", and that "NASA occasionally uses
   copyright-protected material of third parties", which is then "identified as
-  copyright protected with the name of the copyright holder". Three rules follow,
-  each in `src/audiolab/data/nasa.py`:
+  copyright protected with the name of the copyright holder".
+  - What § 105 covers: a "work of the United States Government" is one prepared
+    by an officer or employee of the government as part of their official duties
+    (17 U.S.C. § 101). Work a contractor makes for NASA is not one: it can be
+    under copyright, the contractor's or assigned to the government, which
+    § 105 lets the government hold. The pages do not say which minutes, if any,
+    a contractor produced. For those, the source relies on NASA's statement and
+    its rule of naming a holder, through the two rules below; that is NASA's
+    word, not a proof for each minute.
   - A show is read only when its feed names NASA, or NASA's knowledge programme
     ("NASA/APPEL Knowledge Services"), as the copyright holder; a feed naming
     anyone else is refused at the next listing. That leaves out the sixth NASA
@@ -886,9 +912,22 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     or "used with permission" — is left out whole, since a notice does not say
     which minutes it covers. A notice and not a word: guests say "copyright" in
     passing. The one episode left out, `sun-series-soaring-toward-the-sun`, plays
-    archive clips "used courtesy of the New Mexico Public Media Collection". The
-    credit of the shows' music library ("Music for the series comes from Universal
-    Production Music") is not a notice: what a label transcribes is speech.
+    archive clips "used courtesy of the New Mexico Public Media Collection".
+  - Each preparation fetches every page it reads again and applies the
+    listing's rules to it, so an episode whose page took a notice, or lost its
+    transcript, since the listing is skipped and counted.
+  - Music under speech is not NASA's: theme songs and production music with named
+    holders ("Music for the series comes from Universal Production Music", a
+    theme "by SYSTEM Sounds"; 54 listed pages credit music, 51 of them Curious
+    Universe's). Its credit is not taken as a notice, since what a label
+    transcribes is speech, but a clip's audio carries what plays under it. The
+    pipeline keeps clips away from music only where the transcript notes it: a
+    line with a note of a sound (`[ Music ]`, `[Song: …]`, `<Intro Music>`, 530
+    of the 833 transcripts hold one) and the line of text on each side of it are
+    not labelled. Music the transcript does not note is not detected.
+    **Open question for the owner**: is that enough under D-019, or must clips
+    with a music bed be found in the audio (or episode openings and closings
+    dropped) before training?
   - Every clip carries `license: public domain (US government work)`,
     `source_author` "NASA, <show>", `source_title` (the episode) and `source_url`
     (the episode's page), which is the attribution NASA asks for ("NASA should be
@@ -908,25 +947,33 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   and aligned with `difflib.SequenceMatcher`. A candidate clip is labelled when
   it lasts 1 s to 19 s; its first and last words are matched; no transcript
   word is left unmatched just outside it (it would be audio the label misses);
-  its edges fall on whole written words; it holds no speaker change and no note;
-  at least 90 % of its words are matched, on both sides; and no run of more than
-  two words is unmatched on either side. The label is then the stretch of the
+  its edges fall on whole written words; it holds no speaker change and no note,
+  and is not on or next to a line that notes a sound; at least 90 % of its words
+  are matched, on both sides; and no run of more than two words is unmatched on
+  either side. The label is then the stretch of the
   transcript between the first and the last matched word, as NASA wrote it:
   cased, punctuated, digits kept. A transcript is near-verbatim, not verbatim —
   "um" and false starts are often edited out — and the two thresholds bound how
   far a label may stray from the audio. No second model labels the clips, so
-  there is no Qwen pass; Parakeet TDT 0.6B v3 hears each kept clip once, which
-  records its `base_wer` against the label. As for the talks, every Whisper
-  request of a batch is sent before the first Parakeet one.
+  there is no Qwen pass, and Parakeet TDT 0.6B v3 is the one model that hears a
+  clip alone: Whisper heard its words in the whole episode, so its timestamps
+  can cut the first or last word, or let in one of the next sentence. A clip is
+  kept only when the first and last words Parakeet hears in it, normalized, are
+  the label's; the same answer records its `base_wer`. That also drops a clip
+  whose edge word Parakeet gets wrong for another reason; the report counts
+  them. The room left under the cap is shared over the episodes of a batch one
+  clip at a time, and every Whisper request of a batch is sent before the first
+  Parakeet one.
 - **Split and order**: `source_split` is `listing`; episodes are read in a seeded
   shuffle (`SEED`) spread over the show, so a first cap covers the five shows
   rather than Houston We Have a Podcast, which holds two thirds of the hours. The
   audio is the MP3 the listing pinned, converted to 16 kHz mono WAV.
 - **Prepared audio**: before the labelling run, the first 65 h of the reading
-  order — 127 episodes, 25 or 26 per show — were downloaded and kept as 16 kHz
-  mono WAV, 7.0 GiB in the pipeline's cache (`$AUDIOLAB_CACHE`, `.cache/audiolab`
-  by default, git-ignored; the MP3 is deleted once its sound is out). Every
-  episode of that selection arrived.
+  order of the listing of 2026-11-09 — 131 episodes, 26 or 27 per show — were
+  downloaded (`audiolab data fetch-audio nasa-en-train --hours 65`) and kept as
+  16 kHz mono WAV, 7.0 GiB in the pipeline's cache (`$AUDIOLAB_CACHE`,
+  `.cache/audiolab` by default, git-ignored; the MP3 is deleted once its sound is
+  out). Every episode of that selection arrived.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of
