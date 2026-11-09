@@ -257,7 +257,7 @@ def fetch_talks(
     )
     tally: Counter[str] = Counter()
     if verbose:
-        print(f"  listing of {listed_on}: {len(talks)} talks")
+        say(f"  listing of {listed_on}: {len(talks)} talks")
     order = reading_order(talks, SEED, source.spread_by)
     with (
         http_client() as http,
@@ -281,8 +281,8 @@ def fetch_talks(
             talks_read += read
         bar.close()
     if verbose:
-        print(f"  {report(tally)}")
-        print(f"  {take.report()}")
+        say(f"  {report(tally)}")
+        say(f"  {take.report()}")
     builder.write()
     return take.kept
 
@@ -313,7 +313,7 @@ def prepare_audio(
     cache = cache_dir / source.name
     cache.mkdir(parents=True, exist_ok=True)
     if verbose:
-        print(f"  listing of {listed_on}: {len(talks)} talks; preparing {len(wanted)} of them")
+        say(f"  listing of {listed_on}: {len(talks)} talks; preparing {len(wanted)} of them")
     done: list[Talk] = []
     failed = 0
     with (
@@ -332,7 +332,7 @@ def prepare_audio(
                 say(f"  ... {position} talks read, {len(done)} with audio")
     prepared = PreparedAudio(len(done), sum(talk.duration_s for talk in done) / 3600, failed)
     if verbose:
-        print(
+        say(
             f"  {prepared.talks} talks ({prepared.hours:.1f} h) ready in {cache}, "
             f"{prepared.failed} not downloadable"
         )
@@ -495,7 +495,7 @@ def heard_talk(
     try:
         segments = segment_audio(load_audio(audio_path), whisper, answers)
     except TranscriptionError as failure:
-        print(f"  warning: {SEGMENT_MODEL} failed on {talk.url}: {failure}")
+        say(f"  warning: {SEGMENT_MODEL} failed on {talk.url}: {failure}")
         tally["talks Whisper failed on"] += 1
         return TalkInProgress(talk, audio_path)
     return TalkInProgress(talk, audio_path, segments)
@@ -646,7 +646,7 @@ def audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk) 
     try:
         return fetch_audio(http, talk, cache / f"{talk.id}.wav", source)
     except DownloadError as failure:
-        print(f"  warning: skipping {talk.url}: {failure}")
+        say(f"  warning: skipping {talk.url}: {failure}")
         return None
 
 

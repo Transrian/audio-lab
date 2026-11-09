@@ -43,6 +43,7 @@ import httpx
 from audiolab.core.audio import load_audio
 from audiolab.core.parallel import map_requests
 from audiolab.core.paths import cache_dir
+from audiolab.core.progress import say
 from audiolab.core.stop import raise_if_stopped
 from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
@@ -482,7 +483,7 @@ def list_episodes(http: httpx.Client) -> list[Talk]:
     reasons = map_requests(partial(why_unusable, http, pages=pages), unique, PAGE_WORKERS)
     raise_if_stopped("listing stopped")  # the pages read are cached
     left_out = Counter(reason for reason in reasons if reason)
-    print(
+    say(
         f"  {len(episodes)} episodes in the feeds, {len(episodes) - len(unique)} repeats; "
         f"left out: {dict(left_out) or 'none'}"
     )
@@ -534,7 +535,7 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
     )
     tally: Counter[str] = Counter()
     if verbose:
-        print(f"  listing of {listed_on}: {len(episodes)} episodes")
+        say(f"  listing of {listed_on}: {len(episodes)} episodes")
     order = reading_order(episodes, SEED, SOURCE.spread_by)
     with (
         http_client() as http,
@@ -552,10 +553,10 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
             label_batch(batch, http, cache, whisper, parakeet, take, tally)
             episodes_read += len(batch)
             if verbose:
-                print(f"  {episodes_read} episodes read, {take.kept} clips so far")
+                say(f"  {episodes_read} episodes read, {take.kept} clips so far")
     if verbose:
-        print(f"  {report(tally)}")
-        print(f"  {take.report()}")
+        say(f"  {report(tally)}")
+        say(f"  {take.report()}")
     builder.write()
     return take.kept
 

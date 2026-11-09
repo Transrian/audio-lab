@@ -25,6 +25,7 @@ import numpy as np
 import soundfile
 
 from audiolab.core.audio import SAMPLE_RATE, Audio, to_int16
+from audiolab.core.progress import say
 from audiolab.data.train import MAX_SECONDS, MIN_SECONDS
 from audiolab.eval.normalize import normalize
 
@@ -86,7 +87,7 @@ class Answers:
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
-                print(f"warning: {path}:{number} is a torn line; its request is sent again")
+                say(f"warning: {path}:{number} is a torn line; its request is sent again")
                 continue
             self.answers[row["key"]] = row["answer"]
 
