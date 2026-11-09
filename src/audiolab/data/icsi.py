@@ -56,6 +56,7 @@ import numpy as np
 import soundfile as sf
 
 from audiolab.core.audio import Audio, load_audio
+from audiolab.core.stop import raise_if_stopped
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
 from audiolab.data.meeting import Chunk, merged, spelled_out
@@ -214,6 +215,7 @@ def _decode(source: Path, destination: Path) -> None:
     result = subprocess.run(
         [
             ffmpeg,
+            "-nostdin",
             "-v",
             "error",
             "-i",
@@ -232,6 +234,9 @@ def _decode(source: Path, destination: Path) -> None:
     )
     if result.returncode != 0:
         staged.unlink(missing_ok=True)
+        # A Ctrl-C in the terminal reaches ffmpeg too: an ffmpeg a stop
+        # interrupted is not a file it cannot decode.
+        raise_if_stopped(f"decoding of {source.name} stopped")
         raise DownloadError(
             f"ffmpeg cannot decode {source.name}: {result.stderr.decode(errors='replace').strip()}"
         )

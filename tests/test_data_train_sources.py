@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -30,6 +31,7 @@ from helpers import (  # noqa: E402
 )
 from test_data_source import make_archive  # noqa: E402
 
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import (  # noqa: E402
     african_french,
     ami,
@@ -1371,6 +1373,25 @@ def _icsi_member(directory: Path, name: str, content: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
+
+
+def test_an_ffmpeg_a_stop_interrupted_is_a_stop_not_a_file_it_cannot_decode(tmp_path, monkeypatch):
+    stopping = [False]
+
+    def interrupted_ffmpeg(command, **options):
+        if stopping[0]:
+            request_stop()  # the Ctrl-C reaches ffmpeg too, which exits with 255
+        return subprocess.CompletedProcess(command, 255, b"", b"Exiting normally, signal 2.")
+
+    monkeypatch.setattr(icsi.shutil, "which", lambda name: name)
+    monkeypatch.setattr(icsi.subprocess, "run", interrupted_ffmpeg)
+    source, destination = tmp_path / "Bmr001.sph", tmp_path / "Bmr001.wav"
+
+    with pytest.raises(DownloadError, match="ffmpeg cannot decode Bmr001.sph"):
+        icsi._decode(source, destination)
+    stopping[0] = True
+    with pytest.raises(Stopped, match="decoding of Bmr001.sph stopped"):
+        icsi._decode(source, destination)
 
 
 def fake_icsi_decode(monkeypatch) -> None:
