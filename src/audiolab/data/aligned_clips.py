@@ -16,6 +16,8 @@ This module joins the two:
    boundaries) and keeps those the transcript covers closely
    (:func:`judge`). A kept clip's label is the transcript's own written words for
    that stretch, with their casing and punctuation.
+4. :func:`same_edges` checks the cut: a model that hears the kept clip alone
+   must hear the label's first and last words at its edges.
 
 Nothing here knows where the talk came from: a transcript is a list of
 :class:`Line`, and the module of each source reads its pages into one.
@@ -182,6 +184,18 @@ def labelled_clips(
         else:
             labelled.append((clip, label))
     return labelled
+
+
+def same_edges(label: str, heard: str, language: str) -> bool:
+    """Whether ``heard`` starts with the label's first word and ends with its last.
+
+    Whisper heard a clip's words in the whole talk, so its timestamps can cut a
+    clip in the middle of its first or last word, or let in a word of the next
+    sentence, and the clip still aligns. A model that hears the cut clip alone
+    tells: when its first or last word is not the label's, the cut is suspect.
+    """
+    said, got = words_of(label, language), words_of(heard, language)
+    return bool(said) and got[:1] == said[:1] and got[-1:] == said[-1:]
 
 
 def judge(clip: Segment, heard: range, human: Transcript, alignment: Alignment) -> tuple[str, str]:

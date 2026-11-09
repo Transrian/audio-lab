@@ -11,12 +11,14 @@ not a model's, and :mod:`audiolab.data.aligned_clips` is what places it in time.
   copyright notice. The listing holds metadata only; the raw pages stay in
   ``$AUDIOLAB_CACHE/nasa-en-train/pages``.
 - ``audiolab data fetch nasa-en-train`` (:func:`fetch_nasa_en_train`) reads the
-  listing in a seeded order spread over the shows and runs, batch by batch, the
-  Whisper pass of the other talk sources (:func:`audiolab.data.talks.heard_talk`:
-  chunks, raw answers cached), the alignment of each episode's transcript to its
-  candidate clips (no model), then the Parakeet pass on the kept clips, which
-  records ``base_wer`` (:func:`audiolab.data.talks.offer_talk`). Every Whisper
-  request of a batch is sent before the first Parakeet one (D-020).
+  listing in a seeded order spread over the shows and runs, batch by batch: the
+  listing's checks on each page fetched again, the Whisper pass of the other
+  talk sources (:func:`audiolab.data.talks.heard_talk`: chunks, raw answers
+  cached), the alignment of each episode's transcript to its candidate clips (no
+  model), then the Parakeet pass, which keeps a clip only when Parakeet hears
+  the label's first and last words at its edges and records ``base_wer``
+  (:func:`audiolab.data.talks.offer_talk`). Every Whisper request of a batch is
+  sent before the first Parakeet one (D-020).
 
 The licence is public domain: a work of the US government is not protected by
 copyright in the United States, and D-019 allows public domain. The evidence and
@@ -39,11 +41,12 @@ from urllib.parse import urlparse
 
 import httpx
 
+from audiolab.core.audio import load_audio
 from audiolab.core.paths import cache_dir
-from audiolab.data.aligned_clips import NOTE, Line, labelled_clips
+from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError
-from audiolab.data.talk_clips import Answers, Transcribe, candidates
+from audiolab.data.talk_clips import Answers, Segment, Transcribe, candidates, clip_text
 from audiolab.data.talk_listing import Talk, TalkSource, read_listing, reading_order
 from audiolab.data.talks import (
     BASE_MODEL,
@@ -51,6 +54,7 @@ from audiolab.data.talks import (
     KEPT,
     SEED,
     SEGMENT_MODEL,
+    TalkInProgress,
     _answer,
     _audio_file,
     _client,
@@ -62,6 +66,7 @@ from audiolab.data.talks import (
     prefetched,
 )
 from audiolab.data.train import Take
+from audiolab.eval.client import TranscriptionError
 
 NAME = "nasa-en-train"
 LANGUAGE = "en"
@@ -133,6 +138,7 @@ PAGE_WORKERS = 3
 # The counts of the labelling report, beside those of the Parakeet pass.
 CANDIDATES = "candidate clips"
 LABELLED = "clips labelled from the transcript"
+EDGES_UNHEARD = "labelled clips whose first or last word the base model does not hear"
 
 
 # The feeds.
@@ -375,14 +381,14 @@ def plays_recordings(lines: list[Line]) -> bool:
     return any(PLAYED.search(mark) for mark in notes + [line.speaker for line in lines])
 
 
-def page_text(http: httpx.Client, episode: Talk, pages: Path) -> str:
-    """An episode's page, fetched once and kept raw in ``pages``.
+def page_text(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = False) -> str:
+    """An episode's page, kept raw in ``pages``: fetched once, or again when ``fresh``.
 
     The raw page is kept rather than what was read from it, so a change to the
     reading never reuses an old reading.
     """
     path = pages / f"{episode.id}.html"
-    if not path.is_file():
+    if fresh or not path.is_file():
         response = http.get(episode.url)
         if response.status_code != 200:
             raise DownloadError(f"{episode.url}: HTTP {response.status_code}")
@@ -393,7 +399,7 @@ def page_text(http: httpx.Client, episode: Talk, pages: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def why_unusable(http: httpx.Client, episode: Talk, pages: Path) -> str:
+def why_unusable(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = False) -> str:
     """Why an episode cannot be trained on, or an empty string when it can.
 
     An episode that plays recordings (:data:`PLAYED`) is left out whole: some
@@ -402,7 +408,7 @@ def why_unusable(http: httpx.Client, episode: Talk, pages: Path) -> str:
     writes their words as lines of the show, which a clip would then carry.
     """
     try:
-        page = page_text(http, episode, pages)
+        page = page_text(http, episode, pages, fresh=fresh)
     except (DownloadError, httpx.HTTPError):
         return "page not fetched"
     if notice_in(page):
@@ -523,30 +529,92 @@ def label_batch(
     take: Take,
     tally: Counter[str],
 ) -> None:
-    """Whisper on every episode of the batch, then the alignments, then Parakeet.
+    """The pages read again, Whisper on the episodes left, the alignments, then Parakeet.
 
-    An episode stops at its share of the cap, and the batch at the room left in
-    it, so no Parakeet request is sent for a clip the cap cannot take.
+    Each page is fetched again before any request (:func:`why_unusable`), so an
+    episode whose page has changed since the listing in a way the listing
+    refuses — a copyright notice added, a transcript taken down — is skipped.
+    The room left under the cap is shared over the batch (:func:`shares`), so no
+    Parakeet request is sent for a clip the cap cannot take.
     """
-    heard = [heard_talk(episode, path, cache, whisper, tally) for episode, path in batch]
+    pages = cache / "pages"
+    usable = []
+    for episode, path in batch:
+        reason = why_unusable(http, episode, pages, fresh=True)
+        if reason:
+            tally[f"episodes left out at preparation: {reason}"] += 1
+        else:
+            usable.append((episode, path))
+    heard = [heard_talk(episode, path, cache, whisper, tally) for episode, path in usable]
+    labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
     room = take.cap - take.kept
-    for episode in heard:
-        if not episode.segments:
-            continue
-        try:
-            lines = transcript_lines(page_text(http, episode.talk, cache / "pages"))
-        except (DownloadError, httpx.HTTPError):
-            tally["episodes whose page could not be fetched"] += 1
-            continue
-        clips = candidates(episode.segments, LANGUAGE, tally)
-        labelled = labelled_clips(clips, lines, LANGUAGE, tally)
-        tally[CANDIDATES] += len(clips)
-        tally[LABELLED] += len(labelled)
-        episode.agreed = labelled[: min(take.cap_per_group, room)]
-        room -= len(episode.agreed)
-    for episode in heard:
+    sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
+    for episode, clips, size in zip(heard, labelled, sizes, strict=True):
         answers = Answers(cache / clips_file(episode.talk, BASE_MODEL))
+        episode.agreed = with_clean_edges(episode, clips[:size], answers, parakeet, tally)
         offer_talk(episode, answers, parakeet, take, LANGUAGE, tally)
+
+
+def aligned(episode: TalkInProgress, page: str, tally: Counter[str]) -> list[tuple[Segment, str]]:
+    """An episode's candidate clips its transcript labels, each with its label."""
+    if not episode.segments:
+        return []
+    clips = candidates(episode.segments, LANGUAGE, tally)
+    labelled = labelled_clips(clips, transcript_lines(page), LANGUAGE, tally)
+    tally[CANDIDATES] += len(clips)
+    tally[LABELLED] += len(labelled)
+    return labelled
+
+
+def shares(sizes: list[int], room: int, cap: int) -> list[int]:
+    """How many clips each episode of a batch gives, one from each in turn.
+
+    An episode gives at most ``cap`` clips (the cap's share of a group) and the
+    batch at most ``room``. Taken in turn, like the talks of the reading order
+    (:func:`audiolab.data.talk_listing.spread`), a room smaller than the batch
+    can give is spread over its episodes instead of going to the first ones.
+    """
+    given = [0] * len(sizes)
+    while room > 0:
+        open_episodes = [n for n, size in enumerate(sizes) if given[n] < min(size, cap)][:room]
+        if not open_episodes:
+            break
+        for n in open_episodes:
+            given[n] += 1
+        room -= len(open_episodes)
+    return given
+
+
+def with_clean_edges(
+    episode: TalkInProgress,
+    clips: list[tuple[Segment, str]],
+    answers: Answers,
+    parakeet: Transcribe,
+    tally: Counter[str],
+) -> list[tuple[Segment, str]]:
+    """The clips whose cut the base model confirms (:func:`same_edges`).
+
+    Parakeet is the only model that hears a clip of this source alone, as Qwen
+    does for the other talk sources. Its answers are cached, so
+    :func:`offer_talk` reads them again for its ``base_wer`` rather than asking
+    twice. A clip it gets an edge word wrong for any other reason is left out
+    too: the cost is counted, in :data:`EDGES_UNHEARD`.
+    """
+    if not clips:
+        return []
+    audio = load_audio(episode.audio_path)
+    kept = []
+    for clip, label in clips:
+        try:
+            heard = clip_text(answers, clip, audio, parakeet)
+        except TranscriptionError:
+            tally["clips Parakeet failed on"] += 1
+            continue
+        if same_edges(label, heard, LANGUAGE):
+            kept.append((clip, label))
+        else:
+            tally[EDGES_UNHEARD] += 1
+    return kept
 
 
 def report(tally: Counter[str]) -> str:

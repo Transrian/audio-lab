@@ -266,14 +266,12 @@ def test_the_listing_reads_each_feed_and_caches_each_page_once(tmp_path, monkeyp
 
 
 class FakeModels:
-    """Whisper and Parakeet, each answering the same text for every request, logged."""
+    """Whisper and Parakeet, logged: Whisper gives the same segments, Parakeet its texts in turn."""
 
-    def __init__(self, whisper_rows: list[dict], parakeet_text: str):
+    def __init__(self, whisper_rows: list[dict], parakeet_texts: list[str]):
         self.log: list[str] = []
-        self.answers = {
-            nasa.SEGMENT_MODEL: {"segments": whisper_rows, "text": ""},
-            nasa.BASE_MODEL: {"text": parakeet_text},
-        }
+        self.whisper = {"segments": whisper_rows, "text": ""}
+        self.parakeet_texts = list(parakeet_texts)
 
     def serve(self, monkeypatch) -> None:
         """Stand in for the two model clients ``nasa`` opens."""
@@ -282,48 +280,83 @@ class FakeModels:
 
     def hear(self, model: str, wav: bytes) -> dict:
         self.log.append(model)
-        return self.answers[model]
+        if model == nasa.SEGMENT_MODEL:
+            return self.whisper
+        return {"text": self.parakeet_texts.pop(0)}
 
 
 def test_a_preparation_labels_its_clips_with_the_transcript_after_every_whisper_request(
     tmp_path, monkeypatch, capsys
 ):
-    episodes = [episode("one", title="Episode One"), episode("two", title="Episode Two")]
+    episodes = [
+        episode("one", title="Episode One"),
+        episode("two", title="Episode Two"),
+        episode("noticed", title="Episode Three"),
+    ]
     source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
     write_listing(source, "2026-11-08", episodes)
     monkeypatch.setattr(nasa, "SOURCE", source)
-    cache = tmp_path / "cache"
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)  # a one-minute episode of 13 words
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    # The page of the third episode took a copyright notice after the listing.
+    noticed = page("Transcript", "Jim Green: Hello. © 2026 Some Studio")
+    pages = tmp_path / "cache" / nasa.NAME / "pages"
+    pages.mkdir(parents=True)
     for one in episodes:
-        transcript = page(
-            "<strong>Transcript</strong>",
-            "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
-            "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
-        )
-        (cache / nasa.NAME / "pages").mkdir(parents=True, exist_ok=True)
-        (cache / nasa.NAME / "pages" / f"{one.id}.html").write_text(transcript, encoding="utf-8")
+        (pages / f"{one.id}.html").write_text(transcript, encoding="utf-8")
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=noticed if "/noticed/" in request.url.path else transcript)
+
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
     models = FakeModels(
         [
             {"start": 0.0, "end": 5.0, "text": " welcome to gravity assist episode seven."},
             {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
         ],
-        parakeet_text="thanks jim mars has two moons",
+        [
+            "welcome to gravity assist episode seven",
+            "thanks jim mars has two moons",
+            "to gravity assist episode seven",  # the cut took the first word
+            "thanks jim mars has to moons",
+        ],
     )
     models.serve(monkeypatch)
     monkeypatch.setattr(
         talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0)
     )
 
-    count = nasa.fetch_nasa_en_train(nasa.NAME, cache, tmp_path / "dataset", verbose=True)
+    count = nasa.fetch_nasa_en_train(
+        nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
 
-    assert count == 4
+    assert count == 3
+    # One Parakeet request per clip: the base model's WER reuses the edge check's answer.
     assert models.log == [nasa.SEGMENT_MODEL] * 2 + [nasa.BASE_MODEL] * 4
     clips = read_manifest(tmp_path / "dataset")
-    assert {clip.text for clip in clips} == {
-        "Welcome to Gravity Assist, Episode 7!",
-        "Thanks, Jim. Mars has 2 moons.",
-    }
+    assert sorted((clip.source_url, clip.text) for clip in clips) == [
+        (f"{PAGES}/one/", "Thanks, Jim. Mars has 2 moons."),
+        (f"{PAGES}/one/", "Welcome to Gravity Assist, Episode 7!"),
+        (f"{PAGES}/two/", "Thanks, Jim. Mars has 2 moons."),
+    ]
     clip = next(clip for clip in clips if clip.source_url == f"{PAGES}/one/" and clip.base_wer == 0)
-    assert clip.text == "Thanks, Jim. Mars has 2 moons."
     assert (clip.source_author, clip.source_title) == ("NASA, Gravity Assist", "Episode One")
     assert clip.license == nasa.LICENSE and clip.text_has_casing_punct
-    assert "4 of 4 candidate clips (100.0%) labelled" in capsys.readouterr().out
+    assert [clip.base_wer > 0 for clip in clips if clip.source_url == f"{PAGES}/two/"] == [True]
+    out = capsys.readouterr().out
+    assert "4 of 4 candidate clips (100.0%) labelled" in out
+    assert f"1 {nasa.EDGES_UNHEARD}" in out
+    assert "1 episodes left out at preparation: page with a copyright notice" in out
+
+
+def test_the_room_under_the_cap_is_shared_over_the_episodes_in_turn():
+    assert nasa.shares([5, 1, 3], room=6, cap=10) == [3, 1, 2]
+    assert nasa.shares([5, 1, 3], room=100, cap=2) == [2, 1, 2]
+    assert nasa.shares([5, 1, 3], room=2, cap=10) == [1, 1, 0]
+    assert nasa.shares([], room=5, cap=2) == []

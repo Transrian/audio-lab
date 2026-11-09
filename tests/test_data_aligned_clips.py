@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from audiolab.data.aligned_clips import Line, align, labelled_clips, transcript
+from audiolab.data.aligned_clips import Line, align, labelled_clips, same_edges, transcript
 from audiolab.data.talk_clips import Segment
 
 HOST = "Gary Jordan"
@@ -225,3 +225,12 @@ def test_the_lines_on_each_side_of_a_sound_are_not_labelled():
 
     assert labels == ["So tell us about your work on the station."]
     assert tally["clips left out: next to a sound the transcript notes"] == 2
+
+
+def test_a_clip_s_edges_are_confirmed_by_a_model_hearing_it_alone():
+    label = "Thanks, Jim. Mars has 2 moons."
+
+    assert same_edges(label, "thanks jim mars has to moons", "en")
+    assert not same_edges(label, "jim mars has two moons", "en")
+    assert not same_edges(label, "thanks jim mars has two moons and", "en")
+    assert not same_edges(label, "", "en")
