@@ -372,7 +372,7 @@ screening is a difference between corpora and not between recipes:
 | `peertube-fr-train` | fr | CC-BY (per video, in the manifest) | listing | 12 000 | 77 | 31.8 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and 7.3 GiB of WAV stays in the cache |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
-| `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
+| `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
 | `nasa-en-train` | en | public domain (US government work) | listing | TBD | TBD | TBD | TBD | TBD |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
@@ -1164,6 +1164,39 @@ Per instance, as the listing of 2026-11-08 holds them:
   year and the schedule's event id (`2025-6712`): an event id is unique within one
   year only, and a slug — over 200 characters for some talks — would make cache
   file names close to the length a file system allows.
+- **Labels**: the three passes of the [card of
+  `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french),
+  with its models and thresholds, asked in English as for
+  [`debconf-en-train`](#debconf-en-train--debconf-talks-on-the-debian-instance),
+  cached under `$AUDIOLAB_CACHE/fosdem-en-train`.
+- **Prepared** (2026-11-09): the first 65 h of the reading order (135 talks) were
+  downloaded beforehand (`audiolab data fetch-audio fosdem-en-train`); 134 talks
+  (64.7 h) arrived, and the 135th, `2023-14136` ("What Does Rugby Have To Do With
+  Sigstore?"), could not be read: ffmpeg rejects the MP4 the tree serves for it
+  (`moov atom not found`), and rejected it again in the labelling run. That run
+  read **140 talks, 67.0 h**, in two batches: 86 talks (39.8 h), then 54 (27.2 h),
+  sized on the yield of the first (`batch_size`, `src/audiolab/data/talks.py`);
+  it downloaded the last 5 itself. Those hours are the slots' (above): the WAV of
+  the 139 talks heard lasts 59.9 h. Qwen labelled 15 490 candidate clips and
+  **3 490 of them (22.5 %) were rejected** because the two models disagree; on
+  the way, 867 candidates fell outside 0.5–20 s, 2 segments had no duration and
+  132 no words, and 104 segments lost the words they repeated from the one
+  before. The cap was full after 124 talks, so the last 15 were heard by Whisper
+  and never labelled; every labelled talk kept clips. The result is **12 000
+  clips (the cap), 35.6 h, 124 groups**, median 9.8 s, all CC-BY-2.0-BE. The 124
+  talks cover the seven years, 13 to 26 a year, and no two come from the same
+  room in the same year; 3 talks give their full 200 clips and the smallest
+  gives 12. The prepared set is 3.8 GiB, and the 139 talks heard leave 6.4 GiB of
+  WAV in the cache.
+- **What the base model gets wrong**: Parakeet's text differs from the label on
+  7 768 of the 12 000 clips (64.7 %); the mean `base_wer` is 7.0 %, and 35 % of
+  the clips have a `base_wer` of 0. This measures the base model against model
+  labels, not against the speech: a wrong label counts as a base-model error.
+- **Known limits**: **the label error of the kept clips is not measured** — no
+  human has checked a sample, so how many wrong labels the agreement test lets
+  through is unknown. What the test lets through, and why a preparation from an
+  empty cache can keep a slightly different set of clips and labels, is in the
+  [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
 
 ### `nasa-en-train` — NASA's podcasts, labelled from NASA's own transcripts
 

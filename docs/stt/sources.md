@@ -79,11 +79,12 @@ Later the same day, five more were prepared:
 `librispeech-pc-en-train`, `pxcorpus-fr-train`, `ami-fr-speakers-en-train`,
 `icsi-en-train` and `notsofar-en-train` (rows below); and the text of
 `african-accented-fr-train` was cleaned. `peertube-fr-train`,
-`peertube-edu-fr-train` and `debconf-en-train` followed on 2026-11-09 ([French
-variety](#french-variety), rows 3 bis and 22; [English
-technical](#english-technical-and-french-accented-english), row 5). The second batch of the screening (2026-11-09) trained on
-those five, on the cleaned African-accented text and on `peertube-fr-train`; its
-results are in [per-source screening](screening.md#second-batch-2026-11-09).
+`peertube-edu-fr-train`, `debconf-en-train` and `fosdem-en-train` followed on
+2026-11-09 ([French variety](#french-variety), rows 3 bis and 22; [English
+technical](#english-technical-and-french-accented-english), rows 1 and 5). The
+second batch of the screening (2026-11-09) trained on those five, on the cleaned
+African-accented text and on `peertube-fr-train`; its results are in
+[per-source screening](screening.md#second-batch-2026-11-09).
 
 ## Used — trained on here
 
@@ -187,7 +188,7 @@ speakers (none found).
 
 | # | Source | Language | License | Reason / note |
 | --- | --- | --- | --- | --- |
-| 1 | [FOSDEM](https://video.fosdem.org) | en | **CC-BY-2.0-BE**, publishable; the slides are not covered (2026-11-05) | Developer conferences: real technical vocabulary and varied English accents, French ones included. Its schedules list 5 689 h of talks from 2012 to 2026 (fewer were recorded), served as plain files by year and room. No human transcripts — the subtitles are machine output with no guarantee — so labels would be ours, and the room audio has an audience. |
+| 1 | [FOSDEM](https://video.fosdem.org) | en | **CC-BY-2.0-BE**, publishable; the slides are not covered (2026-11-05) | Developer conferences: real technical vocabulary and varied English accents, French ones included. Its schedules list 5 689 h of talks from 2012 to 2026 (fewer were recorded), served as plain files by year and room. No human transcripts — the subtitles are machine output with no guarantee — so labels would be ours, and the room audio has an audience. Prepared as `fosdem-en-train` (2026-11-09) from the 5 477 talks of 2020 to 2026 listed on 2026-11-08: 12 000 clips, 35.6 h, 124 talks, labelled by Whisper large-v3 and Qwen3-ASR 1.7B where they agree (22.5 % of the clips labelled were rejected); the error of the kept labels is not measured ([card](datasets.md#fosdem-en-train--fosdem-talks-seven-years-of-the-conference)). |
 | 2 | [GLOBE V2](https://huggingface.co/datasets/MushanW/GLOBE_V2) | en | **CC0** (2026-11-05) | Acoustic adaptation to English spoken by French speakers, which is the case this project cares about. It derives from Common Voice 14, so its speakers and sentences must be excluded from the protected sets, and it is read speech, not technical. **Inspected 2026-11-08 and not prepared**: its accent labels are free text, not a vocabulary — five of its 164 train shards (3 % of the split) hold four rows that mention French at all, none of them as an accent, so a French-accented subset cannot be built from it without reading the whole train split (164 shards, 69.7 GiB). Taking English generally was possible and was not done: it would have repeated the LibriSpeech source in the same screening. A full scan of its accent column (542 261 rows, 2026-11-08) found 50 rows of "minor french accent": not worth preparing. |
 | 3 | [media.ccc.de](https://media.ccc.de) | en (+ de) | per video, typically CC-BY-4.0, announced in the recording | Hacker, security and systems conferences. Counted 2026-11-08 through its API: 1 074 English talks (664 h) state CC-BY-4.0 in their description; about 5 550 h of English state nothing there (the licence is only in the video intro, so unverified per file), and 287 h are CC-BY-SA, excluded. Subtitles exist for about 5 % of talks, made with Whisper and human correction; their licence is not verified. Exclude the German ones. |
 | 4 | [Granary / YODAS EN](https://huggingface.co/datasets/espnet/yodas-granary) | en | as the French side; the English side to recheck (2026-11-05) | English volume that can be filtered by technical vocabulary, through the pipeline already worked out for French. Pseudo-labels. |
