@@ -369,6 +369,7 @@ screening is a difference between corpora and not between recipes:
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 752 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
 | `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 330 | 12 | 2.1 | 0.2 GiB | 0.8 GiB |
+| `peertube-fr-train` | fr | CC-BY (per video, in the manifest) | listing | 12 000 | 77 | 31.8 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and 7.3 GiB of WAV stays in the cache |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | TBD | TBD | TBD | TBD | TBD |
@@ -798,19 +799,113 @@ costs nothing and a fresh clone downloads all of it again.
   `mls-fr-train` in the other language, and the corpus the English evaluation
   panel comes from, with its test speakers left out.
 
-The sources below, like `peertube-fr-train`, are **talks** rather than corpora: a
-pinned listing of videos, read in a seeded order, whose audio is labelled by two
-speech models where they agree. Three modules hold that machinery for all of
-them (`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and
-each source is a listing module plus one entry in
-`src/audiolab/data/talk_sources.py`, which says what the
-listing must hold, in which language the talks are labelled, where a talk's audio
-comes from and what a seeded selection spreads over. What is specific to a
-source — its catalogue, its licence, its selection, its size — is in its card;
-everything else is the same for the four and is described in the card of
-`peertube-fr-train`. All of them depart from the rules above for the same three
-reasons: no splits (a video platform has none), a seeded order instead of the
-catalogue's, and model labels instead of a transcript somebody published.
+The next four sources are **talks** rather than corpora: a pinned listing of
+videos, read in a seeded order, whose audio is labelled by two speech models where
+they agree. Three modules hold that machinery for all of them
+(`src/audiolab/data/talks.py`, `talk_listing.py` and `talk_clips.py`), and each
+source is a listing module plus one entry in `src/audiolab/data/talk_sources.py`,
+which says what the listing must hold, in which language the talks are labelled,
+where a talk's audio comes from and what a seeded selection spreads over. What is
+specific to a source — its catalogue, its licence, its selection, its size — is in
+its card; everything else is the same for the four and is described in the card
+of `peertube-fr-train`, the first of them. All of them depart from the rules above
+for the same three reasons: no splits (a video platform has none), a seeded order
+instead of the catalogue's, and model labels instead of a transcript somebody
+published.
+
+### `peertube-fr-train` — Capitole du Libre talks in French
+
+- **Source**: [`videos.capitoledulibre.org`](https://videos.capitoledulibre.org),
+  the PeerTube instance the Capitole du Libre conference runs for its own talks.
+  `audiolab data list-talks peertube-fr-train` asks its REST API for every video
+  the instance hosts itself, tagged French, under licence CC BY (PeerTube licence
+  id 1) or CC0 (id 7), and writes the answer to
+  [`peertube_listing.json`](../../src/audiolab/data/peertube_listing.json). The
+  listing of 2026-11-08 holds **519 talks, 378.9 h**; the shortest is 525 s and
+  the median 2 863 s. It applies no length, channel or title filter: every listed
+  video is filed under the one account and channel `Capitole du Libre`.
+- **License and attribution**: CC BY, as the instance declares it on every listed
+  video; PeerTube names the licence ("Attribution") without a version, so the
+  manifest records `CC-BY`. No listed video is CC0. Every clip carries its talk's
+  `source_url`, `source_title`, `source_author` (the PeerTube account, `Capitole
+  du Libre` for all of them) and `license`; the speakers are named in some titles
+  only.
+- **Language**: French, from the video's own language tag, and the tag is
+  required: an untagged video is not listed (the instance has about 50 more CC BY
+  videos without one, [sources.md](sources.md#french-variety), row 3 bis).
+- **Split and order**: `source_split` is `listing`; the listing is written in uuid
+  order and read in a seeded shuffle (`SEED`, `src/audiolab/data/talks.py`), with
+  nothing to spread over: one instance, one channel. Audio comes from the smallest
+  file the instance still serves for a video, converted to 16 kHz mono WAV; the
+  video is deleted once its sound is out.
+- **Why it is here**: technical French from free-software conferences — French
+  full of English terms and project names, the vocabulary of a developer
+  dictating to a coding agent ([D-009](../owner/directives.md)) — spoken live, in
+  front of a room, which no published French corpus of the repository has.
+- **Group**: the recording (`group_kind: recording`, the video uuid). A talk
+  usually has one speaker; the listing names none, and the questions from the
+  room add others.
+- **Labels**: nobody transcribed these talks, so served models label them, in
+  three passes (`src/audiolab/data/talks.py`):
+  1. **Whisper large-v3** (`stt-v-whisper-large-v3`, served by vLLM) hears each
+     whole talk in five-minute chunks and answers with timestamped segments. A
+     chunk's last segment is not trusted, since the chunk may end inside a word:
+     the next chunk starts where the segment before it ended. The segments are
+     joined into candidate clips (`src/audiolab/data/talk_clips.py`) until a full
+     stop once the clip lasts 5 s, a pause longer than 1 s, or 20 s. A segment
+     without words or without duration is left out and ends its clip; the words a
+     segment repeats from the start of the one before are dropped; a clip whose
+     text compresses better than 2.4 to 1 is a decoding loop and is dropped. Each
+     clip is widened by up to 0.2 s on each side, never past half the gap to the
+     next segment, and a clip outside 0.5–20 s is not labelled.
+  2. **Qwen3-ASR 1.7B** (`stt-v-qwen3-asr-1.7B`, served by vLLM) hears each
+     candidate clip alone. The clip is kept when Qwen's text and Whisper's differ
+     by at most 15 % of the words in the scorer's normalized view
+     (`MAX_DISAGREEMENT`; casing, punctuation and how a number is written do not
+     count): one word in a clip of seven passes, two do not. The label is Qwen's
+     text, cased and punctuated. Qwen hears only the clip, so the test checks the
+     cut as well as the words: a clip whose edges miss a word is heard differently.
+  3. **Parakeet TDT 0.6B v3** (`stt-c-parakeet-tdt-0.6B-v3`), the base model of
+     the fine-tune, hears every kept clip, and the manifest records its word error
+     rate against the label, normalized, as `base_wer`. It does not vote: the field
+     lets a mix choose the clips the base model gets wrong.
+
+  The server holds one model at a time, so the passes run over a batch of talks:
+  every Whisper request, then every Qwen one, then every Parakeet one
+  ([D-020](../owner/directives.md)). Whisper and Qwen get up to 10 requests at once
+  (`PARALLEL_REQUESTS`: several talks for Whisper, several clips of one talk for
+  Qwen), and their answers are read in the order a one-at-a-time pass would read
+  them, so the clips kept do not depend on which answer arrives first; Parakeet
+  gets one at a time. A talk is no longer labelled once it holds its 200 clips or
+  the cap is full. Every raw answer is cached per talk and per model under
+  `$AUDIOLAB_CACHE/peertube-fr-train`, so an interrupted preparation resumes where
+  it stopped.
+- **Prepared** (2026-11-09): the first 65 h of the reading order (84 talks) were
+  downloaded beforehand (`audiolab data fetch-audio peertube-fr-train`), and the
+  labelling run read **86 talks, 66.9 h**, in one batch. Qwen labelled 17 862
+  candidate clips and **5 862 of them (32.8 %) were rejected** because the two
+  models disagree; on the way, 457 candidates fell outside 0.5–20 s, 102 segments
+  had no duration and 865 no words, and 199 segments lost the words they repeated
+  from the one before. The cap was full after 77 talks, so the last 9 were heard by
+  Whisper and never labelled. The result is **12 000 clips (the cap), 31.8 h, 77
+  groups**, median 8.4 s, all CC BY; 30 talks give their full 200 clips and the
+  smallest gives 45. The prepared set is 3.4 GiB, and 7.3 GiB of WAV stays in the
+  cache.
+- **What the base model gets wrong**: Parakeet's text differs from the label on
+  8 871 of the 12 000 clips (73.9 %); the mean `base_wer` is 18.6 %, and 26 % of
+  the clips have a `base_wer` of 0. This measures the base model against model
+  labels, not against the speech: a wrong label counts as a base-model error.
+- **Known limits**: **the label error of the kept clips is not measured** — no
+  human has checked a sample, so how many wrong labels the agreement test lets
+  through is unknown. It lets through a word both models get wrong, and one word
+  only one of them gets wrong in a long enough clip: Qwen writes "on utilise
+  l'ADN" where the speaker says "FDN" (French Data Network, which Whisper and
+  Parakeet both heard), and the clip is kept with Qwen's text. Technical terms and
+  names are where Qwen errs, and they are the vocabulary this source is for. The
+  labels also depend on the run: vLLM does not answer bit for bit the same when
+  the requests sent beside one change (a comma, a capital letter), and the cache
+  keeps the first answer, so a preparation from an empty cache can keep a slightly
+  different set of clips and labels.
 
 ### `peertube-edu-fr-train` — the education ministry's French videos
 
@@ -1202,6 +1297,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | none: no evaluation set comes from this corpus, and the dev and eval splits the challenge publishes are not read either | — |
 | `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
+| `peertube-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
 | `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
