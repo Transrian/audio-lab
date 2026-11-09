@@ -7,7 +7,7 @@ Rules for LLM agents working in this repository. Humans should start with the
 
 1. [`docs/owner/directives.md`](docs/owner/directives.md): what the owner asked for.
 2. [`docs/decisions/`](docs/decisions/README.md): accepted decisions, then proposed ones.
-3. [`docs/roadmap.md`](docs/roadmap.md): the current phase.
+3. [`docs/roadmap.md`](docs/roadmap.md): milestones; [`docs/backlog.md`](docs/backlog.md): open work and pauses.
 4. `AGENTS.local.md`, if it exists (git-ignored): the facts of this machine,
    such as servers, paths and models. Facts that hold only on one machine go
    there, never into a committed file.
@@ -60,10 +60,10 @@ Strong tasks:
 - Small commits; message format `area: what changed` (for example `eval: add WER`).
 - Before every push, run `./scripts/check.sh`. It must pass.
 - If CI on `main` is red, fixing it comes before any other work.
-- Keep working notes in `plans/` (git-ignored, local only; start with
-  `plans/README.md` if it exists). Write there anything a later session would
-  need: findings, open questions, plans in progress. Notes are never a source of
-  truth: what lasts moves to `docs/` and is committed.
+- Track durable tasks and pauses in [`docs/backlog.md`](docs/backlog.md); research
+  has its [index](docs/research/README.md). Keep only temporary hand-offs in
+  `plans/` (git-ignored; start with `plans/README.md` if it exists). Notes are not
+  a source of truth: commit lasting findings in `docs/` and link to their home.
 
 ## Code and docs
 

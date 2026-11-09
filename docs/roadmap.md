@@ -1,7 +1,9 @@
 # Roadmap
 
 The first project is a better French Parakeet speech-to-text model (D-005).
-Each phase ends with a check that anyone can verify.
+Each phase ends with a check that anyone can verify. Concrete open work and
+paused items live in the [backlog](backlog.md); exploratory questions and findings
+are linked from the [research index](research/README.md).
 
 | Phase | Content | Done when | Status |
 |---|---|---|---|

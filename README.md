@@ -78,6 +78,25 @@ every metric and what they do not cover;
 status; the [per-source screening](docs/stt/screening.md) fine-tunes on each
 training source alone and reports what it changes.
 
+## Research and exploratory experiments
+
+The [backlog](docs/backlog.md) lists concrete open work, questions and paused
+items; it is separate from the milestone-level [roadmap](docs/roadmap.md).
+The [research index](docs/research/README.md) links ideas, investigations and
+findings, including negative or inconclusive results.
+
+Exploratory code can live in self-contained topic directories under
+[`experiments/`](experiments/README.md), with its own entry point and isolated
+dependencies. It can reuse `audiolab` without adding speculative options to the
+maintained core, and it does not have to become a supported feature
+([decision 0007](docs/decisions/accepted/0007-single-package-single-command.md)).
+For example, the [source-screening helper](experiments/source-screening/README.md)
+formats existing comparisons without training a model or changing the scorer.
+
+`plans/` is still git-ignored scratch space for local hand-offs, not the home of
+project tasks or durable findings. Machine-specific setup stays in the ignored
+`AGENTS.local.md`; neither is required to understand the versioned project.
+
 ## How this repository is built
 
 The owner writes no code. LLM agents write everything, under rules that keep the
@@ -102,10 +121,13 @@ src/audiolab/     the Python package (one command: audiolab)
   eval/           text normalization, metrics, statistics, runs and reports
   serve/          the OpenAI-compatible server for a local checkpoint
   train/          fine-tuning: config, clips, NeMo settings, the training loop
-configs/          one file per experiment: models, suites, panels, training runs
+configs/          core run configurations: models, suites, panels, training runs
+experiments/      standalone exploratory code and topic-specific instructions
 tests/            fast CPU tests
-docs/             roadmap, owner directives, decisions, how-to pages
+docs/             roadmap, backlog, owner directives, decisions, how-to pages
+  research/       ideas, investigations and links to experimental findings
 scripts/          repository checks
+plans/            local working notes (git-ignored, not project documentation)
 ```
 
 Datasets, audio and model weights are never stored in the repository.
