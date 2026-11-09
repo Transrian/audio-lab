@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import threading
 import zlib
 from collections import Counter
 from collections.abc import Callable
@@ -71,11 +72,14 @@ class Answers:
     The raw answer is kept, not what was read from it, so a change to the
     reading never reuses an old reading. A crash in the middle of a write can
     leave a torn last line; it is skipped, and its request is sent again.
+    Requests for different keys may be answered from several threads at once;
+    their lines are written one at a time, each whole.
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self.answers: dict[str, dict] = {}
+        self.writing = threading.Lock()
         if not path.is_file():
             return
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -96,7 +100,7 @@ class Answers:
     def _append(self, row: dict) -> None:
         line = json.dumps(row, ensure_ascii=False) + "\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a+b") as handle:
+        with self.writing, self.path.open("a+b") as handle:
             # Never glue a new answer onto a torn line.
             if handle.seek(0, os.SEEK_END) and _last_byte(handle) != b"\n":
                 line = "\n" + line

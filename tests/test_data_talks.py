@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from collections import Counter
 from pathlib import Path
 
@@ -263,7 +264,7 @@ def test_only_clips_the_two_models_agree_on_are_kept(tmp_path):
     agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, tally)
 
     assert [(clip.start_s, label) for clip, label in agreed] == [(0.0, "Bonjour à tous.")]
-    assert calls == [6.0, 7.2], "a clip outside 0.5-19 s is not labelled"
+    assert sorted(calls) == [6.0, 7.2], "a clip outside 0.5-19 s is not labelled"
     assert tally == Counter(
         {
             "clips labelled": 2,
@@ -287,7 +288,7 @@ def test_a_failed_label_request_is_counted_and_asked_again_next_time(tmp_path):
     talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, Counter())
 
     assert len(agreed) == 1 and tally["clips Qwen failed on"] == 1
-    assert calls == [6.2, 7.4, 7.4], "the answer is cached, the failure is not"
+    assert sorted(calls) == [6.2, 7.4, 7.4], "the answer is cached, the failure is not"
 
 
 def test_a_talk_stops_being_labelled_at_its_share_of_the_cap(tmp_path):
@@ -339,7 +340,7 @@ def test_a_talk_that_cannot_be_downloaded_or_heard_is_counted_and_skipped(tmp_pa
         raise DownloadError("HTTP 404")
 
     monkeypatch.setattr(talks, "fetch_audio", refuse)
-    assert talks._audio_file(None, tmp_path, source, talk()) is None
+    assert talks.audio_file(None, tmp_path, source, talk()) is None
 
     def failing(wav: bytes) -> dict:
         raise TranscriptionError("HTTP 500")
@@ -392,7 +393,7 @@ def serve_fakes(monkeypatch, listed, answers: dict, log: list[str], language: st
     monkeypatch.setattr(talks, "fetch_audio", fetch_audio)
     monkeypatch.setattr(
         talks,
-        "_client",
+        "client",
         lambda model, request=None: FakeClient(model, answers[model], log, language),
     )
 
@@ -497,9 +498,9 @@ def test_the_names_peertube_fr_train_is_cached_and_labelled_under_do_not_change(
 
     cached = sorted(path.name for path in (tmp_path / "cache" / "peertube-fr-train").iterdir())
     assert cached == [
-        f"{uuid}.stt-a-qwen3-asr-1.7B.clips.jsonl",
         f"{uuid}.stt-c-parakeet-tdt-0.6B-v3.clips.jsonl",
-        f"{uuid}.stt-c-whisper-large-v3.300s.jsonl",
+        f"{uuid}.stt-v-qwen3-asr-1.7B.clips.jsonl",
+        f"{uuid}.stt-v-whisper-large-v3.300s.jsonl",
         f"{uuid}.wav",
     ]
     # The clip's start in hundredths of a second, on seven digits: Whisper said
@@ -510,18 +511,62 @@ def test_the_names_peertube_fr_train_is_cached_and_labelled_under_do_not_change(
 
 
 def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
-    answers = {
-        model: lambda wav: {"segments": [], "text": ""} for model in (WHISPER, QWEN, PARAKEET)
-    }
+    whisper_asked = threading.Event()
+
+    def whisper(wav: bytes) -> dict:
+        whisper_asked.set()
+        return {"segments": [], "text": ""}
+
+    answers = {WHISPER: whisper, QWEN: whisper, PARAKEET: whisper}
     log: list[str] = []
     source = make_source(tmp_path, [talk(uuid) for uuid in "abc"])
     serve_fakes(monkeypatch, None, answers, log)
+    fetch_audio = talks.fetch_audio
+    waited: list[bool] = []
 
+    def third_after_whisper(http, one, destination, source):
+        if one.id == "c":
+            waited.append(whisper_asked.wait(timeout=10))
+        return fetch_audio(http, one, destination, source)
+
+    monkeypatch.setattr(talks, "fetch_audio", third_after_whisper)
     talks.fetch_talks(
         source, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=False
     )
 
-    downloads = [position for position, entry in enumerate(log) if entry.startswith("download")]
-    assert log.index(WHISPER) < downloads[2], (
-        "only the next talk downloads before Whisper starts, not the whole batch"
+    assert waited == [True], "only the next talk downloads before Whisper starts, not the batch"
+
+
+def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_path, monkeypatch):
+    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 3)
+    # Three requests must be in flight together for any of them to be answered.
+    together = threading.Barrier(3, timeout=10)
+    one = make_pass(
+        tmp_path,
+        [segment(f"Phrase {i}.", 1.0 + 6.0 * i, 6.0 + 6.0 * i + i / 10) for i in range(6)],
+        seconds=40.0,
     )
+
+    # With their padding, the clips last 5.4 s, 5.5 s, ... 5.9 s; Qwen mishears the fourth.
+    texts = {round(5.4 + i / 10, 2): f"Phrase {i}." for i in range(6)}
+    texts[5.7] = "Rien."
+    by_length, _ = answering_by_length(texts)
+
+    def qwen(wav: bytes) -> dict:
+        together.wait()
+        return by_length(wav)
+
+    agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, Counter())
+
+    assert [label for _, label in agreed] == [f"Phrase {i}." for i in (0, 1, 2, 4, 5)]
+    assert len(Answers(tmp_path / "q.jsonl").answers) == 6, "every answer is cached, whole"
+
+
+def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
+    answers = Answers(tmp_path / "answers.jsonl")
+    keys = [f"{index}.00-{index + 1}.00" for index in range(200)]
+    text = "mot " * 2000
+
+    talks.in_parallel(lambda key: answers.answer(key, lambda: {"text": text}), keys)
+
+    assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}

@@ -14,10 +14,10 @@ catalogue (:mod:`audiolab.data.talk_listing`).
 Nobody transcribed those talks, so the labels are made here by served models, in
 three passes:
 
-1. ``stt-c-whisper-large-v3`` transcribes each whole talk in chunks and answers
+1. ``stt-v-whisper-large-v3`` transcribes each whole talk in chunks and answers
    with timestamped segments, which :mod:`audiolab.data.talk_clips` joins into
    sentences: the candidate clips.
-2. ``stt-a-qwen3-asr-1.7B`` transcribes every candidate clip on its own. A clip
+2. ``stt-v-qwen3-asr-1.7B`` transcribes every candidate clip on its own. A clip
    is kept when the two texts agree (:data:`MAX_DISAGREEMENT`), and its label is
    always the Qwen text, which is cased and punctuated. The agreement test
    checks the cut as well as the words: a clip whose timestamps miss a word is
@@ -32,12 +32,17 @@ The server holds one model at a time and swaps it in on demand, so the passes
 run over a batch of talks: every Whisper request of the batch, then every Qwen
 request, then every Parakeet request, and the next batch repeats the three
 passes. The models never alternate clip by clip (D-020). :func:`batch_size` says
-how many talks a batch reads. Talks are read in a seeded order
-(:func:`reading_order`), and every answer is cached per talk under
-``$AUDIOLAB_CACHE/<name>``, in files named after the model, so an interrupted
-preparation resumes where it stopped. A talk that cannot be downloaded and a
-request that fails are counted and skipped, and asked again by the next
-preparation.
+how many talks a batch reads. The Whisper and Qwen passes send up to
+:data:`PARALLEL_REQUESTS` requests at once — several talks for Whisper, several
+clips of one talk for Qwen — and read the answers in the order a pass sending
+one at a time would, so the clips kept do not depend on which answer arrives
+first. Talks are read in a seeded order (:func:`reading_order`), and every
+answer is cached per talk under ``$AUDIOLAB_CACHE/<name>``, in files named after
+the model, so an interrupted preparation resumes where it stopped. The cache is
+also what keeps a resumed preparation consistent: vLLM does not answer bit for
+bit the same when the requests sent beside one change (a comma, a capital
+letter). A talk that cannot be downloaded and a request that fails are counted
+and skipped, and asked again by the next preparation.
 """
 
 from __future__ import annotations
@@ -46,7 +51,7 @@ import math
 import subprocess
 import time
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from dataclasses import dataclass, field, replace
@@ -82,15 +87,18 @@ from audiolab.eval.client import (
 from audiolab.eval.metrics import counts
 
 SEED = 1
-SEGMENT_MODEL = "stt-c-whisper-large-v3"
-LABEL_MODEL = "stt-a-qwen3-asr-1.7B"
+SEGMENT_MODEL = "stt-v-whisper-large-v3"
+LABEL_MODEL = "stt-v-qwen3-asr-1.7B"
 BASE_MODEL = "stt-c-parakeet-tdt-0.6B-v3"
 MODEL_CONFIGS = Path("configs/models")
 CONFIG_FILES = {
-    SEGMENT_MODEL: "whisper-large-v3-crispasr.yaml",
-    LABEL_MODEL: "qwen3-asr-1.7b-audiocpp.yaml",
+    SEGMENT_MODEL: "whisper-large-v3-vllm.yaml",
+    LABEL_MODEL: "qwen3-asr-1.7b-vllm.yaml",
     BASE_MODEL: "parakeet-tdt-0.6b-v3-crispasr.yaml",
 }
+# The vLLM server of Whisper and Qwen takes ten requests per model at once and
+# answers an eleventh with HTTP 429.
+PARALLEL_REQUESTS = 10
 REQUEST_TIMEOUT_S = 900.0
 # How long a catalogue may take to answer: a listing asks an instance for
 # hundreds of pages, a download for one large file.
@@ -204,15 +212,15 @@ def fetch_talks(
     order = reading_order(talks, SEED, source.spread_by)
     with (
         http_client() as http,
-        _client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
-        _client(LABEL_MODEL) as qwen,
-        _client(BASE_MODEL) as parakeet,
-        closing(prefetched(order, partial(_audio_file, http, cache, source))) as audio_files,
+        client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
+        client(LABEL_MODEL) as qwen,
+        client(BASE_MODEL) as parakeet,
+        closing(prefetched(order, partial(audio_file, http, cache, source))) as audio_files,
     ):
         models = Models(
-            _answer(whisper, source.language),
-            _answer(qwen, source.language),
-            _answer(parakeet, source.language),
+            answer(whisper, source.language),
+            answer(qwen, source.language),
+            answer(parakeet, source.language),
         )
         talks_read = 0
         while not take.full():
@@ -258,7 +266,7 @@ def prepare_audio(
     done: list[Talk] = []
     failed = 0
     with http_client() as http, ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as downloads:
-        heard = downloads.map(partial(_audio_file, http, cache, source), wanted)
+        heard = downloads.map(partial(audio_file, http, cache, source), wanted)
         for position, (talk, path) in enumerate(zip(wanted, heard, strict=True), start=1):
             if path is None:
                 failed += 1
@@ -316,10 +324,10 @@ def prepare_batch(
     """Run the three passes over a batch of talks, one model after the other.
 
     The batch is read as the Whisper pass goes, so the next talk downloads while
-    this one is transcribed. Returns the number of talks read.
+    the ones before it are transcribed. Returns the number of talks read.
     """
     started = time.monotonic()
-    talks = [heard_talk(talk, path, cache, models.whisper, tally) for talk, path in batch]
+    talks = heard_talks(batch, cache, models.whisper, tally)
     segmented = time.monotonic()
     room = take.cap - take.kept
     for talk in talks:
@@ -355,6 +363,39 @@ def prefetched(
             yield talk, path
 
 
+def in_parallel[T, R](ask: Callable[[T], R], items: Iterable[T]) -> list[R]:
+    """``ask`` on every item, :data:`PARALLEL_REQUESTS` at a time, answers in the items' order."""
+    pool = ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS)
+    try:
+        return list(pool.map(ask, items))
+    finally:
+        # A stopped run waits for the work in flight, not for the work queued.
+        pool.shutdown(cancel_futures=True)
+
+
+def heard_talks(
+    batch: Iterable[tuple[Talk, Path | None]],
+    cache: Path,
+    whisper: Transcribe,
+    tally: Counter[str],
+) -> list[TalkInProgress]:
+    """The Whisper pass on a batch: :func:`heard_talk` on several talks at once, in batch order.
+
+    What runs in parallel is talks, not the chunks of one talk: a chunk starts
+    where the last trusted segment of the one before it ends
+    (:func:`audiolab.data.talk_clips.segment_audio`), so it cannot be sent first.
+    """
+
+    def heard(pair: tuple[Talk, Path | None]) -> tuple[TalkInProgress, Counter[str]]:
+        counted: Counter[str] = Counter()  # one per talk: threads must not share a Counter
+        return heard_talk(*pair, cache, whisper, counted), counted
+
+    results = in_parallel(heard, batch)
+    for _, counted in results:
+        tally.update(counted)
+    return [talk for talk, _ in results]
+
+
 def heard_talk(
     talk: Talk, audio_path: Path | None, cache: Path, whisper: Transcribe, tally: Counter[str]
 ) -> TalkInProgress:
@@ -388,25 +429,41 @@ def agreeing(
     if not talk.segments:
         return []
     audio = load_audio(talk.audio_path)
-    agreed: list[tuple[Segment, str]] = []
-    for candidate in candidates(talk.segments, language, tally):
-        if len(agreed) >= share:
-            break
-        duration = candidate.end_s - candidate.start_s
-        if not MIN_SECONDS <= duration <= MAX_CLIP_SECONDS:
-            tally[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += 1
-            continue
+
+    def ask_qwen(candidate: Segment) -> str | None:
+        """Qwen's text for one clip; None when the clip is not sent or the request fails."""
+        if not fits(candidate):
+            return None
         try:
-            label = clip_text(answers, candidate, audio, qwen)
+            return clip_text(answers, candidate, audio, qwen)
         except TranscriptionError:
-            tally["clips Qwen failed on"] += 1
-            continue
-        tally[LABELLED] += 1
-        if disagreement(candidate.text, label, language) > MAX_DISAGREEMENT:
-            tally[DISAGREED] += 1
-            continue
-        agreed.append((candidate, label))
+            return None
+
+    agreed: list[tuple[Segment, str]] = []
+    pending = iter(candidates(talk.segments, language, tally))
+    while len(agreed) < share:
+        # Never more at once than the clips still wanted: the talk is sent the
+        # requests it would be sent one by one, and stops at the same clip.
+        group = list(islice(pending, min(PARALLEL_REQUESTS, share - len(agreed))))
+        if not group:
+            break
+        for candidate, label in zip(group, in_parallel(ask_qwen, group), strict=True):
+            if not fits(candidate):
+                tally[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += 1
+            elif label is None:
+                tally["clips Qwen failed on"] += 1
+            else:
+                tally[LABELLED] += 1
+                if disagreement(candidate.text, label, language) > MAX_DISAGREEMENT:
+                    tally[DISAGREED] += 1
+                else:
+                    agreed.append((candidate, label))
     return agreed
+
+
+def fits(clip: Segment) -> bool:
+    """Whether a clip lasts as long as a clip of this source may."""
+    return MIN_SECONDS <= clip.end_s - clip.start_s <= MAX_CLIP_SECONDS
 
 
 def offer_talk(
@@ -417,7 +474,12 @@ def offer_talk(
     language: str,
     tally: Counter[str],
 ) -> int:
-    """The Parakeet pass on one talk: offer its agreed clips, each with the base model's WER."""
+    """The Parakeet pass on one talk: offer its agreed clips, each with the base model's WER.
+
+    Its requests are sent one at a time: Parakeet's CrispASR server answers them
+    one after the other anyway, and ten clips sent at once took as long as ten
+    sent in a row.
+    """
     if not talk.agreed:
         return 0
     audio = load_audio(talk.audio_path)
@@ -476,7 +538,7 @@ def report(tally: Counter[str]) -> str:
     )
 
 
-def _audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk) -> Path | None:
+def audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk) -> Path | None:
     """A talk's audio, or None when it cannot be downloaded: the run goes on without it."""
     try:
         return fetch_audio(http, talk, cache / f"{talk.id}.wav", source)
@@ -485,11 +547,13 @@ def _audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk)
         return None
 
 
-def _client(model: str, request: dict | None = None) -> TranscriptionClient:
+def client(model: str, request: dict | None = None) -> TranscriptionClient:
     """A client for one model, from its config in ``configs/models``.
 
-    The language is not the client's: :func:`_answer` passes the source's
-    language with every request, so an English talk is heard in English.
+    ``request`` adds fields to every request (Whisper's ``response_format``).
+    The language is not the client's: :func:`answer` passes the source's
+    language with every request, so an English talk is heard in English. One
+    client serves the parallel requests of a pass.
     """
     config = ModelConfig.from_file(MODEL_CONFIGS / CONFIG_FILES[model])
     config = replace(config, request={**config.request, **(request or {})})
@@ -498,5 +562,6 @@ def _client(model: str, request: dict | None = None) -> TranscriptionClient:
     )
 
 
-def _answer(client: TranscriptionClient, language: str) -> Transcribe:
+def answer(client: TranscriptionClient, language: str) -> Transcribe:
+    """A model as a :data:`~audiolab.data.talk_clips.Transcribe`: a WAV in, its JSON answer out."""
     return lambda wav: client.transcribe(wav, language).answer

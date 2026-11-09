@@ -1,0 +1,11 @@
+# Qwen3-ASR 1.7B (bf16), served by vLLM on the owner's home server. It labels
+# the talk sources (docs/stt/datasets.md). URL and key come from the
+# environment (D-015).
+name: qwen3-asr-1.7b-vllm
+api: transcriptions
+base_url_env: STT_BASE_URL
+api_key_env: STT_API_KEY
+model: stt-v-qwen3-asr-1.7B
+send_language: true
+server_label: owner's home server
+request: {}
