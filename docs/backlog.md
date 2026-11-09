@@ -51,4 +51,4 @@ resume them.
 | N-05 | Investigate train/test source overlap with speaker and session exclusion. | Compare concrete corpus cases, such as MLS and VoxPopuli, against the [leakage rules](stt/datasets.md). This is a question to test, not permission to weaken the audit. |
 | N-06 | Explore GGUF export. | Deferred; no exporter, target runtime or acceptance criterion is selected. |
 | N-07 | Begin a TTS project. | TTS is within the repository's scope (D-003); its concrete project and protocol remain to be defined. It is not excluded by the STT-first roadmap. |
-| N-08 | Research low-bit training for audio models. | [Idea note](research/low-bit-training.md). No literature review, implementation or run has started. |
+| N-08 | Review and select a low-bit audio pilot. | [QAT/QAD feasibility study](research/low-bit-training.md): literature reviewed; no implementation or run. Before execution, select the checkpoint, deployment GPU/runtime, quality margins and budget; prove the export path, then compare INT8 and mostly-4-bit PTQ before considering QAT/QAD. This does not resume paused training or select a TTS project. |

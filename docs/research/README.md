@@ -9,7 +9,7 @@ binding choices live in [decisions](../decisions/README.md).
 
 | Topic | Status | Home |
 |---|---|---|
-| Low-bit training for audio models | Idea; not investigated | [Question and open points](low-bit-training.md) |
+| Low-bit audio models: QAT and QAD | Feasibility review completed; deployment and quality experiments not run | [Evidence, limitations and proposed pilot](low-bit-training.md) |
 | Per-source STT screening | Initial screens reported; follow-up work paused | [Method, results and limits](../stt/screening.md); [reporting script](../../experiments/source-screening/README.md) |
 
 A result can stay in a domain document, as the screening does. Link to its home
