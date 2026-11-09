@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import os
 import signal
-import sys
 import threading
 from collections.abc import Callable
 
@@ -102,12 +101,13 @@ def _on_signal(signum: int, _frame) -> None:
     if not _requested.is_set():
         request_stop()
         if os.getpid() == _installer_pid:
-            print(
+            # Straight to the file descriptor: the signal may have come in the
+            # middle of a write to sys.stderr, whose buffer is not reentrant.
+            line = (
                 f"\n{signal.Signals(signum).name}: stopping after the current step "
-                "(send it again to stop at once)",
-                file=sys.stderr,
-                flush=True,
+                "(send it again to stop at once)\n"
             )
+            os.write(2, line.encode())
         return
     # The second time, the signal does what it does when nothing handles it.
     signal.signal(signum, signal.SIG_DFL)

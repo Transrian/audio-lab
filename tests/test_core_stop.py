@@ -33,11 +33,11 @@ def test_nothing_stops_until_a_stop_is_asked_for():
 
 
 @pytest.mark.parametrize("received", [signal.SIGINT, signal.SIGTERM])
-def test_the_first_signal_only_asks_for_a_stop_and_says_so(received, capsys):
+def test_the_first_signal_only_asks_for_a_stop_and_says_so(received, capfd):
     install_signal_handlers()
     os.kill(os.getpid(), received)  # handled before kill() returns, in this thread
     assert stop_requested()
-    assert "stopping after the current step" in capsys.readouterr().err
+    assert "stopping after the current step" in capfd.readouterr().err
 
 
 def test_the_second_signal_ends_the_process_at_once():
