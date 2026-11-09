@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
+from audiolab.core.parallel import map_requests  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import talk_clips, talk_listing, talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
@@ -729,7 +730,6 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
-    map_requests = talks.map_requests
     stopping: list[threading.Event] = []
 
     def watched(ask, items, concurrency, should_stop, failing):
@@ -832,7 +832,7 @@ def test_a_pass_warms_its_model_up_once_before_its_first_request():
 
     model = talks.Served(transcribe, concurrency=3, warm_up=warm_up)
     one_pass = model.one_pass()
-    talks.map_requests(one_pass.transcribe, [b"wav"] * 5, 3)
+    map_requests(one_pass.transcribe, [b"wav"] * 5, 3)
     assert log == ["warm-up"] + ["request"] * 5
     model.one_pass()
     assert log.count("warm-up") == 1, "a pass that sends nothing warms nothing up"
@@ -868,7 +868,7 @@ def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
     keys = [f"{index}.00-{index + 1}.00" for index in range(200)]
     text = "mot " * 2000
 
-    talks.map_requests(lambda key: answers.answer(key, lambda: {"text": text}), keys, 10)
+    map_requests(lambda key: answers.answer(key, lambda: {"text": text}), keys, 10)
 
     assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}
     lines = (tmp_path / "answers.jsonl").read_text(encoding="utf-8").splitlines()

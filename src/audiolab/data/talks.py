@@ -65,6 +65,7 @@ from pathlib import Path
 import httpx
 
 from audiolab.core.audio import SAMPLE_RATE, load_audio
+from audiolab.core.parallel import map_requests, never
 from audiolab.core.progress import progress, say
 from audiolab.core.stop import raise_if_stopped, stop_requested
 from audiolab.data.build import ManifestBuilder
@@ -89,8 +90,6 @@ from audiolab.eval.client import (
     api_key_from_env,
     base_url_from_env,
     concurrency_from_env,
-    map_requests,
-    never,
 )
 from audiolab.eval.metrics import counts
 

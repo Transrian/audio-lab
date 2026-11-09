@@ -24,6 +24,7 @@ from pathlib import Path
 import yaml
 
 from audiolab import __version__
+from audiolab.core.parallel import map_requests
 from audiolab.core.paths import runs_dir
 from audiolab.data.panels import DEFAULT_PANELS_DIR
 from audiolab.eval.cache import (
@@ -39,7 +40,6 @@ from audiolab.eval.client import (
     TranscriptionError,
     api_key_from_env,
     base_url_from_env,
-    map_requests,
     server_root,
 )
 from audiolab.eval.metrics import Item

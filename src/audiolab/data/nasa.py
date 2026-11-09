@@ -42,6 +42,7 @@ from urllib.parse import urlparse
 import httpx
 
 from audiolab.core.audio import load_audio
+from audiolab.core.parallel import map_requests
 from audiolab.core.paths import cache_dir
 from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
@@ -67,7 +68,7 @@ from audiolab.data.talks import (
     served,
 )
 from audiolab.data.train import Take
-from audiolab.eval.client import TranscriptionError, map_requests
+from audiolab.eval.client import TranscriptionError
 
 NAME = "nasa-en-train"
 LANGUAGE = "en"
