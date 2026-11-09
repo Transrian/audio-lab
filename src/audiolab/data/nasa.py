@@ -90,6 +90,11 @@ PAGE_HOST, PAGE_SECTION = "www.nasa.gov", "podcasts"
 # minute of audio; people say about 150. A "Live" episode's page holds a
 # caption and a video link, an older page only its description.
 MIN_WORDS_PER_MINUTE = 60
+# A page with more words than this for each minute of audio holds more than
+# its episode: the pages of 2026-11-08 above it each hold their transcript
+# twice. Nobody keeps up 250 words a minute for a whole episode; the median
+# page holds 168, and the fastest of the others 239.
+MAX_WORDS_PER_MINUTE = 250
 # NASA's media guidelines: third-party material NASA uses is "identified as
 # copyright protected with the name of the copyright holder". An episode whose
 # page carries such a notice is left out whole, since the notice does not say
@@ -97,7 +102,8 @@ MIN_WORDS_PER_MINUTE = 60
 # "copyright" and "licensed" in passing, and a credit names its source as
 # "used courtesy of" or "used with permission". The credit of the shows' music
 # library ("Music … comes from Universal Production Music") is not a notice: the
-# music is not what a clip's label transcribes.
+# music is not what a clip's label transcribes (the card in docs/stt/datasets.md
+# says how clips are kept away from it).
 NOTICE = re.compile(
     r"©|\ball rights reserved\b|\bcopyright(?:ed)? (?:by |\d{4})"
     r"|\bused (?:courtesy of|with permission)\b",
@@ -111,6 +117,15 @@ MONTHS = "January|February|March|April|May|June|July|August|September|October|No
 RERUN_PAGE = re.compile(
     rf"\boriginally (?:aired|released)(?: on)? (?:as )?(?:episode\b|(?:{MONTHS}) \d)"
     r"|\brebroadcast of\b",
+    re.IGNORECASE,
+)
+# A recording the show plays, as its transcript notes one or names its speaker:
+# "[ARCHIVAL Apollo 11 Broadcast: …]", "APOLLO 8 ARCHIVAL: …", "[Clip of
+# Sidedoor podcast begins]", "[NBC NIGHTLINE's CHRIS WALLACE: …]", "[Audio from
+# STS-129 Launch: …]", "[Meteorologist audio: …]".
+PLAYED = re.compile(
+    r"\barchival\b|\bbroadcasts?\b|\bclips?\b|\bnightline\b|\bnasa tv\b"
+    r"|\baudio (?:from|of)\b|\w audio:",
     re.IGNORECASE,
 )
 # Pages come from one public website: three at a time, as the audio downloads.
@@ -354,6 +369,12 @@ def notice_in(page: str) -> str:
     return ""
 
 
+def plays_recordings(lines: list[Line]) -> bool:
+    """Whether a transcript notes a recording the show plays, or names one as a speaker."""
+    notes = [note for line in lines for note in NOTE.findall(line.text)]
+    return any(PLAYED.search(mark) for mark in notes + [line.speaker for line in lines])
+
+
 def page_text(http: httpx.Client, episode: Talk, pages: Path) -> str:
     """An episode's page, fetched once and kept raw in ``pages``.
 
@@ -373,7 +394,13 @@ def page_text(http: httpx.Client, episode: Talk, pages: Path) -> str:
 
 
 def why_unusable(http: httpx.Client, episode: Talk, pages: Path) -> str:
-    """Why an episode cannot be trained on, or an empty string when it can."""
+    """Why an episode cannot be trained on, or an empty string when it can.
+
+    An episode that plays recordings (:data:`PLAYED`) is left out whole: some
+    belong to another broadcaster (a network's news report, another show's
+    clip), the page does not say whose each one is, and a transcript sometimes
+    writes their words as lines of the show, which a clip would then carry.
+    """
     try:
         page = page_text(http, episode, pages)
     except (DownloadError, httpx.HTTPError):
@@ -382,9 +409,14 @@ def why_unusable(http: httpx.Client, episode: Talk, pages: Path) -> str:
         return "page with a copyright notice"
     if RERUN_PAGE.search(" ".join(block.text for block in blocks_of(page))):
         return "page of an episode aired before"
+    lines = transcript_lines(page)
     minutes = max(episode.duration_s / 60, 1.0)
-    if words_in(transcript_lines(page)) < MIN_WORDS_PER_MINUTE * minutes:
+    if words_in(lines) < MIN_WORDS_PER_MINUTE * minutes:
         return "page without a transcript"
+    if words_in(lines) > MAX_WORDS_PER_MINUTE * minutes:
+        return "page with more text than its episode"
+    if plays_recordings(lines):
+        return "episode that plays recordings"
     return ""
 
 
@@ -426,7 +458,10 @@ SOURCE = TalkSource(
         "repeats": "the first aired of the episodes sharing a page, an MP3 file or a title "
         "without 'Encore' or a series' 'Ep. N:'; no page saying it aired before",
         "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
+        "max_transcript_words_per_minute": MAX_WORDS_PER_MINUTE,
         "copyright_notice": "an episode whose page carries one is left out",
+        "played_recordings": "an episode whose transcript notes archival audio, a broadcast "
+        "or a clip, or gives one a speaker label, is left out",
     },
     lister=list_episodes,
     audio_url=lambda http, episode: episode.file,

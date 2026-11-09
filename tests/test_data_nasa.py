@@ -202,7 +202,7 @@ def test_a_plain_name_on_its_own_line_is_a_label_when_it_recurs():
 
 
 def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_path):
-    words = " ".join(["word"] * 70)
+    words = " ".join(["word"] * 70)  # the episodes last one minute
     pages = {
         "spoken": page("<strong>Transcript</strong>", words),
         "noticed": page(words, "Song courtesy of a label. © 2024 Some Records"),
@@ -211,6 +211,10 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "live": page("Video with captions:", "A short caption."),
         "rerun": page(words, "This episode originally aired May 1, 2020, as Episode 142."),
         "hubble": page(words, "The image Hubble originally released back in 1995."),
+        "twice": page(words, words, words, words),
+        "archive": page(words, "[ARCHIVAL Apollo 11 Broadcast: The Eagle has landed.]"),
+        "radio": page(words, "<strong>UTTR radio broadcast:</strong> Capsule on the ground."),
+        "music": page(words, "[ Music ]", "(Distributed Active Archive Center)"),
     }
     for slug, text in pages.items():
         (tmp_path / f"{slug}.html").write_text(text, encoding="utf-8")
@@ -226,6 +230,10 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "live": "page without a transcript",
         "rerun": "page of an episode aired before",
         "hubble": "",
+        "twice": "page with more text than its episode",
+        "archive": "episode that plays recordings",
+        "radio": "episode that plays recordings",
+        "music": "",
     }
 
 
