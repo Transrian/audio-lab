@@ -226,8 +226,9 @@ On a GPU (2026-11-09), a 120-update run stopped by SIGINT and then SIGTERM, and
 killed once outright, resumed each time from its slot and finished; its losses
 up to the first stop were those of an uninterrupted twin to the last digit, and
 after a resume they stayed within the twin's noise only: its slot did not carry
-the random state yet. A resume of the real model that carries it has not been
-compared with its twin on a GPU yet.
+the random state yet. With the random state and the cuDNN redraw, an 80-update run
+stopped by SIGTERM after update 51 and resumed logged the losses of its twin to
+the last digit at updates 70 and 80.
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the
