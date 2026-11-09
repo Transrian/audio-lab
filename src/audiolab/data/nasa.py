@@ -105,13 +105,15 @@ MAX_WORDS_PER_MINUTE = 250
 # page carries such a notice is left out whole, since the notice does not say
 # which minutes of the episode it covers. A notice, not a word: guests say
 # "copyright" and "licensed" in passing, and a credit names its source as
-# "used courtesy of" or "used with permission". The credit of the shows' music
-# library ("Music … comes from Universal Production Music") is not a notice: the
-# music is not what a clip's label transcribes (the card in docs/stt/datasets.md
-# says how clips are kept away from it).
+# "used courtesy of" or "used with permission", or says whose a recording is
+# ("Audio from the … conversation provided by Explore Mars"). The credit of the
+# shows' music library ("Music … comes from Universal Production Music") is not
+# a notice: the music is not what a clip's label transcribes (the card in
+# docs/stt/datasets.md says how clips are kept away from it).
 NOTICE = re.compile(
     r"©|\ball rights reserved\b|\bcopyright(?:ed)? (?:by |\d{4})"
-    r"|\bused (?:courtesy of|with permission)\b",
+    r"|\bused (?:courtesy of|with permission)\b"
+    r"|\b(?:audio|recordings?|clips?|footage)\b[^.]{0,80}\b(?:provided by|courtesy of)\b",
     re.IGNORECASE,
 )
 # What a title adds when an episode is aired again: "Encore: X", "Mars Ep. 3: X".
@@ -127,10 +129,14 @@ RERUN_PAGE = re.compile(
 # A recording the show plays, as its transcript notes one or names its speaker:
 # "[ARCHIVAL Apollo 11 Broadcast: …]", "APOLLO 8 ARCHIVAL: …", "[Clip of
 # Sidedoor podcast begins]", "[NBC NIGHTLINE's CHRIS WALLACE: …]", "[Audio from
-# STS-129 Launch: …]", "[Meteorologist audio: …]".
+# STS-129 Launch: …]", "[Meteorologist audio: …]", "Launch announcer:",
+# "Unidentified launch voice 1:", "Voyager excerpt:", "[John F. Kennedy
+# Archive: …]". "Archive" counts with its colon only: "Distributed Active
+# Archive Centers" is a name said on the show.
 PLAYED = re.compile(
     r"\barchival\b|\bbroadcasts?\b|\bclips?\b|\bnightline\b|\bnasa tv\b"
-    r"|\baudio (?:from|of)\b|\w audio:",
+    r"|\baudio (?:from|of)\b|\w audio:|\bannouncer\b|\blaunch (?:audio|voices?)\b"
+    r"|\bexcerpts?\b|\barchive:",
     re.IGNORECASE,
 )
 # Pages come from one public website: three at a time, as the audio downloads.
@@ -472,8 +478,9 @@ SOURCE = TalkSource(
         "min_transcript_words_per_minute": MIN_WORDS_PER_MINUTE,
         "max_transcript_words_per_minute": MAX_WORDS_PER_MINUTE,
         "copyright_notice": "an episode whose page carries one is left out",
-        "played_recordings": "an episode whose transcript notes archival audio, a broadcast "
-        "or a clip, or gives one a speaker label, is left out",
+        "played_recordings": "an episode whose transcript notes archival audio, an archive, "
+        "a broadcast, a clip, an excerpt or an announcer, or gives one a speaker label, "
+        "is left out",
     },
     lister=list_episodes,
     audio_url=lambda http, episode: episode.file,

@@ -880,9 +880,11 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     the fastest of the others 239);
   - 35 episodes that play recordings, 31 of them from NASA's Curious Universe: a
     transcript note or a speaker label names archival audio, a broadcast or a
-    clip (`[ARCHIVAL Apollo 11 Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of
-    Sidedoor podcast begins]`, `[NBC NIGHTLINE's CHRIS WALLACE: …]`,
-    `[Meteorologist audio: …]`). The episode is left out whole: some of those
+    clip, an archive, an excerpt or an announcer (`[ARCHIVAL Apollo 11
+    Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of Sidedoor podcast begins]`,
+    `[NBC NIGHTLINE's CHRIS WALLACE: …]`, `[Meteorologist audio: …]`,
+    `[John F. Kennedy Archive: …]`, `Voyager excerpt:`, `Launch announcer:`,
+    `Unidentified launch voice 1:`). The episode is left out whole: some of those
     recordings are another broadcaster's, the page does not say whose each one
     is, and a transcript sometimes writes their words as lines of the show
     (`Archival: 5…4…3…2…1 and liftoff…`), which a clip would then carry;
@@ -908,8 +910,9 @@ cased and punctuated, is the label. A model only says *when* each word was said.
     show, **On a Mission**, whose feed names "NASA/JPL/Caltech": JPL is run for
     NASA by Caltech, so its work is not a US government work.
   - An episode whose page carries a notice — a ©, "all rights reserved",
-    "copyright" followed by a holder or a year, or material "used courtesy of"
-    or "used with permission" — is left out whole, since a notice does not say
+    "copyright" followed by a holder or a year, material "used courtesy of"
+    or "used with permission", or audio, a recording, a clip or footage
+    "provided by" or "courtesy of" someone — is left out whole, since a notice does not say
     which minutes it covers. A notice and not a word: guests say "copyright" in
     passing. The one episode left out, `sun-series-soaring-toward-the-sun`, plays
     archive clips "used courtesy of the New Mexico Public Media Collection".

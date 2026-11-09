@@ -229,6 +229,7 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "spoken": page("<strong>Transcript</strong>", words),
         "noticed": page(words, "Song courtesy of a label. © 2024 Some Records"),
         "credited": page(words, "Clips from a 1993 interview are used courtesy of an archive."),
+        "provided": page(words, "Audio from the 'Life on Mars' talk provided by a society."),
         "said": page(words, "Host: So it's not a copyright of the government? Courtesy of Nate."),
         "live": page("Video with captions:", "A short caption."),
         "rerun": page(words, "This episode originally aired May 1, 2020, as Episode 142."),
@@ -236,6 +237,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "twice": page(words, words, words, words),
         "archive": page(words, "[ARCHIVAL Apollo 11 Broadcast: The Eagle has landed.]"),
         "radio": page(words, "<strong>UTTR radio broadcast:</strong> Capsule on the ground."),
+        "announced": page(words, "Launch announcer: Three, two, one, liftoff."),
+        "speech": page(words, "[John F. Kennedy Archive: We choose to go to the Moon.]"),
         "music": page(words, "[ Music ]", "(Distributed Active Archive Center)"),
     }
     for slug, text in pages.items():
@@ -248,6 +251,7 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "spoken": "",
         "noticed": "page with a copyright notice",
         "credited": "page with a copyright notice",
+        "provided": "page with a copyright notice",
         "said": "",
         "live": "page without a transcript",
         "rerun": "page of an episode aired before",
@@ -255,6 +259,8 @@ def test_a_page_with_a_copyright_notice_or_without_a_transcript_is_unusable(tmp_
         "twice": "page with more text than its episode",
         "archive": "episode that plays recordings",
         "radio": "episode that plays recordings",
+        "announced": "episode that plays recordings",
+        "speech": "episode that plays recordings",
         "music": "",
     }
 
