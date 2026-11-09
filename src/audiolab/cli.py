@@ -16,6 +16,7 @@ from pathlib import Path
 from audiolab import __version__
 from audiolab.core.gpu import add_gpu_argument, list_gpus
 from audiolab.core.paths import cache_dir, data_dir, runs_dir
+from audiolab.core.stop import EXIT_STOPPED, Stopped, install_signal_handlers
 from audiolab.data.datasets import DATASETS
 from audiolab.data.fetch import fetch_dataset
 from audiolab.data.panels import (
@@ -474,8 +475,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.data_dir:
         # One place decides where data lives, so every command agrees (paths.data_dir reads this).
         os.environ["AUDIOLAB_DATA"] = args.data_dir
+    install_signal_handlers()
     try:
         return args.func(args)
+    except Stopped as stopped:
+        print(f"{parser.prog}: {stopped}", file=sys.stderr)
+        return EXIT_STOPPED
     except (ConfigError, RunError, ValueError, FileNotFoundError, FileExistsError) as failure:
         print(f"{parser.prog}: {failure}", file=sys.stderr)
         return 2
