@@ -450,16 +450,18 @@ def agreeing(
     audio = load_audio(talk.audio_path)
 
     def ask_qwen(candidate: Segment) -> str | None:
-        """Qwen's text for one clip; None when the clip is not sent or the request fails."""
-        if not fits(candidate):
-            return None
+        """Qwen's text for one clip; None when the request fails."""
         try:
             return clip_text(answers, candidate, audio, qwen)
         except TranscriptionError:
             return None
 
+    clips = candidates(talk.segments, language, tally)
+    fitting = [clip for clip in clips if fits(clip)]
+    if len(fitting) < len(clips):
+        tally[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += len(clips) - len(fitting)
     agreed: list[tuple[Segment, str]] = []
-    pending = iter(candidates(talk.segments, language, tally))
+    pending = iter(fitting)
     while len(agreed) < share:
         # Never more at once than the clips still wanted: the talk is sent the
         # requests it would be sent one by one, and stops at the same clip.
@@ -467,9 +469,7 @@ def agreeing(
         if not group:
             break
         for candidate, label in zip(group, in_parallel(ask_qwen, group), strict=True):
-            if not fits(candidate):
-                tally[f"clips outside {MIN_SECONDS}-{MAX_CLIP_SECONDS:g} s"] += 1
-            elif label is None:
+            if label is None:
                 tally["clips Qwen failed on"] += 1
             else:
                 tally[LABELLED] += 1
@@ -481,8 +481,12 @@ def agreeing(
 
 
 def fits(clip: Segment) -> bool:
-    """Whether a clip lasts as long as a clip of this source may."""
-    return MIN_SECONDS <= clip.end_s - clip.start_s <= MAX_CLIP_SECONDS
+    """Whether a clip lasts as long as a clip of this source may.
+
+    Its length is rounded as its edges are, so a clip of exactly 0.5 s or 20 s
+    fits whatever the float subtraction leaves (32.02 - 12.02 > 20.0).
+    """
+    return MIN_SECONDS <= round(clip.end_s - clip.start_s, 2) <= MAX_CLIP_SECONDS
 
 
 def offer_talk(

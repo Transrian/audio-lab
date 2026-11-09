@@ -275,6 +275,14 @@ def test_only_clips_the_two_models_agree_on_are_kept(tmp_path):
     assert "(50.0%) rejected" in talks.report(tally)
 
 
+def test_a_clip_of_exactly_0_5_or_20_s_fits_whatever_the_float_subtraction_leaves():
+    assert 32.02 - 12.02 > 20.0 and 0.57 - 0.07 < 0.5, "the float traps this guards against"
+    assert talks.fits(segment("Une longue phrase.", 12.02, 32.02))
+    assert talks.fits(segment("Oui.", 0.07, 0.57))
+    assert not talks.fits(segment("Une longue phrase.", 12.02, 32.03))
+    assert not talks.fits(segment("Oui.", 0.07, 0.56))
+
+
 def test_a_failed_label_request_is_counted_and_asked_again_next_time(tmp_path):
     one = make_pass(
         tmp_path,
