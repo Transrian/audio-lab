@@ -53,7 +53,7 @@ Never invent alternatives after the fact.
 | [0004](accepted/0004-parakeet-fr-baseline-recipe.md) | stt/parakeet-fr | accepted | Start from the known recipe, without personal data |
 | [0005](accepted/0005-owner-approved-trailer.md) | global | accepted | `Owner-Approved:` trailer on protected files |
 | [0006](accepted/0006-task-tiers-not-model-names.md) | global | accepted | Task tiers, never model names |
-| [0007](accepted/0007-single-package-single-command.md) | global | accepted | One package, one command, one config per experiment |
+| [0007](accepted/0007-single-package-single-command.md) | global | accepted | A shared core and standalone exploratory experiments |
 | [0008](accepted/0008-training-monitoring-vs-official-evaluation.md) | stt | accepted | Training monitoring is direct; official evaluation goes through the API |
 | [0009](accepted/0009-non-commercial-datasets-for-testing-only.md) | stt | accepted | Non-commercial datasets may be used for testing only |
 | [0010](proposed/0010-stt-evaluation-core.md) | stt | proposed | STT evaluation core (phase 1a) |

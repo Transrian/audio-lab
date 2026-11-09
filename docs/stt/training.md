@@ -4,8 +4,7 @@ This page explains how `audiolab train` fine-tunes one checkpoint on one dataset
 what it writes, how a stopped run goes on, and what it deliberately does not do.
 The code lives in `src/audiolab/train/`.
 
-A run is one config file in `configs/train/`, the way every experiment in this
-repository is one config file
+An `audiolab train` run is described by one config file in `configs/train/`
 ([decision 0007](../decisions/accepted/0007-single-package-single-command.md)).
 The file's name is the run's name: `configs/train/fleurs-fr-v1.yaml` trains into
 `$AUDIOLAB_RUNS/train/fleurs-fr-v1/`.

@@ -67,9 +67,10 @@ Strong tasks:
 
 ## Code and docs
 
-- One package (`src/audiolab/`), one command (`audiolab`), one config file per
-  experiment ([decision 0007](docs/decisions/accepted/0007-single-package-single-command.md)).
-  Reuse `audiolab.core` instead of writing new helpers.
+- The maintained core uses one package (`src/audiolab/`), one command (`audiolab`)
+  and configs in `configs/`. Explorations may use standalone scripts in
+  `experiments/<topic>/` ([decision 0007](docs/decisions/accepted/0007-single-package-single-command.md)).
+  Reuse `audiolab.core` where it fits; do not complicate the core for an exploration.
 - New behavior comes with a CPU test in `tests/`.
 - Cache expensive results (D-017). The cache key holds everything that can
   change the result and nothing else; a wrong reuse is a bug, a test proves it.
