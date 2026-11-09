@@ -9,6 +9,7 @@ that listing, the language, and where the audio of a talk comes from.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import threading
@@ -16,7 +17,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -855,6 +858,77 @@ def test_the_parakeet_pass_sends_clips_at_once_and_offers_them_in_order(tmp_path
     clips = read_manifest(tmp_path / "dataset")
     assert [clip.text for clip in clips] == ["Bonjour à tous.", "On parle de Kubernetes."]
     assert clips[0].base_wer == 0.0 and clips[1].base_wer > 0
+
+
+def test_a_preparation_keeps_the_same_clips_whatever_the_concurrency_of_each_model(
+    tmp_path, monkeypatch
+):
+    # Three clips a talk, of 2, 2.5 and 3 s: the pauses are too long to join them.
+    texts = ["Bonjour à tous.", "On parle de Linux.", "Merci beaucoup."]
+    rows = [whisper_row(4.0 * n, 4.0 * n + 2.0 + n / 2, texts[n]) for n in range(3)]
+
+    def heard(wav: bytes) -> int:
+        """A number each clip's audio decides, so that an answer depends on nothing else."""
+        return hashlib.sha256(wav).digest()[0]
+
+    def text_of(wav: bytes) -> str:
+        """The text of the clip, told by its length (padded by 0.4 s)."""
+        seconds = (len(wav) - 44) / 2 / SAMPLE_RATE
+        return texts[0 if seconds < 2.65 else 1 if seconds < 3.15 else 2]
+
+    def qwen(wav: bytes) -> dict:
+        return {"text": "Rien." if heard(wav) % 3 == 0 else text_of(wav)}
+
+    def parakeet(wav: bytes) -> dict:
+        if heard(wav) % 5 == 0:
+            raise TranscriptionError("HTTP 500")
+        return {"text": "Rien." if heard(wav) % 2 else text_of(wav)}
+
+    answers = {WHISPER: lambda wav: {"segments": rows, "text": ""}, QWEN: qwen, PARAKEET: parakeet}
+
+    def prepare(run: str, concurrency: str) -> tuple[list, Counter]:
+        log: list[str] = []
+        asked: list[str] = []  # each request, as its model and its audio
+
+        def logging(model: str, ask):
+            def logged(wav: bytes) -> dict:
+                asked.append(f"{model} {heard(wav)}")
+                return ask(wav)
+
+            return logged
+
+        logged = {model: logging(model, ask) for model, ask in answers.items()}
+        serve_fakes(monkeypatch, None, logged, log)
+        monkeypatch.setenv("AUDIOLAB_CONCURRENCY", concurrency)
+
+        def noise(http, one, destination, source):
+            # Each talk sounds different, so each clip is a different request.
+            rng = np.random.default_rng(
+                int(hashlib.sha256(one.id.encode()).hexdigest(), 16) % 2**32
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(destination, 0.1 * rng.standard_normal(12 * SAMPLE_RATE), SAMPLE_RATE)
+            return destination
+
+        monkeypatch.setattr(talks, "fetch_audio", noise)
+        source = make_source(tmp_path, [talk(f"t{n}") for n in range(6)])
+        talks.fetch_talks(
+            source, tmp_path / run / "cache", tmp_path / run / "dataset", license="CC-BY",
+            verbose=False,
+        )  # fmt: skip
+        clips = [(c.id, c.text, c.base_wer) for c in read_manifest(tmp_path / run / "dataset")]
+        return clips, Counter(asked)
+
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 7)  # reached in the middle of a batch
+    monkeypatch.setattr(talks, "EXPECTED_CLIPS_PER_TALK", 2)
+    one_at_a_time = prepare("one", "")
+    three_at_a_time = prepare("three", f"{WHISPER}=3,{QWEN}=3,{PARAKEET}=3")
+
+    assert len(one_at_a_time[0]) == 7
+    assert {wer for _, _, wer in one_at_a_time[0]} >= {0.0, None}, "the answers vary"
+    assert three_at_a_time == one_at_a_time, (
+        "the same clips, in the same order, from the same requests"
+    )
 
 
 def test_each_model_is_sent_as_many_requests_at_once_as_the_environment_says(monkeypatch):
