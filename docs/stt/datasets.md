@@ -919,11 +919,11 @@ published.
   [evaluation](evaluation.md#4-run-and-read-the-result)): several talks at once
   for Whisper, several clips of one talk for Qwen and Parakeet. The answers are
   read in the order a one-at-a-time pass would read them, so the clips kept do
-  not depend on which answer arrives first. On the owner's home server, vLLM
-  takes 10 requests per model at once and answers an eleventh with HTTP 429, and
-  CrispASR answers one request after the other (ten Parakeet clips sent at once
-  took as long as ten in a row), so the preparations there run with
-  `AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`.
+  not depend on which answer arrives first. How many requests a model takes at
+  once is a fact of the server that serves it: a server that batches requests,
+  such as vLLM, may take ten
+  (`AUDIOLAB_CONCURRENCY=stt-v-whisper-large-v3=10,stt-v-qwen3-asr-1.7B=10`),
+  while one that answers one request after the other gains nothing from more.
   Before its first request, each pass waits for its model to answer a warmup, as
   an evaluation does ([evaluation](evaluation.md#4-run-and-read-the-result)): the
   server may have unloaded the model since its last pass, and loading it again
