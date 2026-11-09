@@ -63,6 +63,10 @@ def page(*paragraphs: str) -> str:
     )
 
 
+def transcript_of(html: str) -> list[Line]:
+    return nasa.transcript_lines(nasa.blocks_of(html))
+
+
 def episode(slug: str, **fields) -> Talk:
     values = {
         "id": slug,
@@ -85,6 +89,14 @@ def test_a_feed_episode_carries_its_page_its_mp3_and_its_attribution():
 
     assert listed == episode("jupiter", title="Jupiter with Jared")
     assert nasa.SOURCE.audio_url(None, listed) == "https://traffic.megaphone.fm/jupiter.mp3"
+
+
+def test_a_feed_duration_is_read_in_seconds_or_as_a_time():
+    listed = nasa.feed_episodes(
+        feed(item("seconds", duration="1448"), item("time", duration="1:02:03")), SHOW
+    )
+
+    assert [one.duration_s for one in listed] == [1448, 3723]
 
 
 def test_a_feed_item_without_a_podcast_page_or_an_mp3_is_not_listed():
@@ -150,7 +162,7 @@ def test_the_listing_reads_each_feed_oldest_first(tmp_path, monkeypatch):
 
 
 def test_the_transcript_starts_after_its_heading_and_reads_every_kind_of_label():
-    lines = nasa.transcript_lines(
+    lines = transcript_of(
         page(
             "An episode description nobody reads aloud.",
             "<strong>Transcript:</strong>",
@@ -188,7 +200,7 @@ def test_the_transcript_starts_after_its_heading_and_reads_every_kind_of_label()
 
 def test_a_plain_label_before_a_colon_keeps_a_clip_from_running_across_two_speakers():
     host = "So thank you very much for coming on the show today, it was a real pleasure."
-    lines = nasa.transcript_lines(
+    lines = transcript_of(
         page(f"<strong>Host:</strong> {host}", "Willie Lyles: Oh, thank you, Gary. Appreciate it.")
     )
     # Read as speech, the two words of the name would be few enough to label the clip.
@@ -216,14 +228,14 @@ def test_the_text_after_a_list_inside_a_list_item_is_read():
 
 
 def test_a_plain_name_on_its_own_line_is_a_label_when_it_recurs():
-    lines = nasa.transcript_lines(
+    lines = transcript_of(
         page("Miles Hatfield", "Hello there.", "Peter Elstner", "Hi.", "Miles Hatfield", "Ohh")
     )
 
     assert [line.speaker for line in lines] == ["Miles Hatfield", "", "", "", "Miles Hatfield", ""]
 
 
-def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_path):
+def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable():
     words = " ".join(["word"] * 70)  # the episodes last one minute
     pages = {
         "spoken": page("<strong>Transcript</strong>", words),
@@ -242,12 +254,8 @@ def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_pa
         "music": page(words, "[ Music ]", "(Distributed Active Archive Center)"),
         "library": page(words, "Music for the series comes from Universal Production Music."),
         "theme": page(words, "[Song: Ants Instrumental by Taylor Welsh]"),
-        "a-seismic-journey": page(words, "Yeah, those phone calls laughter. It's fine!"),
     }
-    for slug, text in pages.items():
-        (tmp_path / f"{slug}.html").write_text(text, encoding="utf-8")
-
-    reasons = {slug: nasa.why_unusable(None, episode(slug), tmp_path) for slug in pages}
+    reasons = {slug: nasa.why_page_unusable(text, duration_s=60) for slug, text in pages.items()}
 
     # The footer's "Copyright policy" link is the site's, not the episode's.
     assert reasons == {
@@ -267,8 +275,13 @@ def test_a_page_with_a_notice_a_music_credit_or_no_transcript_is_unusable(tmp_pa
         "music": "",
         "library": "page crediting music of a third party",
         "theme": "page crediting music of a third party",
-        "a-seismic-journey": "transcript with its notes written as speech",
     }
+
+
+def test_a_transcript_that_writes_its_notes_as_speech_is_left_out_without_a_fetch(tmp_path):
+    reason = nasa.why_unusable(None, episode("a-seismic-journey"), tmp_path)
+
+    assert reason == "transcript with its notes written as speech"
 
 
 def test_the_listing_reads_each_feed_and_caches_each_page_once(tmp_path, monkeypatch):

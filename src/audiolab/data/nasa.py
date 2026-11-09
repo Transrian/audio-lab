@@ -156,7 +156,7 @@ NOTES_AS_SPEECH = frozenset({"a-seismic-journey"})
 PAGE_WORKERS = 3
 # The counts of the labelling report, beside those of the Parakeet pass.
 CANDIDATES = "candidate clips"
-LABELLED = "clips labelled from the transcript"
+TRANSCRIPT_LABELLED = "clips labelled from the transcript"
 EDGES_UNHEARD = "labelled clips whose first or last word the base model does not hear"
 
 
@@ -185,7 +185,7 @@ def feed_episodes(feed: str, show: str) -> list[Talk]:
                 id=episode_slug(page),
                 url=page,
                 title=" ".join((item.findtext("title") or "").split()),
-                duration_s=int(item.findtext(f"{ITUNES}duration") or 0),
+                duration_s=seconds_of(item.findtext(f"{ITUNES}duration") or ""),
                 license=LICENSE,
                 author=f"NASA, {SHOWS[show]}",
                 channel=show,
@@ -193,6 +193,14 @@ def feed_episodes(feed: str, show: str) -> list[Talk]:
             )
         )
     return episodes
+
+
+def seconds_of(duration: str) -> int:
+    """A feed's duration in seconds, written in seconds ("1448") or as a time ("1:02:03")."""
+    seconds = 0
+    for part in duration.strip().split(":"):
+        seconds = seconds * 60 + int(part or 0)
+    return seconds
 
 
 def episode_slug(url: str) -> str:
@@ -319,14 +327,13 @@ def blocks_of(page: str) -> list[Block]:
     return [block for block in parser.blocks if block.text]
 
 
-def transcript_lines(page: str) -> list[Line]:
-    """The transcript of an episode page, as lines with their speakers.
+def transcript_lines(blocks: list[Block]) -> list[Line]:
+    """The transcript of an episode page, from its blocks, as lines with their speakers.
 
     The transcript starts after a "Transcript" heading when the page has one, and
     with the episode's content otherwise; a description that comes before it on
     such a page is text nobody says, which the alignment finds no audio for.
     """
-    blocks = blocks_of(page)
     headings = [n for n, block in enumerate(blocks) if is_transcript_heading(block.text)]
     start = headings[0] + 1 if headings else 0
     lines = [line_of(block) for block in blocks[start:]]
@@ -392,14 +399,6 @@ def words_in(lines: list[Line]) -> int:
     return sum(len(NOTE.sub(" ", line.text).split()) for line in lines)
 
 
-def notice_in(page: str) -> str:
-    """The copyright notice an episode's content carries, with its context, or nothing."""
-    for block in blocks_of(page):
-        if NOTICE.search(block.text):
-            return block.text[:200]
-    return ""
-
-
 def plays_recordings(lines: list[Line]) -> bool:
     """Whether a transcript notes a recording the show plays, or names one as a speaker."""
     notes = [note for line in lines for note in NOTE.findall(line.text)]
@@ -425,32 +424,39 @@ def page_text(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = F
 
 
 def why_unusable(http: httpx.Client, episode: Talk, pages: Path, *, fresh: bool = False) -> str:
-    """Why an episode cannot be trained on, or an empty string when it can.
-
-    An episode that plays recordings (:data:`PLAYED`) is left out whole: some
-    belong to another broadcaster (a network's news report, another show's
-    clip), the page does not say whose each one is, and a transcript sometimes
-    writes their words as lines of the show, which a clip would then carry.
-    """
+    """Why an episode cannot be trained on, or an empty string when it can."""
     if episode.id in NOTES_AS_SPEECH:
         return "transcript with its notes written as speech"
     try:
         page = page_text(http, episode, pages, fresh=fresh)
     except (DownloadError, httpx.HTTPError):
         return "page not fetched"
-    if notice_in(page):
+    return why_page_unusable(page, episode.duration_s)
+
+
+def why_page_unusable(page: str, duration_s: int) -> str:
+    """Why its page rules out an episode lasting ``duration_s``, or an empty string.
+
+    An episode that plays recordings (:data:`PLAYED`) is left out whole: some
+    belong to another broadcaster (a network's news report, another show's
+    clip), the page does not say whose each one is, and a transcript sometimes
+    writes their words as lines of the show, which a clip would then carry.
+    """
+    blocks = blocks_of(page)
+    texts = [block.text for block in blocks]
+    if any(NOTICE.search(text) for text in texts):
         return "page with a copyright notice"
-    if RERUN_PAGE.search(" ".join(block.text for block in blocks_of(page))):
+    if RERUN_PAGE.search(" ".join(texts)):
         return "page of an episode aired before"
-    lines = transcript_lines(page)
-    minutes = max(episode.duration_s / 60, 1.0)
+    lines = transcript_lines(blocks)
+    minutes = max(duration_s / 60, 1.0)
     if words_in(lines) < MIN_WORDS_PER_MINUTE * minutes:
         return "page without a transcript"
     if words_in(lines) > MAX_WORDS_PER_MINUTE * minutes:
         return "page with more text than its episode"
     if plays_recordings(lines):
         return "episode that plays recordings"
-    if any(MUSIC_CREDIT.search(block.text) for block in blocks_of(page)):
+    if any(MUSIC_CREDIT.search(text) for text in texts):
         return "page crediting music of a third party"
     return ""
 
@@ -592,9 +598,9 @@ def aligned(episode: TalkInProgress, page: str, tally: Counter[str]) -> list[tup
     if not episode.segments:
         return []
     clips = candidates(episode.segments, LANGUAGE, tally)
-    labelled = labelled_clips(clips, transcript_lines(page), LANGUAGE, tally)
+    labelled = labelled_clips(clips, transcript_lines(blocks_of(page)), LANGUAGE, tally)
     tally[CANDIDATES] += len(clips)
-    tally[LABELLED] += len(labelled)
+    tally[TRANSCRIPT_LABELLED] += len(labelled)
     return labelled
 
 
@@ -629,8 +635,8 @@ def with_clean_edges(
     Parakeet is the only model that hears a clip of this source alone, as Qwen
     does for the other talk sources. Its answers are cached, so
     :func:`offer_talk` reads them again for its ``base_wer`` rather than asking
-    twice. A clip it gets an edge word wrong for any other reason is left out
-    too: the cost is counted, in :data:`EDGES_UNHEARD`.
+    twice. A clip whose edge word it gets wrong for any other reason is left
+    out too: the cost is counted, in :data:`EDGES_UNHEARD`.
     """
     if not clips:
         return []
@@ -651,9 +657,9 @@ def with_clean_edges(
 
 def report(tally: Counter[str]) -> str:
     """One line on the labelling: the share the transcripts label, the base model, the rest."""
-    seen, labelled = tally[CANDIDATES], tally[LABELLED]
+    seen, labelled = tally[CANDIDATES], tally[TRANSCRIPT_LABELLED]
     kept, wrong = tally[KEPT], tally[BASE_WRONG]
-    shown = {CANDIDATES, LABELLED, KEPT, BASE_WRONG}
+    shown = {CANDIDATES, TRANSCRIPT_LABELLED, KEPT, BASE_WRONG}
     others = [f"{count} {reason}" for reason, count in sorted(tally.items()) if reason not in shown]
     return (
         f"{labelled} of {seen} candidate clips ({labelled / max(seen, 1):.1%}) "
