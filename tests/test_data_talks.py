@@ -304,6 +304,25 @@ def test_a_talk_stops_being_labelled_at_its_share_of_the_cap(tmp_path):
     assert len(agreed) == 2 and len(calls) == 2
 
 
+def test_a_talk_short_of_its_share_sends_only_the_clips_it_still_wants(tmp_path):
+    one = make_pass(
+        tmp_path,
+        [segment(f"Phrase {i}.", 1.0 + 6.0 * i, 6.0 + 6.0 * i + i / 10) for i in range(6)],
+        seconds=40.0,
+    )
+    # With their padding, the clips last 5.4 s, 5.5 s, ... 5.9 s; Qwen mishears the second.
+    texts = {round(5.4 + i / 10, 2): f"Phrase {i}." for i in range(6)}
+    texts[5.5] = "Rien."
+    qwen, calls = answering_by_length(texts)
+
+    agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 3, Counter())
+
+    assert [label for _, label in agreed] == ["Phrase 0.", "Phrase 2.", "Phrase 3."]
+    assert sorted(calls[:3]) == [5.4, 5.5, 5.6] and calls[3:] == [5.7], (
+        "three clips at once, then the one clip still wanted"
+    )
+
+
 def test_a_kept_clip_carries_its_attribution_and_the_base_models_error(tmp_path):
     one = make_pass(tmp_path, [], seconds=20.0, id="v1", license="CC0-1.0")
     one.agreed = [
@@ -562,6 +581,37 @@ def test_a_pass_sends_requests_in_parallel_and_reads_the_answers_in_order(tmp_pa
     assert len(Answers(tmp_path / "q.jsonl").answers) == 6, "every answer is cached, whole"
 
 
+def test_the_whisper_pass_hears_talks_at_once_and_returns_them_in_batch_order(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 2)
+    # Both talks must be in flight together for either of them to be answered.
+    together = threading.Barrier(2, timeout=10)
+    short_one_failed = threading.Event()
+
+    def whisper(wav: bytes) -> dict:
+        together.wait()
+        if (len(wav) - 44) / 2 / SAMPLE_RATE < 10.0:
+            short_one_failed.set()
+            raise TranscriptionError("HTTP 500")
+        assert short_one_failed.wait(timeout=10), "the first talk is answered last"
+        return {"segments": [whisper_row(0.0, 5.0, "Bonjour.")], "text": ""}
+
+    batch = [
+        (talk("a"), None),
+        (talk("b"), write_tone(tmp_path / "b.wav", seconds=12.0)),
+        (talk("c"), write_tone(tmp_path / "c.wav", seconds=8.0)),
+    ]
+    tally = Counter({"talks that could not be downloaded": 2})
+
+    heard = talks.heard_talks(batch, tmp_path, whisper, tally)
+
+    assert [one.talk.id for one in heard] == ["a", "b", "c"]
+    assert heard[1].segments == [segment("Bonjour.", 0.0, 5.0)], "a failing talk spoils no other"
+    assert heard[2].segments == [] and heard[2].audio_path is not None
+    assert tally == Counter({"talks that could not be downloaded": 3, "talks Whisper failed on": 1})
+
+
 def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     tmp_path, monkeypatch
 ):
@@ -605,3 +655,5 @@ def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
     talks.in_parallel(lambda key: answers.answer(key, lambda: {"text": text}), keys)
 
     assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}
+    lines = (tmp_path / "answers.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 200, "no line is torn or written over another"
