@@ -1,8 +1,9 @@
 """Downloading and unpacking datasets.
 
 Datasets are large and their upstream layout differs, so the only thing shared
-here is the plumbing: a download that lands atomically and is skipped when it
-already exists, and a helper that turns one member of an archive into a clip.
+here is the plumbing: a download that lands atomically, is skipped when it
+already exists and goes on from where a stopped one ended, and a helper that
+turns one member of an archive into a clip.
 """
 
 from __future__ import annotations
@@ -12,14 +13,17 @@ import io
 import json
 import shutil
 import tarfile
-import tempfile
 from pathlib import Path
 
 import httpx
 
 from audiolab.core.audio import Audio, load_audio
+from audiolab.core.progress import progress
+from audiolab.core.stop import raise_if_stopped
 
 HASH_CHUNK = 1 << 20
+# What a download is written under until it is complete and checked.
+PART_SUFFIX = ".part"
 
 
 class DownloadError(RuntimeError):
@@ -42,31 +46,31 @@ def download(
     a changed source leaves something that looks finished: the next call fetches
     again instead of taking a bad file from the cache. A ``url`` that is already
     a local file is copied instead of fetched, which is how the tests exercise
-    preparation without network access; it goes through a temporary name like a
-    fetched file. When a checksum is given — a ``sha256``, the ``md5`` some hosts
-    publish instead, or the ``git_blob_sha1`` a Hub publishes for a file it keeps
-    as a git object — a file that was just fetched or copied must match it; a
-    file already in the cache was checked when it arrived.
+    preparation without network access; it goes through the same staging name
+    as a fetched file. When a checksum is given — a ``sha256``, the ``md5`` some
+    hosts publish instead, or the ``git_blob_sha1`` a Hub publishes for a file it
+    keeps as a git object — a file that was just fetched or copied must match it;
+    a file already in the cache was checked when it arrived.
+
+    A download lands in ``<destination>.part`` first, and a stop (D-021) or a
+    broken connection leaves that part on disk. The next call asks the server for
+    the rest only when the file is pinned by a checksum, which proves that the
+    two halves are one file; an unpinned file starts again from the first byte.
     """
     if destination.is_file() and destination.stat().st_size > 0:
         return destination
+    raise_if_stopped(f"download of {destination.name} stopped")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    staged = destination.with_name(destination.name + PART_SUFFIX)
     local = Path(url)
     if local.is_file():
-        with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
-            with local.open("rb") as source:
-                shutil.copyfileobj(source, temporary)
-            staged = Path(temporary.name)
+        shutil.copyfile(local, staged)
     else:
         own_client = client is None
         http = client or httpx.Client(follow_redirects=True, timeout=120.0)
+        resumable = bool(sha256 or md5 or git_blob_sha1)
         try:
-            with http.stream("GET", url) as response:
-                response.raise_for_status()
-                with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
-                    for block in response.iter_bytes(chunk_size=1 << 20):
-                        temporary.write(block)
-                    staged = Path(temporary.name)
+            _fetch(http, url, staged, resume=resumable)
         except httpx.HTTPError as error:
             raise DownloadError(f"cannot download {url}: {error}") from error
         finally:
@@ -81,6 +85,52 @@ def download(
         raise
     shutil.move(str(staged), str(destination))
     return destination
+
+
+def _fetch(http: httpx.Client, url: str, staged: Path, *, resume: bool) -> None:
+    """Write ``url`` into ``staged``, after the bytes already there when ``resume``.
+
+    A server that ignores the range answers with the whole file, which then
+    replaces the part; one that cannot serve that range (the part is not the
+    start of the file it holds now) is asked for the whole file. The download
+    stops between two blocks when a stop is asked for, and keeps what it wrote.
+    """
+    have = staged.stat().st_size if resume and staged.is_file() else 0
+    headers = {"Range": f"bytes={have}-"} if have else {}
+    with http.stream("GET", url, headers=headers) as response:
+        served_from = _range_start(response, have) if have else 0
+        if served_from is None:
+            whole_again = True
+        else:
+            whole_again = False
+            response.raise_for_status()
+            length = response.headers.get("content-length")
+            total = served_from + int(length) if length else None
+            with (
+                staged.open("ab" if served_from else "wb") as handle,
+                progress(desc=staged.stem, unit="B", total=total, initial=served_from) as bar,
+            ):
+                for block in response.iter_bytes(chunk_size=HASH_CHUNK):
+                    handle.write(block)
+                    bar.update(len(block))
+                    raise_if_stopped(f"download of {staged.stem} stopped")
+    if whole_again:
+        _fetch(http, url, staged, resume=False)
+
+
+def _range_start(response: httpx.Response, asked: int) -> int | None:
+    """Where the body of an answer to a request for the bytes from ``asked`` on starts.
+
+    ``asked`` when the server sent that range, 0 when it sent the whole file,
+    ``None`` when it refused the range or sent another one.
+    """
+    if response.status_code == 416:
+        return None
+    if response.status_code != 206:
+        return 0
+    # Content-Range: bytes <first>-<last>/<size>
+    first = response.headers.get("content-range", "").removeprefix("bytes ").partition("-")[0]
+    return asked if first == str(asked) else None
 
 
 def sha256_file(path: Path) -> str:

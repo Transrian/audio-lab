@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from helpers import audio_cell, write_parquet, write_tone  # noqa: E402
 
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
+from audiolab.data import download as download_module  # noqa: E402
 from audiolab.data.download import (  # noqa: E402
     DownloadError,
     audio_from_archive,
@@ -350,3 +352,106 @@ def test_parquet_rows_report_a_file_that_is_not_parquet(tmp_path):
     path.write_bytes(b"not a parquet file")
     with pytest.raises(DownloadError, match="cannot read"):
         list(rows(path, ["audio"]))
+
+
+def ranged_server(content: bytes, *, honours_range: bool = True):
+    """A mock server for one file that answers range requests like a file server does."""
+    asked = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        wanted = request.headers.get("range", "")
+        asked.append(wanted)
+        if not wanted or not honours_range:
+            return httpx.Response(200, content=content)
+        first = int(wanted.removeprefix("bytes=").rstrip("-"))
+        if first >= len(content):
+            return httpx.Response(416)
+        return httpx.Response(
+            206,
+            content=content[first:],
+            headers={"content-range": f"bytes {first}-{len(content) - 1}/{len(content)}"},
+        )
+
+    return httpx.MockTransport(respond), asked
+
+
+def test_a_stopped_download_keeps_its_part_and_the_next_call_fetches_only_the_rest(tmp_path):
+    content = bytes(range(256)) * 16_384  # 4 MiB: four blocks
+    transport, asked = ranged_server(content)
+    destination = tmp_path / "cache" / "archive.tar.gz"
+    part = destination.with_name("archive.tar.gz.part")
+    pinned = hashlib.sha256(content).hexdigest()
+
+    part.parent.mkdir(parents=True)
+    part.write_bytes(content[: 3 << 20])  # what a stop three blocks in leaves
+    with httpx.Client(transport=transport) as client:
+        download("https://example.invalid/a.tar.gz", destination, client=client, sha256=pinned)
+    assert asked == [f"bytes={3 << 20}-"]
+    assert destination.read_bytes() == content
+    assert not part.exists()
+
+
+def test_a_download_asked_to_stop_before_it_starts_sends_nothing(tmp_path):
+    transport, asked = ranged_server(b"a corpus")
+    request_stop()
+    with httpx.Client(transport=transport) as client:
+        with pytest.raises(Stopped):
+            download("https://example.invalid/c", tmp_path / "corpus.zip", client=client)
+    assert asked == []
+
+
+def test_a_download_stops_between_two_blocks_and_keeps_them(tmp_path, monkeypatch):
+    content = b"x" * (3 << 20)
+    transport, _ = ranged_server(content)
+    destination = tmp_path / "archive.tar.gz"
+    blocks = []
+
+    def stop_after_the_first_block(what="stopped"):
+        blocks.append(what)
+        if len(blocks) == 2:  # the first call is the check before the download starts
+            raise Stopped(what)
+
+    monkeypatch.setattr(download_module, "raise_if_stopped", stop_after_the_first_block)
+    with httpx.Client(transport=transport) as client:
+        with pytest.raises(Stopped, match="download of archive.tar.gz stopped"):
+            download("https://example.invalid/a", destination, client=client, sha256="0" * 64)
+    assert destination.with_name("archive.tar.gz.part").stat().st_size == 1 << 20
+    assert not destination.exists()
+
+
+def test_a_server_that_ignores_the_range_sends_the_whole_file_again(tmp_path):
+    content = b"the whole corpus"
+    transport, asked = ranged_server(content, honours_range=False)
+    destination = tmp_path / "corpus.zip"
+    destination.with_name("corpus.zip.part").write_bytes(b"the who")
+    with httpx.Client(transport=transport) as client:
+        download("https://example.invalid/c", destination, client=client, md5=md5(content))
+    assert asked == ["bytes=7-"]
+    assert destination.read_bytes() == content
+
+
+def test_a_part_longer_than_the_file_is_dropped_and_fetched_again(tmp_path):
+    content = b"a shorter file now"
+    transport, asked = ranged_server(content)
+    destination = tmp_path / "corpus.zip"
+    destination.with_name("corpus.zip.part").write_bytes(b"x" * 100)
+    with httpx.Client(transport=transport) as client:
+        download("https://example.invalid/c", destination, client=client, md5=md5(content))
+    assert asked == ["bytes=100-", ""]
+    assert destination.read_bytes() == content
+
+
+def test_an_unpinned_download_never_continues_a_part(tmp_path):
+    """Without a checksum nothing proves that the part and the rest are one file."""
+    content = b"a talk"
+    transport, asked = ranged_server(content)
+    destination = tmp_path / "talk.mp4"
+    destination.with_name("talk.mp4.part").write_bytes(b"an older ta")
+    with httpx.Client(transport=transport) as client:
+        download("https://example.invalid/t", destination, client=client)
+    assert asked == [""]
+    assert destination.read_bytes() == content
+
+
+def md5(content: bytes) -> str:
+    return hashlib.md5(content).hexdigest()
