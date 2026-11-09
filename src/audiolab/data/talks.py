@@ -87,6 +87,7 @@ from audiolab.eval.client import (
     base_url_from_env,
     concurrency_from_env,
     map_requests,
+    never,
 )
 from audiolab.eval.metrics import counts
 
@@ -385,21 +386,23 @@ def heard_talks(
     whisper: Transcribe,
     tally: Counter[str],
     concurrency: int = 1,
+    should_stop: Callable[[], bool] = never,
 ) -> list[TalkInProgress]:
     """The Whisper pass on a batch: :func:`heard_talk` on ``concurrency`` talks at once.
 
-    The talks come back in batch order.
+    The talks come back in batch order; once ``should_stop()`` is true, no talk
+    starts and only the talks started come back (:func:`map_requests`).
 
     What runs in parallel is talks, not the chunks of one talk: a chunk starts
     where the last trusted segment of the one before it ends
     (:func:`audiolab.data.talk_clips.segment_audio`), so it cannot be sent first.
-    A stopped run stops the talks in flight at their next chunk; the answers
-    already written stay cached.
+    A stopped run, or a failed one, stops the talks in flight at their next
+    chunk; the answers already written stay cached.
     """
-    stopping = threading.Event()
+    failing = threading.Event()
 
     def whisper_until_stopped(wav: bytes) -> dict:
-        if stopping.is_set():
+        if failing.is_set() or should_stop():
             raise TranscriptionError("stopping")
         return whisper(wav)
 
@@ -407,7 +410,7 @@ def heard_talks(
         counted: Counter[str] = Counter()  # one per talk: threads must not share a Counter
         return heard_talk(*pair, cache, whisper_until_stopped, counted), counted
 
-    results = map_requests(heard, batch, concurrency, stopping)
+    results = map_requests(heard, batch, concurrency, should_stop=should_stop, failing=failing)
     for _, counted in results:
         tally.update(counted)
     return [talk for talk, _ in results]

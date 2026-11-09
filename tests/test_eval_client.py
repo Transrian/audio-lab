@@ -289,7 +289,7 @@ def test_one_at_a_time_reads_the_items_as_the_requests_go():
 
 
 def test_a_failed_request_stops_the_others_and_is_raised_once_they_are_done():
-    stop = threading.Event()
+    failing = threading.Event()
     started: list[int] = []
     finished: list[int] = []
 
@@ -297,12 +297,12 @@ def test_a_failed_request_stops_the_others_and_is_raised_once_they_are_done():
         started.append(number)
         if number == 1:
             raise TranscriptionError("HTTP 500")
-        assert stop.wait(timeout=10), "the failure sets the stop the asks watch"
+        assert failing.wait(timeout=10), "the failure sets the event the asks watch"
         finished.append(number)
         return number
 
     with pytest.raises(TranscriptionError, match="HTTP 500"):
-        map_requests(ask, range(10), concurrency=2, stop=stop)
+        map_requests(ask, range(10), concurrency=2, failing=failing)
 
     assert sorted(started) == [0, 1], "no item starts once a request failed"
     assert finished == [0], "the request in flight finishes"
@@ -316,7 +316,8 @@ def test_a_stopped_run_starts_no_new_request_and_returns_those_it_started():
             stop.set()  # Ctrl-C while the third request is answered
         return number
 
-    assert map_requests(ask, range(10), stop=stop) == [0, 1, 2]
+    assert map_requests(ask, range(10), should_stop=stop.is_set) == [0, 1, 2]
+    assert map_requests(ask, range(10), concurrency=3, should_stop=stop.is_set) == []
 
 
 def test_a_concurrency_below_one_is_refused():

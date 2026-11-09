@@ -628,9 +628,9 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     map_requests = talks.map_requests
     stopping: list[threading.Event] = []
 
-    def watched(ask, items, concurrency, stop):
-        stopping.append(stop)
-        return map_requests(ask, items, concurrency, stop)
+    def watched(ask, items, concurrency, should_stop, failing):
+        stopping.append(failing)
+        return map_requests(ask, items, concurrency, should_stop=should_stop, failing=failing)
 
     monkeypatch.setattr(talks, "map_requests", watched)
     whisper_asked = threading.Event()
@@ -654,6 +654,25 @@ def test_a_stopped_whisper_pass_stops_the_talks_in_flight_at_their_next_chunk(
     assert len(Answers(tmp_path / f"a.{WHISPER}.300s.jsonl").answers) == 1, (
         "the answer already written stays cached"
     )
+
+
+def test_a_whisper_pass_asked_to_stop_starts_no_talk_and_ends_the_one_in_flight(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(talk_clips, "CHUNK_SECONDS", 2.0)  # a talk of 10 s is five chunks
+    stop = threading.Event()
+    calls = []
+
+    def whisper(wav: bytes) -> dict:
+        calls.append(wav)
+        stop.set()  # Ctrl-C while the first chunk is heard
+        return {"segments": [], "text": ""}
+
+    batch = [(talk(uuid), write_tone(tmp_path / f"{uuid}.wav", seconds=10.0)) for uuid in "ab"]
+    heard = talks.heard_talks(batch, tmp_path, whisper, Counter(), should_stop=stop.is_set)
+
+    assert [one.talk.id for one in heard] == ["a"], "the second talk never starts"
+    assert len(calls) == 1, "the talk in flight stops at its next chunk"
 
 
 def test_the_parakeet_pass_sends_clips_at_once_and_offers_them_in_order(tmp_path):
