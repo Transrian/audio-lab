@@ -53,7 +53,7 @@ def fetch_granary_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ver
     """Prepare the French pseudo-labelled speech up to the cap, returning the clip count."""
     cache = cache_dir / name
     shards = _shards()
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

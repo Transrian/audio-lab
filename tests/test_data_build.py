@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -133,9 +134,34 @@ def test_a_torn_last_line_is_skipped_and_its_clip_prepared_again(tmp_path, run_a
     assert builder.prepared("example:2", **FIELDS) is None
 
 
-def test_the_key_names_the_code_and_the_decoding_libraries():
+def test_the_key_names_the_code_and_the_decoding_libraries(tmp_path, monkeypatch):
     assert build.preparation_key() == build.preparation_key()
     assert len(build.preparation_key()) == 64
+
+    # A copy of the package, so that a test can edit its code.
+    package = Path(build.__file__).parent.parent
+    copy = tmp_path / "audiolab"
+    for path in [
+        *package.glob("data/*.py"),
+        *package.glob("data/*.json"),
+        package / "core/audio.py",
+    ]:
+        (copy / path.parent.name).mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, copy / path.relative_to(package))
+    monkeypatch.setattr(build, "__file__", str(copy / "data" / "build.py"))
+    before = build.preparation_key()
+    assert before == build.preparation_key()
+
+    talks = copy / "data" / "talks.py"
+    talks.write_text(talks.read_text(encoding="utf-8") + "\n# an edit\n", encoding="utf-8")
+    edited = build.preparation_key()
+    assert edited != before, "an edit to a data module prepares again"
+
+    real_version = build.version
+    monkeypatch.setattr(
+        build, "version", lambda name: "0.0" if name == "soxr" else real_version(name)
+    )
+    assert build.preparation_key() != edited, "another resampler prepares again"
 
 
 # --- training sources: the cap is decided again on what was written --------------

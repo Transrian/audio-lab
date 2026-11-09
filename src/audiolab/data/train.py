@@ -150,9 +150,6 @@ class Take:
     beyond_group_cap: int = 0
     per_group: dict[str, int] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        self.builder.bar.total = self.cap
-
     def full(self) -> bool:
         """Whether the cap is reached and the source can stop being read."""
         return self.kept >= self.cap

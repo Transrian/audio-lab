@@ -180,7 +180,7 @@ def fetch_ami_fr_speakers_en_train(
         sha256=PINNED_SHA256.get(ANNOTATIONS_NAME, ""),
     )
     channels = read_channels(annotations)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

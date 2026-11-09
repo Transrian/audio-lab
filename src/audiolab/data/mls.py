@@ -97,7 +97,7 @@ def fetch_mls_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose
     transcripts = read_records(
         download(_source("transcripts.txt", TRAIN_SPLIT), cache / "transcripts.txt"), 2
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

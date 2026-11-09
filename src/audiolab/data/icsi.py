@@ -112,7 +112,7 @@ def fetch_icsi_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbos
         cache_dir / name / TRANSCRIPTS_NAME,
         sha256=PINNED_SHA256.get(TRANSCRIPTS_NAME, ""),
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

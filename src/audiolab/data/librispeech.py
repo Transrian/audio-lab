@@ -79,7 +79,7 @@ def fetch_librispeech_en_train(
         cache_dir / name / TRAIN_ARCHIVE_NAME,
         sha256=PINNED_SHA256.get(TRAIN_ARCHIVE_NAME, ""),
     )
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = prepare_train_audio(name, archive_path, builder)
     if verbose:
         print(f"  {take.report()}")

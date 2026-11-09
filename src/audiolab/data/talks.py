@@ -241,7 +241,7 @@ def fetch_talks(
     """
     listed_on, talks = read_listing(source)
     cache = cache_dir / source.name
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=source.name,
         builder=builder,

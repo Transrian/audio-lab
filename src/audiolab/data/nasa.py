@@ -67,7 +67,7 @@ from audiolab.data.talks import (
     prefetched,
     served,
 )
-from audiolab.data.train import Take
+from audiolab.data.train import TRAIN_CLIP_CAP, Take
 from audiolab.eval.client import TranscriptionError
 
 NAME = "nasa-en-train"
@@ -522,7 +522,7 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
     """Prepare ``nasa-en-train`` up to the clip cap, returning the clip count."""
     listed_on, episodes = read_listing(SOURCE)
     cache = cache / NAME
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=NAME,
         builder=builder,

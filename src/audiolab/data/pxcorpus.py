@@ -67,7 +67,7 @@ def fetch_pxcorpus_fr_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
         md5=PINNED_MD5.get(ARCHIVE_NAME, ""),
     )
     rows = read_rows(name, archive)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

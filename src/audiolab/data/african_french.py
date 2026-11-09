@@ -84,7 +84,7 @@ def fetch_african_accented_fr_train(
         sha256=PINNED_SHA256.get(ARCHIVE_NAME, ""),
     )
     transcripts = _read_transcripts(name, archive)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

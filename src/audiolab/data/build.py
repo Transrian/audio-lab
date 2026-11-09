@@ -54,7 +54,7 @@ class ManifestBuilder:
     manifest, which therefore still never advertises a clip that is not on disk.
     """
 
-    def __init__(self, dataset_dir: Path, *, verbose: bool) -> None:
+    def __init__(self, dataset_dir: Path, *, verbose: bool, total: int | None = None) -> None:
         self.dataset_dir = dataset_dir
         self.verbose = verbose
         self.clips: list[Clip] = []
@@ -64,7 +64,7 @@ class ManifestBuilder:
         if not self.done:
             # Nothing in it can be taken: a new one starts with this preparation.
             self.partial.unlink(missing_ok=True)
-        self.bar = progress(desc=dataset_dir.name, unit="clip")
+        self.bar = progress(desc=dataset_dir.name, unit="clip", total=total)
 
     def prepared(self, clip_id: str, **fields) -> Clip | None:
         """The clip a stopped preparation left with these fields, if its WAV is there."""
@@ -124,8 +124,10 @@ def preparation_key() -> str:
     the resampler, and from how this package cuts and converts. The key is the
     hash of the package's data code, of the audio core, and of the versions of
     the libraries that decode and resample, so any change to them prepares again
-    from the start. It is broader than the code a given dataset runs; that costs
-    a preparation, never a wrong clip.
+    from the start. It is broad on purpose: an edit to any ``data/*.py``, even
+    one a given dataset does not run, throws its partial clips away, which costs
+    time and never gives a wrong clip. It does not cover the version of
+    ``ffmpeg``, which decodes the talk and ICSI sources outside Python.
     """
     digest = hashlib.sha256()
     package = Path(__file__).parent.parent

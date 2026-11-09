@@ -60,7 +60,7 @@ def fetch_voxpopuli_fr_train(
     """Prepare the French train split up to the cap, returning the number of clips."""
     cache = cache_dir / name
     shards = _shards(SPLIT_PATH, SHARD_PREFIX)
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,

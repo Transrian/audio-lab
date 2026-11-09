@@ -108,7 +108,7 @@ def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
     """Prepare the recorded training meetings of NOTSOFAR-1 up to the cap."""
     release = Release(name, cache_dir)
     meetings = release.meetings()
-    builder = ManifestBuilder(dataset_dir, verbose=verbose)
+    builder = ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP)
     take = Take(
         name=name,
         builder=builder,
