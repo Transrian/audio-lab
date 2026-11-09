@@ -31,9 +31,8 @@ from audiolab.eval.normalize import normalize
 # Whisper is sent five minutes at a time: the server takes fifteen-minute
 # requests, and a short chunk is cheaper to retry.
 CHUNK_SECONDS = 300.0
-# The label model's server answers HTTP 500 to audio longer than about 19 s,
-# so this source's clips stop there rather than at the 20 s of every source.
-MAX_CLIP_SECONDS = min(MAX_SECONDS, 19.0)
+# A talk's clips stop where the clips of every source do.
+MAX_CLIP_SECONDS = MAX_SECONDS
 # Whisper's own loop rule, the default of openai-whisper: a text that compresses
 # better than 2.4 to 1 repeats itself.
 MAX_COMPRESSION_RATIO = 2.4

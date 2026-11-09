@@ -253,23 +253,23 @@ def test_only_clips_the_two_models_agree_on_are_kept(tmp_path):
             segment("Bonjour à tous.", 0.0, 6.0),
             segment("On parle de Kubernetes.", 6.0, 13.0),
             segment("Oui.", 13.5, 13.55),
-            segment("Une phrase beaucoup trop longue.", 15.0, 35.0),
+            segment("Une phrase beaucoup trop longue.", 15.0, 36.0),
         ],
         seconds=40.0,
     )
-    # With their padding, the clips last 6.0 s, 7.2 s, 0.45 s and 20.2 s.
+    # With their padding, the clips last 6.0 s, 7.2 s, 0.45 s and 21.0 s.
     qwen, calls = answering_by_length({6.0: "Bonjour à tous.", 7.2: "Il pleut sur Toulouse."})
     tally = Counter()
 
     agreed = talks.agreeing(one, Answers(tmp_path / "q.jsonl"), qwen, "fr", 200, tally)
 
     assert [(clip.start_s, label) for clip, label in agreed] == [(0.0, "Bonjour à tous.")]
-    assert sorted(calls) == [6.0, 7.2], "a clip outside 0.5-19 s is not labelled"
+    assert sorted(calls) == [6.0, 7.2], "a clip outside 0.5-20 s is not labelled"
     assert tally == Counter(
         {
             "clips labelled": 2,
             "clips where Whisper and Qwen disagree": 1,
-            "clips outside 0.5-19 s": 2,
+            "clips outside 0.5-20 s": 2,
         }
     )
     assert "(50.0%) rejected" in talks.report(tally)

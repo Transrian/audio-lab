@@ -122,7 +122,7 @@ def test_a_long_pause_a_doubtful_segment_or_the_length_limit_end_a_clip():
         segment("après la pause", 3.5, 5.0),
         segment("...", 5.0, 6.0),
         segment("et on reprend", 6.0, 7.0),
-        segment("une phrase sans fin", 7.0, 26.0),
+        segment("une phrase sans fin", 7.0, 27.5),
     ]
     assert texts(talk_clips.candidates(phrases, FRENCH, tally)) == [
         "avant la pause",
@@ -171,8 +171,8 @@ def test_a_clip_is_padded_by_at_most_half_the_gap_to_its_neighbours():
     )
 
 
-def test_padding_never_takes_a_clip_past_the_server_limit():
-    clip = segment("une longue phrase", 10.0, 28.9)
+def test_padding_never_takes_a_clip_past_the_clip_limit():
+    clip = segment("une longue phrase", 10.0, 29.9)
     widened = talk_clips.padded(clip, previous_end=0.0, next_start=float("inf"))
-    assert widened == segment("une longue phrase", 9.9, 28.9)
+    assert widened == segment("une longue phrase", 9.9, 29.9)
     assert widened.end_s - widened.start_s == pytest.approx(talk_clips.MAX_CLIP_SECONDS)
