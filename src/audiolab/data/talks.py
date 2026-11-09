@@ -63,6 +63,8 @@ from pathlib import Path
 import httpx
 
 from audiolab.core.audio import SAMPLE_RATE, load_audio
+from audiolab.core.progress import progress, say
+from audiolab.core.stop import raise_if_stopped, stop_requested
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
 from audiolab.data.talk_clips import (
@@ -156,7 +158,8 @@ def fetch_audio(http: httpx.Client, talk: Talk, destination: Path, source: TalkS
 
     The video file is downloaded first (reading it remotely through ffmpeg is
     much slower) and deleted as soon as its audio is out: most of its bytes are
-    pixels.
+    pixels. An ffmpeg that a stop interrupted (Ctrl-C reaches it too) is not a
+    talk that failed: the video stays for the next run, which converts it again.
     """
     if destination.is_file():
         return destination
@@ -167,13 +170,13 @@ def fetch_audio(http: httpx.Client, talk: Talk, destination: Path, source: TalkS
         "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(video_file),
         "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-c:a", "pcm_s16le", str(partial_wav),
     ]  # fmt: skip
-    try:
-        finished = subprocess.run(command, capture_output=True, text=True)
-    finally:
-        video_file.unlink(missing_ok=True)
+    finished = subprocess.run(command, capture_output=True, text=True)
     if finished.returncode != 0:
         partial_wav.unlink(missing_ok=True)
+        raise_if_stopped(f"audio of {talk.url} stopped")
+        video_file.unlink(missing_ok=True)
         raise DownloadError(f"ffmpeg failed on {talk.url}: {finished.stderr.strip()[:200]}")
+    video_file.unlink()
     partial_wav.rename(destination)
     return destination
 
@@ -224,12 +227,14 @@ def fetch_talks(
             answer(parakeet, source.language),
         )
         talks_read = 0
+        bar = progress(desc=f"{source.name} talks", unit="talk")
         while not take.full():
-            batch = islice(audio_files, batch_size(take, talks_read))
+            batch = until_stopped(islice(audio_files, batch_size(take, talks_read)), bar)
             read = prepare_batch(batch, cache, models, take, source, tally, verbose=verbose)
             if not read:
                 break
             talks_read += read
+        bar.close()
     if verbose:
         print(f"  {report(tally)}")
         print(f"  {take.report()}")
@@ -266,15 +271,20 @@ def prepare_audio(
         print(f"  listing of {listed_on}: {len(talks)} talks; preparing {len(wanted)} of them")
     done: list[Talk] = []
     failed = 0
-    with http_client() as http, ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as downloads:
+    with (
+        http_client() as http,
+        ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as downloads,
+        progress(desc=f"{source.name} talks", unit="talk", total=len(wanted)) as bar,
+    ):
         heard = downloads.map(partial(audio_file, http, cache, source), wanted)
         for position, (talk, path) in enumerate(zip(wanted, heard, strict=True), start=1):
+            bar.update()
             if path is None:
                 failed += 1
             else:
                 done.append(talk)
             if verbose and position % 25 == 0:
-                print(f"  ... {position} talks read, {len(done)} with audio")
+                say(f"  ... {position} talks read, {len(done)} with audio")
     prepared = PreparedAudio(len(done), sum(talk.duration_s for talk in done) / 3600, failed)
     if verbose:
         print(
@@ -325,13 +335,18 @@ def prepare_batch(
     """Run the three passes over a batch of talks, one model after the other.
 
     The batch is read as the Whisper pass goes, so the next talk downloads while
-    the ones before it are transcribed. Returns the number of talks read.
+    the ones before it are transcribed. Returns the number of talks read. A stop
+    takes effect between two talks; every answer is cached, so the next run goes
+    through what this one did without asking a model again.
     """
     started = time.monotonic()
+    stopped = f"labelling of {source.name} stopped"
     talks = heard_talks(batch, cache, models.whisper, tally)
+    raise_if_stopped(stopped)
     segmented = time.monotonic()
     room = take.cap - take.kept
     for talk in talks:
+        raise_if_stopped(stopped)
         answers = Answers(cache / clips_file(talk.talk, LABEL_MODEL))
         talk.agreed = agreeing(
             talk, answers, models.qwen, source.language, min(take.cap_per_group, room), tally
@@ -339,16 +354,30 @@ def prepare_batch(
         room -= len(talk.agreed)
     labelled = time.monotonic()
     for talk in talks:
+        raise_if_stopped(stopped)
         answers = Answers(cache / clips_file(talk.talk, BASE_MODEL))
         offer_talk(talk, answers, models.parakeet, take, source.language, tally)
     if verbose and talks:
         hours = sum(talk.talk.duration_s for talk in talks) / 3600
-        print(
+        say(
             f"  {len(talks)} talks ({hours:.1f} h): segments in {segmented - started:.0f} s, "
             f"labels in {labelled - segmented:.0f} s, base model in "
             f"{time.monotonic() - labelled:.0f} s; {take.kept} clips so far"
         )
     return len(talks)
+
+
+def until_stopped[T](items: Iterable[T], bar) -> Iterator[T]:
+    """The items one after the other, counted on ``bar``, until a stop is asked for.
+
+    The passes take a batch as it downloads, so a stop also stops the downloads
+    of the talks after the one in hand.
+    """
+    for item in items:
+        if stop_requested():
+            return
+        bar.update()
+        yield item
 
 
 def prefetched(

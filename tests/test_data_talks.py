@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
+from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import talk_clips, talk_listing, talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
@@ -229,6 +230,21 @@ def test_fetch_audio_reports_ffmpeg_failing_and_leaves_nothing_behind(tmp_path, 
     with pytest.raises(DownloadError, match="no audio stream"):
         talks.fetch_audio(None, talk(), tmp_path / "cache" / "v1.wav", source)
     assert list((tmp_path / "cache").iterdir()) == []
+
+
+def test_an_ffmpeg_a_stop_interrupted_keeps_the_video_for_the_next_run(tmp_path, monkeypatch):
+    source_file = tmp_path / "remote.mp4"
+    source_file.write_bytes(b"pixels and sound")
+    source = make_source(tmp_path, [talk()], audio_url=lambda http, one: str(source_file))
+
+    def interrupted_ffmpeg(command, **options):
+        request_stop()  # the Ctrl-C that reached ffmpeg reached this process too
+        return type("Finished", (), {"returncode": 255, "stderr": "Exiting normally"})()
+
+    monkeypatch.setattr(talks.subprocess, "run", interrupted_ffmpeg)
+    with pytest.raises(Stopped):
+        talks.fetch_audio(None, talk(), tmp_path / "cache" / "v1.wav", source)
+    assert [one.name for one in (tmp_path / "cache").iterdir()] == ["v1.video"]
 
 
 def test_agreement_ignores_casing_punctuation_and_how_numbers_are_written():
@@ -464,6 +480,75 @@ def test_each_batch_runs_the_three_passes_one_model_after_the_other(tmp_path, mo
             "one cache file per talk"
         )
     assert "2 talks (" in capsys.readouterr().out
+
+
+def test_a_stopped_labelling_writes_no_manifest_and_the_next_run_asks_only_the_rest(
+    tmp_path, monkeypatch, run_again
+):
+    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
+    parakeet_requests = []
+
+    def parakeet(wav):
+        parakeet_requests.append(wav)
+        if len(parakeet_requests) == 1:
+            request_stop()
+        return {"text": "Bonjour."}
+
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: parakeet,
+    }
+    log: list[str] = []
+    source = make_source(tmp_path, [talk(uuid) for uuid in "abcd"])
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 3)
+    monkeypatch.setattr(talks, "EXPECTED_CLIPS_PER_TALK", 2)
+
+    def label() -> int:
+        return talks.fetch_talks(
+            source, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=False
+        )
+
+    with pytest.raises(Stopped, match="preparation of dataset stopped"):
+        label()
+    assert not (tmp_path / "dataset" / "manifest.jsonl").exists()
+
+    run_again()
+    log.clear()
+    assert label() == 3
+    requests = [entry for entry in log if not entry.startswith("download")]
+    # Only what the stopped run did not ask: the second talk of the first batch
+    # for the base model, then the whole second batch.
+    assert requests == [PARAKEET] + [WHISPER] * 2 + [QWEN] + [PARAKEET]
+    clips = read_manifest(tmp_path / "dataset")
+    assert [(clip.text, clip.base_wer) for clip in clips] == [("Bonjour.", 0.0)] * 3
+
+
+def test_a_stop_during_the_whisper_pass_reads_no_further_talk_and_labels_nothing(
+    tmp_path, monkeypatch
+):
+    rows = [whisper_row(0.0, 5.0, "Bonjour."), whisper_row(6.0, 11.0, "Salut.")]
+
+    def whisper(wav):
+        request_stop()
+        return {"segments": rows, "text": ""}
+
+    answers = {WHISPER: whisper, QWEN: lambda wav: {"text": "Bonjour."}, PARAKEET: None}
+    log: list[str] = []
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "PARALLEL_REQUESTS", 1)
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 3)
+    monkeypatch.setattr(talks, "EXPECTED_CLIPS_PER_TALK", 1)
+    source = make_source(tmp_path, [talk(uuid) for uuid in "abcd"])
+
+    with pytest.raises(Stopped, match="labelling of test-fr-train stopped"):
+        talks.fetch_talks(
+            source, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=False
+        )
+    assert QWEN not in log
+    assert len([entry for entry in log if entry.startswith("download")]) < 4
+    assert not (tmp_path / "dataset" / "manifest.jsonl").exists()
 
 
 def test_an_english_source_is_labelled_in_english_and_says_so_in_its_clips(tmp_path, monkeypatch):
