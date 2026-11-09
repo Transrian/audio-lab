@@ -12,6 +12,15 @@ This is a screening, not a recipe search. It gives a *feel* for each source; it
 does not choose the final mix ([roadmap](../roadmap.md), phase 4) and it is not
 the baseline of [decision 0004](../decisions/accepted/0004-parakeet-fr-baseline-recipe.md).
 
+## Reporting helper
+
+The [source-screening helper](../../experiments/source-screening/README.md)
+formats retained evaluation runs using the common paired comparison. It takes
+explicit baseline and candidate paths, without training a model or sending
+transcription requests. Its README gives the environment and exact invocation.
+Generated output does not automatically replace the historical tables below;
+use the recorded code revisions and inputs when reproducing those results.
+
 ## The runs
 
 One config per source, identical except for the dataset, the clip count of a
