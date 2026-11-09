@@ -41,7 +41,7 @@ def load_audio(source, sample_rate: int = SAMPLE_RATE) -> Audio:
     mono = samples.mean(axis=1)
     if source_rate != sample_rate:
         mono = soxr.resample(mono, source_rate, sample_rate, quality="HQ")
-    return Audio(samples=mono.astype(np.float32), sample_rate=sample_rate)
+    return Audio(samples=mono.astype(np.float32, copy=False), sample_rate=sample_rate)
 
 
 def to_int16(samples: np.ndarray) -> np.ndarray:

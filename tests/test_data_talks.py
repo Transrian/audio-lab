@@ -540,11 +540,11 @@ def test_the_names_peertube_fr_train_is_cached_and_labelled_under_do_not_change(
 def test_a_talk_is_heard_while_the_next_one_downloads(tmp_path, monkeypatch):
     whisper_asked = threading.Event()
 
-    def whisper(wav: bytes) -> dict:
+    def empty_answer(wav: bytes) -> dict:
         whisper_asked.set()
         return {"segments": [], "text": ""}
 
-    answers = {WHISPER: whisper, QWEN: whisper, PARAKEET: whisper}
+    answers = {WHISPER: empty_answer, QWEN: empty_answer, PARAKEET: empty_answer}
     log: list[str] = []
     source = make_source(tmp_path, [talk(uuid) for uuid in "abc"])
     serve_fakes(monkeypatch, None, answers, log)

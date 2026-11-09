@@ -585,6 +585,6 @@ def client(model: str, request: dict | None = None) -> TranscriptionClient:
     )
 
 
-def answer(client: TranscriptionClient, language: str) -> Transcribe:
+def answer(served: TranscriptionClient, language: str) -> Transcribe:
     """A model as a :data:`~audiolab.data.talk_clips.Transcribe`: a WAV in, its JSON answer out."""
-    return lambda wav: client.transcribe(wav, language).answer
+    return lambda wav: served.transcribe(wav, language).answer
