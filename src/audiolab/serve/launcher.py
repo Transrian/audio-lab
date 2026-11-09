@@ -136,23 +136,25 @@ class ServingProcess:
 
         A stop (D-021) stops the child, which has served nothing yet, and raises
         :class:`~audiolab.core.stop.Stopped`: loading a checkpoint is no step a
-        run would want to finish first.
+        run would want to finish first. ``timeout_s`` is a total deadline from
+        this call: a child that keeps printing without announcing an address is
+        stopped as surely as a silent one.
         """
         deadline = time.monotonic() + timeout_s
         while True:
-            try:
-                line = self._queue.get(timeout=POLL_S)
-            except Empty:
-                if should_stop():
-                    self.stop()
-                    raise Stopped("starting the server stopped") from None
-                if time.monotonic() < deadline:
-                    continue
+            if should_stop():
+                self.stop()
+                raise Stopped("starting the server stopped")
+            if time.monotonic() >= deadline:
                 self.stop()
                 raise ServeConfigError(
                     f"the server for {self.command[0]} did not start within "
                     f"{timeout_s:.0f}s; its last output was:\n{self.output()}"
-                ) from None
+                )
+            try:
+                line = self._queue.get(timeout=POLL_S)
+            except Empty:
+                continue
             if line is None:
                 raise ServeConfigError(
                     f"the server stopped before it was ready (command: {' '.join(self.command)})"

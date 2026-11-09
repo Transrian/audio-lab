@@ -308,6 +308,34 @@ def test_a_stop_while_audiolab_serve_loads_the_checkpoint_does_not_serve_it(monk
     assert runtime.READY_PREFIX not in capsys.readouterr().out
 
 
+# A child that prints without end and never announces an address; it ends when
+# its standard input closes, as the real one does.
+CHATTY_CHILD = [
+    sys.executable,
+    "-c",
+    "import os, sys, threading, time\n"
+    "threading.Thread(target=lambda: (sys.stdin.read(), os._exit(0)), daemon=True).start()\n"
+    "while True:\n"
+    "    print('loading', flush=True)\n"
+    "    time.sleep(0.01)\n",
+]
+
+
+def test_a_child_that_keeps_printing_is_still_given_up_at_the_deadline():
+    process = ServingProcess(CHATTY_CHILD)
+    with pytest.raises(ServeConfigError, match="did not start within"):
+        process.wait_until_ready(timeout_s=0.5)
+    assert process.process.poll() is not None
+
+
+def test_a_child_that_keeps_printing_is_still_stopped_by_a_stop():
+    process = ServingProcess(CHATTY_CHILD)
+    threading.Timer(0.1, request_stop).start()
+    with pytest.raises(Stopped, match="starting the server stopped"):
+        process.wait_until_ready(timeout_s=60)
+    assert process.process.poll() is not None
+
+
 def test_a_child_that_cannot_start_says_what_it_printed():
     """An interpreter without NeMo must fail with its own message, not a timeout."""
 
