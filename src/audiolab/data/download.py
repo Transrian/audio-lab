@@ -98,15 +98,15 @@ def _fetch(http: httpx.Client, url: str, staged: Path, *, resume: bool) -> None:
     stops between two blocks when a stop is asked for, and keeps what it wrote.
     """
     have = staged.stat().st_size if resume and staged.is_file() else 0
-    headers = {"Range": f"bytes={have}-"} if have else {}
-    with http.stream("GET", url, headers=headers) as response:
-        if have and _refused_range_size(response) == have:
-            return
-        served_from = _range_start(response, have) if have else 0
-        if served_from is None:
-            whole_again = True
-        else:
-            whole_again = False
+    while True:
+        headers = {"Range": f"bytes={have}-"} if have else {}
+        with http.stream("GET", url, headers=headers) as response:
+            served_from = _body_start(response, have)
+            if served_from is None:
+                have = 0  # the range cannot be served: ask for the whole file
+                continue
+            if have and response.status_code == 416:
+                return  # the part is the whole file already
             response.raise_for_status()
             length = response.headers.get("content-length")
             total = served_from + int(length) if length else None
@@ -118,34 +118,26 @@ def _fetch(http: httpx.Client, url: str, staged: Path, *, resume: bool) -> None:
                     handle.write(block)
                     bar.update(len(block))
                     raise_if_stopped(f"download of {staged.stem} stopped")
-    if whole_again:
-        _fetch(http, url, staged, resume=False)
+            return
 
 
-def _range_start(response: httpx.Response, asked: int) -> int | None:
-    """Where the body of an answer to a request for the bytes from ``asked`` on starts.
+def _body_start(response: httpx.Response, asked: int) -> int | None:
+    """Where in the file the body of the answer to a request from byte ``asked`` on starts.
 
-    ``asked`` when the server sent that range, 0 when it sent the whole file,
-    ``None`` when it refused the range or sent another one.
+    0 when no bytes were skipped or the server sent the whole file; ``asked``
+    when it sent that range, or refused it because the file is ``asked`` bytes
+    long (``416`` with ``Content-Range: bytes */<size>``); ``None`` when it
+    refused the range otherwise or sent another one.
     """
-    if response.status_code == 416:
-        return None
-    if response.status_code != 206:
+    if not asked or response.status_code not in (206, 416):
         return 0
+    content_range = response.headers.get("content-range", "")
+    if response.status_code == 416:
+        size = content_range.removeprefix("bytes */")
+        return asked if size.isdecimal() and int(size) == asked else None
     # Content-Range: bytes <first>-<last>/<size>
-    first = response.headers.get("content-range", "").removeprefix("bytes ").partition("-")[0]
+    first = content_range.removeprefix("bytes ").partition("-")[0]
     return asked if first == str(asked) else None
-
-
-def _refused_range_size(response: httpx.Response) -> int | None:
-    """The size of the file, when a server refused a range past its end.
-
-    It says so as ``416`` with ``Content-Range: bytes */<size>``.
-    """
-    if response.status_code != 416:
-        return None
-    size = response.headers.get("content-range", "").removeprefix("bytes */")
-    return int(size) if size.isdecimal() else None
 
 
 def sha256_file(path: Path) -> str:
