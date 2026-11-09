@@ -980,7 +980,7 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   Parakeet one.
 - **Split and order**: `source_split` is `listing`; episodes are read in a seeded
   shuffle (`SEED`) spread over the show, so a first cap covers the five shows
-  rather than Houston We Have a Podcast, which holds two thirds of the hours. The
+  rather than Houston We Have a Podcast, which holds 71 % of the hours. The
   audio is the MP3 the listing pinned, converted to 16 kHz mono WAV.
 - **Prepared audio**: before the labelling run, the first 65 h of the reading
   order of the listing of 2026-11-09 — 128 episodes, 66.0 h: 30 or 31 per
