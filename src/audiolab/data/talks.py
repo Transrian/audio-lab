@@ -665,10 +665,10 @@ def client(model: str, request: dict | None = None) -> TranscriptionClient:
     )
 
 
-def served(model: TranscriptionClient, language: str) -> Served:
+def served(client: TranscriptionClient, language: str) -> Served:
     """A model as the passes ask it, in ``language``, as many requests at once as it takes."""
     return Served(
-        transcribe=lambda wav: model.transcribe(wav, language).answer,
-        concurrency=concurrency_from_env(model.config),
-        warm_up=model.warm_up,
+        transcribe=lambda wav: client.transcribe(wav, language).answer,
+        concurrency=concurrency_from_env(client.config),
+        warm_up=client.warm_up,
     )
