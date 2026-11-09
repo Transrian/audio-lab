@@ -373,7 +373,7 @@ screening is a difference between corpora and not between recipes:
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.7 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
-| `nasa-en-train` | en | public domain (US government work) | listing | TBD | TBD | TBD | TBD | TBD |
+| `nasa-en-train` | en | public domain (US government work) | listing | 12 000 | 265 | 34.8 | 3.7 GiB | not measured: the MP3 files are deleted once their sound is out, and the 265 episodes read leave 15.0 GiB of WAV in the cache |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -1352,6 +1352,66 @@ cased and punctuated, is the label. A model only says *when* each word was said.
   16 kHz mono WAV, 7.0 GiB in the pipeline's cache (`$AUDIOLAB_CACHE`,
   `.cache/audiolab` by default, git-ignored; the MP3 is deleted once its sound is
   out). Every episode of that selection arrived.
+- **Prepared** (2026-11-09): the labelling run read **265 episodes, 140.3 h**, in
+  seven batches sized on the yield (`batch_size`, `src/audiolab/data/talks.py`):
+  86 episodes (43.0 h), 147 (79.9 h), 25 (13.8 h), then 4, 1, 1 and 1 as the cap
+  neared. Of the 137 episodes past the selection above, it downloaded 91; the
+  cache already held the other 46. Every page read again passed the listing's
+  rules, and every episode was downloaded and heard. Whisper's segments, of which
+  479 lost the words they repeated from the one before and 6 without duration and
+  757 without words were left out, gave 46 044 candidate clips, and the
+  transcripts labelled **19 019 of them (41.3 %)**. The 27 025 others are counted
+  under the first test of the alignment (above) they fail, in the order the tests
+  run:
+
+  | left out because | clips |
+  | --- | --- |
+  | shorter than 1 s or longer than 20 s | 769 |
+  | the first or last word Whisper heard has no pair in the transcript | 7 417 |
+  | the two texts do not meet at an edge: the words just outside the clip are not each other's pair, so a transcript word there may have been said inside it | 9 277 |
+  | a word the scorer drops ("Um,") is just outside the clip | 299 |
+  | an edge falls inside a written word (`1,000`) | 74 |
+  | a change of speaker or a note inside the clip | 5 247 |
+  | on or next to a line that notes a sound | 925 |
+  | fewer than 90 % of the words paired on one side | 2 620 |
+  | more than two unpaired words in a row | 397 |
+
+  Parakeet heard 13 834 of the labelled clips: in 1 834 of them (13.3 %) the
+  first or last word it hears is not the label's, and the 12 000 others were
+  kept. The other 5 185 labelled clips were never sent to it, being past their
+  episode's share of 200 or past the room left under the cap. The result is
+  **12 000 clips (the cap), 34.8 h, 265 groups**, median 9.3 s, all public domain
+  (US government work). Every episode read keeps clips, 1 to 176 (median 44), so
+  none gives its full 200; six of the eight that give fewer than 10 are trailers
+  and season introductions of under 3 minutes:
+
+  | show | episodes | clips | hours |
+  | --- | --- | --- | --- |
+  | Houston We Have a Podcast | 65 | 4 002 | 11.5 |
+  | Gravity Assist | 65 | 2 923 | 8.6 |
+  | Small Steps, Giant Leaps | 64 | 2 913 | 8.9 |
+  | NASA in Silicon Valley | 64 | 1 910 | 5.2 |
+  | NASA's Curious Universe | 7 | 252 | 0.6 |
+
+  The prepared set is 3.7 GiB, and the 265 episodes read leave 15.0 GiB of WAV
+  in the cache.
+- **What the base model gets wrong**: Parakeet's text differs from the label on
+  7 269 of the 12 000 clips (60.6 %); the mean `base_wer` is 5.3 %, and 39 % of
+  the clips have a `base_wer` of 0. By show, it differs on 29 % (NASA's Curious
+  Universe) to 73 % (NASA in Silicon Valley) of the clips. The labels are human
+  text, so this is closer to the base model's own error than on the talk
+  sources, but not equal to it: a false start or a repeat the transcript edited
+  out counts as a base-model error, and the edge check keeps only clips whose
+  first and last words Parakeet already hears.
+- **Known limits**: **the label error of the kept clips is not measured** — the
+  thresholds bound how far a label may stray from Whisper's words, and nobody
+  has checked a sample against the audio. The labels keep NASA's typography:
+  `’` for every apostrophe (6 452 clips hold one, none a straight `'`), and
+  `“ ”`, `—` and `–`. The tokenizer of Parakeet TDT 0.6B v3 has no piece for
+  them, so a model trained on these labels learns to write its unknown token,
+  which is most of this source's harm on English in the
+  [screening](screening.md#what-each-source-does-alone); the training text does
+  not replace them yet.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of
