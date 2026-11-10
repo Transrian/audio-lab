@@ -118,7 +118,7 @@ written there by this script's output. The official column reproduces
 
 - The rules apply to both sides: a model that rewrites the user's words into
   another style is no longer counted against. That is the intended trade-off,
-  and it is the owner's to accept (Q6).
+  and it is the owner's to accept (the question above).
 - It is a re-reading of frozen runs, not a re-evaluation: latencies, empty
   outputs, truncations and the formatted view are untouched.
 - The non-speech panel is unaffected by design: the rules never turn an
