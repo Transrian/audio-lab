@@ -91,6 +91,19 @@ def test_table_per_dataset_and_character(tmp_path, capsys):
     ]
 
 
+def test_a_clip_with_two_characters_counts_once_per_character(tmp_path, capsys):
+    """A clip holding a character twice is one clip, not two occurrences."""
+    root = tmp_path / "data"
+    write_manifest(root, "x-train", ["« a » « b »"])
+    assert check_text.main(["--data-dir", str(root), "x-train"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "| dataset | character | clips |",
+        "| --- | --- | --- |",
+        "| x-train | `«` | 1 |",
+        "| x-train | `»` | 1 |",
+    ]
+
+
 def test_default_is_every_train_directory(tmp_path, monkeypatch, capsys):
     root = tmp_path / "data"
     write_manifest(root, "dirty-train", ["« x »"])
@@ -109,6 +122,18 @@ def test_missing_dataset_fails_with_exit_2(tmp_path, capsys):
     root.mkdir()
     assert check_text.main(["--data-dir", str(root), "nope-train"]) == 2
     assert "no manifest.jsonl" in capsys.readouterr().err
+
+
+def test_malformed_manifest_fails_with_exit_2(tmp_path, capsys):
+    root = tmp_path / "data"
+    (root / "bad-train").mkdir(parents=True)
+    (root / "bad-train" / "manifest.jsonl").write_text(
+        json.dumps({"id": "bad-train:x", "text": "« y »"}) + "\n", encoding="utf-8"
+    )
+    assert check_text.main(["--data-dir", str(root), "bad-train"]) == 2
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "missing fields" in err
 
 
 def test_never_writes_under_the_data_root(tmp_path):
