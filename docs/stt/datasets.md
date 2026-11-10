@@ -402,7 +402,10 @@ screening is a difference between corpora and not between recipes:
   [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
   are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`, `icsi-en-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
-  `voxpopuli-fr-train`; the per-source screening keeps them unchanged for
+  `voxpopuli-fr-train`, plus the archived pre-cleanup NASA preparation
+  `nasa-en-train.curly-2026-11-09`, which is not a training input and is kept
+  for the [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
+  the per-source screening keeps them unchanged for
   reproducibility, and a re-preparation is what brings a set into the rule.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
