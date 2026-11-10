@@ -396,7 +396,14 @@ screening is a difference between corpora and not between recipes:
   (`2014-2020`); `…` becomes `...`. A clip whose label still holds a character
   outside the vocabulary (`+ & @ # ° _`, a letter such as `ş`) is left out and
   counted in the fetch report. The rule dates from 2026-11-09: a source prepared
-  earlier keeps its published characters until it is prepared again.
+  earlier keeps its published characters until it is prepared again. On
+  2026-11-10 the prepared sets that predate the rule and still hold unwritable
+  characters (measured by
+  [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
+  are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`, `icsi-en-train`,
+  `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
+  `voxpopuli-fr-train`; the per-source screening keeps them unchanged for
+  reproducibility, and a re-preparation is what brings a set into the rule.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
   below.
