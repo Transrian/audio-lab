@@ -35,9 +35,10 @@ the v1 rules, applied to both sides of a score (reference and hypothesis):
    `d' accord` → `d'accord`). A missing apostrophe (`l homme`) is a
    different defect and is not fixed.
 
-Everything else stays v1. The version becomes 2 for runs of the **next**
-campaign, recorded in every summary as v1 is recorded; it does not apply to
-the running or past campaigns ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
+Everything else stays v1. The normalizer version becomes
+`NORMALIZER_VERSION = 2` (`src/audiolab/eval/normalize.py`) for runs of the
+**next** campaign, recorded in every summary as v1 is recorded; it does not
+apply to the running or past campaigns ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
 Every v1 result — including the whole screening — stays as published; no
 historical number is rewritten. The rule set is fixed and reviewable in
 [`experiments/normalization-review`](../../experiments/normalization-review/README.md),
@@ -64,12 +65,19 @@ intervals) shows what the rules would do:
   style, not contractions, so a narrower rule set was chosen on purpose;
 - one screening conclusion moves: NASA's harm on servicenow en-fr, separable
   at +1.93 [+0.52, +3.38] under v1, is not separable at +1.35 [0.00, +2.74]
-  under the diagnostic (the interval touches zero exactly).
+  under the diagnostic. That flip is a knife-edge: the diagnostic lower
+  bound is exactly 0.0 — of the 10 000 bootstrap draws, 243 fall below zero,
+  15 land exactly on it, and the 2.5th percentile sits on that atom — so it
+  should be read as "the diagnostic removes NASA's separability on that
+  panel", not as a large effect.
 
 The cost is the intended one: a model that rewrites the user's words into
 another style ("it's" → "it is", or the other way round) is no longer
-counted against. That trade-off is the owner's to take (Q6, answered
-"probably yes" on 2026-11-10); this proposal is the formal step before it.
+counted against. That trade-off is the owner's to take: whether contraction
+and elision equivalence becomes the official scoring rule of the next
+campaign. The owner answered "probably yes" to that question on 2026-11-10;
+the answer is recorded here as an answer, not an acceptance — this proposal
+is the formal step before acceptance.
 
 ## Alternatives considered
 
