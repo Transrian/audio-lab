@@ -5,6 +5,10 @@ The [plan](../../plans/09-retention-p07.md) is git-ignored; this page
 documents the helper. The script classifies, the owner decides: it never
 proposes a deletion in code and never deletes, moves or renames anything.
 
+**Outcome (2026-11-10):** the owner answered the retention question; the
+unreferenced candidates were freed, the doc-cited diagnostic run kept.
+Machine-specific detail stays in the ignored local notes.
+
 [`inventory.py`](inventory.py) walks the three storage roots named by the
 environment and reports, per directory, what the repository says about it:
 
