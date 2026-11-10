@@ -497,10 +497,12 @@ def _old_format_note(
 def df_avail(path: Path) -> str:
     """The device's free space as ``df -h`` prints it, or '' when df is absent.
 
-    ``shutil.disk_usage`` reads f_bfree (total free blocks) and this report
-    shows it in binary GiB; ``df -h`` reads f_bavail and rounds 1024-base
-    units up, so the two can differ by a gigabyte. Printing both, in place,
-    keeps the difference explained instead of looked up.
+    Both figures come from the same statfs field (f_bavail): this report
+    shows it in binary GiB rounded to the nearest, and ``df -h`` rounds
+    1024-base units up — 792.49 GiB is "792 GiB" here and "793G" there.
+    The gap is display rounding only; printing both, in place, explains it
+    instead of leaving it looked up. A hung df (stale mount) must not hang
+    the inventory: after 5 s it is treated like df being absent.
     """
     try:
         result = subprocess.run(
@@ -508,9 +510,10 @@ def df_avail(path: Path) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=5,
             env={**os.environ, "LC_ALL": "C"},
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return ""
     if result.returncode != 0:
         return ""
@@ -911,8 +914,8 @@ def main(argv: list[str] | None = None) -> int:
     lines.append("")
 
     # Free space of the device(s) behind the roots, re-measured now. The
-    # binary-GiB figure and df -h's figure are printed together: they read
-    # slightly different fields (f_bfree vs f_bavail) and round differently.
+    # binary-GiB figure and df -h's figure are printed together: the same
+    # value, differently rounded (nearest GiB here, 1024-base units up there).
     root_pairs = [
         ("AUDIOLAB_CACHE", cache_root),
         ("AUDIOLAB_DATA", data_root),
@@ -926,8 +929,10 @@ def main(argv: list[str] | None = None) -> int:
         line = f"{names}: {human(usage.free)} free of {human(usage.total)}"
         avail = df_avail(on_device[0][1])
         if avail:
-            line += f" (df -h: {avail} free — the same free space; df uses 1024-base "
-            "units, rounds up, and counts the blocks left for root)"
+            line += (
+                f" (df -h: {avail} free — the same value; df rounds 1024-base "
+                "units up, this line rounds to the nearest GiB)"
+            )
         free_lines.append(line)
     lines.append("Free space: " + "; ".join(free_lines))
     lines.append("")
