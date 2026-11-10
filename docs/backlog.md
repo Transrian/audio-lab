@@ -1,6 +1,6 @@
 # Backlog
 
-Updated: 2026-11-09.
+Updated: 2026-11-10.
 
 The durable list of open work. The [roadmap](roadmap.md) holds milestones and
 completion criteria; this page holds concrete tasks and unanswered questions.
@@ -14,10 +14,11 @@ The [owner directives](owner/directives.md) and
 record a data-source status change in the [source register](stt/sources.md)
 before acquiring or rejecting it (D-018).
 
-## Paused
+## Resumed
 
-These items remain paused by the owner. Organizing the repository does not
-resume them.
+The owner resumed these items on 2026-11-10. The priority is the training and
+evaluation data (DS-01 to DS-04 below), not a first full training run. Each GPU run
+and each long labelling job on the STT server still needs the owner's go.
 
 | ID | Work or question | Reference / next step before execution |
 |---|---|---|
@@ -28,6 +29,19 @@ resume them.
 | P-05 | Review the NASA source filters. | Decide whether to exclude Curious Universe entirely and whether the edge-word gate's selection bias is acceptable. The [NASA card](stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts) records the current filters and counts. |
 | P-06 | Re-prepare talk sets made before label-character cleanup. | Review the [training-source text rules](stt/datasets.md#training-sources) before a full training run. The existing screens do not need to be repeated solely to organize this repository. |
 | P-07 | Review cache and screening-checkpoint retention. | Inventory the local files and which reports need them before deleting anything. Machine-specific paths and estimates belong in ignored local notes, not this backlog. |
+
+## Data campaign
+
+Before any training campaign, the evaluation sets are fixed
+([decision 0002](decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
+so DS-01 comes before DS-03.
+
+| ID | Work | Reference / limits |
+|---|---|---|
+| DS-01 | New evaluation sets for what the panels do not measure: other French accents, real meetings, noise and reverberation, music, technical talks with human references. | [Evaluation limits](stt/evaluation.md). Adding panels to the suites needs the owner's agreement; existing panels never change. Covers N-03 and part of N-04 and N-05. |
+| DS-02 | Noise and reverberation augmentation in training, and a controlled test of it. | [Decision 0004](decisions/accepted/0004-parakeet-fr-baseline-recipe.md) plans noise on about 40 % of samples; [training](stt/training.md) has none today. The training half of the noise must never be the half used by evaluation. |
+| DS-03 | Larger training preparations than 12 000 clips, and French technical talks as their own source. | The 12 000-clip sets stay as the [screening](stt/screening.md) used them. Needs DS-01's evaluation talks excluded first. Part of P-02. |
+| DS-04 | Training on several datasets at once, with a guard that refuses evaluation audio. | [Training](stt/training.md) takes one dataset and has no frozen-data guard. Part of P-02. |
 
 ## Owner review needed
 
