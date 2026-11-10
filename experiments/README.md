@@ -7,6 +7,7 @@ feature of the maintained `audiolab` core
 | Experiment | Purpose | Entry point |
 |---|---|---|
 | [Source screening](source-screening/README.md) | Render comparisons of already evaluated per-source training runs | [table.py](source-screening/table.py) |
+| [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (plan 09, P-07) | [inventory.py](storage-inventory/inventory.py) |
 
 The [research index](../docs/research/README.md) links questions and findings.
 The [backlog](../docs/backlog.md) tracks open work and pauses; creating an
