@@ -23,8 +23,11 @@ talk-source answer caches, `screen-peertube-fr` (control of plan 02),
 `nasa-en-train.curly-2026-11-09` and `screen-nasa-en` (until plan 05 Part C is
 documented), and the evaluation run directories cited by
 `docs/stt/screening.md` or `docs/stt/evaluation.md`, plus the transcript
-cache that holds the per-clip answers those docs quote. Each rule carries a
-comment in the script citing the plan.
+cache that holds the per-clip answers those docs quote. The docs can also
+quote a run's numbers in prose without naming the directory; those runs are
+listed in the script's `DOC_CITED_EVAL_RUNS` constant, each with the doc line
+its citation comes from. Each rule carries a comment in the script citing the
+plan.
 
 The plan's two special cases:
 
@@ -79,9 +82,15 @@ uv run python experiments/storage-inventory/inventory.py \
 
 `--data-dir`, `--runs-dir`, `--cache-dir` and `--repo-root` override the
 environment and the default repository root. The Markdown report goes to
-standard output; missing roots exit `2` on standard error without a partial
-report. The result is pasted into the plan's `## Status` (git-ignored, like
-all machine facts); commit only this experiment, never the report.
+standard output. Exit codes: `0` for a complete inventory, `2` when a root is
+missing or not a directory (standard error, no partial report), and `3` when
+some path could not be read: the report then lists it under
+"Warnings: paths that could not be read" and the affected rows are measured
+as 0 B. The free-space line prints the binary-GiB figure and `df -h`'s figure
+together, so their one-gigabyte difference (1024-base units, rounding up,
+blocks kept for root) is explained in place. The result is pasted into the
+plan's `## Status` (git-ignored, like all machine facts); commit only this
+experiment, never the report.
 
 ## Output
 
@@ -109,6 +118,9 @@ splits every talk cache into downloaded audio (candidate) and model answers
   its own is not retrainable from the repository, and the table says so.
 - The talk split is by file name, following the layout `talks.py` writes; a
   file with an unexpected name lands in "other input", never in the answers.
+- A path that cannot be read (permissions, a vanished file) is counted as 0 B
+  and listed in the report's warnings section, which makes the run exit `3`;
+  the script never guesses at an unreadable size.
 - Sizes are apparent (stated) sizes of every file, including partial
   downloads and logs; the newest mtime is the newest file's, not the
   directory's.

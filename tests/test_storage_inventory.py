@@ -68,7 +68,8 @@ def roots(tmp_path, monkeypatch):
     # The evaluation run the docs cite (keep rule) and the transcript cache.
     write(
         repo / "docs/stt/screening.md",
-        "The uncleaned run is stored as `runs/eval/old-screen-2026-01-01/`.\n",
+        "The uncleaned run is stored as `runs/eval/old-screen-2026-01-01/`.\n"
+        "The ghost checkpoint's evaluation is kept as `runs/eval/screen-ghost/`.\n",
     )
     write(
         repo / "docs/stt/evaluation.md",
@@ -97,6 +98,9 @@ def roots(tmp_path, monkeypatch):
     write(cache / "fleurs-fr/archive.tar.gz")  # prepared + pinned: re-creatable
     write(cache / "granary-fr-train/shard.parquet")  # prepared, pinned via Hub map
     write(cache / "notsofar-en-train/archive.bin")  # pinned, not prepared here
+    # Unreferenced cache holding one pre-rename label-model answer (old id).
+    write(cache / "old-cache/a1.stt-a-qwen3-asr-1.7B.jsonl", "o" * 4)
+    write(cache / "old-cache/a2.stt-c-whisper-large-v3.300s.json", "o" * 5)
 
     runs = tmp_path / "runs"
     write(runs / ".identity-key", "k" * 65)
@@ -111,6 +115,8 @@ def roots(tmp_path, monkeypatch):
     write(runs / "eval/base-model/full/records.jsonl", "r" * 9)
     write(runs / "eval/screen-x/full/records.jsonl", "r" * 9)
     write(runs / "eval/screen-peertube-fr/full/records.jsonl", "r" * 9)
+    # Quoted by the docs in prose without naming the directory (DOC_CITED_EVAL_RUNS).
+    write(runs / "eval/diag-african-apostrophe/full/records.jsonl", "r" * 9)
     write(runs / "eval/ghost-eval/full/run.json", json.dumps({"model": {"name": "some-model"}}))
     write(runs / "eval/ghost-eval/full/records.jsonl", "r" * 9)
 
@@ -125,7 +131,7 @@ def roots(tmp_path, monkeypatch):
         str(repo),
     ]
     before = snapshot([data, runs, cache])
-    yield argv
+    yield argv, [data, runs, cache]
     assert snapshot([data, runs, cache]) == before, "the inventory wrote under the roots"
 
 
@@ -142,11 +148,13 @@ def test_missing_roots_fail_with_exit_2(monkeypatch, capsys):
     for name in ENV:
         monkeypatch.delenv(name, raising=False)
     assert inventory.main([]) == 2
-    assert "error:" in capsys.readouterr().err
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "error:" in err
 
 
 def test_classifications(roots, capsys):
-    argv = roots
+    argv, _paths = roots
     assert inventory.main(argv) == 0
     text = capsys.readouterr().out
 
@@ -173,6 +181,12 @@ def test_classifications(roots, capsys):
     assert "pinned in audiolab.data.fleurs" in row(text, "$AUDIOLAB_CACHE/fleurs-fr")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_CACHE/granary-fr-train")
     assert "not prepared here" in row(text, "$AUDIOLAB_CACHE/notsofar-en-train")
+    # An unreferenced cache holding a pre-rename label-model answer: the note
+    # counts it and checks the siblings, so the owner sees what would be lost.
+    old = row(text, "$AUDIOLAB_CACHE/old-cache")
+    assert "candidate: unreferenced" in old
+    assert "1 of its 2 files are stt-a-qwen3-asr-1.7B.*" in old
+    assert "exist in no other cache directory" in old
 
     assert "keep (referenced)" in row(text, "$AUDIOLAB_RUNS/.identity-key")
     assert "docs/stt/evaluation.md" in row(text, "$AUDIOLAB_RUNS/.identity-key")
@@ -191,6 +205,11 @@ def test_classifications(roots, capsys):
     assert "configs/train/screen-x.yaml" in row(text, "$AUDIOLAB_RUNS/train/screen-x")
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
     assert "not retrainable" in row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
+    # The checkpoint's basename is referenced — as its evaluation run. The
+    # row shows that reference and still follows plan 09 step 5.
+    ghost = row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
+    assert "the same basename is also referenced by docs/stt/screening.md" in ghost
+    assert "runs/eval/screen-ghost" in ghost
     assert "unknown" in row(text, "$AUDIOLAB_RUNS/train/mystery-run")
 
     # The evaluation runs.
@@ -202,15 +221,45 @@ def test_classifications(roots, capsys):
     ghost = row(text, "$AUDIOLAB_RUNS/eval/ghost-eval")
     assert "candidate: unreferenced" in ghost
     assert "evaluates the some-model checkpoint (run.json)" in ghost
+    # Quoted by the docs in prose without naming the directory: the keep rule
+    # still applies (DOC_CITED_EVAL_RUNS). Remove the constant entry and this
+    # row falls back to candidate: unreferenced, which these asserts catch.
+    diag = row(text, "$AUDIOLAB_RUNS/eval/diag-african-apostrophe")
+    assert "keep (rule above)" in diag
+    assert "docs/stt/screening.md (line 164)" in diag
+    assert "reproducible from this run only" in diag
+
+
+def test_unreadable_path_is_reported_and_exits_3(roots, monkeypatch, capsys):
+    argv, paths = roots
+    blocked = paths[1] / "transcripts"
+    real_scandir = os.scandir
+    state = {"blocked": True}
+
+    def flaky_scandir(path, *args, **kwargs):
+        if state["blocked"] and Path(path) == blocked:
+            raise PermissionError(13, "Permission denied", str(blocked))
+        return real_scandir(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "scandir", flaky_scandir)
+    assert inventory.main(argv) == 3
+    out = capsys.readouterr().out
+    assert "## Warnings: paths that could not be read" in out
+    assert str(blocked) in out
+    # The affected row is measured as 0 B, not silently.
+    assert "0 B" in row(out, "$AUDIOLAB_RUNS/transcripts")
+    # Unblock before the fixture teardown snapshots the tree: os.walk swallows
+    # a directory whose scandir raises, and the snapshot would miss its files.
+    state["blocked"] = False
 
 
 def test_totals_and_talk_table(roots, capsys):
-    argv = roots
+    argv, _paths = roots
     assert inventory.main(argv) == 0
     text = capsys.readouterr().out
 
-    # Every leaf counted once: 5 cache + 8 data + 3 runs leaves + 5 train + 5 eval.
-    assert "| **all** | 26 |" in text
+    # Every leaf counted once: 6 cache + 8 data + 3 runs leaves + 5 train + 6 eval.
+    assert "| **all** | 28 |" in text
     assert "candidate: re-creatable" in text
     assert "## Talk caches: downloaded audio vs model answers" in text
     talk_row = next(
@@ -221,3 +270,8 @@ def test_totals_and_talk_table(roots, capsys):
     )
     # The talk source's total: 10 + 5 + 2 + 3 bytes.
     assert "20 B" in talk_row
+    # The free space line names its units and, with df available, df's figure.
+    free_line = next(line for line in text.splitlines() if line.startswith("Free space:"))
+    assert "free of" in free_line
+    if "df -h:" in free_line:
+        assert "1024-base" in free_line

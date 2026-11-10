@@ -25,7 +25,9 @@ Classification follows plan 09 (``plans/09-retention-p07.md``, git-ignored):
     documented;
   * the evaluation run directories cited by ``docs/stt/screening.md`` or
     ``docs/stt/evaluation.md`` (they hold the per-clip answers the docs
-    quote), and the transcript cache that holds those answers.
+    quote), and the transcript cache that holds those answers; the docs can
+    also quote a run's numbers without naming the directory — those runs are
+    listed in ``DOC_CITED_EVAL_RUNS``, with the doc line of each citation;
 - ``keep (referenced)`` -- the name appears in ``docs/``, ``configs/`` or
   ``experiments/`` (the reference check of the plan's step 2, which also
   covers the train ``dataset:`` values and the panel headers).
@@ -52,6 +54,11 @@ The two special cases of the plan:
 
 Nothing is ever deleted, moved or renamed; the output is the only deliverable
 besides this script.
+
+Exit codes: 0 for a complete inventory; 2 when a root is missing or not a
+directory (nothing is printed to stdout); 3 when some path could not be read
+(the report lists it under "Warnings: paths that could not be read" and the
+affected rows are measured as 0 B).
 """
 
 from __future__ import annotations
@@ -63,6 +70,7 @@ import os
 import re
 import shutil
 import stat as stat_module
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -92,6 +100,26 @@ BABBLE_NOISE_DATASETS = frozenset({"mls-fr-train", "librispeech-en-train"})
 NASA_CURLY = "nasa-en-train.curly-2026-11-09"
 PEERTUBE_CONTROL = "screen-peertube-fr"  # control of plan 02
 NASA_SCREEN = "screen-nasa-en"  # until plan 05 Part C is documented
+
+# Evaluation run directories the docs cite in prose WITHOUT naming the
+# directory, so the name grep (eval_runs_cited_by_docs, over RUNS_DOCS) cannot
+# find them. The plan's keep list covers every "evaluation run directory
+# cited by docs/stt/screening.md or docs/stt/evaluation.md"; these are the
+# citations that name no directory. Each value states the citation, with the
+# doc line it comes from, so a reader can verify it. An entry leaves this
+# table only when the citation leaves the docs.
+DOC_CITED_EVAL_RUNS: dict[str, str] = {
+    "diag-african-apostrophe": (
+        "apostrophe diagnostic quoted in docs/stt/screening.md (line 164) "
+        "without naming the directory; re-scored copy of the kept uncleaned "
+        "run — its numbers are reproducible from this run only"
+    ),
+}
+
+# The label-model id before the rename (talks.py's LABEL_MODEL is now
+# stt-v-qwen3-asr-1.7B). Answer files under this old id were written before
+# the rename; where they survive, this cache directory is the only copy.
+OLD_FORMAT_LABEL_ID = "stt-a-qwen3-asr-1.7B"
 
 TALK_AUDIO_SUFFIXES = (
     ".wav",
@@ -145,16 +173,24 @@ def name_pattern(name: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])")
 
 
-def measure(path: Path) -> tuple[int, int, float]:
+def _problem(problems: list[str] | None, message: str) -> None:
+    """Record a path the inventory could not read: reported, never improvised."""
+    if problems is not None:
+        problems.append(message)
+
+
+def measure(path: Path, problems: list[str] | None = None) -> tuple[int, int, float]:
     """Total bytes, file count and newest mtime of everything under ``path``.
 
     An ``os.scandir`` walk with ``stat`` only: it never opens a file and
     never writes anything, so the storage tree stays bit for bit untouched.
+    A path that cannot be read is counted as 0 B and recorded in ``problems``
+    (the report lists it, and ``main`` then exits 3 instead of 0).
     """
     try:
         info = path.stat(follow_symlinks=False)
     except OSError as error:
-        print(f"warning: cannot stat {path}: {error}", file=sys.stderr)
+        _problem(problems, f"cannot stat {path}: {error}")
         return 0, 0, 0.0
     if stat_module.S_ISREG(info.st_mode):
         return info.st_size, 1, info.st_mtime
@@ -168,13 +204,13 @@ def measure(path: Path) -> tuple[int, int, float]:
             with os.scandir(current) as handle:
                 children = list(handle)
         except OSError as error:
-            print(f"warning: cannot list {current}: {error}", file=sys.stderr)
+            _problem(problems, f"cannot list {current}: {error}")
             continue
         for child in children:
             try:
                 info = child.stat(follow_symlinks=False)
             except OSError as error:
-                print(f"warning: cannot stat {child.path}: {error}", file=sys.stderr)
+                _problem(problems, f"cannot stat {child.path}: {error}")
                 continue
             if child.is_dir(follow_symlinks=False):
                 stack.append(child.path)
@@ -339,7 +375,7 @@ def newest_label(mtime: float) -> str:
     return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
 
 
-def talk_split(path: Path) -> tuple[int, int, int]:
+def talk_split(path: Path, problems: list[str] | None = None) -> tuple[int, int, int]:
     """(downloaded audio, model answers, other input) under one talk cache.
 
     The layout is what ``src/audiolab/data/talks.py`` writes: ``<talk id>.wav``
@@ -351,15 +387,17 @@ def talk_split(path: Path) -> tuple[int, int, int]:
     try:
         with os.scandir(path) as handle:
             children = list(handle)
-    except OSError:
+    except OSError as error:
+        _problem(problems, f"cannot list {path}: {error}")
         return 0, 0, 0
     for child in children:
         try:
             info = child.stat(follow_symlinks=False)
-        except OSError:
+        except OSError as error:
+            _problem(problems, f"cannot stat {child.path}: {error}")
             continue
         if child.is_dir(follow_symlinks=False):
-            other += measure(Path(child.path))[0]
+            other += measure(Path(child.path), problems)[0]
         elif child.is_file(follow_symlinks=False):
             if child.name.endswith(TALK_ANSWER_SUFFIXES):
                 answers += info.st_size
@@ -370,23 +408,32 @@ def talk_split(path: Path) -> tuple[int, int, int]:
     return audio, answers, other
 
 
-def content_note(path: Path) -> str:
+def content_note(
+    path: Path,
+    problems: list[str] | None = None,
+    cache_root: Path | None = None,
+) -> str:
     """What an unrecognised cache directory holds, counted, not guessed."""
     answers = 0
     audio = 0
     other = 0
+    old_format: list[str] = []
     try:
         with os.scandir(path) as handle:
             children = list(handle)
-    except OSError:
+    except OSError as error:
+        _problem(problems, f"cannot list {path}: {error}")
         return ""
     for child in children:
         try:
             child.stat(follow_symlinks=False)
-        except OSError:
+        except OSError as error:
+            _problem(problems, f"cannot stat {child.path}: {error}")
             continue
         if not child.is_file(follow_symlinks=False):
             continue
+        if OLD_FORMAT_LABEL_ID in child.name:
+            old_format.append(child.name)
         if child.name.endswith(TALK_ANSWER_SUFFIXES):
             answers += 1
         elif child.name.endswith(TALK_AUDIO_SUFFIXES):
@@ -400,7 +447,75 @@ def content_note(path: Path) -> str:
         parts.append(f"{audio} audio files")
     if other:
         parts.append(f"{other} other files")
-    return "holds " + ", ".join(parts) + " (no current pipeline reuses it)" if parts else ""
+    note = "holds " + ", ".join(parts) + " (no current pipeline reuses it)" if parts else ""
+    if old_format:
+        extra = _old_format_note(path, answers + audio + other, old_format, cache_root, problems)
+        if extra:
+            note = f"{note}; {extra}" if note else extra
+    return note
+
+
+def _old_format_note(
+    path: Path,
+    total_files: int,
+    old_format: list[str],
+    cache_root: Path | None,
+    problems: list[str] | None = None,
+) -> str:
+    """What pre-rename label-model answers this directory holds, checked, not assumed.
+
+    The current talk caches keep the renamed id (stt-v-qwen3-asr-1.7B, the
+    LABEL_MODEL in src/audiolab/data/talks.py). Whether the old-id answers
+    exist anywhere else is checked in the sibling cache directories, so the
+    note tells the owner exactly what deleting this directory would lose.
+    """
+    if cache_root is None:
+        return ""
+    try:
+        with os.scandir(cache_root) as handle:
+            siblings = [child.name for child in handle if child.is_dir(follow_symlinks=False)]
+    except OSError as error:
+        _problem(problems, f"cannot list {cache_root}: {error}")
+        return ""
+    only_here = [
+        name
+        for name in old_format
+        if not any(
+            (cache_root / sibling / name).is_file() for sibling in siblings if sibling != path.name
+        )
+    ]
+    if not only_here:
+        return ""
+    return (
+        f"{len(only_here)} of its {total_files} files are {OLD_FORMAT_LABEL_ID}.* "
+        "answers (pre-rename model id) that exist in no other cache directory "
+        "here (the current cache keeps the renamed id stt-v-qwen3-asr-1.7B): "
+        "deleting this directory loses them"
+    )
+
+
+def df_avail(path: Path) -> str:
+    """The device's free space as ``df -h`` prints it, or '' when df is absent.
+
+    ``shutil.disk_usage`` reads f_bfree (total free blocks) and this report
+    shows it in binary GiB; ``df -h`` reads f_bavail and rounds 1024-base
+    units up, so the two can differ by a gigabyte. Printing both, in place,
+    keeps the difference explained instead of looked up.
+    """
+    try:
+        result = subprocess.run(
+            ["df", "-h", "--output=avail", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+    except OSError:
+        return ""
+    if result.returncode != 0:
+        return ""
+    lines = result.stdout.splitlines()
+    return lines[-1].strip() if len(lines) >= 2 else ""
 
 
 def eval_model_name(eval_path: Path) -> str:
@@ -437,6 +552,8 @@ def classify(
     talk: set[str],
     pinned: dict[str, str],
     datasets: dict[str, str],
+    problems: list[str] | None = None,
+    cache_root: Path | None = None,
 ) -> None:
     """Plan 09's classes, in the order the plan applies them."""
     name = entry.path.name
@@ -507,6 +624,17 @@ def classify(
                 "not retrainable from the repository (plan 09 step 5 lists it "
                 "among the candidates)"
             ]
+        # The same basename may still be referenced — as its evaluation run,
+        # which is kept separately. Show the reference so the reader sees why
+        # the checkpoint row (plan 09 step 5) is still only a candidate.
+        other_refs = [ref for ref in find_refs(name, info) if ref != f"configs/train/{name}.yaml"]
+        if other_refs:
+            entry.extras.append(
+                "the same basename is also referenced by "
+                + shown_refs(other_refs)
+                + f"; its evaluation run (runs/eval/{name}) is kept separately, "
+                "and as a checkpoint this entry is classified by plan 09 step 5"
+            )
         return
 
     if entry.kind == "eval" and name in info.doc_eval_runs:
@@ -515,6 +643,16 @@ def classify(
             "evaluation run cited by "
             + ", ".join(info.doc_eval_runs[name])
             + " (plan 09 keep rule): it holds the per-clip answers the docs quote"
+        ]
+        return
+
+    # The docs can quote an evaluation run's numbers in prose without naming
+    # the directory; the name grep above cannot find those. DOC_CITED_EVAL_RUNS
+    # lists them, with the doc line of each citation (see the constant).
+    if entry.kind == "eval" and name in DOC_CITED_EVAL_RUNS:
+        entry.klass = "keep (rule above)"
+        entry.reasons = [
+            "evaluation run cited by the docs (plan 09 keep rule): " + DOC_CITED_EVAL_RUNS[name]
         ]
         return
 
@@ -572,22 +710,31 @@ def classify(
         if model:
             entry.extras.append(f"evaluates the {model} checkpoint (run.json)")
     if entry.kind == "cache":
-        note = content_note(entry.path)
+        note = content_note(entry.path, problems, cache_root)
         if note:
             entry.extras.append(note)
     return
 
 
-def collect(root: Path, env_name: str, kind: str) -> list[Entry]:
+def collect(
+    root: Path,
+    env_name: str,
+    kind: str,
+    problems: list[str] | None = None,
+) -> list[Entry]:
     """Every child of one storage root, measured."""
     entries: list[Entry] = []
     if not root.is_dir():
         return entries
-    with os.scandir(root) as handle:
-        children = sorted(handle, key=lambda child: child.name)
+    try:
+        with os.scandir(root) as handle:
+            children = sorted(handle, key=lambda child: child.name)
+    except OSError as error:
+        _problem(problems, f"cannot list {root}: {error}")
+        return entries
     for child in children:
         entry = Entry(label=f"${env_name}/{child.name}", path=Path(child.path), kind=kind)
-        entry.size, entry.files, entry.newest = measure(entry.path)
+        entry.size, entry.files, entry.newest = measure(entry.path, problems)
         entries.append(entry)
     return entries
 
@@ -693,12 +840,13 @@ def main(argv: list[str] | None = None) -> int:
     talk = talk_sources()
     datasets = fetcher_datasets()
     pinned = pinned_fetchers()
+    problems: list[str] = []
 
-    cache_entries = collect(cache_root, "AUDIOLAB_CACHE", "cache")
-    data_entries = collect(data_root, "AUDIOLAB_DATA", "data")
-    runs_entries = collect(runs_root, "AUDIOLAB_RUNS", "runs")
-    train_entries = collect(runs_root / "train", "AUDIOLAB_RUNS/train", "train")
-    eval_entries = collect(runs_root / "eval", "AUDIOLAB_RUNS/eval", "eval")
+    cache_entries = collect(cache_root, "AUDIOLAB_CACHE", "cache", problems)
+    data_entries = collect(data_root, "AUDIOLAB_DATA", "data", problems)
+    runs_entries = collect(runs_root, "AUDIOLAB_RUNS", "runs", problems)
+    train_entries = collect(runs_root / "train", "AUDIOLAB_RUNS/train", "train", problems)
+    eval_entries = collect(runs_root / "eval", "AUDIOLAB_RUNS/eval", "eval", problems)
 
     # train and eval are containers listed again below: show them as summary
     # rows so their size is counted once, in the class totals.
@@ -714,13 +862,24 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_train = repo_root / "configs" / "train"
     for entry in cache_entries + data_entries + runs_entries + train_entries + eval_entries:
-        classify(entry, data_root, runs_root, repo_train, info, talk, pinned, datasets)
+        classify(
+            entry,
+            data_root,
+            runs_root,
+            repo_train,
+            info,
+            talk,
+            pinned,
+            datasets,
+            problems,
+            cache_root,
+        )
 
     # The talk table (plan 09 step 4) and the checkpoint extras.
     talk_rows: list[tuple[Entry, int, int, int]] = []
     for entry in cache_entries:
         if entry.kind == "cache" and entry.path.name in talk:
-            audio, answers, other = talk_split(entry.path)
+            audio, answers, other = talk_split(entry.path, problems)
             entry.extras.append(
                 f"downloaded audio {human(audio)} (candidate) / "
                 f"model answers {human(answers)} (keep) / other input {human(other)}"
@@ -751,7 +910,9 @@ def main(argv: list[str] | None = None) -> int:
         )
     lines.append("")
 
-    # Free space of the device(s) behind the roots, re-measured now.
+    # Free space of the device(s) behind the roots, re-measured now. The
+    # binary-GiB figure and df -h's figure are printed together: they read
+    # slightly different fields (f_bfree vs f_bavail) and round differently.
     root_pairs = [
         ("AUDIOLAB_CACHE", cache_root),
         ("AUDIOLAB_DATA", data_root),
@@ -762,7 +923,12 @@ def main(argv: list[str] | None = None) -> int:
         on_device = [(env, root) for env, root in root_pairs if root.stat().st_dev == device]
         usage = shutil.disk_usage(on_device[0][1])
         names = ", ".join(f"${env}" for env, _ in on_device)
-        free_lines.append(f"{names}: {human(usage.free)} free of {human(usage.total)}")
+        line = f"{names}: {human(usage.free)} free of {human(usage.total)}"
+        avail = df_avail(on_device[0][1])
+        if avail:
+            line += f" (df -h: {avail} free — the same free space; df uses 1024-base "
+            "units, rounds up, and counts the blocks left for root)"
+        free_lines.append(line)
     lines.append("Free space: " + "; ".join(free_lines))
     lines.append("")
 
@@ -836,8 +1002,17 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("none: every entry was classified.")
     lines.append("")
 
+    if problems:
+        # The affected rows are measured as 0 B above; the list below says
+        # exactly which paths could not be read, so the report is honest.
+        lines.append("## Warnings: paths that could not be read")
+        lines.append("")
+        for problem in problems:
+            lines.append(f"- {problem}")
+        lines.append("")
+
     print("\n".join(lines))
-    return 0
+    return 3 if problems else 0
 
 
 if __name__ == "__main__":
