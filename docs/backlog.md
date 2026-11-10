@@ -17,13 +17,13 @@ before acquiring or rejecting it (D-018).
 ## Resumed
 
 The owner resumed these items on 2026-11-10. The priority is the training and
-evaluation data (DS-01 to DS-04 below), not a first full training run. Each GPU run
+evaluation data (DS-01 to DS-03 below), not a first full training run. Each GPU run
 and each long labelling job on the STT server still needs the owner's go.
 
 | ID | Work or question | Reference / next step before execution |
 |---|---|---|
 | P-01 | Re-screen NASA after its training labels were cleaned. | The [NASA screening analysis](stt/screening.md#what-each-source-does-alone) describes the text defect; the [dataset card](stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts) describes the prepared replacement. Do not delete the earlier preparation before the comparison is checked. |
-| P-02 | Label more of the talk pools and test a training mix. | Choose the mix and budget first. The [training interface](stt/training.md) currently takes one dataset; mix support is not implemented. Granary as an anchor is a [hypothesis](stt/screening.md#what-the-base-model-already-saw), not a selected recipe. |
+| P-02 | Label more of the talk pools and test a training mix. | Mix support and the leakage guard are implemented in the [training interface](stt/training.md#mixing-datasets); choosing the mix and the labelling budget still need the owner. Granary as an anchor is a [hypothesis](stt/screening.md#what-the-base-model-already-saw), not a selected recipe. |
 | P-03 | Separate the value of talk audio from Qwen's label style. | Design a controlled comparison that changes only the labels of the same human-transcribed audio, for example LibriSpeech-PC or ICSI. The [screening hypothesis](stt/screening.md#what-each-source-does-alone) is not a result of this test. |
 | P-04 | Review contraction and apostrophe-spacing normalization. | Candidate equivalences include `it's` / `it is` and `d' accord` / `d'accord`. Review the [style diagnostic](stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are) and [frozen-scoring rule](decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md) before changing metrics. Do not silently rewrite a campaign's scoring rules or historical results. |
 | P-05 | Review the NASA source filters. | The owner decided on 2026-11-10 to keep the episode-level music and archive filters and to leave NASA's Curious Universe out entirely; this is not implemented yet. Still open: whether the edge-word gate's selection bias is acceptable. The [NASA card](stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts) records the current filters and counts. |
@@ -41,7 +41,6 @@ so DS-01 comes before DS-03.
 | DS-01 | New evaluation sets for what the panels do not measure: other French accents, real meetings, noise and reverberation, music, technical talks with human references. | [Evaluation limits](stt/evaluation.md). Adding panels to the suites needs the owner's agreement; existing panels never change. Covers N-03 and part of N-04 and N-05. |
 | DS-02 | Noise and reverberation augmentation in training, and a controlled test of it. | [Decision 0004](decisions/accepted/0004-parakeet-fr-baseline-recipe.md) plans noise on about 40 % of samples; [training](stt/training.md) has none today. The training half of the noise must never be the half used by evaluation. |
 | DS-03 | Larger training preparations than 12 000 clips, and French technical talks as their own source. | The 12 000-clip sets stay as the [screening](stt/screening.md) used them. Needs DS-01's evaluation talks excluded first. Part of P-02. |
-| DS-04 | Training on several datasets at once, with a guard that refuses evaluation audio. | [Training](stt/training.md) takes one dataset and has no frozen-data guard. Part of P-02. |
 
 ## Owner review needed
 

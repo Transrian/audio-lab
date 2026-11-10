@@ -1,8 +1,8 @@
 # Fine-tuning a model
 
-This page explains how `audiolab train` fine-tunes one checkpoint on one dataset,
-what it writes, how a stopped run goes on, and what it deliberately does not do.
-The code lives in `src/audiolab/train/`.
+This page explains how `audiolab train` fine-tunes one checkpoint on one
+dataset — or on a mix of them —, what it writes, how a stopped run goes on, and
+what it deliberately does not do. The code lives in `src/audiolab/train/`.
 
 An `audiolab train` run is described by one config file in `configs/train/`
 ([decision 0007](../decisions/accepted/0007-single-package-single-command.md)).
@@ -74,9 +74,11 @@ resume_every: 500                         # updates between resume-slot rewrites
 log_every: 50                             # updates between log lines
 ```
 
-`base_model`, `dataset`, `clips`, `updates`, `batch_size`, `lr_encoder` and
-`lr_heads` are required: none of them has a value a run could guess, and a run
-that guessed one would train something other than what the file says. Every
+`base_model`, `updates`, `batch_size`, `lr_encoder` and `lr_heads` are required
+in every config, and a config must name its data as either `dataset` + `clips`
+(one dataset) or `datasets` (a mix, below): both, or neither, is refused. None
+of them has a value a run could guess, and a run that guessed one would train
+something other than what the file says. Every
 other field has a default and may be left out: `base_model_env` (`""`),
 `grad_accumulation` (1), `weight_decay` (1e-3), `schedule` (`constant`),
 `warmup_updates` (0), `precision` (`bf16-mixed`), `grad_clip` (1.0),
@@ -100,13 +102,74 @@ what the machine has. `audiolab train` has no `--gpu`: the GPU is part of the ru
 so it belongs in the config (and in `config.json`, which a resume is checked
 against).
 
+### Mixing datasets
+
+Instead of `dataset` + `clips`, a config may name several datasets, with a
+share for each:
+
+```yaml
+datasets:
+  - name: granary-fr-train
+    clips: 30000
+  - name: peertube-tech-fr-train
+    clips: 20000
+```
+
+The names are prepared datasets, unique, each with an integer clip count of at
+least 1, and no other key in an entry. The run's clip count is the **sum** of
+the shares, and that total must still cover a batch (at least `batch_size`).
+`configs/train/example-mix.yaml` is a commented template.
+
+**Shares are clip shares.** Each dataset is drawn once at the start of the run,
+and then every clip of every dataset is seen in the shuffled epochs, like a
+single dataset. The shares decide how much of each dataset the run contains —
+not the order the batches arrive in, and not how each epoch splits between the
+datasets.
+
+**One seed per dataset.** A dataset of a mix is drawn with the seed derived
+from the run's `seed` and the dataset's name alone, so adding a dataset to a
+mix — or reordering them — does not change the clips drawn from the other
+datasets. The per-dataset draws are what the run records, per dataset.
+
+**Duplicate audio is refused.** If the same recording was prepared into two
+datasets of the mix (the same talk in two sets), the run is refused and lists
+the first five duplicates: training it twice would count the same audio against
+two shares. A repetition inside one dataset is that dataset's business, not
+the mix's.
+
+### The leakage guard
+
+Every run — single dataset or mix — is checked before its model is loaded,
+against the evaluation datasets of the suite: the datasets behind the panels
+listed in `configs/suites/full.yaml`. A run is refused when
+
+- a training clip is the **audio** of an evaluation clip (the same `sha256`), or
+- a training clip is **named after** an evaluation dataset (its id prefix is
+  one of the suite's dataset names).
+
+An evaluation dataset that is not prepared on this machine cannot be checked:
+the run prints one warning line naming it and goes on with a partial check,
+rather than failing. The check prints a one-line summary of what it did.
+
+What the guard does **not** do: it does not compare group ids across different
+corpora, because ids collide by accident across corpora. Keeping evaluation
+recordings out of a training preparation stays the job of the fetchers, through
+their `evaluation_groups` exclusion; the guard is the last check, on the clips
+a run is actually about to train. What it checked is recorded in `train.json`
+under `leakage_guard` — the datasets checked, the missing ones, the number of
+training clips checked. It is never in `config.json`, because a resume is
+checked against that file field by field, and a new key there would refuse
+every run written before the guard existed.
+
 ## 3. What a run does
 
 1. It draws `clips` clips from the dataset's manifest: clips that are shorter
    than 0.3 s, longer than `max_clip_seconds` or carry no text are left out, and
    the rest are sampled with `seed` and sorted. The step prints how many were
-   usable. Nothing is written before this succeeds, so a run that cannot find its
-   data costs no directory.
+   usable. For a mix, it draws each dataset this way — with the dataset's own
+   seed — and the run trains the concatenation, sorted by id, after the
+   [leakage guard](#the-leakage-guard) has passed. Nothing is written before
+   this succeeds, so a run that cannot find its data costs no directory.
 2. It writes a NeMo manifest inside the run directory: one line per clip with an
    absolute path, its duration and its text. NeMo reads that, not our manifest.
 3. It loads the base model on the CPU, replaces its training data settings with
@@ -152,12 +215,12 @@ against).
 
 | file | what it is |
 |---|---|
-| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew. Written before the first update, never rewritten; a resume is checked against it (§5) |
+| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well. Written before the first update, never rewritten; a resume is checked against it (§5) |
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset, the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory and the device name |
+| `train.json` | what the run did: the config, the dataset (for a mix, `datasets` — per-dataset clip counts, usable clips and clip hash — instead), the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, and the `leakage_guard` block (§2) |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so.
@@ -285,8 +348,3 @@ values, and steady for real ones.
   `model.yaml` is for.
 - **No checkpoint selection or early stopping.** A run trains the number of
   updates its config names and saves the model it ends with.
-- **No dataset mixing.** One run reads one dataset; combining datasets, and
-  measuring what each contributes, is a later phase ([roadmap](../roadmap.md)).
-- **No frozen or sealed data.** A run reads whatever `dataset` names. Training on
-  an evaluation panel would make its score meaningless, and nothing here prevents
-  it: the choice of dataset is the person's.

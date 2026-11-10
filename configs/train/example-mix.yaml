@@ -1,0 +1,51 @@
+# Template for a fine-tune on a mix of datasets. Not meant to be run: the
+# numbers are small and the datasets are not prepared everywhere. Copy it, set
+# `base_model` and the datasets, then:
+#
+#   audiolab train --config configs/train/example-mix.yaml
+#
+# A run trains on several datasets at once with the shares written here:
+# each dataset is drawn once, with a seed of its own, and the run trains the
+# concatenation. `clips` per dataset, not per run: the run's total is their
+# sum. See docs/stt/training.md ("Mixing datasets").
+
+base_model: nvidia/parakeet-tdt-0.6b-v3
+base_model_env: AUDIOLAB_PARAKEET_NEMO
+
+# The datasets, in the order the manifest is written. The name is a prepared
+# dataset (audiolab data list), clips is how many of it the run trains on.
+datasets:
+  - name: granary-fr-train
+    clips: 2000
+  - name: peertube-fr-train
+    clips: 1000
+
+# The run's clip count is the sum of the entries above (3000). It must still
+# cover a batch: at least batch_size.
+
+updates: 5000
+
+# Clips per update, and how many updates one forward-backward pass is split
+# over. A pair with max_clip_seconds below, as in example.yaml.
+batch_size: 8
+grad_accumulation: 2
+
+# Two learning rates: the encoder (with its preprocessor) and the heads
+# (decoder and joint).
+lr_encoder: 1.0e-5
+lr_heads: 3.0e-5
+weight_decay: 1.0e-3
+
+schedule: constant
+precision: bf16-mixed
+grad_clip: 1.0
+max_clip_seconds: 15.0
+workers: 4
+gpu: "0"
+
+# Fixed, so the same config trains on the same clips. Every dataset is drawn
+# with the seed derived from this one and its own name, so adding a dataset to
+# the mix does not move the clips drawn from the others.
+seed: 20261107
+resume_every: 500
+log_every: 50
