@@ -48,7 +48,6 @@ so DS-01 comes before DS-03.
 | ID | Question | Reference |
 |---|---|---|
 | O-01 | Review the STT evaluation-core proposal. | [Proposed decision 0010](decisions/proposed/0010-stt-evaluation-core.md). |
-| O-02 | Resolve the status and scope of unlicensed evaluation datasets. | [Proposed decision 0011](decisions/proposed/0011-unlicensed-datasets-for-private-evaluation.md). It remains proposed; do not infer a general permission from a particular dataset's use. |
 | O-03 | Review a locked, optional heavy-model stack and the hygiene-check false positive that blocks it. | [Proposed decision 0012](decisions/proposed/0012-heavy-model-stack-as-a-locked-extra.md). Neither dependency packaging nor CI exceptions are approved by this backlog. |
 | O-04 | Add Nemotron to the evaluated models? | A [model config](../configs/models/nemotron-3.5-transcribe-vllm.yaml) exists. Confirm access and a suitable evaluation budget before using it. |
 | O-05 | Review the AMI per-group training cap. | Check the current [training-source preparation](stt/datasets.md#training-sources) and AMI card before proposing a different sampling rule. |

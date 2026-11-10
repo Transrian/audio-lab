@@ -2,6 +2,7 @@
 
 - Scope: stt
 - Derived from: D-009, D-013, decision 0009
+- Decided by: owner, 2026-11-10
 
 ## Decision
 

@@ -253,7 +253,7 @@ Three kinds of clip that must stay silent, 300 in total:
   where French says `portable`, and a reader should be able to compare the two
   numbers side by side.
 - **License**: **the card carries none.** The owner approved the use of this set
-  for evaluation on 2026-11-08 (proposed decision 0011): it is never trained on,
+  for evaluation on 2026-11-08 (decision 0011): it is never trained on,
   the repository never redistributes it, and nothing about its text or audio
   leaves the machine. Its scores may be published.
 - **Audio**: synthetic. The corpus writes a sentence and renders it with a
