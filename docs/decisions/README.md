@@ -59,3 +59,4 @@ Never invent alternatives after the fact.
 | [0010](proposed/0010-stt-evaluation-core.md) | stt | proposed | STT evaluation core (phase 1a) |
 | [0011](accepted/0011-unlicensed-datasets-for-private-evaluation.md) | stt | accepted | A dataset with no license may be used for evaluation only |
 | [0012](proposed/0012-heavy-model-stack-as-a-locked-extra.md) | global | proposed | The heavy model stack becomes a locked, optional extra |
+| [0013](proposed/0013-normalizer-v2-contractions.md) | stt | proposed | Normalizer v2: contractions and elision spacing, for the next campaign |

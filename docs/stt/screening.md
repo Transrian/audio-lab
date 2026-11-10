@@ -291,6 +291,22 @@ carry the official gain: in ICSI's run they fall from 8.05 to 3.31 points of
 WER. Fillers play no part, since the normalizer drops `uh` and `um`. The runs of
 the talk sources, NASA and AMI were not re-scored.
 
+A narrower diagnostic covered every screening run instead, with the official
+paired intervals and both sides of a score: the official normalizer plus only
+two style rules — English contractions to their expanded form, and the French
+elision spacing (`j' ai` → `j'ai`) — applied
+([experiments/normalization-review](../../experiments/normalization-review/README.md),
+reproducible without a server or a GPU). The non-native-English gains shrink
+by 0.4 to 1.0 point and stay separable (ICSI −6.16 → −5.47, the talk sources
+−6.01 to −7.41 → −5.17 to −6.48, AMI −3.66 → −2.93, NASA −3.94 → −3.62), the
+uncleaned African run's elision damage is largely removed as the apostrophe
+diagnostic above predicted, and one conclusion moves: NASA's harm on
+servicenow en-fr, separable at +1.93 [+0.52, +3.38] officially, is not
+separable at +1.35 [0.00, +2.74] under the diagnostic. Whether the two rules
+become the official normalizer of the next campaign is
+[proposed decision 0013](../decisions/proposed/0013-normalizer-v2-contractions.md);
+every v1 result stays as published until it is accepted.
+
 ICSI's −2.13 on cs-fleurs-fr-en is real but concentrated: the base model
 collapses on some long code-switched clips (it translates them into English or
 cuts them short), ICSI's run less often, and the top 5 % of items carry 90 % of
