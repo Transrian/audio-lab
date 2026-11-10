@@ -53,9 +53,9 @@ stops it again ([how](docs/stt/evaluation.md#3-serve-the-checkpoint-yourself)).
 
 ## Fine-tune a model
 
-`audiolab train` fine-tunes one checkpoint on one dataset, from one config file,
-and keeps exactly one rolling resume slot so a stopped run goes on where it
-stopped:
+`audiolab train` fine-tunes one checkpoint, from one config file, on one dataset
+or a mix of them ([mixing datasets](docs/stt/training.md#mixing-datasets)), and
+keeps exactly one rolling resume slot so a stopped run goes on where it stopped:
 
 ```bash
 bash scripts/nemo-venv.sh                        # an environment with NeMo and PyTorch
