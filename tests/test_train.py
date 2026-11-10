@@ -10,6 +10,7 @@ import importlib.util
 import json
 import sys
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -24,6 +25,7 @@ from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import DatasetShare, TrainConfig, TrainConfigError  # noqa: E402
 from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402
+from audiolab.train.guard import check_leakage  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     LOG_NAME,
     MANIFEST_NAME,
@@ -49,6 +51,35 @@ from audiolab.train.settings import dataset_config  # noqa: E402
 def no_gpu_needed(monkeypatch):
     """The training step is faked, so no GPU is either: CI machines have none."""
     monkeypatch.setattr(runner, "select_gpu", lambda spec: None)
+
+
+@pytest.fixture(autouse=True)
+def the_guard_checks_a_suite_the_tests_control(tmp_path, monkeypatch):
+    """The guard still runs on every sequence test, but against a suite the tests own.
+
+    The real guard's suite is the repository's full suite, whose evaluation
+    datasets (fleurs-fr, mls-fr, …) the tests would have to dodge by name.
+    Against a suite of one dataset the tests never prepare, the guard warns,
+    never refuses, and its block in train.json is still written and checkable.
+    """
+    panels_dir = tmp_path / "guard-panels"
+    panels_dir.mkdir()
+    (panels_dir / "guard-eval-full.txt").write_text(
+        "# panel: guard-eval-full\n"
+        "# dataset: guard-eval (1 clip in 1 group; test 1)\n"
+        "# items: 1  (clip ids below, one per line)\n"
+        "# clips_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
+        "# manifest_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
+        "# seed: 1\n"
+        "# built: 2026-01-01  (date the panel was frozen; never rebuilt)\n"
+        "guard-eval:0000\n",
+        encoding="utf-8",
+    )
+    suite = tmp_path / "guard-suite.yaml"
+    suite.write_text("name: guard\npanels:\n  - guard-eval-full\n", encoding="utf-8")
+    monkeypatch.setattr(
+        runner, "check_leakage", partial(check_leakage, suite_path=suite, panels_dir=panels_dir)
+    )
 
 
 # The keys every config must set, at values small enough for a test. What a run
@@ -449,6 +480,32 @@ def test_a_run_writes_the_manifest_the_records_and_the_serving_config(tmp_path, 
 
     record = train_json(directory)
     assert record["name"] == "example"
+    # A single-dataset record keeps exactly the keys it always had, plus the
+    # leakage guard's block: what was checked, and what could not be.
+    assert set(record) == {
+        "name",
+        "config",
+        "dataset",
+        "clips",
+        "clips_available",
+        "sampled_ids_sha256",
+        "base_model",
+        "base_model_identity",
+        "resumed",
+        "git_commit",
+        "leakage_guard",
+        "final_loss",
+        "updates",
+        "wall_seconds",
+        "updates_per_second",
+        "peak_vram_gib",
+        "device",
+    }
+    assert record["leakage_guard"] == {
+        "evaluation_datasets_checked": [],
+        "missing": ["guard-eval"],
+        "clips_checked": 6,
+    }
     assert record["clips"] == 6 and record["updates"] == 64
     assert record["config"]["batch_size"] == 2
     assert record["base_model"] == str(base)
@@ -587,6 +644,9 @@ def test_what_a_run_was_started_as_is_on_disk_before_it_trains(tmp_path, monkeyp
     assert started["base_model_identity"].startswith("sha256=")
     assert started["sampled_ids_sha256"] == step.calls[0].clips.ids_sha256
     assert started["clips"] == len(step.calls[0].clips.clips)
+    # The guard's block is in train.json only: config.json is compared field by
+    # field to resume an old run, and a new key there would refuse it.
+    assert "leakage_guard" not in started
     # The run that went on from the base model is not a resumed one.
     assert train_json(directory)["resumed"] is False
 
