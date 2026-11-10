@@ -239,6 +239,15 @@ def test_official_column_matches_compare_runs(runs):
         assert abs(theirs["ci"]["high"] - mine["ci"][1]) < 1e-12
 
 
+def test_mixed_normalizer_versions_are_refused(runs):
+    path = runs["contractions"] / "run.json"
+    identity = json.loads(path.read_text(encoding="utf-8"))
+    identity["normalizer_version"] = 2
+    path.write_text(json.dumps(identity), encoding="utf-8")
+    with pytest.raises(rescore_mod.Problem, match="normalizer version"):
+        rescore_all(runs, "contractions")
+
+
 def test_rules_ablation_changes_only_its_own_panel(runs):
     elision_only = rescore_all(runs, "contractions", rules="elision")
     # With only the elision rule, the English contraction gain stays separable.

@@ -12,8 +12,8 @@ of it, two extra rules applied **in this script only**:
 Nothing here is an official score. No file under ``src/audiolab/eval/`` is
 changed, and the numbers go through the official pipeline: tokenization and
 edit counts from ``audiolab.eval.metrics``, the per-group bootstrap and the
-paired difference interval from ``audiolab.eval.stats``. For the first
-candidate, the official column is cross-checked against the official
+paired difference interval from ``audiolab.eval.stats``. By default, every
+candidate's official column is cross-checked against the official
 ``audiolab.eval.report.compare_runs`` and the run stops if they diverge.
 
 See the adjacent README for the question, the reproduction command, the
@@ -309,7 +309,7 @@ def rescore(
 
     The official column is the frozen pipeline applied to the runs' records;
     the diagnostic column applies ``transform_for(rules)`` to both sides
-    before it. ``verify_official`` cross-checks the first candidate's official
+    before it. ``verify_official`` cross-checks every candidate's official
     column against the official ``compare_runs`` and raises Problem on any
     divergence, which is what a wrong pairing would look like.
     """
@@ -331,6 +331,13 @@ def rescore(
     }
     for candidate_path in candidate_paths:
         cand_identity, cand_records = read_run(candidate_path)
+        if cand_identity.get("normalizer_version") != identity.get("normalizer_version"):
+            raise Problem(
+                f"{candidate_path}: normalizer version "
+                f"{cand_identity.get('normalizer_version')} differs from the base's "
+                f"{identity.get('normalizer_version')}; runs scored under different "
+                "normalizer versions do not compare"
+            )
         if cand_identity.get("panels") != identity.get("panels"):
             raise Problem(
                 f"{candidate_path}: scored different panels than {base_path}; "
@@ -460,7 +467,8 @@ def render(result: dict) -> str:
         f"- intervals: official paired bootstrap over groups, {result['draws']} draws, "
         f"seed {result['seed']} (`audiolab.eval.stats`)",
         "- pairing: the ids both runs answered, per panel, the official `compare_runs` "
-        "pairing; the official column was verified against it on the first candidate",
+        "pairing; the official column was verified against it for every candidate "
+        "(skip with --no-verify-official)",
         "- deltas are candidate minus base, in percentage points; negative is better; "
         "bold means the interval excludes zero",
         "",

@@ -24,8 +24,9 @@ suite, reports candidate minus base for the 16 screening runs against the
 base model served the same way (`parakeet-tdt-0.6b-v3-nemo/full`):
 
 - the **official** delta — the frozen normalizer v1 applied to the stored
-  records; the script recomputes the first candidate with the official
-  `audiolab.eval.report.compare_runs` and stops if the two diverge;
+  records; the script cross-checks every candidate's official column against
+  the official `audiolab.eval.report.compare_runs` and stops if the two
+  diverge;
 - the **diagnostic** delta — the same pipeline with two extra rules applied
   in the script, to both sides (reference and hypothesis), before the
   normalizer:
@@ -107,7 +108,11 @@ written there by this script's output. The official column reproduces
   contractions.
 - One conclusion moves: **NASA's harm on servicenow en-fr, separable at
   +1.93 [+0.52, +3.38] under v1, is not separable at +1.35 [0.00, +2.74]
-  under the diagnostic** (the interval touches zero exactly).
+  under the diagnostic**. That flip is a knife-edge: the lower bound is
+  exactly 0.0 (243 of the 10 000 bootstrap draws fall below zero, 15 land
+  exactly on it, and the 2.5th percentile sits on that atom) — it says the
+  diagnostic removes NASA's separability on that panel, not that there is a
+  large effect.
 
 ## Limits
 
