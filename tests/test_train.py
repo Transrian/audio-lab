@@ -248,6 +248,27 @@ def test_a_mix_config_is_accepted_and_its_clips_are_the_sum_of_its_shares():
     assert loaded.dataset == ""
 
 
+def test_a_mix_config_whose_clips_are_not_the_sum_of_its_shares_is_refused():
+    """A directly constructed config skips from_mapping, which computes the sum.
+
+    _check is the gate a mix config passes either way, so it must refuse a
+    sum that is wrong.
+    """
+    bad = TrainConfig(
+        name="example",
+        base_model="/models/base.nemo",
+        dataset="",
+        clips=9,
+        updates=4,
+        batch_size=2,
+        lr_encoder=1.0e-5,
+        lr_heads=3.0e-5,
+        datasets=(DatasetShare(name="ds-a", clips=4), DatasetShare(name="ds-b", clips=4)),
+    )
+    with pytest.raises(TrainConfigError, match="not the sum of the datasets"):
+        bad._check()
+
+
 def test_giving_both_forms_of_the_data_is_refused():
     with pytest.raises(TrainConfigError, match="not both"):
         mix_config(dataset="fleurs-fr", clips=4)

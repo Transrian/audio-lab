@@ -161,9 +161,9 @@ def select_mix(
             for sha, per_dataset in duplicates[:5]
         )
         raise TrainDataError(
-            f"the same audio is in several datasets of the mix ({len(duplicates)} pairs of "
-            f"duplicate clips, first 5: {listing}); prepare the datasets so each recording "
-            "appears in only one of them"
+            f"the same audio is in several datasets of the mix ({len(duplicates)} recordings "
+            f"appear in more than one dataset, first 5: {listing}); prepare the datasets so "
+            "each recording appears in only one of them"
         )
     return MixClips(clips=all_clips, datasets=tuple(results))
 
@@ -201,11 +201,6 @@ def write_nemo_manifest(path: Path, entries: list[tuple[Clip, Path]]) -> int:
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return len(lines)
-
-
-def write_single_nemo_manifest(path: Path, clips: list[Clip], dataset_dir: Path) -> int:
-    """The manifest of a single-dataset run: every clip in the one directory."""
-    return write_nemo_manifest(path, [(clip, dataset_dir) for clip in clips])
 
 
 def dataset_dir(name: str, data_dir: Path | None = None) -> Path:

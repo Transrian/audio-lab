@@ -29,9 +29,8 @@ from audiolab.train.data import (  # noqa: E402
     select_clips,
     select_mix,
     write_nemo_manifest,
-    write_single_nemo_manifest,
 )
-from audiolab.train.guard import check_leakage  # noqa: E402
+from audiolab.train.guard import check_leakage, evaluation_datasets  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     MANIFEST_NAME,
     MODEL_NAME,
@@ -146,7 +145,9 @@ def test_duplicate_audio_across_two_datasets_of_a_mix_is_refused(tmp_path):
     write_manifest(
         tmp_path / "ds-b", [make_clip(f"ds-b:{i:04d}", sha256=shared[i]) for i in range(6)]
     )
-    with pytest.raises(TrainDataError, match="6 pairs of duplicate clips, first 5"):
+    with pytest.raises(
+        TrainDataError, match="6 recordings appear in more than one dataset, first 5"
+    ):
         select_mix(
             (DatasetShare("ds-a", 6), DatasetShare("ds-b", 6)),
             seed=7,
@@ -193,7 +194,11 @@ def test_the_mix_clips_are_sorted_by_id_and_per_dataset_results_are_kept(tmp_pat
 
 
 def test_write_nemo_manifest_pairs_put_each_clip_in_its_own_dataset(tmp_path):
-    """A mix's manifest is one format: the pair says which directory the audio is in."""
+    """A mix's manifest is one format: the pair says which directory the audio is in.
+
+    A single-dataset run is the same format over the one directory - a list of
+    pairs of the one directory - so its bytes are what they always were.
+    """
     clips_a = [make_clip(f"ds-a:{i:04d}") for i in range(2)]
     clips_b = [make_clip(f"ds-b:{i:04d}") for i in range(2)]
     path = tmp_path / "manifest.jsonl"
@@ -204,16 +209,12 @@ def test_write_nemo_manifest_pairs_put_each_clip_in_its_own_dataset(tmp_path):
     lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert {Path(line["audio_filepath"]).parent.parent.name for line in lines} == {"ds-a", "ds-b"}
     assert all(Path(line["audio_filepath"]).is_absolute() for line in lines)
-
-
-def test_write_single_nemo_manifest_keeps_the_single_dataset_format(tmp_path):
-    """The single form is the pairs form over the one directory: same bytes, same count."""
-    clips = [make_clip(f"ds:{i:04d}") for i in range(3)]
-    path = tmp_path / "manifest.jsonl"
-    assert write_single_nemo_manifest(path, clips, tmp_path / "ds") == 3
+    # The single form: the pairs form over the one directory, same fields and paths.
+    single = [make_clip(f"ds:{i:04d}") for i in range(3)]
+    assert write_nemo_manifest(path, [(clip, tmp_path / "ds") for clip in single]) == 3
     lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert [line["audio_filepath"] for line in lines] == [
-        str((tmp_path / "ds" / clip.audio).resolve()) for clip in clips
+        str((tmp_path / "ds" / clip.audio).resolve()) for clip in single
     ]
     assert set(lines[0]) == {"audio_filepath", "duration", "text"}
 
@@ -246,6 +247,32 @@ def guard_suite(tmp_path: Path, names: list[str]) -> tuple[Path, Path]:
         encoding="utf-8",
     )
     return suite, panels_dir
+
+
+def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
+    """The default path - the one the sequence tests monkeypatch around - is the repo's.
+
+    Pinned so that moving or renaming the suite or the panels the guard relies on
+    fails here, not at the first production training run.
+    """
+    from audiolab.train.guard import FULL_PANELS, FULL_SUITE
+
+    repo = Path(__file__).resolve().parents[1]
+    assert FULL_SUITE == repo / "configs" / "suites" / "full.yaml"
+    assert FULL_SUITE.is_file()
+    assert FULL_PANELS == repo / "configs" / "panels"
+    assert FULL_PANELS.is_dir()
+    assert evaluation_datasets(FULL_SUITE, FULL_PANELS) == [
+        "fleurs-fr",
+        "mls-fr",
+        "fleurs-en",
+        "librispeech-en",
+        "voxpopuli-en-nonnative",
+        "servicenow-codeswitched-en-fr",
+        "servicenow-codeswitched-en-fr-ca",
+        "cs-fleurs-fr-en",
+        "nonspeech",
+    ]
 
 
 def test_a_training_clip_that_is_the_audio_of_an_evaluation_clip_is_refused(tmp_path):

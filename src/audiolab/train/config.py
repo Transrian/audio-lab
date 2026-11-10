@@ -239,6 +239,11 @@ class TrainConfig:
                 if share.name in seen:
                     raise TrainConfigError(f"{where}: {share.name!r} is given twice in datasets")
                 seen.add(share.name)
+            if sum(share.clips for share in self.datasets) != self.clips:
+                raise TrainConfigError(
+                    f"{where}: clips ({self.clips}) is not the sum of the datasets' clips "
+                    f"({sum(share.clips for share in self.datasets)})"
+                )
         elif not NAME_PATTERN.match(self.dataset):
             raise TrainConfigError(f"{where}: {self.dataset!r} is not a prepared dataset name")
 
