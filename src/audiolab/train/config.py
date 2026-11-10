@@ -27,6 +27,7 @@ TRAIN_FIELDS = (
     "base_model_env",
     "dataset",
     "clips",
+    "datasets",
     "updates",
     "batch_size",
     "grad_accumulation",
@@ -46,6 +47,7 @@ TRAIN_FIELDS = (
 )
 # The keys with no sensible guess: a run that picked its own size, batch or rate
 # would be another run than the file says, so these must be written down.
+# `dataset` and `clips` are required only when `datasets` is absent.
 REQUIRED_FIELDS = ("dataset", "clips", "updates", "batch_size", "lr_encoder", "lr_heads")
 SCHEDULES = ("constant", "cosine")
 PRECISIONS = ("bf16-mixed", "16-mixed", "32")
@@ -58,6 +60,14 @@ class TrainConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class DatasetShare:
+    """One dataset of a training mix: its name, and the clips drawn from it."""
+
+    name: str
+    clips: int
+
+
+@dataclass(frozen=True)
 class TrainConfig:
     """One fine-tuning run: what to start from, what to train on, and how."""
 
@@ -66,8 +76,11 @@ class TrainConfig:
     # config committed here names a public model; a machine that holds a local
     # copy sets ``base_model_env`` and trains from the copy.
     base_model: str
+    # The dataset a single-dataset run trains on. Empty for a mix run: that
+    # run's datasets live in ``datasets``, and ``clips`` is their sum.
     dataset: str
-    # How many clips the run trains on, drawn once from the dataset.
+    # How many clips the run trains on, drawn once. For a mix run this is the
+    # sum of the ``clips`` of every entry of ``datasets``.
     clips: int
     # Optimizer updates, not epochs: this is what stops the run.
     updates: int
@@ -95,6 +108,9 @@ class TrainConfig:
     resume_every: int = 500
     # How often a loss line is appended to the run's log.
     log_every: int = 50
+    # The datasets of a mix run, in config order. Empty for a single-dataset
+    # run, whose dataset and clips are the fields above.
+    datasets: tuple[DatasetShare, ...] = ()
     source: str = field(default="", compare=False)
 
     @classmethod
@@ -122,19 +138,32 @@ class TrainConfig:
         unknown = sorted(set(raw) - set(TRAIN_FIELDS))
         if unknown:
             raise TrainConfigError(f"{source}: unknown training keys: {', '.join(unknown)}")
+        has_datasets = raw.get("datasets") is not None
+        has_single = raw.get("dataset") is not None or raw.get("clips") is not None
+        if has_datasets and has_single:
+            raise TrainConfigError(f"{source}: give either dataset+clips or datasets, not both")
+        if not has_datasets and not has_single:
+            raise TrainConfigError(f"{source}: give either dataset+clips or datasets")
+        # What a mix run must still write down: the recipe, not the data.
+        required = (
+            ("base_model", *REQUIRED_FIELDS)
+            if not has_datasets
+            else ("base_model", "updates", "batch_size", "lr_encoder", "lr_heads")
+        )
         missing = [
             key
-            for key in ("base_model", *REQUIRED_FIELDS)
+            for key in required
             if raw.get(key) is None or (isinstance(raw[key], str) and not raw[key].strip())
         ]
         if missing:
             raise TrainConfigError(f"{source}: missing required keys: {', '.join(missing)}")
+        shares = _parse_shares(raw["datasets"], source) if has_datasets else ()
         config = cls(
             name=name,
             base_model=str(raw["base_model"]).strip(),
             base_model_env=str(raw.get("base_model_env") or "").strip(),
-            dataset=str(raw["dataset"]).strip(),
-            clips=int(raw["clips"]),
+            dataset="" if has_datasets else str(raw["dataset"]).strip(),
+            clips=sum(share.clips for share in shares) if has_datasets else int(raw["clips"]),
             updates=int(raw["updates"]),
             batch_size=int(raw["batch_size"]),
             grad_accumulation=int(raw.get("grad_accumulation", cls.grad_accumulation)),
@@ -151,6 +180,7 @@ class TrainConfig:
             seed=int(raw.get("seed", cls.seed)),
             resume_every=int(raw.get("resume_every", cls.resume_every)),
             log_every=int(raw.get("log_every", cls.log_every)),
+            datasets=shares,
             source=source,
         )
         config._check()
@@ -197,7 +227,19 @@ class TrainConfig:
             )
         if self.max_clip_seconds < 1.0:
             raise TrainConfigError(f"{where}: max_clip_seconds must be at least 1")
-        if not NAME_PATTERN.match(self.dataset):
+        if self.datasets:
+            seen: set[str] = set()
+            for share in self.datasets:
+                if not NAME_PATTERN.match(share.name):
+                    raise TrainConfigError(
+                        f"{where}: {share.name!r} is not a prepared dataset name"
+                    )
+                if share.clips < 1:
+                    raise TrainConfigError(f"{where}: {share.name}: clips must be at least 1")
+                if share.name in seen:
+                    raise TrainConfigError(f"{where}: {share.name!r} is given twice in datasets")
+                seen.add(share.name)
+        elif not NAME_PATTERN.match(self.dataset):
             raise TrainConfigError(f"{where}: {self.dataset!r} is not a prepared dataset name")
 
     def weights(self) -> Checkpoint:
@@ -209,7 +251,51 @@ class TrainConfig:
             raise TrainConfigError(f"{self.source or self.name}: {failure}") from failure
 
     def to_dict(self) -> dict:
-        """This run's choices, for the record it leaves behind."""
+        """This run's choices, for the record it leaves behind.
+
+        A single-dataset run records exactly its fields. A mix run records
+        ``datasets`` (the entries, in config order) instead of ``dataset`` and
+        ``clips``: the sum is the other datasets' business, and a record that
+        held both would be one the config file did not say.
+        """
         recorded = asdict(self)
         recorded.pop("source", None)
+        if self.datasets:
+            recorded.pop("dataset")
+            recorded.pop("clips")
+            # asdict keeps the tuple a tuple; the record writes a list.
+            recorded["datasets"] = [
+                {"name": share.name, "clips": share.clips} for share in self.datasets
+            ]
+        else:
+            recorded.pop("datasets")
         return recorded
+
+
+def _parse_shares(raw: object, source: str) -> tuple[DatasetShare, ...]:
+    """The ``datasets`` entries: names unique, each an int of at least 1."""
+    if not isinstance(raw, list) or not raw:
+        raise TrainConfigError(f"{source}: datasets must be a non-empty list of mappings")
+    shares: list[DatasetShare] = []
+    for position, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            raise TrainConfigError(
+                f"{source}: datasets[{position}] must be a mapping with name and clips"
+            )
+        unknown = sorted(set(entry) - {"name", "clips"})
+        if unknown:
+            raise TrainConfigError(
+                f"{source}: datasets[{position}] has unknown keys: {', '.join(unknown)}"
+            )
+        name = str(entry.get("name") or "").strip()
+        if not name or not NAME_PATTERN.match(name):
+            raise TrainConfigError(
+                f"{source}: datasets[{position}].name {name!r} is not a prepared dataset name"
+            )
+        count = entry.get("clips")
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise TrainConfigError(
+                f"{source}: datasets[{position}].clips must be an integer of at least 1"
+            )
+        shares.append(DatasetShare(name=name, clips=count))
+    return tuple(shares)

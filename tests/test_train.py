@@ -22,7 +22,7 @@ from audiolab.core.checkpoint import CheckpointError  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
-from audiolab.train.config import TrainConfig, TrainConfigError  # noqa: E402
+from audiolab.train.config import DatasetShare, TrainConfig, TrainConfigError  # noqa: E402
 from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     LOG_NAME,
@@ -78,6 +78,24 @@ def config(**overrides) -> TrainConfig:
 def write_config(path: Path, raw: dict) -> Path:
     path.write_text(yaml.safe_dump(raw), encoding="utf-8")
     return path
+
+
+# The mix form of the data: the same recipe keys, a list of datasets instead
+# of dataset+clips, and the run's clip count is the sum of the entries.
+MIX_MINIMAL = {
+    "base_model": "/models/base.nemo",
+    "datasets": [{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4}],
+    "updates": 4,
+    "batch_size": 2,
+    "lr_encoder": 1.0e-5,
+    "lr_heads": 3.0e-5,
+}
+BASELINE = Path(__file__).parent / "data" / "train-config-baseline.json"
+REPO_ROOT = Path(__file__).parent.parent
+
+
+def mix_config(**overrides) -> TrainConfig:
+    return TrainConfig.from_mapping({**MIX_MINIMAL, **overrides}, name="example")
 
 
 def run_config(tmp_path: Path, **overrides) -> TrainConfig:
@@ -139,7 +157,7 @@ def test_a_config_file_that_does_not_exist_says_so(tmp_path):
 @pytest.mark.parametrize(
     ("raw", "message"),
     [
-        ({"base_model": "/models/base.nemo"}, "missing required keys: dataset"),
+        ({"base_model": "/models/base.nemo"}, "give either dataset\\+clips or datasets"),
         ({**MINIMAL, "updates": 0}, "updates must be at least 1"),
         ({**MINIMAL, "clips": 8, "batch_size": 16}, "smaller than batch_size"),
         ({**MINIMAL, "schedule": "slow"}, "unknown schedule"),
@@ -179,6 +197,99 @@ def test_the_record_of_a_run_holds_its_choices_not_its_source(tmp_path):
     assert recorded["clips"] == 128 and recorded["updates"] == 64
     assert "source" not in recorded
     assert str(tmp_path) not in json.dumps(recorded)
+
+
+# --- the mix form of the config ---------------------------------------------------
+
+
+def test_a_mix_config_is_accepted_and_its_clips_are_the_sum_of_its_shares():
+    loaded = mix_config(
+        datasets=[
+            {"name": "granary-fr-train-40k", "clips": 30000},
+            {"name": "ds-b", "clips": 20000},
+        ]
+    )
+    assert loaded.datasets == (
+        DatasetShare(name="granary-fr-train-40k", clips=30000),
+        DatasetShare(name="ds-b", clips=20000),
+    )
+    assert loaded.clips == 50000
+    assert loaded.dataset == ""
+
+
+def test_giving_both_forms_of_the_data_is_refused():
+    with pytest.raises(TrainConfigError, match="not both"):
+        mix_config(dataset="fleurs-fr", clips=4)
+
+
+def test_giving_both_forms_of_the_data_is_refused_even_when_one_is_empty():
+    with pytest.raises(TrainConfigError, match="not both"):
+        TrainConfig.from_mapping({**MIX_MINIMAL, "dataset": "", "clips": 4}, name="example")
+
+
+def test_duplicate_dataset_names_in_a_mix_are_refused():
+    with pytest.raises(TrainConfigError, match="given twice"):
+        mix_config(datasets=[{"name": "ds-a", "clips": 4}, {"name": "ds-a", "clips": 2}])
+
+
+def test_an_entry_key_other_than_name_and_clips_is_refused():
+    with pytest.raises(TrainConfigError, match="datasets\\[1\\] has unknown keys: seed"):
+        mix_config(datasets=[{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4, "seed": 3}])
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ({"name": "ds-a", "clips": 0}, "must be an integer of at least 1"),
+        ({"name": "ds-a", "clips": -2}, "must be an integer of at least 1"),
+        ({"name": "ds-a", "clips": 2.5}, "must be an integer of at least 1"),
+        ({"name": "ds-a"}, "must be an integer of at least 1"),
+        ({"clips": 4}, "not a prepared dataset name"),
+        ({"name": "Not A Dataset", "clips": 4}, "not a prepared dataset name"),
+    ],
+)
+def test_a_mix_entry_that_cannot_be_a_share_is_refused_now(entry, message):
+    with pytest.raises(TrainConfigError, match=message):
+        mix_config(datasets=[entry])
+
+
+@pytest.mark.parametrize(
+    "raw", [{**MIX_MINIMAL, "datasets": []}, {**MIX_MINIMAL, "datasets": "ds-a"}]
+)
+def test_an_empty_or_not_a_list_of_datasets_is_refused(raw):
+    with pytest.raises(TrainConfigError, match="non-empty list"):
+        TrainConfig.from_mapping(raw, name="example")
+
+
+def test_the_single_form_of_to_dict_is_exactly_todays_output():
+    """A single-dataset config must record exactly what it always did.
+
+    The expected dict is the one ``to_dict`` gave
+    ``configs/train/screen-peertube-fr.yaml`` before the mix support existed
+    (captured in tests/data/train-config-baseline.json at that state).
+    """
+    expected = json.loads(BASELINE.read_text(encoding="utf-8"))["screen-peertube-fr.yaml"]
+    assert (
+        TrainConfig.from_file(REPO_ROOT / "configs/train/screen-peertube-fr.yaml").to_dict()
+        == expected
+    )
+
+
+def test_loading_every_screen_config_gives_the_same_to_dict_as_before():
+    """Mix support changed what a config may say, not what a single-dataset one records."""
+    expected = json.loads(BASELINE.read_text(encoding="utf-8"))
+    files = sorted((REPO_ROOT / "configs/train").glob("screen-*.yaml"))
+    assert files, "the screen configs the baseline was captured from are gone"
+    for path in files:
+        assert TrainConfig.from_file(path).to_dict() == expected[path.name], path.name
+
+
+def test_the_mix_form_of_to_dict_records_the_shares_and_nothing_about_the_single_form():
+    recorded = mix_config(
+        datasets=[{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 6}]
+    ).to_dict()
+    assert recorded["datasets"] == [{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 6}]
+    assert "dataset" not in recorded and "clips" not in recorded
 
 
 # --- the clips a run draws --------------------------------------------------------
