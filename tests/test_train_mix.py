@@ -225,10 +225,11 @@ def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
     """The default path - the one the sequence tests monkeypatch around - is the repo's.
 
     Pinned so that moving or renaming the suite or the panels the guard relies on
-    fails here, not at the first production training run. Both are given the way
-    the eval command gives them - relative to the working directory, which is the
-    repository root the documented commands run from - and the panels directory
-    is the constant that command defaults to.
+    fails here, not at the first production training run. The defaults are
+    asserted as the eval command gives them - relative to the working directory,
+    which is the repository root the documented commands run from - and the
+    panels directory is the constant that command defaults to. The files are
+    read through the repo root, so this test passes from any working directory.
 
     The datasets behind the panels are not pinned: one panel added to the suite
     (a new evaluation set, plan 01) is the suite's business, and the guard checks
@@ -242,7 +243,7 @@ def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
     assert FULL_PANELS == DEFAULT_PANELS_DIR
     assert (repo / FULL_SUITE).is_file()
     assert (repo / FULL_PANELS).is_dir()
-    datasets = evaluation_datasets(FULL_SUITE, FULL_PANELS)
+    datasets = evaluation_datasets(repo / FULL_SUITE, repo / FULL_PANELS)
     assert datasets and all(datasets), "the full suite names no dataset"
     assert len(set(datasets)) == len(datasets)
 
@@ -273,8 +274,8 @@ def test_no_committed_training_config_names_an_evaluation_dataset():
     """
     from audiolab.train.guard import FULL_PANELS, FULL_SUITE
 
-    scored = set(evaluation_datasets(FULL_SUITE, FULL_PANELS))
     repo = Path(__file__).resolve().parents[1]
+    scored = set(evaluation_datasets(repo / FULL_SUITE, repo / FULL_PANELS))
     configs = sorted((repo / "configs" / "train").glob("*.yaml"))
     assert configs, "the committed training configs are gone"
     for path in configs:
