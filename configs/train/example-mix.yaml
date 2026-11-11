@@ -12,8 +12,10 @@
 base_model: nvidia/parakeet-tdt-0.6b-v3
 base_model_env: AUDIOLAB_PARAKEET_NEMO
 
-# The datasets, in the order the manifest is written. The name is a prepared
-# dataset (audiolab data list), clips is how many of it the run trains on.
+# The datasets, in the order the record lists them. The name is a prepared
+# dataset (audiolab data list), clips is how many of it the run trains on. The
+# manifest is written sorted by clip id, so this order changes nothing about
+# what the run trains on: each dataset is drawn with a seed of its own.
 datasets:
   - name: granary-fr-train
     clips: 2000
