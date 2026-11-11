@@ -67,6 +67,36 @@ def difference_interval(
     return _read_interval(difference, confidence)
 
 
+def difference_draws(
+    totals_a: Totals,
+    totals_b: Totals,
+    *,
+    draws: int = DRAWS,
+    seed: int = SEED,
+) -> np.ndarray:
+    """The per-draw paired differences :func:`difference_interval` reads its interval from.
+
+    Same resampling, same order, as :func:`difference_interval`, so the interval
+    of these draws is that function's interval. Exposed for a caller that has to
+    say how often a draw lands on one side of zero: where an interval ends
+    exactly on zero, the count is the difference between a hint and a number.
+    """
+    shared = sorted(set(totals_a) & set(totals_b))
+    values = np.array(
+        [(*totals_a[group], *totals_b[group]) for group in shared], dtype=float
+    ).reshape(-1, 4)
+    sums = _draw_sums(values, draws=draws, seed=seed)
+    return _ratios(sums[:, 2], sums[:, 3]) - _ratios(sums[:, 0], sums[:, 1])
+
+
+def interval_of(values: np.ndarray, confidence: float = CONFIDENCE) -> tuple[float, float]:
+    """The percentile interval of per-draw differences, or a point when there are none."""
+    if not values.size:
+        # The interval of no draw is the point 0, as in :func:`difference_interval`.
+        return (0.0, 0.0)
+    return _read_interval(values, confidence)
+
+
 def _matrix(totals: Totals) -> np.ndarray:
     """The totals as one row per group, in sorted group order.
 
