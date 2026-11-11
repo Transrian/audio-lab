@@ -161,8 +161,8 @@ CANDIDATE_RULES: dict[str, str] = {
         "from the repository"
     ),
     "job-logs": (
-        "disposable job logs of the long jobs: regenerable, listed as a candidate only "
-        "with the owner's go"
+        "disposable job logs; a candidate like everything else — nothing is deleted "
+        "without the owner's go"
     ),
     "no-reference": "nothing in docs/, configs/ or experiments/ references it; no keep rule",
 }

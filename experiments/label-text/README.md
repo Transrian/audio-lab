@@ -36,9 +36,9 @@ uv run python experiments/label-text/check_text.py --help
 
 ```bash
 set -a; . ./.env; set +a
-# Every prepared training set (plan 08 step 1):
+# Every prepared training set:
 uv run python experiments/label-text/check_text.py
-# One preparation after it is written (plan 03 A4):
+# One preparation right after it is written:
 uv run python experiments/label-text/check_text.py granary-fr-train-40k
 ```
 
@@ -52,8 +52,8 @@ One Markdown table, `| dataset | character | clips |`: one row per dataset and
 per character its clip labels hold, where `clips` is the number of clips that
 contain the character (a clip that holds it twice counts once). The rows of
 one dataset come in descending clip count, then character order. A dataset
-without a row is clean and prints nothing; so must the check of every one of
-plan 03's larger preparations.
+without a row is clean and prints nothing; so must the check of every prepared
+training set.
 
 ## Limits
 
@@ -66,7 +66,7 @@ plan 03's larger preparations.
 - A set that predates `plain_label` is reported with the characters it holds;
   what a re-preparation would do with each is the rule's own business
   (`plain_label` maps, `unwritable` excludes). The script never performs a
-  re-preparation — plan 08's decision, and a STRONG task.
+  re-preparation — that is a STRONG task, see [`AGENTS.md`](../../AGENTS.md).
 - Characters the rule maps to a replacement (`…` to `...`, `—` to a break) are
   still reported where a label holds them, because the label as written is
   what a model trained on that set learns.

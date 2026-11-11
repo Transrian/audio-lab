@@ -1,4 +1,4 @@
-"""Label-text check (plan 03 A4, plan 08): synthetic datasets, table format, read-only."""
+"""Label-text check: synthetic datasets, table format, read-only."""
 
 from __future__ import annotations
 
