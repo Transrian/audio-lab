@@ -237,6 +237,7 @@ class Context:
     talk: set[str]
     pinned: dict[str, str]
     datasets: dict[str, str]
+    problems: list[str] = field(default_factory=list)
 
 
 def name_pattern(name: str) -> re.Pattern[str]:
@@ -483,6 +484,48 @@ def talk_split(path: Path, problems: list[str] | None = None) -> tuple[int, int,
     return audio, answers, other
 
 
+def content_note(path: Path, problems: list[str] | None = None) -> str:
+    """What an unrecognised cache directory holds, counted, not guessed.
+
+    A cache directory that nothing references and no rule classifies still has
+    its files counted: an old cache left behind when a talk source is renamed
+    holds model answers that cost server time, so the row says how many answer
+    and audio files it holds instead of only that nothing points at it.
+    Subdirectories are not counted; the talk caches write answers as files.
+    """
+    answers = 0
+    audio = 0
+    other = 0
+    try:
+        with os.scandir(path) as handle:
+            children = list(handle)
+    except OSError as error:
+        _problem(problems, f"cannot list {path}: {error}")
+        return ""
+    for child in children:
+        try:
+            child.stat(follow_symlinks=False)
+        except OSError as error:
+            _problem(problems, f"cannot stat {child.path}: {error}")
+            continue
+        if not child.is_file(follow_symlinks=False):
+            continue
+        if child.name.endswith(TALK_ANSWER_SUFFIXES):
+            answers += 1
+        elif child.name.endswith(TALK_AUDIO_SUFFIXES):
+            audio += 1
+        else:
+            other += 1
+    parts = []
+    if answers:
+        parts.append(f"{answers} model-answer files")
+    if audio:
+        parts.append(f"{audio} audio files")
+    if other:
+        parts.append(f"{other} other files")
+    return "holds " + ", ".join(parts) + " (no current pipeline reuses it)" if parts else ""
+
+
 def eval_model_name(eval_path: Path) -> str:
     """The model an evaluation run scored, from its run.json; '' when unknown."""
     for run_json in sorted(eval_path.glob("*/run.json")):
@@ -651,6 +694,10 @@ def classify(entry: Entry, context: Context) -> None:
     # -- candidate: unreferenced, with what the entry holds.
     entry.klass = "candidate: unreferenced"
     entry.reasons = [CANDIDATE_RULES["no-reference"]]
+    if entry.kind == "cache":
+        note = content_note(entry.path, context.problems)
+        if note:
+            entry.extras.append(note)
     if entry.kind == "eval":
         model = eval_model_name(entry.path)
         if model:
@@ -810,6 +857,7 @@ def main(argv: list[str] | None = None) -> int:
         talk=talk,
         pinned=pinned,
         datasets=datasets,
+        problems=problems,
     )
     for entry in cache_entries + data_entries + runs_entries + train_entries + eval_entries:
         classify(entry, context)

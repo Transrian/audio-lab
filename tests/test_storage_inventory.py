@@ -193,6 +193,9 @@ def test_classifications(roots, capsys):
     # 10 bytes audio, 5 + 2 bytes answers, 3 bytes of cached pages.
     assert "10 B (candidate)" in talk and "7 B (keep)" in talk and "3 B" in talk
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_CACHE/old-talk-cache")
+    # An unreferenced cache holding model answers: the note counts them, so the
+    # owner sees what a deletion would lose before the row is called disposable.
+    assert "2 model-answer files" in row(text, "$AUDIOLAB_CACHE/old-talk-cache")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_CACHE/fleurs-fr")
     assert "pinned in audiolab.data.fleurs" in row(text, "$AUDIOLAB_CACHE/fleurs-fr")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_CACHE/granary-fr-train")
