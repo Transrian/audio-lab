@@ -236,7 +236,7 @@ def test_classifications(roots, capsys):
     # row falls back to candidate: unreferenced, which these asserts catch.
     diag = row(text, "$AUDIOLAB_RUNS/eval/diag-african-apostrophe")
     assert "keep (rule above)" in diag
-    assert "docs/stt/screening.md (line 164)" in diag
+    assert 'docs/stt/screening.md under the heading "What each source does alone"' in diag
     assert "reproducible from this run only" in diag
 
 

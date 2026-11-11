@@ -136,11 +136,13 @@ KEEP_BY_NAME: dict[str, str] = {
 # find them. The plan's keep list covers every "evaluation run directory
 # cited by docs/stt/screening.md or docs/stt/evaluation.md"; these are the
 # citations that name no directory. Each value states the citation, with the
-# doc line it comes from, so a reader can verify it. An entry leaves this
-# table only when the citation leaves the docs.
+# heading of the section it comes from — not a line number, which the next
+# edit above it would make stale without anything failing — so a reader can
+# verify it. An entry leaves this table only when the citation leaves the docs.
 DOC_CITED_EVAL_RUNS: dict[str, str] = {
     "diag-african-apostrophe": (
-        "apostrophe diagnostic quoted in docs/stt/screening.md (line 164) "
+        "apostrophe diagnostic quoted in docs/stt/screening.md under the "
+        'heading "What each source does alone" (the African-accented FR entry) '
         "without naming the directory; re-scored copy of the kept uncleaned "
         "run — its numbers are reproducible from this run only"
     ),
