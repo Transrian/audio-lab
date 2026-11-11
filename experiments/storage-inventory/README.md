@@ -45,7 +45,7 @@ The `keep (rule above)` logic is:
 
 Each rule carries a comment in the script.
 
-The two special cases:
+The special cases:
 
 - **talk caches**: the downloaded audio (re-downloadable from the pinned
   listings) is separated from the model answers (expensive, and what makes
