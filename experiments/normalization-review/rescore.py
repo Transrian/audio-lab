@@ -136,10 +136,12 @@ def apply_contractions(text: str) -> str:
 
 # The elisions a model may write with a space after the apostrophe:
 # ``j' ai`` means ``j'ai``, ``d' accord`` means ``d'accord``. Any whitespace the
-# model wrote counts, including the no-break spaces the folding above turns into
-# one: only the space goes, the elision stays two tokens. An apostrophe right
-# before the letter means the letter is a word of its own in a quoted
-# expression (English ``rock 'n' roll``), so it is left alone.
+# model wrote counts, including a no-break space, which ``\s`` matches directly:
+# only the space goes, the elision stays two tokens. An apostrophe right before
+# the letter means the letter is a word of its own in a quoted expression
+# (English ``rock 'n' roll``), so it is left alone; the same lookbehind leaves an
+# elision at the start of a single-quoted phrase unjoined (``'j' ai faim'``),
+# because no rule here can tell its apostrophe from the quotation mark's.
 _ELISION_RE = re.compile(r"(?<!')(\b[cdjlmnst]|qu|jusqu|lorsqu|puisqu)'\s+(\w)")
 
 
@@ -319,12 +321,13 @@ def verdict(delta: dict) -> str:
     from zero); ``neutral`` is what the screening conclusions call no change.
     The reading of the interval itself is the official one, ``stats.verdict``,
     asked with this script's own names for the two sides: the base is the
-    reference of the comparison, so naming it the first side keeps its wording
-    ("base better") reading the same way as here.
+    reference of the comparison, so naming it the first side and the run being
+    judged the second keeps its wording ("base better") reading the same way as
+    here, whatever column the delta came from.
     """
     low, high = delta["ci"]
-    official = stats.verdict(low, high, "base", "diagnostic")
-    return {"diagnostic better": "gain", "base better": "harm"}.get(official, "neutral")
+    official = stats.verdict(low, high, "base", "candidate")
+    return {"candidate better": "gain", "base better": "harm"}.get(official, "neutral")
 
 
 def rescore(

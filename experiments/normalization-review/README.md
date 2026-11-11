@@ -79,6 +79,12 @@ cover the combinations the table does not list, such as `it'll`).
   apostrophe before the letter (`rock 'n' roll`) is left alone. Every kind of
   space counts (`j'  ai` with two spaces, a no-break space), because the
   elision is the same in all of them.
+- The same lookbehind leaves an elision at the very start of a single-quoted
+  phrase unjoined (`il a dit 'j' ai faim'`), so it stays two tokens and the two
+  spellings score differently there. The alternative would join a quoted `'n'`
+  as well, which is the defect the lookbehind exists to avoid; keeping the
+  unjoined reading is the chosen behaviour, pinned by a test, and no hypothesis
+  of the base or candidate runs contains such a phrase, so no number moves.
 - Typographic apostrophes (`’`, `ʼ`) are mapped to the ASCII one before the
   rules run, as the official normalizer would; no other character is touched, so
   a spacing this script joins can never be an artifact of a dash or a quotation
@@ -110,16 +116,16 @@ the scoring code (`audiolab.eval.normalize.NORMALIZER_VERSION`), and the report
 header says which version produced the numbers: this diagnostic only means
 anything for runs scored under the rules it applies.
 
-## Results (2026-11-10, the 16 screening runs)
+## Results (the 16 screening runs)
 
 The numbers are in
 [docs/stt/screening.md](../../docs/stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are),
 with the proposed decision [0013](../../docs/decisions/proposed/0013-normalizer-v2-contractions.md);
 the tables themselves are the reproduce command's stdout. In short: the
 uncleaned African-accented run's elision damage is largely removed but stays
-separably harmful, the non-native-English gains shrink by 0.4 to 1.0 point and
-stay separable, and one conclusion moves — NASA's harm on servicenow en-fr,
-separable officially, is not separable under the diagnostic.
+separably harmful, the non-native-English gains shrink and stay separable, and
+one conclusion moves — NASA's harm on servicenow en-fr, separable officially,
+is not separable under the diagnostic, on an interval that ends on zero.
 
 ## Limits
 
