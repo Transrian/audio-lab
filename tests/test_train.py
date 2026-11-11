@@ -328,12 +328,19 @@ def test_the_single_form_of_to_dict_is_exactly_todays_output():
 
 
 def test_loading_every_screen_config_gives_the_same_to_dict_as_before():
-    """Mix support changed what a config may say, not what a single-dataset one records."""
+    """Mix support changed what a config may say, not what a single-dataset one records.
+
+    The baseline names the configs it was captured from, so the check runs over
+    those names: each of them must still be there and still record the same
+    thing. A config added since is not in the baseline and stays free - a screen
+    config for a new source, or a mix, must not have to match it.
+    """
     expected = json.loads(BASELINE.read_text(encoding="utf-8"))
-    files = sorted((REPO_ROOT / "configs/train").glob("screen-*.yaml"))
-    assert files, "the screen configs the baseline was captured from are gone"
-    for path in files:
-        assert TrainConfig.from_file(path).to_dict() == expected[path.name], path.name
+    assert expected, "the baseline no longer holds the configs it was captured from"
+    for name, recorded in sorted(expected.items()):
+        path = REPO_ROOT / "configs" / "train" / name
+        assert path.is_file(), f"{name}: the config the baseline was captured from is gone"
+        assert TrainConfig.from_file(path).to_dict() == recorded, name
 
 
 def test_the_mix_form_of_to_dict_records_the_shares_and_nothing_about_the_single_form():
