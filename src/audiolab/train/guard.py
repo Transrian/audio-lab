@@ -33,6 +33,7 @@ from pathlib import Path
 from audiolab.core.paths import data_dir as default_data_dir
 from audiolab.core.progress import say
 from audiolab.data.panels import (
+    DEFAULT_PANELS_DIR,
     SuiteError,
     load_suite,
     panel_path,
@@ -42,12 +43,12 @@ from audiolab.data.store import Clip, read_manifest
 from audiolab.train.data import TrainDataError
 from audiolab.train.run import TrainRunError
 
-# The suite and the panels it names live in the repository, not in the data
-# directory, so the defaults are anchored to the repository root rather than
-# to wherever the process happens to run.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-FULL_SUITE = _REPO_ROOT / "configs" / "suites" / "full.yaml"
-FULL_PANELS = _REPO_ROOT / "configs" / "panels"
+# The suite and the panels it names are given the way the eval command gives
+# them - relative to the working directory, which is the repository root in the
+# commands the documentation shows - and the panels directory is the very
+# constant the eval command defaults to, so there is one convention for it.
+FULL_SUITE = Path("configs/suites/full.yaml")
+FULL_PANELS = DEFAULT_PANELS_DIR
 MANIFEST = "manifest.jsonl"
 
 

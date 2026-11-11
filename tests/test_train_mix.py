@@ -19,7 +19,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 import pytest  # noqa: E402
 from helpers import make_clip  # noqa: E402
 
-from audiolab.data.panels import Panel, SuiteError, load_suite  # noqa: E402
+from audiolab.data.panels import (  # noqa: E402
+    DEFAULT_PANELS_DIR,
+    Panel,
+    SuiteError,
+    load_suite,
+)
 from audiolab.data.store import manifest_id_sha256, write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import DatasetShare, TrainConfig  # noqa: E402
@@ -254,15 +259,18 @@ def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
     """The default path - the one the sequence tests monkeypatch around - is the repo's.
 
     Pinned so that moving or renaming the suite or the panels the guard relies on
-    fails here, not at the first production training run.
+    fails here, not at the first production training run. Both are given the way
+    the eval command gives them - relative to the working directory, which is the
+    repository root the documented commands run from - and the panels directory
+    is the constant that command defaults to.
     """
     from audiolab.train.guard import FULL_PANELS, FULL_SUITE
 
     repo = Path(__file__).resolve().parents[1]
-    assert FULL_SUITE == repo / "configs" / "suites" / "full.yaml"
-    assert FULL_SUITE.is_file()
-    assert FULL_PANELS == repo / "configs" / "panels"
-    assert FULL_PANELS.is_dir()
+    assert FULL_SUITE == Path("configs/suites/full.yaml")
+    assert FULL_PANELS == DEFAULT_PANELS_DIR
+    assert (repo / FULL_SUITE).is_file()
+    assert (repo / FULL_PANELS).is_dir()
     assert evaluation_datasets(FULL_SUITE, FULL_PANELS) == [
         "fleurs-fr",
         "mls-fr",
