@@ -63,6 +63,9 @@ def difference_interval(
     The draws come from :func:`difference_draws` and the interval from
     :func:`interval_of`, so the paired resampling exists once: the interval read
     here is by construction the interval of the draws a caller counts.
+
+    Two runs with no shared group give the point interval ``(0.0, 0.0)``: there
+    is no group to pair, so no draw to read.
     """
     return interval_of(difference_draws(totals_a, totals_b, draws=draws, seed=seed), confidence)
 
