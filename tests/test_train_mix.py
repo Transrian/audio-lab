@@ -300,6 +300,30 @@ def test_the_guard_reads_the_suite_the_way_the_eval_command_does(tmp_path):
         evaluation_datasets(tmp_path / "nope.yaml", tmp_path)
 
 
+def test_no_committed_training_config_names_an_evaluation_dataset():
+    """The configs in configs/train/ train, they are not scored: none names an eval dataset.
+
+    The guard refuses a run whose clip ids are prefixed by an evaluation dataset's
+    name, so the first command the documentation shows must not ask for one. The
+    check needs no data and no run: it compares the names the committed configs
+    ask for with the datasets behind the full suite's panels.
+    """
+    from audiolab.train.guard import FULL_PANELS, FULL_SUITE
+
+    scored = set(evaluation_datasets(FULL_SUITE, FULL_PANELS))
+    repo = Path(__file__).resolve().parents[1]
+    configs = sorted((repo / "configs" / "train").glob("*.yaml"))
+    assert configs, "the committed training configs are gone"
+    for path in configs:
+        config = TrainConfig.from_file(path)
+        names = [share.name for share in config.datasets] or [config.dataset]
+        assert names, f"{path.name} names no dataset"
+        assert not (scored & set(names)), (
+            f"{path.name} trains on {names}, and {sorted(scored & set(names))} is scored by "
+            "the full suite"
+        )
+
+
 def test_a_training_clip_that_is_the_audio_of_an_evaluation_clip_is_refused(tmp_path):
     data = tmp_path / "data"
     eval_clips = [make_clip(f"eval-ds:{i:04d}") for i in range(3)]

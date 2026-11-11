@@ -21,7 +21,9 @@ base_model: nvidia/parakeet-tdt-0.6b-v3
 base_model_env: AUDIOLAB_PARAKEET_NEMO
 
 # A dataset prepared into $AUDIOLAB_DATA (audiolab data list, audiolab data fetch).
-dataset: fleurs-fr
+# A training dataset, with a name ending in '-train': the leakage guard refuses a
+# run that trains on a dataset an evaluation suite scores.
+dataset: granary-fr-train
 
 # How many clips the run trains on, drawn once at random with `seed` below and
 # written to the run's manifest.jsonl. The same config always draws the same

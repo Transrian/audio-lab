@@ -54,7 +54,7 @@ without it.
 # configs/train/example.yaml
 base_model: nvidia/parakeet-tdt-0.6b-v3   # a Hub id, or the path of a .nemo file
 base_model_env: AUDIOLAB_PARAKEET_NEMO    # optional: a variable that names a local copy
-dataset: fleurs-fr                        # a dataset under $AUDIOLAB_DATA
+dataset: granary-fr-train                 # a training dataset under $AUDIOLAB_DATA
 clips: 4000                               # how many clips one run trains on
 updates: 5000                             # optimizer updates, not epochs
 batch_size: 8
