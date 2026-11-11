@@ -1,9 +1,10 @@
 # Storage inventory (plan 09, P-07): list, never delete
 
-**Status:** the read-only inventory behind plan 09's retention question (Q8).
-The [plan](../../plans/09-retention-p07.md) is git-ignored; this page
-documents the helper. The script classifies, the owner decides: it never
-proposes a deletion in code and never deletes, moves or renames anything.
+**Status:** the read-only inventory behind the retention question (Q8, P-07).
+The script classifies, the owner decides: it never proposes a deletion in code
+and never deletes, moves or renames anything. The keep list below is this
+experiment's own statement of what must not be proposed for deletion, and the
+home of the full reasons; the report rows only point at it.
 
 **Outcome (2026-11-10):** the owner answered the retention question; the
 unreferenced candidates were freed, the doc-cited diagnostic run kept.
@@ -17,23 +18,34 @@ environment and reports, per directory, what the repository says about it:
 - who references the name: `docs/`, `configs/` and `experiments/` (this topic
   directory excluded), the `configs/train/*.yaml` `dataset:` values and the
   `configs/panels/*.txt` `# dataset:` headers;
-- one of the plan's classes: `keep (rule above)`, `keep (referenced)`,
+- one of these classes: `keep (rule above)`, `keep (referenced)`,
   `candidate: re-creatable`, `candidate: unreferenced`, `unknown`.
 
-The plan's "What must be kept regardless" list (its lines 16-28) is the
-`keep (rule above)` logic: the frozen-panel and `configs/train` datasets, the
-talk-source answer caches, `screen-peertube-fr` (control of plan 02),
-`mls-fr-train` and `librispeech-en-train` (babble noise of plan 01 T4),
-`nasa-en-train.curly-2026-11-09` and `screen-nasa-en` (until plan 05 Part C is
-documented), and the evaluation run directories cited by
-`docs/stt/screening.md` or `docs/stt/evaluation.md`, plus the transcript
-cache that holds the per-clip answers those docs quote. The docs can also
-quote a run's numbers in prose without naming the directory; those runs are
-listed in the script's `DOC_CITED_EVAL_RUNS` constant, each with the doc line
-its citation comes from. Each rule carries a comment in the script citing the
-plan.
+## The keep list
 
-The plan's two special cases:
+The `keep (rule above)` logic is:
+
+- the prepared datasets used by a frozen panel or a `configs/train/*.yaml`;
+- the talk-source answer caches: their model answers are kept, the downloaded
+  audio inside them is a candidate (the second table splits the two);
+- `screen-peertube-fr`, the control run of the noise experiment (plan 02);
+- `mls-fr-train` and `librispeech-en-train`, where the noise experiment takes
+  its babble noise from (plan 01 T4);
+- `nasa-en-train.curly-2026-11-09` and `screen-nasa-en`, until the NASA
+  re-screening is documented (plan 05 Part C), and
+  `icsi-en-train.pre-plain-label-2026-11-11`, the frozen input of the ICSI
+  screening: its 2026-11-08 run trained on it, so re-making that screen means
+  keeping it ([datasets card](../../docs/stt/datasets.md));
+- the evaluation run directories cited by `docs/stt/screening.md` or
+  `docs/stt/evaluation.md`, plus the transcript cache that holds the per-clip
+  answers those docs quote. The docs can also quote a run's numbers in prose
+  without naming the directory; those runs are listed in the script's
+  `DOC_CITED_EVAL_RUNS` constant, each with the doc section its citation comes
+  from.
+
+Each rule carries a comment in the script.
+
+The two special cases:
 
 - **talk caches**: the downloaded audio (re-downloadable from the pinned
   listings) is separated from the model answers (expensive, and what makes
@@ -90,9 +102,8 @@ standard output. Exit codes: `0` for a complete inventory, `2` when a root is
 missing or not a directory (standard error, no partial report), and `3` when
 some path could not be read: the report then lists it under
 "Warnings: paths that could not be read" and the affected rows are measured
-as 0 B. The result is pasted into the
-plan's `## Status` (git-ignored, like all machine facts); commit only this
-experiment, never the report.
+as 0 B. The result is pasted into the local plan notes (git-ignored, like all
+machine facts); commit only this experiment, never the report.
 
 ## Output
 
@@ -119,8 +130,8 @@ splits every talk cache into downloaded audio (candidate) and model answers
   starts or stops pinning changes that test, never a cache row silently. A
   download whose source can change or vanish under us is not called
   re-creatable, even when it looks fetchable again.
-- The screening checkpoints are candidates per plan 09 step 5, with one
-  exception made explicit: a checkpoint without a `configs/train/*.yaml` of
+- The screening checkpoints are candidates (see the special cases above), with
+  one exception made explicit: a checkpoint without a `configs/train/*.yaml` of
   its own is not retrainable from the repository, and the table says so.
 - The talk split is by file name, following the layout `talks.py` writes; a
   file with an unexpected name lands in "other input", never in the answers.

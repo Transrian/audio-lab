@@ -10,10 +10,12 @@ all — its report goes to stdout. Nothing under the storage roots is created,
 written, moved or renamed, not even a temporary file, and the script starts
 no subprocess and sends no network request.
 
-Classification follows plan 09 (``plans/09-retention-p07.md``, git-ignored):
+Classification follows the keep list stated in this experiment's README
+(``experiments/storage-inventory/README.md``), which is where the full reasons
+live; the report rows stay short and point at it:
 
-- ``keep (rule above)`` -- the plan's "What must be kept regardless" list
-  (its lines 16-28), encoded below with a comment per rule:
+- ``keep (rule above)`` -- the keep list, encoded below with a comment per
+  rule:
   * every prepared dataset used by a frozen panel (the ``# dataset:`` header
     of ``configs/panels/*.txt``) or by ``configs/train/*.yaml``;
   * every talk-source answer cache (``$AUDIOLAB_CACHE/<talk source>/``):
@@ -24,35 +26,36 @@ Classification follows plan 09 (``plans/09-retention-p07.md``, git-ignored):
     (plan 01 T4 takes its babble noise from them);
   * ``$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09`` and
     ``$AUDIOLAB_RUNS/train/screen-nasa-en``, until plan 05 Part C is
-    documented;
+    documented, and the archived ICSI preparation
+    ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11`` (the frozen
+    input of its screening);
   * the evaluation run directories cited by ``docs/stt/screening.md`` or
     ``docs/stt/evaluation.md`` (they hold the per-clip answers the docs
     quote), and the transcript cache that holds those answers; the docs can
     also quote a run's numbers without naming the directory — those runs are
-    listed in ``DOC_CITED_EVAL_RUNS``, with the doc line of each citation;
+    listed in ``DOC_CITED_EVAL_RUNS``, with the doc section of each citation;
 - ``keep (referenced)`` -- the name appears in ``docs/``, ``configs/`` or
-  ``experiments/`` (the reference check of the plan's step 2, which also
-  covers the train ``dataset:`` values and the panel headers).
+  ``experiments/`` (the reference check, which also covers the train
+  ``dataset:`` values and the panel headers).
 - ``candidate: re-creatable`` -- a download cache of a dataset that is
-  prepared and whose archive checksum is pinned in the fetcher's code, so
-  the archive can be downloaded again; and, per the plan's step 5, a
-  screening checkpoint a committed ``configs/train/screen-*.yaml`` can
-  retrain.
+  prepared and is listed in ``PINNED_DATASETS``, so the archive can be
+  downloaded again and verified; and a screening checkpoint a committed
+  ``configs/train/screen-*.yaml`` can retrain.
 - ``candidate: unreferenced`` -- nothing references the name and no rule
   keeps it.
 - ``unknown`` -- the script cannot say what an entry is (global rule 13:
   report it, do not improvise).
 
-The two special cases of the plan:
+The two special cases:
 
-- talk caches (step 4): the downloaded audio (re-downloadable from the
-  pinned listings) is separated from the model answers (expensive, and what
-  makes larger preparations cheap, plan 03) and both are reported per
-  source; the file layout is the one ``src/audiolab/data/talks.py`` writes
+- talk caches: the downloaded audio (re-downloadable from the pinned
+  listings) is separated from the model answers (expensive, and what makes
+  larger preparations cheap, plan 03) and both are reported per source; the
+  file layout is the one ``src/audiolab/data/talks.py`` writes
   (``<talk id>.wav`` audio, ``<talk id>.<model>.jsonl`` answers, plus
   ``pages/`` of cached episode pages for NASA);
-- screening checkpoints (step 5): the size of each ``model.nemo`` is
-  reported, and the small evaluation answers that must stay are named.
+- screening checkpoints: the size of each ``model.nemo`` is reported, and the
+  small evaluation answers that must stay are named.
 
 Nothing is ever deleted, moved or renamed; the output is the only deliverable
 besides this script.
@@ -133,7 +136,7 @@ KEEP_BY_NAME: dict[str, str] = {
 
 # Evaluation run directories the docs cite in prose WITHOUT naming the
 # directory, so the name grep (eval_runs_cited_by_docs, over RUNS_DOCS) cannot
-# find them. The plan's keep list covers every "evaluation run directory
+# find them. The keep list covers every "evaluation run directory
 # cited by docs/stt/screening.md or docs/stt/evaluation.md"; these are the
 # citations that name no directory. Each value states the citation, with the
 # heading of the section it comes from — not a line number, which the next
@@ -506,8 +509,8 @@ def classify(
     if entry.kind == "cache" and name in talk:
         entry.klass = "keep (rule above)"
         entry.reasons = [
-            "talk-source answer cache: the model answers are kept (plan 09 keep rule); "
-            "the downloaded audio is a candidate (see the talk table)"
+            "talk-source answer cache: the model answers are kept (see the keep list in this "
+            "experiment's README); the downloaded audio is a candidate (see the talk table)"
         ]
         return
 
@@ -517,8 +520,8 @@ def classify(
             entry.klass = "keep (rule above)"
             entry.reasons = [KEEP_BY_NAME[name]]
             return
-        # Plan 09 step 5: the screening checkpoints. The keeps are the runs a
-        # plan still uses (the two named above); the rest are candidates.
+        # The screening checkpoints: the keeps are the runs a plan still uses
+        # (the names KEEP_BY_NAME above holds); the rest are candidates.
         if not name.startswith("screen-"):
             entry.klass = "unknown"
             entry.reasons = ["not a screen-* checkpoint: the inventory cannot say what this is"]
@@ -528,8 +531,8 @@ def classify(
             entry.klass = "candidate: re-creatable"
             entry.reasons = [
                 f"screen checkpoint; retrainable from configs/train/{recipe.name} and "
-                "the prepared data (plan 09 step 5: only the screens a plan still "
-                "uses are kept, the rest are candidates)"
+                "the prepared data (only the screens a plan still uses are kept, the "
+                "rest are candidates)"
             ]
         else:
             # No committed recipe names this checkpoint: it is not retrainable
@@ -537,19 +540,18 @@ def classify(
             entry.klass = "candidate: unreferenced"
             entry.reasons = [
                 "screen checkpoint without a configs/train recipe of its own: "
-                "not retrainable from the repository (plan 09 step 5 lists it "
-                "among the candidates)"
+                "not retrainable from the repository"
             ]
         # The same basename may still be referenced — as its evaluation run,
         # which is kept separately. Show the reference so the reader sees why
-        # the checkpoint row (plan 09 step 5) is still only a candidate.
+        # the checkpoint row is still only a candidate.
         other_refs = [ref for ref in find_refs(name, info) if ref != f"configs/train/{name}.yaml"]
         if other_refs:
             entry.extras.append(
                 "the same basename is also referenced by "
                 + shown_refs(other_refs)
                 + f"; its evaluation run (runs/eval/{name}) is kept separately, "
-                "and as a checkpoint this entry is classified by plan 09 step 5"
+                "and as a checkpoint this entry stays a candidate"
             )
         return
 
@@ -558,17 +560,19 @@ def classify(
         entry.reasons = [
             "evaluation run cited by "
             + ", ".join(info.doc_eval_runs[name])
-            + " (plan 09 keep rule): it holds the per-clip answers the docs quote"
+            + " (keep list of this experiment's README): it holds the per-clip "
+            "answers the docs quote"
         ]
         return
 
     # The docs can quote an evaluation run's numbers in prose without naming
     # the directory; the name grep above cannot find those. DOC_CITED_EVAL_RUNS
-    # lists them, with the doc line of each citation (see the constant).
+    # lists them, with the doc section of each citation (see the constant).
     if entry.kind == "eval" and name in DOC_CITED_EVAL_RUNS:
         entry.klass = "keep (rule above)"
         entry.reasons = [
-            "evaluation run cited by the docs (plan 09 keep rule): " + DOC_CITED_EVAL_RUNS[name]
+            "evaluation run cited by the docs (keep list of this experiment's "
+            "README): " + DOC_CITED_EVAL_RUNS[name]
         ]
         return
 
@@ -576,19 +580,18 @@ def classify(
         entry.klass = "keep (rule above)"
         entry.reasons = [
             "transcript cache: the per-clip answers of every evaluation run "
-            "(docs/stt/evaluation.md; plan 09 keep rule)"
+            "(docs/stt/evaluation.md; keep list of this experiment's README)"
         ]
         return
 
-    # -- Plan 09 step 3: the download caches of prepared, checksum-pinned
-    # datasets are re-creatable even when the dataset name is referenced.
+    # -- The download caches of prepared datasets listed in PINNED_DATASETS are
+    # re-creatable even when the dataset name is referenced.
     if entry.kind == "cache" and name in datasets:
         module = pinned.get(name)
         if module is not None and is_prepared(data_root, name):
             entry.klass = "candidate: re-creatable"
             entry.reasons = [
-                f"dataset prepared; the archive checksum is pinned in {module}: "
-                "re-downloadable (plan 09 step 3)"
+                f"dataset prepared; the archive checksum is pinned in {module}: re-downloadable"
             ]
             return
         if module is not None:
@@ -776,7 +779,7 @@ def main(argv: list[str] | None = None) -> int:
     for entry in cache_entries + data_entries + runs_entries + train_entries + eval_entries:
         classify(entry, data_root, runs_root, repo_train, info, talk, pinned, datasets)
 
-    # The talk table (plan 09 step 4) and the checkpoint extras.
+    # The talk table and the checkpoint extras.
     talk_rows: list[tuple[Entry, int, int, int]] = []
     for entry in cache_entries:
         if entry.kind == "cache" and entry.path.name in talk:
@@ -842,7 +845,7 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("")
 
     if talk_rows:
-        lines.append("## Talk caches: downloaded audio vs model answers (plan 09 step 4)")
+        lines.append("## Talk caches: downloaded audio vs model answers")
         lines.append("")
         lines.append(
             "The audio is re-downloadable from the pinned listings; the answers are "

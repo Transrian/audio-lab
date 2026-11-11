@@ -57,7 +57,7 @@ def roots(tmp_path, monkeypatch):
     for name in ENV:
         monkeypatch.delenv(name, raising=False)
     repo = tmp_path / "repo"
-    # The keep rule (plan 09, lines 16-28) computed from the repository.
+    # The keep list (see the experiment README) computed from the repository.
     write(
         repo / "configs/panels/ds-fr-fast.txt",
         "# panel: ds-fr-fast\n# dataset: ds-fr (10 clips in 1 groups; test 10)\n",
@@ -164,7 +164,7 @@ def test_classifications(roots, capsys):
     assert inventory.main(argv) == 0
     text = capsys.readouterr().out
 
-    # Plan 09 keep rule, computed from the repository.
+    # The keep list, computed from the repository.
     assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/ds-fr")
     assert "frozen panel" in row(text, "$AUDIOLAB_DATA/ds-fr")
     assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/x-train")
@@ -204,7 +204,7 @@ def test_classifications(roots, capsys):
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_RUNS/label-logs")
     assert "summary of the rows below" in row(text, "$AUDIOLAB_RUNS/train")
 
-    # Plan 09 step 5: the checkpoints.
+    # The screening checkpoints.
     control = row(text, "$AUDIOLAB_RUNS/train/screen-peertube-fr")
     assert "keep (rule above)" in control
     assert "control run of plan 02" in control
@@ -216,7 +216,7 @@ def test_classifications(roots, capsys):
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
     assert "not retrainable" in row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
     # The checkpoint's basename is referenced — as its evaluation run. The
-    # row shows that reference and still follows plan 09 step 5.
+    # row shows that reference and still classifies the checkpoint as a candidate.
     ghost = row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
     assert "the same basename is also referenced by docs/stt/screening.md" in ghost
     assert "runs/eval/screen-ghost" in ghost
@@ -231,7 +231,7 @@ def test_classifications(roots, capsys):
     ghost = row(text, "$AUDIOLAB_RUNS/eval/ghost-eval")
     assert "candidate: unreferenced" in ghost
     assert "evaluates the some-model checkpoint (run.json)" in ghost
-    # Quoted by the docs in prose without naming the directory: the keep rule
+    # Quoted by the docs in prose without naming the directory: the keep list
     # still applies (DOC_CITED_EVAL_RUNS). Remove the constant entry and this
     # row falls back to candidate: unreferenced, which these asserts catch.
     diag = row(text, "$AUDIOLAB_RUNS/eval/diag-african-apostrophe")
