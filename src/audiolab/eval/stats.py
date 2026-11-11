@@ -59,12 +59,12 @@ def difference_interval(
     The two runs are resampled together: a draw takes the same groups from both,
     which is what makes the difference paired. For each draw the two ratios are
     formed separately and then subtracted, exactly as the reported difference is.
+
+    The draws come from :func:`difference_draws` and the interval from
+    :func:`interval_of`, so the paired resampling exists once: the interval read
+    here is by construction the interval of the draws a caller counts.
     """
-    shared = sorted(set(totals_a) & set(totals_b))
-    values = np.array([(*totals_a[group], *totals_b[group]) for group in shared], dtype=float)
-    sums = _draw_sums(values, draws=draws, seed=seed)
-    difference = _ratios(sums[:, 2], sums[:, 3]) - _ratios(sums[:, 0], sums[:, 1])
-    return _read_interval(difference, confidence)
+    return interval_of(difference_draws(totals_a, totals_b, draws=draws, seed=seed), confidence)
 
 
 def difference_draws(
@@ -74,12 +74,13 @@ def difference_draws(
     draws: int = DRAWS,
     seed: int = SEED,
 ) -> np.ndarray:
-    """The per-draw paired differences :func:`difference_interval` reads its interval from.
+    """The per-draw paired differences the interval of a candidate minus a base is read from.
 
-    Same resampling, same order, as :func:`difference_interval`, so the interval
-    of these draws is that function's interval. Exposed for a caller that has to
-    say how often a draw lands on one side of zero: where an interval ends
-    exactly on zero, the count is the difference between a hint and a number.
+    The resampling of :func:`difference_interval`, of which it is the only copy,
+    so :func:`interval_of` of these draws is that function's interval. Exposed
+    for a caller that has to say how often a draw lands on one side of zero:
+    where an interval ends exactly on zero, the count is the difference between
+    a hint and a number.
     """
     shared = sorted(set(totals_a) & set(totals_b))
     values = np.array(
