@@ -46,7 +46,7 @@ live; the report rows stay short and point at it:
 - ``unknown`` -- the script cannot say what an entry is (global rule 13:
   report it, do not improvise).
 
-The two special cases:
+The special cases:
 
 - talk caches: the downloaded audio (re-downloadable from the pinned
   listings) is separated from the model answers (expensive, and what makes
@@ -55,7 +55,9 @@ The two special cases:
   (``<talk id>.wav`` audio, ``<talk id>.<model>.jsonl`` answers, plus
   ``pages/`` of cached episode pages for NASA);
 - screening checkpoints: the size of each ``model.nemo`` is reported, and the
-  small evaluation answers that must stay are named.
+  small evaluation answers that must stay are named;
+- job logs (``$AUDIOLAB_RUNS/label-logs``): disposable, regenerable output of
+  the long jobs, classed by name, and only ever a candidate.
 
 Nothing is ever deleted, moved or renamed; the output is the only deliverable
 besides this script.
