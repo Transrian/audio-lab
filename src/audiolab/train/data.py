@@ -72,12 +72,16 @@ def select_clips(clips: list[Clip], *, count: int, seed: int, max_seconds: float
 
 @dataclass(frozen=True)
 class MixDatasetClips:
-    """What one dataset of a mix contributed to the run."""
+    """What one dataset of a mix contributed to the run.
+
+    It holds the draw itself - what a single-dataset run holds, with the counts
+    of what it left out - plus the name of the dataset and the directory its
+    audio lives in, which is what the manifest of a mix needs per clip.
+    """
 
     name: str
-    clips: list[Clip]
-    available: int
-    ids_sha256: str
+    drawn: TrainingClips
+    directory: Path
 
 
 @dataclass(frozen=True)
@@ -126,15 +130,8 @@ def select_mix(
             )
         except TrainDataError as failure:
             raise TrainDataError(f"{share.name}: {failure}") from failure
-        results.append(
-            MixDatasetClips(
-                name=share.name,
-                clips=drawn.clips,
-                available=drawn.available,
-                ids_sha256=drawn.ids_sha256,
-            )
-        )
-    all_clips = [clip for per in results for clip in per.clips]
+        results.append(MixDatasetClips(name=share.name, drawn=drawn, directory=directory))
+    all_clips = [clip for per in results for clip in per.drawn.clips]
     all_clips.sort(key=lambda clip: clip.id)
     ids = [clip.id for clip in all_clips]
     if len(set(ids)) != len(ids):
@@ -147,7 +144,7 @@ def select_mix(
     # not the mix's.
     by_sha: dict[str, dict[str, list[str]]] = {}
     for per in results:
-        for clip in per.clips:
+        for clip in per.drawn.clips:
             by_sha.setdefault(clip.sha256, {}).setdefault(per.name, []).append(clip.id)
     duplicates = sorted(
         (sha, per_dataset) for sha, per_dataset in by_sha.items() if len(per_dataset) > 1

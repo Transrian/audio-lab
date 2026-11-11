@@ -118,7 +118,7 @@ def run_training(
             data_dir=data_dir,
         )
         for per in drawn.datasets:
-            print_line(f"{len(per.clips)} clips of {per.name}: {per.available} were usable")
+            print_line(_clips_line(per.name, per.drawn))
     else:
         with_data = dataset_dir(config.dataset, data_dir)
         drawn = load_training_clips(
@@ -127,11 +127,7 @@ def run_training(
             seed=config.seed,
             max_seconds=config.max_clip_seconds,
         )
-        print_line(
-            f"{len(drawn.clips)} clips of {config.dataset}: {drawn.available} were usable "
-            f"({drawn.outside_duration} outside the duration window, "
-            f"{drawn.without_text} without text)"
-        )
+        print_line(_clips_line(config.dataset, drawn))
     # Before the model is loaded and before anything is written: a run that
     # would train on what the suite scores is refused, and a refusal costs no
     # directory and no GPU time.
@@ -177,6 +173,15 @@ def run_training(
     return directory
 
 
+def _clips_line(name: str, drawn: TrainingClips) -> str:
+    """What one dataset contributed to a run, single or one of a mix's."""
+    return (
+        f"{len(drawn.clips)} clips of {name}: {drawn.available} were usable "
+        f"({drawn.outside_duration} outside the duration window, "
+        f"{drawn.without_text} without text)"
+    )
+
+
 def _start_payload(
     config: TrainConfig, base: Checkpoint, base_identity: str, drawn: TrainingClips | MixClips
 ) -> dict:
@@ -195,7 +200,7 @@ def _start_payload(
     }
     if isinstance(drawn, MixClips):
         payload["datasets"] = [
-            {"name": per.name, "sampled_ids_sha256": per.ids_sha256} for per in drawn.datasets
+            {"name": per.name, "sampled_ids_sha256": per.drawn.ids_sha256} for per in drawn.datasets
         ]
     return payload
 
@@ -205,19 +210,17 @@ def _manifest_entries(
 ) -> list[tuple[Clip, Path]]:
     """The (clip, its dataset directory) pairs the NeMo manifest is written from.
 
-    Sorted by clip id: the manifest is read shuffled, but what a run trains on
+    Both draws hand their clips sorted by id, so one pass over them gives the
+    manifest its order: the manifest is read shuffled, but what a run trains on
     is identified by the ids, so the order it is written in is a fixed one.
     """
     if isinstance(drawn, MixClips):
-        by_dataset = {per.name: per for per in drawn.datasets}
-        entries: list[tuple[Clip, Path]] = []
-        for share in config.datasets:
-            directory = dataset_dir(share.name, data_dir)
-            entries.extend((clip, directory) for clip in by_dataset[share.name].clips)
-    else:
-        directory = dataset_dir(config.dataset, data_dir)
-        entries = [(clip, directory) for clip in drawn.clips]
-    return sorted(entries, key=lambda entry: entry[0].id)
+        directory_of = {
+            clip.id: per.directory for per in drawn.datasets for clip in per.drawn.clips
+        }
+        return [(clip, directory_of[clip.id]) for clip in drawn.clips]
+    directory = dataset_dir(config.dataset, data_dir)
+    return [(clip, directory) for clip in drawn.clips]
 
 
 def _refuse_a_different_run(directory: Path, started: dict) -> None:
@@ -249,9 +252,9 @@ def _record(
             "datasets": [
                 {
                     "name": per.name,
-                    "clips": len(per.clips),
-                    "clips_available": per.available,
-                    "sampled_ids_sha256": per.ids_sha256,
+                    "clips": len(per.drawn.clips),
+                    "clips_available": per.drawn.available,
+                    "sampled_ids_sha256": per.drawn.ids_sha256,
                 }
                 for per in training.clips.datasets
             ],

@@ -95,7 +95,7 @@ def test_each_dataset_of_a_mix_is_drawn_as_if_it_were_alone_at_its_own_seed(tmp_
             seed=mix_seed(7, per.name),
             max_seconds=20.0,
         )
-        assert [clip.id for clip in per.clips] == [clip.id for clip in solo.clips]
+        assert [clip.id for clip in per.drawn.clips] == [clip.id for clip in solo.clips]
 
 
 def test_adding_a_third_dataset_leaves_the_clips_drawn_from_the_first_two_unchanged(tmp_path):
@@ -113,9 +113,9 @@ def test_adding_a_third_dataset_leaves_the_clips_drawn_from_the_first_two_unchan
         max_seconds=20.0,
         data_dir=tmp_path,
     )
-    by_name = {per.name: [clip.id for clip in per.clips] for per in three.datasets}
-    assert by_name["ds-a"] == [clip.id for clip in two.datasets[0].clips]
-    assert by_name["ds-b"] == [clip.id for clip in two.datasets[1].clips]
+    by_name = {per.name: [clip.id for clip in per.drawn.clips] for per in three.datasets}
+    assert by_name["ds-a"] == [clip.id for clip in two.datasets[0].drawn.clips]
+    assert by_name["ds-b"] == [clip.id for clip in two.datasets[1].drawn.clips]
     assert len(three.clips) == 15
 
 
@@ -195,7 +195,7 @@ def test_the_mix_clips_are_sorted_by_id_and_per_dataset_results_are_kept(tmp_pat
     assert [clip.id for clip in mix.clips] == sorted(clip.id for clip in mix.clips)
     assert [per.name for per in mix.datasets] == ["ds-a", "ds-b"]
     for per in mix.datasets:
-        assert per.ids_sha256 == manifest_id_sha256(per.clips)
+        assert per.drawn.ids_sha256 == manifest_id_sha256(per.drawn.clips)
     assert mix.ids_sha256 == manifest_id_sha256(mix.clips)
 
 
@@ -487,12 +487,16 @@ def test_a_mix_run_draws_per_dataset_and_records_the_mix(tmp_path, monkeypatch):
     assert [per.name for per in mix.datasets] == ["ds-a", "ds-b"]
     assert len(mix.clips) == 8
 
-    # The manifest has one line per clip, each under its own dataset's directory.
+    # The manifest has one line per clip, each under its own dataset's directory,
+    # in the order of the drawn clips, which is sorted by id.
     manifest = [json.loads(line) for line in (directory / MANIFEST_NAME).read_text().splitlines()]
     assert len(manifest) == 8
     directories = {Path(line["audio_filepath"]).parent.parent.name for line in manifest}
     assert directories == {"ds-a", "ds-b"}
     assert all(Path(line["audio_filepath"]).is_absolute() for line in manifest)
+    assert [Path(line["audio_filepath"]).name for line in manifest] == [
+        Path(clip.audio).name for clip in mix.clips
+    ]
 
     record = json.loads((directory / TRAIN_JSON).read_text(encoding="utf-8"))
     # A mix record holds the per-dataset numbers and the whole, and no dataset key.
@@ -503,9 +507,9 @@ def test_a_mix_run_draws_per_dataset_and_records_the_mix(tmp_path, monkeypatch):
     for entry, per in zip(record["datasets"], mix.datasets, strict=True):
         assert entry == {
             "name": per.name,
-            "clips": len(per.clips),
-            "clips_available": per.available,
-            "sampled_ids_sha256": per.ids_sha256,
+            "clips": len(per.drawn.clips),
+            "clips_available": per.drawn.available,
+            "sampled_ids_sha256": per.drawn.ids_sha256,
         }
     assert record["leakage_guard"] == {
         "evaluation_datasets_checked": [],
@@ -524,8 +528,8 @@ def test_a_mix_run_draws_per_dataset_and_records_the_mix(tmp_path, monkeypatch):
     assert started["clips"] == 8
     assert started["sampled_ids_sha256"] == record["sampled_ids_sha256"]
     assert started["datasets"] == [
-        {"name": "ds-a", "sampled_ids_sha256": mix.datasets[0].ids_sha256},
-        {"name": "ds-b", "sampled_ids_sha256": mix.datasets[1].ids_sha256},
+        {"name": "ds-a", "sampled_ids_sha256": mix.datasets[0].drawn.ids_sha256},
+        {"name": "ds-b", "sampled_ids_sha256": mix.datasets[1].drawn.ids_sha256},
     ]
 
 
@@ -554,6 +558,7 @@ def test_a_mix_run_that_would_train_on_evaluation_audio_is_refused_before_anythi
 def test_the_single_form_still_prints_its_usable_clips_line_and_the_mix_prints_one_per_dataset(
     tmp_path, monkeypatch
 ):
+    """One line per dataset, in the words a single-dataset run uses for its own."""
     step = FakeStep()
     monkeypatch.setattr(runner, "train_checkpoint", step)
     data = tmp_path / "data"
@@ -580,8 +585,11 @@ def test_the_single_form_still_prints_its_usable_clips_line_and_the_mix_prints_o
     runner.run_training(
         mix_config(tmp_path), data_dir=data, runs_root=tmp_path / "runs", print_line=lines.append
     )
-    assert any("4 clips of ds-a" in line for line in lines)
-    assert any("4 clips of ds-b" in line for line in lines)
+    for name in ("ds-a", "ds-b"):
+        assert (
+            f"4 clips of {name}: 20 were usable (0 outside the duration window, 0 without text)"
+            in lines
+        )
 
 
 def test_a_single_dataset_run_records_nothing_about_a_mix(tmp_path, monkeypatch):
