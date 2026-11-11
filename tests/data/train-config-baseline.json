@@ -119,7 +119,7 @@
   "base_model_env": "AUDIOLAB_PARAKEET_NEMO",
   "batch_size": 2,
   "clips": 8752,
-  "dataset": "icsi-en-train",
+  "dataset": "icsi-en-train.pre-plain-label-2026-11-11",
   "gpu": "0",
   "grad_accumulation": 8,
   "grad_clip": 1.0,
