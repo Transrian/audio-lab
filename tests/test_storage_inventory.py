@@ -72,6 +72,11 @@ def roots(tmp_path, monkeypatch):
         "The ghost checkpoint's evaluation is kept as `runs/eval/screen-ghost/`.\n",
     )
     write(
+        repo / "docs/stt/datasets.md",
+        "Two archives hold what a screening trained on: `docs-only-train` is one\n"
+        "of them, kept as the frozen input of its run.\n",
+    )
+    write(
         repo / "docs/stt/evaluation.md",
         "The cache: `$AUDIOLAB_RUNS/transcripts/<key>.jsonl`. A per-machine key in "
         "`<runs dir>/.identity-key` opens it.\n",
@@ -84,6 +89,10 @@ def roots(tmp_path, monkeypatch):
     write(data / "mls-fr-train/manifest.jsonl")  # babble rule
     write(data / "nasa-en-train.curly-2026-11-09/manifest.jsonl")  # plan 05 rule
     write(data / "lonely-train/manifest.jsonl")  # prepared, referenced nowhere
+    write(data / "docs-only-train/manifest.jsonl")  # prepared, named in docs only
+    write(
+        data / "icsi-en-train.pre-plain-label-2026-11-11/manifest.jsonl"
+    )  # archived preparation, kept by name
     (data / "mystery-dir").mkdir(parents=True)  # no manifest, unreferenced
     write(data / "fleurs-fr/manifest.jsonl")  # prepared, like its cache
     write(data / "granary-fr-train/manifest.jsonl")
@@ -169,6 +178,17 @@ def test_classifications(roots, capsys):
     assert "plan 05 Part C" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_DATA/lonely-train")
     assert "unknown" in row(text, "$AUDIOLAB_DATA/mystery-dir")
+    # A prepared dataset the docs alone name is referenced, so it is kept: the
+    # data branch must check the references like every other entry.
+    docs_only = row(text, "$AUDIOLAB_DATA/docs-only-train")
+    assert "keep (referenced)" in docs_only
+    assert "docs/stt/datasets.md" in docs_only
+    # An archived preparation of the keep table is kept whatever the
+    # references say, and the row says which screening it is the input of.
+    archived = row(text, "$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11")
+    assert "keep (rule above)" in archived
+    assert "frozen screening input of configs/train/screen-icsi-en-train.yaml" in archived
+    assert "configs/train dataset:" not in archived
 
     # Talk cache: answers kept, audio a candidate, both sizes reported.
     talk = row(text, "$AUDIOLAB_CACHE/peertube-fr-train")
@@ -258,8 +278,8 @@ def test_totals_and_talk_table(roots, capsys):
     assert inventory.main(argv) == 0
     text = capsys.readouterr().out
 
-    # Every leaf counted once: 6 cache + 8 data + 3 runs leaves + 5 train + 6 eval.
-    assert "| **all** | 28 |" in text
+    # Every leaf counted once: 6 cache + 10 data + 3 runs leaves + 5 train + 6 eval.
+    assert "| **all** | 30 |" in text
     assert "candidate: re-creatable" in text
     assert "## Talk caches: downloaded audio vs model answers" in text
     talk_row = next(

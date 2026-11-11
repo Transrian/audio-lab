@@ -92,14 +92,25 @@ PIN_MARKERS = (
     "huggingface_entries",
 )
 
-# Plan 09, "What must be kept regardless" (plans/09-retention-p07.md, lines
-# 16-28): the parts of the rule that name concrete entries. The rest of the
-# list (panel datasets, train datasets, talk answer caches, the evaluation
+# Plan 09's keep list, the parts that name concrete entries: one table,
+# name -> the reason the report shows for it. The rest of that list (frozen
+# panel datasets, configs/train datasets, talk answer caches, the evaluation
 # runs the docs cite) is computed from the repository, not hard-coded.
-BABBLE_NOISE_DATASETS = frozenset({"mls-fr-train", "librispeech-en-train"})
-NASA_CURLY = "nasa-en-train.curly-2026-11-09"
-PEERTUBE_CONTROL = "screen-peertube-fr"  # control of plan 02
-NASA_SCREEN = "screen-nasa-en"  # until plan 05 Part C is documented
+KEEP_BY_NAME: dict[str, str] = {
+    # The two archived preparations: each one is the frozen input of a
+    # screening run, so it is kept like the run that trained on it.
+    "icsi-en-train.pre-plain-label-2026-11-11": (
+        "frozen screening input of configs/train/screen-icsi-en-train.yaml, "
+        "whose 2026-11-08 run trained on the 8 752 clips it holds"
+    ),
+    "nasa-en-train.curly-2026-11-09": "kept until plan 05 Part C is documented",
+    # The babble noise the noise experiment takes from them (plan 01 T4).
+    "mls-fr-train": "babble noise of plan 01 T4",
+    "librispeech-en-train": "babble noise of plan 01 T4",
+    # Screening runs a plan still uses.
+    "screen-peertube-fr": "control run of plan 02",
+    "screen-nasa-en": "kept until plan 05 Part C is documented",
+}
 
 # Evaluation run directories the docs cite in prose WITHOUT naming the
 # directory, so the name grep (eval_runs_cited_by_docs, over RUNS_DOCS) cannot
@@ -561,20 +572,26 @@ def classify(
     """Plan 09's classes, in the order the plan applies them."""
     name = entry.path.name
 
-    # -- keep (rule above): the plan's "What must be kept regardless" (16-28).
+    # -- keep (rule above): the plan's keep list, the part that names entries.
     if entry.kind == "data":
         reasons: list[str] = []
         if name in info.panel_datasets:
             reasons.append("frozen panel: " + ", ".join(info.panel_datasets[name]))
         if name in info.train_datasets:
             reasons.append("configs/train dataset: " + ", ".join(info.train_datasets[name]))
-        if name in BABBLE_NOISE_DATASETS:
-            reasons.append("babble noise of plan 01 T4 (plan 09 keep rule)")
-        if name == NASA_CURLY:
-            reasons.append("kept until plan 05 Part C is documented (plan 09 keep rule)")
+        if name in KEEP_BY_NAME:
+            reasons.append(KEEP_BY_NAME[name])
         if reasons:
             entry.klass = "keep (rule above)"
             entry.reasons = reasons
+            return
+        # A prepared dataset the docs or the notes name is referenced like any
+        # other entry: check the references before falling back to a candidate.
+        refs = find_refs(name, info)
+        if refs:
+            entry.klass = "keep (referenced)"
+            entry.reasons = [f"referenced in: {shown_refs(refs)}"]
+            entry.refs = refs
             return
         if (entry.path / "manifest.jsonl").is_file():
             entry.klass = "candidate: unreferenced"
@@ -596,13 +613,9 @@ def classify(
 
     if entry.kind == "train":
         checkpoint_extras(entry, runs_root)
-        if name == PEERTUBE_CONTROL:
+        if name in KEEP_BY_NAME:
             entry.klass = "keep (rule above)"
-            entry.reasons = ["control run of plan 02 (plan 09 keep rule)"]
-            return
-        if name == NASA_SCREEN:
-            entry.klass = "keep (rule above)"
-            entry.reasons = ["kept until plan 05 Part C is documented (plan 09 keep rule)"]
+            entry.reasons = [KEEP_BY_NAME[name]]
             return
         # Plan 09 step 5: the screening checkpoints. The keeps are the runs a
         # plan still uses (the two named above); the rest are candidates.
