@@ -248,25 +248,54 @@ def test_a_mix_config_is_accepted_and_its_clips_are_the_sum_of_its_shares():
     assert loaded.dataset == ""
 
 
-def test_a_mix_config_whose_clips_are_not_the_sum_of_its_shares_is_refused():
-    """A directly constructed config skips from_mapping, which computes the sum.
+def test_the_mix_checks_run_on_a_config_that_was_built_by_hand():
+    """_check is the gate every mix config passes, whatever built it.
 
-    _check is the gate a mix config passes either way, so it must refuse a
-    sum that is wrong.
+    from_mapping reads the shape of the ``datasets`` list and computes ``clips``
+    from it; the rules about a share - a name that can be a dataset, a count of
+    at least one, no name twice - live in _check alone, so a config assembled
+    without from_mapping is refused in the same words.
     """
-    bad = TrainConfig(
+    shares = (
+        DatasetShare(name="ds-a", clips=4),
+        DatasetShare(name="ds-b", clips=4),
+    )
+    good = TrainConfig(
         name="example",
         base_model="/models/base.nemo",
         dataset="",
-        clips=9,
+        clips=8,
         updates=4,
         batch_size=2,
         lr_encoder=1.0e-5,
         lr_heads=3.0e-5,
-        datasets=(DatasetShare(name="ds-a", clips=4), DatasetShare(name="ds-b", clips=4)),
+        datasets=shares,
     )
-    with pytest.raises(TrainConfigError, match="not the sum of the datasets"):
-        bad._check()
+    good._check()  # a well-formed mix is accepted
+
+    def built(datasets: tuple[DatasetShare, ...]) -> TrainConfig:
+        return TrainConfig(
+            name="example",
+            base_model="/models/base.nemo",
+            dataset="",
+            clips=sum(share.clips for share in datasets),
+            updates=4,
+            batch_size=2,
+            lr_encoder=1.0e-5,
+            lr_heads=3.0e-5,
+            datasets=datasets,
+        )
+
+    with pytest.raises(TrainConfigError, match="is not a prepared dataset name"):
+        built((DatasetShare(name="Not A Dataset", clips=4),))._check()
+    with pytest.raises(TrainConfigError, match="must be an integer of at least 1"):
+        built((DatasetShare(name="ds-a", clips=0), DatasetShare(name="ds-b", clips=8)))._check()
+    with pytest.raises(TrainConfigError, match="given twice"):
+        built((DatasetShare(name="ds-a", clips=4), DatasetShare(name="ds-a", clips=4)))._check()
+    # The checks on the run as a whole still read the mix's total, the sum of
+    # the shares: one clip cannot cover a batch of two.
+    with pytest.raises(TrainConfigError, match="smaller than batch_size"):
+        built((DatasetShare(name="ds-a", clips=1),))._check()
 
 
 def test_giving_both_forms_of_the_data_is_refused():

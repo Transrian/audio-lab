@@ -79,8 +79,9 @@ class TrainConfig:
     # The dataset a single-dataset run trains on. Empty for a mix run: that
     # run's datasets live in ``datasets``, and ``clips`` is their sum.
     dataset: str
-    # How many clips the run trains on, drawn once. For a mix run this is the
-    # sum of the ``clips`` of every entry of ``datasets``.
+    # How many clips the run trains on, drawn once. For a mix run it is the sum
+    # of the ``clips`` of every entry of ``datasets``, computed when the config
+    # is read.
     clips: int
     # Optimizer updates, not epochs: this is what stops the run.
     updates: int
@@ -189,6 +190,26 @@ class TrainConfig:
     def _check(self) -> None:
         """Refuse a run that could only fail later, after loading a model."""
         where = self.source or self.name
+        # A mix run is checked share by share first: its ``clips`` is the sum of
+        # the shares, so a share is what says a mix has no data to train on, and
+        # naming the share is what tells the reader which entry to fix.
+        if self.datasets:
+            seen: set[str] = set()
+            for share in self.datasets:
+                if not NAME_PATTERN.match(share.name):
+                    raise TrainConfigError(
+                        f"{where}: {share.name!r} is not a prepared dataset name"
+                    )
+                if share.clips < 1:
+                    raise TrainConfigError(
+                        f"{where}: {share.name}: clips must be an integer of at least 1, "
+                        f"not {share.clips}"
+                    )
+                if share.name in seen:
+                    raise TrainConfigError(f"{where}: {share.name!r} is given twice in datasets")
+                seen.add(share.name)
+        elif not NAME_PATTERN.match(self.dataset):
+            raise TrainConfigError(f"{where}: {self.dataset!r} is not a prepared dataset name")
         counts = {
             "clips": self.clips,
             "updates": self.updates,
@@ -227,25 +248,6 @@ class TrainConfig:
             )
         if self.max_clip_seconds < 1.0:
             raise TrainConfigError(f"{where}: max_clip_seconds must be at least 1")
-        if self.datasets:
-            seen: set[str] = set()
-            for share in self.datasets:
-                if not NAME_PATTERN.match(share.name):
-                    raise TrainConfigError(
-                        f"{where}: {share.name!r} is not a prepared dataset name"
-                    )
-                if share.clips < 1:
-                    raise TrainConfigError(f"{where}: {share.name}: clips must be at least 1")
-                if share.name in seen:
-                    raise TrainConfigError(f"{where}: {share.name!r} is given twice in datasets")
-                seen.add(share.name)
-            if sum(share.clips for share in self.datasets) != self.clips:
-                raise TrainConfigError(
-                    f"{where}: clips ({self.clips}) is not the sum of the datasets' clips "
-                    f"({sum(share.clips for share in self.datasets)})"
-                )
-        elif not NAME_PATTERN.match(self.dataset):
-            raise TrainConfigError(f"{where}: {self.dataset!r} is not a prepared dataset name")
 
     def weights(self) -> Checkpoint:
         """The base model to start from, after the local override this file cannot hold."""
@@ -278,7 +280,14 @@ class TrainConfig:
 
 
 def _parse_shares(raw: object, source: str) -> tuple[DatasetShare, ...]:
-    """The ``datasets`` entries: names unique, each an int of at least 1."""
+    """The ``datasets`` entries: a name, an integer ``clips``, and nothing else.
+
+    This reads the *shape* of the list and nothing more. What makes a name a
+    dataset this run could read, and a count a count it could train on, is
+    checked with the rest of the config, in :meth:`TrainConfig._check`: one home
+    per rule, so a share is refused in the same words whether the config was
+    read from a file or built by hand.
+    """
     if not isinstance(raw, list) or not raw:
         raise TrainConfigError(f"{source}: datasets must be a non-empty list of mappings")
     shares: list[DatasetShare] = []
@@ -293,12 +302,8 @@ def _parse_shares(raw: object, source: str) -> tuple[DatasetShare, ...]:
                 f"{source}: datasets[{position}] has unknown keys: {', '.join(unknown)}"
             )
         name = str(entry.get("name") or "").strip()
-        if not name or not NAME_PATTERN.match(name):
-            raise TrainConfigError(
-                f"{source}: datasets[{position}].name {name!r} is not a prepared dataset name"
-            )
         count = entry.get("clips")
-        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        if isinstance(count, bool) or not isinstance(count, int):
             raise TrainConfigError(
                 f"{source}: datasets[{position}].clips must be an integer of at least 1"
             )
