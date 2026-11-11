@@ -115,6 +115,7 @@ def test_the_difference_interval_is_the_interval_of_its_draws():
     # No shared group: no draw to read, and the interval of no draw is the point 0.
     assert stats.difference_draws({"a": (1.0, 4.0)}, {"b": (2.0, 4.0)}, draws=50).size == 0
     assert stats.interval_of(stats.difference_draws({}, {"b": (2.0, 4.0)}, draws=50)) == (0.0, 0.0)
+    assert stats.difference_interval({"a": (1.0, 4.0)}, {"b": (2.0, 4.0)}, draws=50) == (0.0, 0.0)
 
 
 def test_a_non_default_confidence_moves_the_interval_of_the_same_draws():
