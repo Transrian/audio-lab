@@ -7,7 +7,7 @@ feature of the maintained `audiolab` core
 | Experiment | Purpose | Entry point |
 |---|---|---|
 | [Source screening](source-screening/README.md) | Render comparisons of already evaluated per-source training runs | [table.py](source-screening/table.py) |
-| [Label-text check](label-text/README.md) | Report how many training clips hold a character the base model cannot write (plan 03 A4, plan 08 P-06) | [check_text.py](label-text/check_text.py) |
+| [Label-text check](label-text/README.md) | Report how many training clips hold a character the base model cannot write (plan 03 A4, plan 08 P-06, closed 2026-11-11) | [check_text.py](label-text/check_text.py) |
 | [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (plan 09, P-07) | [inventory.py](storage-inventory/inventory.py) |
 
 The [research index](../docs/research/README.md) links questions and findings.

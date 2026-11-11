@@ -49,7 +49,7 @@ so DS-01 comes before DS-03.
 | O-04 | Add Nemotron to the evaluated models? | A [model config](../configs/models/nemotron-3.5-transcribe-vllm.yaml) exists. Confirm access and a suitable evaluation budget before using it. |
 | O-05 | Review the AMI per-group training cap. | Check the current [training-source preparation](stt/datasets.md#training-sources) and AMI card before proposing a different sampling rule. |
 | O-06 | Pursue the remaining weak source candidates? | VOA Afrique and the European Commission Audiovisual Service remain documented in the [source register](stt/sources.md); their reasons and license constraints live there. |
-| O-07 | Mix guard for training: refuse clips whose text holds a character `unwritable()` reports unless the recipe sets `allow_unwritable_text: true`. | Undecided (owner, 2026-11-11); see plans/08 step 4. |
+| O-07 | Mix guard for training: refuse clips whose text holds a character `unwritable()` reports unless the recipe sets `allow_unwritable_text: true`. | Undecided (owner, 2026-11-11); see plans/08 step 4 (git-ignored). |
 
 ## Not started / deferred
 

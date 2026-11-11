@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report the characters of prepared training labels the base model cannot write.
 
-Plan 03 A4's checker, reused by plan 08 (P-06). Since 2026-11-09 every training
+Plan 03 A4's checker, reused by plan 08 (P-06, closed 2026-11-11). Since 2026-11-09 every training
 label is written through `plain_label` (`src/audiolab/data/train.py`), so a
 preparation that ran that code holds no character outside the base model's
 tokenizer vocabulary. This script is the proof, after each preparation: it
