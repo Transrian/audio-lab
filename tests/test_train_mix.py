@@ -10,18 +10,23 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
-from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 import pytest  # noqa: E402
-from helpers import make_clip  # noqa: E402
+from helpers import (  # noqa: E402
+    MINIMAL,
+    MIX_MINIMAL,
+    FakeStep,
+    guard_suite,
+    make_clip,
+    point_the_guard_at_a_test_suite,
+)
 
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_PANELS_DIR,
-    Panel,
     SuiteError,
     load_suite,
 )
@@ -38,24 +43,12 @@ from audiolab.train.data import (  # noqa: E402
 from audiolab.train.guard import check_leakage, evaluation_datasets  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     MANIFEST_NAME,
-    MODEL_NAME,
     TRAIN_JSON,
     TrainRunError,
     is_finished,
     read_run_config,
     run_dir,
 )
-from audiolab.train.runner import Training  # noqa: E402
-
-MINIMAL = {
-    "base_model": "/models/base.nemo",
-    "updates": 4,
-    "batch_size": 2,
-    "lr_encoder": 1.0e-5,
-    "lr_heads": 3.0e-5,
-}
-MIX_MINIMAL = {**MINIMAL, "datasets": [{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4}]}
-
 
 # --- the draw -------------------------------------------------------------------
 
@@ -228,33 +221,6 @@ def test_write_nemo_manifest_pairs_put_each_clip_in_its_own_dataset(tmp_path):
 # --- the leakage guard ------------------------------------------------------------
 
 
-def guard_suite(tmp_path: Path, names: list[str]) -> tuple[Path, Path]:
-    """A suite with one full panel per evaluation dataset, for the guard to check."""
-    panels_dir = tmp_path / "panels"
-    panels_dir.mkdir(exist_ok=True)
-    for name in names:
-        (panels_dir / f"{name}-full.txt").write_text(
-            Panel(
-                name="full",
-                dataset=name,
-                ids=[f"{name}:0000"],
-                items=1,
-                seed=1,
-                manifest_sha256="0" * 64,
-                clips_sha256="0" * 64,
-                dataset_line=f"{name} (1 clip in 1 group; test 1)",
-                built="2026-01-01",
-            ).text(),
-            encoding="utf-8",
-        )
-    suite = tmp_path / "suite.yaml"
-    suite.write_text(
-        "name: guard\npanels:\n" + "\n".join(f"  - {name}-full" for name in names) + "\n",
-        encoding="utf-8",
-    )
-    return suite, panels_dir
-
-
 def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
     """The default path - the one the sequence tests monkeypatch around - is the repo's.
 
@@ -417,31 +383,6 @@ def test_group_ids_are_not_compared_across_corpora(tmp_path):
 # --- the whole sequence, with the fine-tune replaced --------------------------------
 
 
-@dataclass
-class FakeResult:
-    final_loss: float = 1.5
-    updates: int = 64
-    wall_seconds: float = 32.0
-    peak_vram_gib: float = 7.25
-    device: str = "Fake GPU"
-    stopped: bool = False
-
-
-class FakeStep:
-    """The heavy step, replaced: it writes the two files a real run writes."""
-
-    def __init__(self) -> None:
-        self.calls: list[Training] = []
-
-    def __call__(self, training: Training, *, print_line=print):
-        self.calls.append(training)
-        (training.directory / MODEL_NAME).write_bytes(b"fine-tuned weights")
-        (training.directory / "train-log.jsonl").write_text(
-            '{"update": 64, "loss": 1.5}\n', encoding="utf-8"
-        )
-        return FakeResult()
-
-
 @pytest.fixture(autouse=True)
 def no_gpu_needed(monkeypatch):
     monkeypatch.setattr(runner, "select_gpu", lambda spec: None)
@@ -450,10 +391,7 @@ def no_gpu_needed(monkeypatch):
 @pytest.fixture(autouse=True)
 def the_guard_checks_a_suite_the_tests_control(tmp_path, monkeypatch):
     """As in test_train.py: the guard runs, against a suite the tests own."""
-    suite, panels = guard_suite(tmp_path, ["guard-eval"])
-    monkeypatch.setattr(
-        runner, "check_leakage", partial(check_leakage, suite_path=suite, panels_dir=panels)
-    )
+    point_the_guard_at_a_test_suite(monkeypatch, tmp_path)
 
 
 def base_model(tmp_path: Path) -> Path:
@@ -566,12 +504,7 @@ def test_the_single_form_still_prints_its_usable_clips_line_and_the_mix_prints_o
     lines: list[str] = []
     runner.run_training(
         TrainConfig.from_mapping(
-            {
-                **MINIMAL,
-                "base_model": str(base_model(tmp_path)),
-                "dataset": "fleurs-fr",
-                "clips": 4,
-            },
+            {**MINIMAL, "base_model": str(base_model(tmp_path))},
             name="example",
         ),
         data_dir=data,
@@ -599,12 +532,7 @@ def test_a_single_dataset_run_records_nothing_about_a_mix(tmp_path, monkeypatch)
     write_dataset(data, "fleurs-fr", 20)
     directory = runner.run_training(
         TrainConfig.from_mapping(
-            {
-                **MINIMAL,
-                "base_model": str(base_model(tmp_path)),
-                "dataset": "fleurs-fr",
-                "clips": 4,
-            },
+            {**MINIMAL, "base_model": str(base_model(tmp_path))},
             name="example",
         ),
         data_dir=data,

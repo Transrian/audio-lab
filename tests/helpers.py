@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
 
 import numpy as np
 import pyarrow
@@ -10,7 +13,12 @@ import pyarrow.parquet as pq
 import soundfile as sf
 
 from audiolab.core.audio import SAMPLE_RATE
+from audiolab.data.panels import Panel
 from audiolab.data.store import Clip
+from audiolab.train import runner
+from audiolab.train.guard import check_leakage
+from audiolab.train.run import LOG_NAME, MODEL_NAME
+from audiolab.train.runner import Training
 
 
 def write_tone(path, seconds: float = 1.0, rate: int = SAMPLE_RATE, frequency: int = 440):
@@ -113,3 +121,106 @@ def is_warmup(content: bytes) -> bool:
     from audiolab.eval.client import silence_wav
 
     return silence_wav() in content
+
+
+# --- what the training tests share ----------------------------------------------
+#
+# The two tests of `audiolab train` (test_train.py and test_train_mix.py) drive
+# the same sequence with the same fakes; what they share lives here, so a change
+# to the heavy step's call or to the config keys is made once.
+
+
+# The keys every config must set, at values small enough for a test. What a run
+# trains on, how long, in what batches and at what rates are choices, not
+# defaults: a run would otherwise train something the file does not say.
+MINIMAL = {
+    "base_model": "/models/base.nemo",
+    "dataset": "fleurs-fr",
+    "clips": 4,
+    "updates": 2,
+    "batch_size": 2,
+    "lr_encoder": 1.0e-5,
+    "lr_heads": 3.0e-5,
+}
+# The same recipe in the mix form: a list of datasets instead of dataset+clips.
+MIX_MINIMAL = {
+    "base_model": "/models/base.nemo",
+    "datasets": [{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4}],
+    "updates": 4,
+    "batch_size": 2,
+    "lr_encoder": 1.0e-5,
+    "lr_heads": 3.0e-5,
+}
+
+
+@dataclass
+class FakeResult:
+    """What the heavy step returns, with the fields a run's record reads."""
+
+    final_loss: float = 1.5
+    updates: int = 64
+    wall_seconds: float = 32.0
+    peak_vram_gib: float = 7.25
+    device: str = "Fake GPU"
+    stopped: bool = False
+
+
+class FakeStep:
+    """The heavy step, replaced: it writes the two files a real run writes."""
+
+    def __init__(self) -> None:
+        self.calls: list[Training] = []
+
+    def __call__(self, training: Training, *, print_line=print):
+        self.calls.append(training)
+        (training.directory / MODEL_NAME).write_bytes(b"fine-tuned weights")
+        (training.directory / LOG_NAME).write_text(
+            '{"update": 64, "loss": 1.5}\n', encoding="utf-8"
+        )
+        return FakeResult()
+
+
+def guard_suite(root: Path, names: list[str]) -> tuple[Path, Path]:
+    """A suite with one full panel per evaluation dataset, for the guard to check.
+
+    Returns the suite file and the panels directory it names. The panels are
+    written through the same ``Panel`` class as the frozen ones, so the guard
+    reads a file shaped like the real thing.
+    """
+    panels_dir = root / "panels"
+    panels_dir.mkdir(exist_ok=True)
+    for name in names:
+        (panels_dir / f"{name}-full.txt").write_text(
+            Panel(
+                name="full",
+                dataset=name,
+                ids=[f"{name}:0000"],
+                items=1,
+                seed=1,
+                manifest_sha256="0" * 64,
+                clips_sha256="0" * 64,
+                dataset_line=f"{name} (1 clip in 1 group; test 1)",
+                built="2026-01-01",
+            ).text(),
+            encoding="utf-8",
+        )
+    suite = root / "suite.yaml"
+    suite.write_text(
+        "name: guard\npanels:\n" + "\n".join(f"  - {name}-full" for name in names) + "\n",
+        encoding="utf-8",
+    )
+    return suite, panels_dir
+
+
+def point_the_guard_at_a_test_suite(monkeypatch, root: Path) -> None:
+    """Make the guard of the next training run check a suite the tests own.
+
+    The real guard reads the repository's full suite, whose evaluation datasets
+    (fleurs-fr, mls-fr, …) a test would have to dodge by name. Against a suite of
+    one dataset the tests never prepare, the guard warns instead of refusing, and
+    its block in train.json is still written and checkable.
+    """
+    suite, panels_dir = guard_suite(root, ["guard-eval"])
+    monkeypatch.setattr(
+        runner, "check_leakage", partial(check_leakage, suite_path=suite, panels_dir=panels_dir)
+    )

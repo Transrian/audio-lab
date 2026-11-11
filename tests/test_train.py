@@ -9,15 +9,20 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 import pytest  # noqa: E402
 import yaml  # noqa: E402
-from helpers import make_clip  # noqa: E402
+from helpers import (  # noqa: E402
+    MINIMAL,
+    MIX_MINIMAL,
+    FakeResult,
+    FakeStep,
+    make_clip,
+    point_the_guard_at_a_test_suite,
+)
 
 from audiolab.core.checkpoint import CheckpointError  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
@@ -25,9 +30,7 @@ from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import DatasetShare, TrainConfig, TrainConfigError  # noqa: E402
 from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402
-from audiolab.train.guard import check_leakage  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
-    LOG_NAME,
     MANIFEST_NAME,
     MODEL_CONFIG,
     MODEL_NAME,
@@ -62,38 +65,7 @@ def the_guard_checks_a_suite_the_tests_control(tmp_path, monkeypatch):
     Against a suite of one dataset the tests never prepare, the guard warns,
     never refuses, and its block in train.json is still written and checkable.
     """
-    panels_dir = tmp_path / "guard-panels"
-    panels_dir.mkdir()
-    (panels_dir / "guard-eval-full.txt").write_text(
-        "# panel: guard-eval-full\n"
-        "# dataset: guard-eval (1 clip in 1 group; test 1)\n"
-        "# items: 1  (clip ids below, one per line)\n"
-        "# clips_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
-        "# manifest_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
-        "# seed: 1\n"
-        "# built: 2026-01-01  (date the panel was frozen; never rebuilt)\n"
-        "guard-eval:0000\n",
-        encoding="utf-8",
-    )
-    suite = tmp_path / "guard-suite.yaml"
-    suite.write_text("name: guard\npanels:\n  - guard-eval-full\n", encoding="utf-8")
-    monkeypatch.setattr(
-        runner, "check_leakage", partial(check_leakage, suite_path=suite, panels_dir=panels_dir)
-    )
-
-
-# The keys every config must set, at values small enough for a test. What a run
-# trains on, how long, in what batches and at what rates are choices, not
-# defaults: a run would otherwise train something the file does not say.
-MINIMAL = {
-    "base_model": "/models/base.nemo",
-    "dataset": "fleurs-fr",
-    "clips": 4,
-    "updates": 2,
-    "batch_size": 2,
-    "lr_encoder": 1.0e-5,
-    "lr_heads": 3.0e-5,
-}
+    point_the_guard_at_a_test_suite(monkeypatch, tmp_path)
 
 
 def train_json(directory: Path) -> dict:
@@ -111,16 +83,6 @@ def write_config(path: Path, raw: dict) -> Path:
     return path
 
 
-# The mix form of the data: the same recipe keys, a list of datasets instead
-# of dataset+clips, and the run's clip count is the sum of the entries.
-MIX_MINIMAL = {
-    "base_model": "/models/base.nemo",
-    "datasets": [{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4}],
-    "updates": 4,
-    "batch_size": 2,
-    "lr_encoder": 1.0e-5,
-    "lr_heads": 3.0e-5,
-}
 BASELINE = Path(__file__).parent / "data" / "train-config-baseline.json"
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -486,31 +448,6 @@ def test_a_run_writes_the_model_config_that_evaluates_it(tmp_path, monkeypatch):
 
 
 # --- the whole sequence, with the fine-tune replaced ------------------------------
-
-
-@dataclass
-class FakeResult:
-    final_loss: float = 1.5
-    updates: int = 64
-    wall_seconds: float = 32.0
-    peak_vram_gib: float = 7.25
-    device: str = "Fake GPU"
-    stopped: bool = False
-
-
-class FakeStep:
-    """The heavy step, replaced: it writes the two files a real run writes."""
-
-    def __init__(self) -> None:
-        self.calls: list[Training] = []
-
-    def __call__(self, training: Training, *, print_line=print):
-        self.calls.append(training)
-        (training.directory / MODEL_NAME).write_bytes(b"fine-tuned weights")
-        (training.directory / LOG_NAME).write_text(
-            '{"update": 64, "loss": 1.5}\n', encoding="utf-8"
-        )
-        return FakeResult()
 
 
 def test_a_run_writes_the_manifest_the_records_and_the_serving_config(tmp_path, monkeypatch):
