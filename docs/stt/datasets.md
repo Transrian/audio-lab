@@ -399,7 +399,8 @@ screening is a difference between corpora and not between recipes:
   earlier keeps its published characters until it is prepared again. The
   prepared sets that predate the rule and still hold unwritable characters
   (measured on 2026-11-10 by
-  [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
+  [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py);
+  that same run also flagged the two preparations below, since re-made)
   are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
   `voxpopuli-fr-train`. Two other preparations were re-made and their pre-rule
