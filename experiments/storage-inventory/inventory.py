@@ -134,6 +134,37 @@ KEEP_BY_NAME: dict[str, str] = {
     "screen-nasa-en": "kept until plan 05 Part C is documented",
 }
 
+# The candidate rules, in one table: the note the report shows for each one
+# (short — the README holds the full reasons; the class column already says
+# "candidate"). classify() picks a key; only the two placeholders are filled
+# from the entry. ``{module}`` is the fetcher module that holds the pin,
+# ``{recipe}`` the committed recipe a checkpoint can be retrained from.
+CANDIDATE_RULES: dict[str, str] = {
+    "cache-pinned-prepared": (
+        "dataset prepared; the archive checksum is pinned in {module}: re-downloadable"
+    ),
+    "cache-pinned-unprepared": (
+        "the dataset is not prepared here: the cache is the only copy of the download, "
+        "pinned in {module}"
+    ),
+    "cache-unpinned": (
+        "dataset download without a checksum pinned in code: not re-downloadable in a "
+        "verifiable way"
+    ),
+    "checkpoint-retrainable": (
+        "screen checkpoint; retrainable from configs/train/{recipe} and the prepared data"
+    ),
+    "checkpoint-no-recipe": (
+        "screen checkpoint without a configs/train recipe of its own: not retrainable "
+        "from the repository"
+    ),
+    "job-logs": (
+        "disposable job logs of the long jobs: regenerable, listed as a candidate only "
+        "with the owner's go"
+    ),
+    "no-reference": "nothing in docs/, configs/ or experiments/ references it; no keep rule",
+}
+
 # Evaluation run directories the docs cite in prose WITHOUT naming the
 # directory, so the name grep (eval_runs_cited_by_docs, over RUNS_DOCS) cannot
 # find them. The keep list covers every "evaluation run directory
@@ -191,6 +222,19 @@ class RepoInfo:
     panel_datasets: dict[str, list[str]]
     train_datasets: dict[str, list[str]]
     doc_eval_runs: dict[str, list[str]]
+
+
+@dataclass
+class Context:
+    """Everything a classification needs: the roots, the facts, the registries."""
+
+    data_root: Path
+    runs_root: Path
+    repo_train_dir: Path
+    info: RepoInfo
+    talk: set[str]
+    pinned: dict[str, str]
+    datasets: dict[str, str]
 
 
 def name_pattern(name: str) -> re.Pattern[str]:
@@ -457,25 +501,25 @@ def checkpoint_extras(entry: Entry, runs_root: Path) -> None:
     if nemo.is_file():
         entry.extras.append(f"model.nemo {human(nemo.stat().st_size)}")
     if (runs_root / "eval" / name).is_dir():
-        entry.extras.append(
-            f"its evaluation answers (runs/eval/{name}, the transcript cache) must stay"
-        )
+        entry.extras.append(f"its evaluation answers (runs/eval/{name}) must stay")
 
 
-def classify(
-    entry: Entry,
-    data_root: Path,
-    runs_root: Path,
-    repo_train_dir: Path,
-    info: RepoInfo,
-    talk: set[str],
-    pinned: dict[str, str],
-    datasets: dict[str, str],
-) -> None:
-    """Plan 09's classes, in the order the plan applies them."""
+def classify(entry: Entry, context: Context) -> None:
+    """The classes of the keep list, in the order they apply.
+
+    Every named keep lives in ``KEEP_BY_NAME`` and every candidate note in
+    ``CANDIDATE_RULES``; this function only decides which rule an entry falls
+    under — except for the keeps computed from the repository (panels, train
+    recipes, talk caches, doc-cited runs). The rows stay short because the
+    README states the full reasons once.
+    """
     name = entry.path.name
+    info = context.info
+    data_root = context.data_root
+    runs_root = context.runs_root
+    repo_train_dir = context.repo_train_dir
 
-    # -- keep (rule above): the plan's keep list, the part that names entries.
+    # -- keep (rule above): the keep list, the part that names entries.
     if entry.kind == "data":
         reasons: list[str] = []
         if name in info.panel_datasets:
@@ -506,11 +550,11 @@ def classify(
         ]
         return
 
-    if entry.kind == "cache" and name in talk:
+    if entry.kind == "cache" and name in context.talk:
         entry.klass = "keep (rule above)"
         entry.reasons = [
-            "talk-source answer cache: the model answers are kept (see the keep list in this "
-            "experiment's README); the downloaded audio is a candidate (see the talk table)"
+            "talk-source answer cache: the model answers are kept; the downloaded "
+            "audio is a candidate (see the talk table)"
         ]
         return
 
@@ -529,29 +573,19 @@ def classify(
         recipe = repo_train_dir / f"{name}.yaml"
         if recipe.is_file():
             entry.klass = "candidate: re-creatable"
-            entry.reasons = [
-                f"screen checkpoint; retrainable from configs/train/{recipe.name} and "
-                "the prepared data (only the screens a plan still uses are kept, the "
-                "rest are candidates)"
-            ]
+            entry.reasons = [CANDIDATE_RULES["checkpoint-retrainable"].format(recipe=recipe.name)]
         else:
-            # No committed recipe names this checkpoint: it is not retrainable
-            # from the repository. Say so, and let the owner decide.
             entry.klass = "candidate: unreferenced"
-            entry.reasons = [
-                "screen checkpoint without a configs/train recipe of its own: "
-                "not retrainable from the repository"
-            ]
+            entry.reasons = [CANDIDATE_RULES["checkpoint-no-recipe"]]
         # The same basename may still be referenced — as its evaluation run,
         # which is kept separately. Show the reference so the reader sees why
         # the checkpoint row is still only a candidate.
         other_refs = [ref for ref in find_refs(name, info) if ref != f"configs/train/{name}.yaml"]
         if other_refs:
             entry.extras.append(
-                "the same basename is also referenced by "
+                "same basename also referenced by "
                 + shown_refs(other_refs)
-                + f"; its evaluation run (runs/eval/{name}) is kept separately, "
-                "and as a checkpoint this entry stays a candidate"
+                + f"; its evaluation run (runs/eval/{name}) is a separate kept row"
             )
         return
 
@@ -560,8 +594,7 @@ def classify(
         entry.reasons = [
             "evaluation run cited by "
             + ", ".join(info.doc_eval_runs[name])
-            + " (keep list of this experiment's README): it holds the per-clip "
-            "answers the docs quote"
+            + ": it holds the per-clip answers the docs quote"
         ]
         return
 
@@ -570,50 +603,42 @@ def classify(
     # lists them, with the doc section of each citation (see the constant).
     if entry.kind == "eval" and name in DOC_CITED_EVAL_RUNS:
         entry.klass = "keep (rule above)"
-        entry.reasons = [
-            "evaluation run cited by the docs (keep list of this experiment's "
-            "README): " + DOC_CITED_EVAL_RUNS[name]
-        ]
+        entry.reasons = ["evaluation run cited by the docs: " + DOC_CITED_EVAL_RUNS[name]]
         return
 
     if entry.kind == "runs" and name == "transcripts":
         entry.klass = "keep (rule above)"
         entry.reasons = [
             "transcript cache: the per-clip answers of every evaluation run "
-            "(docs/stt/evaluation.md; keep list of this experiment's README)"
+            "(docs/stt/evaluation.md)"
         ]
+        return
+
+    # The job logs the long-running wrappers write: named here so an
+    # inventory run classifies them by name instead of by surprise.
+    if entry.kind == "runs" and name == "label-logs":
+        entry.klass = "candidate: unreferenced"
+        entry.reasons = [CANDIDATE_RULES["job-logs"]]
         return
 
     # -- The download caches of prepared datasets listed in PINNED_DATASETS are
     # re-creatable even when the dataset name is referenced.
-    if entry.kind == "cache" and name in datasets:
-        module = pinned.get(name)
+    if entry.kind == "cache" and name in context.datasets:
+        module = context.pinned.get(name)
         if module is not None and is_prepared(data_root, name):
             entry.klass = "candidate: re-creatable"
-            entry.reasons = [
-                f"dataset prepared; the archive checksum is pinned in {module}: re-downloadable"
-            ]
-            return
-        if module is not None:
-            entry.klass = "candidate: unreferenced"
-            entry.reasons = [
-                "the dataset is not prepared here: the cache is the only copy of "
-                f"the download, pinned in {module}"
-            ]
+            entry.reasons = [CANDIDATE_RULES["cache-pinned-prepared"].format(module=module)]
             return
         entry.klass = "candidate: unreferenced"
-        entry.reasons = [
-            "dataset download without a checksum pinned in code: "
-            "not re-downloadable in a verifiable way"
-        ]
+        rule = "cache-pinned-unprepared" if module is not None else "cache-unpinned"
+        entry.reasons = [CANDIDATE_RULES[rule].format(module=module)]
         return
 
     # -- keep (referenced): the name appears in docs/, configs/ or experiments/.
     refs = find_refs(name, info)
     if refs:
-        shown = ", ".join(refs[:3]) + (f" (+{len(refs) - 3} more)" if len(refs) > 3 else "")
         entry.klass = "keep (referenced)"
-        entry.reasons = [f"referenced in: {shown}"]
+        entry.reasons = [f"referenced in: {shown_refs(refs)}"]
         entry.refs = refs
         if entry.kind == "eval":
             model = eval_model_name(entry.path)
@@ -623,7 +648,7 @@ def classify(
 
     # -- candidate: unreferenced, with what the entry holds.
     entry.klass = "candidate: unreferenced"
-    entry.reasons = ["nothing in docs/, configs/ or experiments/ references it; no keep rule"]
+    entry.reasons = [CANDIDATE_RULES["no-reference"]]
     if entry.kind == "eval":
         model = eval_model_name(entry.path)
         if model:
@@ -775,9 +800,17 @@ def main(argv: list[str] | None = None) -> int:
             entry.is_summary = True
             entry.summary_of = [child.label for child in children]
 
-    repo_train = repo_root / "configs" / "train"
+    context = Context(
+        data_root=data_root,
+        runs_root=runs_root,
+        repo_train_dir=repo_root / "configs" / "train",
+        info=info,
+        talk=talk,
+        pinned=pinned,
+        datasets=datasets,
+    )
     for entry in cache_entries + data_entries + runs_entries + train_entries + eval_entries:
-        classify(entry, data_root, runs_root, repo_train, info, talk, pinned, datasets)
+        classify(entry, context)
 
     # The talk table and the checkpoint extras.
     talk_rows: list[tuple[Entry, int, int, int]] = []

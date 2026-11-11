@@ -218,8 +218,9 @@ def test_classifications(roots, capsys):
     # The checkpoint's basename is referenced — as its evaluation run. The
     # row shows that reference and still classifies the checkpoint as a candidate.
     ghost = row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
-    assert "the same basename is also referenced by docs/stt/screening.md" in ghost
+    assert "same basename also referenced by docs/stt/screening.md" in ghost
     assert "runs/eval/screen-ghost" in ghost
+    assert "separate kept row" in ghost
     assert "unknown" in row(text, "$AUDIOLAB_RUNS/train/mystery-run")
 
     # The evaluation runs.

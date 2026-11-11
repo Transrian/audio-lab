@@ -54,8 +54,19 @@ The two special cases:
   (`<talk id>.wav` audio, `<talk id>.<model>.jsonl` answers, NASA's cached
   `pages/`), and both sizes are reported per source;
 - **screening checkpoints**: each `model.nemo` is sized, the runs a plan still
-  uses are the keeps, the rest are candidates, and the small evaluation
-  answers that must stay are named.
+  uses are the keeps, the rest are candidates — a screen checkpoint is
+  retrainable when a committed `configs/train/*.yaml` of its own exists, and
+  one without such a recipe is not retrainable from the repository. The small
+  evaluation answers of a checkpoint (`runs/eval/<checkpoint>`, the transcript
+  cache) must stay whatever class the checkpoint gets, because they are what
+  the numbers in the docs were computed from;
+- **job logs** (`$AUDIOLAB_RUNS/label-logs`, and the like): disposable,
+  regenerable output of long jobs, classed by name. They are still only ever
+  listed as a candidate, like everything else: nothing is deleted without the
+  owner's go.
+
+The report rows carry the short version of these reasons; this page and the
+keep list above are where the full ones live.
 
 Entries the script cannot classify are `unknown` and are reported, not
 improvised (global rule 13).
