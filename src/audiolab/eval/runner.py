@@ -21,14 +21,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-import yaml
-
 from audiolab import __version__
 from audiolab.core.parallel import map_requests
 from audiolab.core.paths import runs_dir
 from audiolab.core.progress import progress, say
 from audiolab.core.stop import raise_if_stopped
-from audiolab.data.panels import DEFAULT_PANELS_DIR
+from audiolab.data.panels import DEFAULT_PANELS_DIR, SuiteSpec
 from audiolab.eval.cache import (
     answer_key,
     cache_file,
@@ -72,24 +70,6 @@ SEALED_WARNING = (
 
 class RunError(RuntimeError):
     """A run that cannot start or continue as asked."""
-
-
-@dataclass(frozen=True)
-class SuiteSpec:
-    """The panels a suite scores."""
-
-    name: str
-    panels: list[str]
-
-
-def load_suite(path: str | Path) -> SuiteSpec:
-    """Read ``configs/suites/<name>.yaml``."""
-    path = Path(path)
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or not isinstance(raw.get("panels"), list) or not raw["panels"]:
-        raise RunError(f"{path} must hold a non-empty 'panels' list")
-    name = str(raw.get("name") or path.stem)
-    return SuiteSpec(name=name, panels=[str(panel) for panel in raw["panels"]])
 
 
 @dataclass

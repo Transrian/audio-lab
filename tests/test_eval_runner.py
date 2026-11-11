@@ -19,7 +19,7 @@ from helpers import is_warmup, make_clip, start_transcription_server, write_tone
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
-from audiolab.data.panels import build_panels, read_panel  # noqa: E402
+from audiolab.data.panels import SuiteSpec, build_panels, load_suite, read_panel  # noqa: E402
 from audiolab.data.store import pcm_sha256_of, write_manifest  # noqa: E402
 from audiolab.eval import metrics, runner, stats  # noqa: E402
 from audiolab.eval.client import (  # noqa: E402
@@ -42,9 +42,7 @@ from audiolab.eval.report import (  # noqa: E402
 from audiolab.eval.runner import (  # noqa: E402
     RunContext,
     RunError,
-    SuiteSpec,
     identity_fingerprint,
-    load_suite,
     run_suite,
 )
 from audiolab.serve.config import ServeSpec  # noqa: E402

@@ -9,6 +9,10 @@ again from another manifest (a different download, a changed selection rule)
 would give different files, which is why ``build`` refuses to overwrite an
 existing panel and ``check`` compares a panel with what the current data and
 the stored seed would produce.
+
+A **suite** (``configs/suites/<name>.yaml``) is the list of panels one report is
+built from. It is read here, next to the panels it names, so that the evaluation
+command and the training leakage guard read it the same way.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+
+import yaml
 
 from audiolab.core.paths import data_dir
 from audiolab.data.store import (
@@ -86,6 +92,33 @@ class Panel:
 def panel_path(title: str, panels_dir: str | Path = DEFAULT_PANELS_DIR) -> Path:
     """Where one panel lives; the CLI passes the directory as a string."""
     return Path(panels_dir) / f"{title}.txt"
+
+
+@dataclass(frozen=True)
+class SuiteSpec:
+    """The panels a suite scores."""
+
+    name: str
+    panels: list[str]
+
+
+class SuiteError(ValueError):
+    """A suite file that cannot be used as written."""
+
+
+def load_suite(path: str | Path) -> SuiteSpec:
+    """Read ``configs/suites/<name>.yaml``.
+
+    One reader for the evaluation command and for the training leakage guard: a
+    suite the eval command accepts is exactly the suite the guard checks, so the
+    two cannot drift apart when the format changes.
+    """
+    path = Path(path)
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not isinstance(raw.get("panels"), list) or not raw["panels"]:
+        raise SuiteError(f"{path} must hold a non-empty 'panels' list")
+    name = str(raw.get("name") or path.stem)
+    return SuiteSpec(name=name, panels=[str(panel) for panel in raw["panels"]])
 
 
 def build_panels(

@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import pytest  # noqa: E402
 from helpers import make_clip  # noqa: E402
 
-from audiolab.data.panels import Panel  # noqa: E402
+from audiolab.data.panels import Panel, SuiteError, load_suite  # noqa: E402
 from audiolab.data.store import manifest_id_sha256, write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import DatasetShare, TrainConfig  # noqa: E402
@@ -35,6 +35,7 @@ from audiolab.train.run import (  # noqa: E402
     MANIFEST_NAME,
     MODEL_NAME,
     TRAIN_JSON,
+    TrainRunError,
     is_finished,
     read_run_config,
     run_dir,
@@ -273,6 +274,22 @@ def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
         "cs-fleurs-fr-en",
         "nonspeech",
     ]
+
+
+def test_the_guard_reads_the_suite_the_way_the_eval_command_does(tmp_path):
+    """One reader for both: a suite the eval command refuses is refused here too.
+
+    The guard checks the file the eval command scores, so a change to the suite
+    format must reach the two together instead of letting them drift apart.
+    """
+    suite = tmp_path / "suite.yaml"
+    suite.write_text("name: guard\npanels: []\n", encoding="utf-8")
+    with pytest.raises(SuiteError, match="must hold a non-empty 'panels' list"):
+        load_suite(suite)
+    with pytest.raises(TrainRunError, match="must hold a non-empty 'panels' list"):
+        evaluation_datasets(suite, tmp_path)
+    with pytest.raises(TrainRunError, match="is missing"):
+        evaluation_datasets(tmp_path / "nope.yaml", tmp_path)
 
 
 def test_a_training_clip_that_is_the_audio_of_an_evaluation_clip_is_refused(tmp_path):

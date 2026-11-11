@@ -30,11 +30,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from audiolab.core.paths import data_dir as default_data_dir
 from audiolab.core.progress import say
-from audiolab.data.panels import read_panel
+from audiolab.data.panels import (
+    SuiteError,
+    load_suite,
+    panel_path,
+    read_panel,
+)
 from audiolab.data.store import Clip, read_manifest
 from audiolab.train.data import TrainDataError
 from audiolab.train.run import TrainRunError
@@ -58,19 +61,23 @@ class GuardResult:
 
 
 def evaluation_datasets(suite_path: str | Path, panels_dir: str | Path) -> list[str]:
-    """The datasets behind a suite's panels, in the suite's order, each once."""
+    """The datasets behind a suite's panels, in the suite's order, each once.
+
+    The suite is read by the reader the eval command uses, so a suite format
+    change reaches the guard and the scorer together.
+    """
     path = Path(suite_path)
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        spec = load_suite(path)
     except FileNotFoundError as failure:
         raise TrainRunError(
             f"{path} is missing: the leakage guard needs the suite it checks"
         ) from failure
-    if not isinstance(raw, dict) or not isinstance(raw.get("panels"), list) or not raw["panels"]:
-        raise TrainRunError(f"{path} must hold a non-empty 'panels' list")
+    except SuiteError as failure:
+        raise TrainRunError(str(failure)) from failure
     names: list[str] = []
-    for title in raw["panels"]:
-        panel_file = Path(panels_dir) / f"{title}.txt"
+    for title in spec.panels:
+        panel_file = panel_path(title, panels_dir)
         if not panel_file.is_file():
             raise TrainRunError(f"{panel_file} is missing: the suite {path} names it")
         dataset = read_panel(panel_file).dataset

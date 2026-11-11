@@ -25,6 +25,7 @@ from audiolab.data.panels import (
     build_panels,
     check_panel,
     load_dataset_clips,
+    load_suite,
     panel_path,
 )
 from audiolab.data.talk_listing import Talk, write_listing
@@ -38,7 +39,7 @@ from audiolab.eval.report import (
     render_comparison,
     score_run,
 )
-from audiolab.eval.runner import RunContext, RunError, load_suite, run_suite
+from audiolab.eval.runner import RunContext, RunError, run_suite
 from audiolab.serve.runtime import run_foreground
 from audiolab.train.config import TrainConfig
 from audiolab.train.runner import run_training
