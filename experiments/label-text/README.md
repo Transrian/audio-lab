@@ -52,8 +52,8 @@ One Markdown table, `| dataset | character | clips |`: one row per dataset and
 per character its clip labels hold, where `clips` is the number of clips that
 contain the character (a clip that holds it twice counts once). The rows of
 one dataset come in descending clip count, then character order. A dataset
-without a row is clean and prints nothing; so must the check of every prepared
-training set.
+without a row is clean and prints nothing; so must the check of every
+preparation written since `plain_label` (2026-11-09).
 
 ## Limits
 
@@ -66,7 +66,8 @@ training set.
 - A set that predates `plain_label` is reported with the characters it holds;
   what a re-preparation would do with each is the rule's own business
   (`plain_label` maps, `unwritable` excludes). The script never performs a
-  re-preparation — that is a STRONG task, see [`AGENTS.md`](../../AGENTS.md).
+  re-preparation — it touches what `src/audiolab/data/` produces, a strong area
+  in [`AGENTS.md`](../../AGENTS.md).
 - Characters the rule maps to a replacement (`…` to `...`, `—` to a break) are
   still reported where a label holds them, because the label as written is
   what a model trained on that set learns.
