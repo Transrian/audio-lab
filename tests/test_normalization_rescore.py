@@ -201,6 +201,21 @@ def test_only_the_apostrophes_are_rewritten():
             assert rescore_mod.diagnostic_text(f"a{character}b") == f"a{character}b"
 
 
+def test_an_elision_quoted_at_the_start_of_a_phrase_stays_unjoined():
+    """The lookbehind cannot tell the elision from the quotation mark before it.
+
+    Only the case where the phrase's opening quote carries the elision's
+    apostrophe itself: the letter has a quotation mark before it, so the rule
+    leaves the spacing alone. That is the chosen behaviour (the alternative would
+    join a quoted ``'n'`` too), and no hypothesis of the screening runs, base or
+    candidate, contains one.
+    """
+    assert rescore_mod.apply_elision("il a dit 'j' ai faim'") == "il a dit 'j' ai faim'"
+    assert rescore_mod.diagnostic_text("il a dit 'j' ai faim'") == "il a dit 'j' ai faim'"
+    # The same words after a space outside a quotation are joined as usual.
+    assert rescore_mod.apply_elision("il a dit j' ai faim") == "il a dit j'ai faim"
+
+
 def test_diagnostic_text_combines_both_rules():
     assert (
         rescore_mod.diagnostic_text("j' ai dit it's d' accord, he'd say")
@@ -333,8 +348,11 @@ def test_the_change_prints_the_draws_around_zero(runs):
         read_records(runs["base"] / RECORDS_NAME),
         read_records(runs["contractions"] / RECORDS_NAME),
     )
+    # The same seed as compare_runs' own draws (its default, audiolab.eval.stats.SEED),
+    # so the two sides are the same draws and the equality below means they agree,
+    # not that a difference fell on the boundary.
     delta_ = rescore_mod.paired_delta(
-        items_base, items_cand, rescore_mod._identity, draws=DR, seed=1
+        items_base, items_cand, rescore_mod._identity, draws=DR, seed=rescore_mod.stats.SEED
     )
     assert delta_["ci"] == (
         comparison["panels"][EN]["ci"]["low"],
