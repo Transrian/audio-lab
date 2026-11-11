@@ -16,6 +16,10 @@ paired difference interval from ``audiolab.eval.stats``. By default, every
 candidate's official column is cross-checked against the official
 ``audiolab.eval.report.compare_runs`` and the run stops if they diverge.
 
+The diagnostic scores the runs with the normalizer this repository holds, so a
+run recorded under another ``NORMALIZER_VERSION`` is refused rather than scored
+under rules it was not produced with; the report says which version was used.
+
 See the adjacent README for the question, the reproduction command, the
 ambiguities of the rule tables and the limits.
 """
@@ -29,9 +33,11 @@ import re
 import sys
 import unicodedata
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from audiolab.eval import metrics, stats
+from audiolab.eval.normalize import NORMALIZER_VERSION, TYPOGRAPHIC
 from audiolab.eval.records import (
     IDENTITY_NAME,
     RECORDS_NAME,
@@ -53,8 +59,12 @@ class Problem(ValueError):
 # sides of a score, before the frozen normalizer.
 
 # The official normalizer maps these to the ASCII apostrophe; the rules below
-# need the ASCII form, so the same mapping is done here first (idempotent).
-_APOSTROPHES = {"\u2018": "'", "\u2019": "'", "\u02bc": "'"}
+# need the ASCII form, so the same mapping is done here first (idempotent). Only
+# the apostrophes: the rest of the normalizer's table maps characters that are
+# not an elision at all (the em dash, the guillemets), and folding those here
+# would move numbers for a reason that has nothing to do with the rules.
+_APOSTROPHES = {character: "'" for character in ("\u2018", "\u2019", "\u02bc")}
+assert set(_APOSTROPHES) <= set(TYPOGRAPHIC), "the normalizer's table must hold these"
 
 # Fixed table of the common English contractions, in canonical expanded form,
 # case-folded (the frozen normalizer case-folds anyway).
@@ -125,8 +135,12 @@ def apply_contractions(text: str) -> str:
 
 
 # The elisions a model may write with a space after the apostrophe:
-# ``j' ai`` means ``j'ai``, ``d' accord`` means ``d'accord``.
-_ELISION_RE = re.compile(r"(\b[cdjlmnst]|qu|jusqu|lorsqu|puisqu)' (\w)")
+# ``j' ai`` means ``j'ai``, ``d' accord`` means ``d'accord``. Any whitespace the
+# model wrote counts, including the no-break spaces the folding above turns into
+# one: only the space goes, the elision stays two tokens. An apostrophe right
+# before the letter means the letter is a word of its own in a quoted
+# expression (English ``rock 'n' roll``), so it is left alone.
+_ELISION_RE = re.compile(r"(?<!')(\b[cdjlmnst]|qu|jusqu|lorsqu|puisqu)'\s+(\w)")
 
 
 def apply_elision(text: str) -> str:
@@ -135,10 +149,13 @@ def apply_elision(text: str) -> str:
 
 
 def _ascii(text: str) -> str:
-    """NFC with the typographic apostrophes the official normalizer would map."""
+    """NFC with the typographic apostrophes the official normalizer would map.
+
+    The set comes from the normalizer's own table, so the two cannot drift.
+    """
     folded = unicodedata.normalize("NFC", text)
-    for source, plain in _APOSTROPHES.items():
-        folded = folded.replace(source, plain)
+    for typographic, plain in _APOSTROPHES.items():
+        folded = folded.replace(typographic, plain)
     return folded
 
 
@@ -178,7 +195,13 @@ def _identity(text: str) -> str:
 
 
 def read_run(path: Path) -> tuple[dict, list[dict]]:
-    """The identity and records of one finished run, or a Problem."""
+    """The identity and records of one finished run, or a Problem.
+
+    The recorded normalizer version is checked against the version of the
+    scoring code, not only against the other run's: re-scoring a frozen run
+    after a normalizer v2 exists would otherwise apply v2 to it silently, under
+    a report still labelled with the version the run recorded.
+    """
     identity_path, records_path = path / IDENTITY_NAME, path / RECORDS_NAME
     if not identity_path.is_file():
         raise Problem(f"{identity_path}: missing")
@@ -189,6 +212,13 @@ def read_run(path: Path) -> tuple[dict, list[dict]]:
         records = read_records(records_path)
     except (OSError, ValueError) as failure:
         raise Problem(f"{path}: unreadable ({failure})") from failure
+    recorded = identity.get("normalizer_version")
+    if recorded != NORMALIZER_VERSION:
+        raise Problem(
+            f"{identity_path}: the run records normalizer version {recorded}, but this "
+            f"script scores with the code's version {NORMALIZER_VERSION}; these runs were "
+            "not scored under the rules this diagnostic applies"
+        )
     declared = identity.get("panels")
     if not isinstance(declared, dict) or not declared:
         raise Problem(f"{identity_path}: names no panels")
@@ -227,35 +257,23 @@ def paired_items(
 
 
 # ---------------------------------------------------------------------------
-# Scoring: the official tokenization and edit counts, over a text transform.
+# Scoring: the official items, tokenization, edit counts and intervals, with the
+# transform applied to both stored texts first. Nothing is re-derived here: the
+# transform is the only difference from the official path.
 
 
-def item_value(item: metrics.Item, transform: Callable[[str], str]) -> tuple[float, float]:
-    """One item's (numerator, denominator) under ``transform``.
-
-    Speech: the edit errors over the reference words in the normalized view.
-    Non-speech: whether the hypothesis says anything, the hallucination rate.
-    """
-    if item.language == "none":
-        words = metrics.tokens(transform(item.hypothesis), item.language, "normalized")
-        return (1.0 if words else 0.0, 1.0)
-    reference = metrics.tokens(transform(item.reference), item.language, "normalized")
-    hypothesis = metrics.tokens(transform(item.hypothesis), item.language, "normalized")
-    counts = metrics.edit_counts(reference, hypothesis)
-    return (float(counts.errors), float(counts.reference_words))
+def transformed(items: list[metrics.Item], transform: Callable[[str], str]) -> list[metrics.Item]:
+    """The items as the diagnostic reads them: the transform on both stored texts."""
+    return [
+        replace(item, reference=transform(item.reference), hypothesis=transform(item.hypothesis))
+        for item in items
+    ]
 
 
-def group_totals(
-    items: list[metrics.Item], transform: Callable[[str], str]
-) -> dict[str, tuple[float, float]]:
-    """Per-group sums, in the shape the official bootstrap resamples."""
-    totals: dict[str, list[float]] = {}
-    for item in items:
-        numerator, denominator = item_value(item, transform)
-        running = totals.setdefault(item.group, [0.0, 0.0])
-        running[0] += numerator
-        running[1] += denominator
-    return {group: (pair[0], pair[1]) for group, pair in totals.items()}
+def value_for(items: list[metrics.Item]):
+    """The official headline value of a panel: WER if it has speech, hallucination if not."""
+    speech = any(item.language != "none" for item in items)
+    return metrics.wer_value("normalized") if speech else metrics.hallucination_value
 
 
 def paired_delta(
@@ -266,37 +284,52 @@ def paired_delta(
     draws: int,
     seed: int,
 ) -> dict:
-    """Candidate minus base, with the official paired interval over groups."""
-    totals_base = group_totals(items_base, transform)
-    totals_cand = group_totals(items_cand, transform)
+    """Candidate minus base, with the official paired interval over groups.
+
+    ``draws`` is also the distribution the interval is read from, so where a
+    verdict sits on the zero line can be counted rather than guessed.
+    """
+    value = value_for(items_base)
+    totals_base = metrics.totals_by_group(
+        metrics.score_items(transformed(items_base, transform)), value
+    )
+    totals_cand = metrics.totals_by_group(
+        metrics.score_items(transformed(items_cand, transform)), value
+    )
     difference = stats.ratio(totals_cand) - stats.ratio(totals_base)
-    low, high = stats.difference_interval(totals_base, totals_cand, draws=draws, seed=seed)
+    draws_difference = stats.difference_draws(totals_base, totals_cand, draws=draws, seed=seed)
     return {
         "base": stats.ratio(totals_base),
         "candidate": stats.ratio(totals_cand),
         "difference": difference,
-        "ci": (low, high),
+        "ci": stats.interval_of(draws_difference),
+        "draws": {
+            "below": int((draws_difference < 0).sum()),
+            "on": int((draws_difference == 0).sum()),
+            "total": len(draws_difference),
+        },
         "groups": len(set(totals_base) & set(totals_cand)),
     }
 
 
-def classify(delta: dict) -> str:
+def verdict(delta: dict) -> str:
     """The verdict one interval gives: harm, gain, or neutral.
 
     ``harm`` and ``gain`` are separable from the base (the interval stays away
     from zero); ``neutral`` is what the screening conclusions call no change.
+    The reading of the interval itself is the official one, ``stats.verdict``,
+    asked with this script's own names for the two sides: the base is the
+    reference of the comparison, so naming it the first side keeps its wording
+    ("base better") reading the same way as here.
     """
     low, high = delta["ci"]
-    if low > 0:
-        return "harm"
-    if high < 0:
-        return "gain"
-    return "neutral"
+    official = stats.verdict(low, high, "base", "diagnostic")
+    return {"diagnostic better": "gain", "base better": "harm"}.get(official, "neutral")
 
 
 def rescore(
     base_path: str | Path,
-    candidate_paths: list[str | Path],
+    candidate_paths: list[str | Path | tuple[str, str | Path]],
     panels_dir: str | Path,
     data_dir: str | Path | None = None,
     *,
@@ -311,39 +344,39 @@ def rescore(
     the diagnostic column applies ``transform_for(rules)`` to both sides
     before it. ``verify_official`` cross-checks every candidate's official
     column against the official ``compare_runs`` and raises Problem on any
-    divergence, which is what a wrong pairing would look like.
+    divergence, which is what a wrong pairing would look like. A candidate may
+    be a path or a ``(label, path)`` pair; the label is what the tables call it.
+
+    Every run is scored by this script's code, so a run whose recorded
+    normalizer version is not the code's is refused by ``read_run``.
     """
     base_path, panels_dir = Path(base_path), Path(panels_dir)
-    candidate_paths = [Path(path) for path in candidate_paths]
-    if not candidate_paths:
+    candidates = [_split_candidate(entry) for entry in candidate_paths]
+    candidates = [(label, Path(path)) for label, path in candidates]
+    if not candidates:
         raise Problem("no candidate run given")
     transform = transform_for(rules)
     identity, base_records = read_run(base_path)
     result: dict = {
         "base": str(base_path),
         "base_name": identity.get("model", {}).get("name", str(base_path)),
-        "normalizer_version": identity.get("normalizer_version"),
+        # What scored these numbers: the code's version, checked against every
+        # run's recorded one in read_run. Never the runs' claim on their own.
+        "normalizer_version": NORMALIZER_VERSION,
         "rules": rules,
         "draws": draws,
         "seed": seed,
         "panels": {},
         "changes": [],
     }
-    for candidate_path in candidate_paths:
+    for label, candidate_path in candidates:
         cand_identity, cand_records = read_run(candidate_path)
-        if cand_identity.get("normalizer_version") != identity.get("normalizer_version"):
-            raise Problem(
-                f"{candidate_path}: normalizer version "
-                f"{cand_identity.get('normalizer_version')} differs from the base's "
-                f"{identity.get('normalizer_version')}; runs scored under different "
-                "normalizer versions do not compare"
-            )
         if cand_identity.get("panels") != identity.get("panels"):
             raise Problem(
                 f"{candidate_path}: scored different panels than {base_path}; "
                 "only runs over the same frozen panels compare"
             )
-        name = display_label(candidate_path, cand_identity)
+        name = label or display_label(candidate_path, cand_identity)
         for panel in sorted(identity["panels"]):
             items_base, items_cand = paired_items(
                 panel, panels_dir, data_dir, base_records, cand_records
@@ -358,9 +391,17 @@ def rescore(
                 section["caution"] = FEW_GROUPS_CAUTION
             section["candidates"][name] = {"official": official, "diagnostic": diagnostic}
             if rules != "none":
-                before, after = classify(official), classify(diagnostic)
+                before, after = verdict(official), verdict(diagnostic)
                 if before != after:
-                    result["changes"].append((panel, name, before, after))
+                    result["changes"].append(
+                        {
+                            "panel": panel,
+                            "source": name,
+                            "official": before,
+                            "diagnostic": after,
+                            "position": diagnostic["draws"],
+                        }
+                    )
         if verify_official:
             comparison = compare_runs(
                 base_path, candidate_path, panels_dir, data_dir, draws=draws, seed=seed
@@ -378,6 +419,14 @@ def rescore(
                         "the pairing is not the official one"
                     )
     return result
+
+
+def _split_candidate(entry: str | Path | tuple[str, str | Path]) -> tuple[str | None, str | Path]:
+    """A candidate as ``(label, path)``; a bare path carries no label."""
+    if isinstance(entry, tuple):
+        label, path = entry
+        return (str(label).strip() or None, path)
+    return (None, entry)
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +487,19 @@ def ordered_candidates(result: dict) -> list[str]:
     return known + sorted(names - set(known))
 
 
+def changed_rows(result: dict) -> list[dict]:
+    """The changed conclusions in the tables' own order, whatever order they were found."""
+    order = {label: index for index, (_, label) in enumerate(CANDIDATE_ORDER)}
+    return sorted(
+        result["changes"],
+        key=lambda change: (
+            change["panel"],
+            order.get(change["source"], len(order)),
+            change["source"],
+        ),
+    )
+
+
 def ordered_panels(result: dict) -> list[str]:
     names = set(result["panels"])
     known = [panel for panel in PANEL_ORDER if panel in names]
@@ -460,8 +522,9 @@ def render(result: dict) -> str:
     lines = [
         "# Normalization diagnostic: screening runs re-scored with extra rules",
         "",
-        f"- base: `{result['base']}` (normalizer version {result['normalizer_version']}, "
-        "decision 0002 frozen)",
+        f"- base: `{result['base']}` (decision 0002 frozen)",
+        f"- normalizer version used for these numbers: {result['normalizer_version']} "
+        "(`audiolab.eval.normalize`), the version every run here records",
         f"- diagnostic view: official normalizer plus {RULES_LABEL[result['rules']]}; "
         "the extra rules are applied in this script only, to both sides",
         f"- intervals: official paired bootstrap over groups, {result['draws']} draws, "
@@ -493,12 +556,14 @@ def render(result: dict) -> str:
         lines += [
             "The verdict one panel/source has moves from separable to neutral, or flips side:",
             "",
-            "| panel | source | official | diagnostic |",
-            "| --- | --- | --- | --- |",
+            "| panel | source | official | diagnostic | draws on zero, below it |",
+            "| --- | --- | --- | --- | --- |",
         ]
         lines += [
-            f"| {panel} | {name} | {before} | {after} |"
-            for panel, name, before, after in sorted(result["changes"])
+            f"| {change['panel']} | {change['source']} | {change['official']} "
+            f"| {change['diagnostic']} | {change['position']['on']}, "
+            f"{change['position']['below']} of {change['position']['total']} |"
+            for change in changed_rows(result)
         ]
     else:
         lines.append(
@@ -517,6 +582,20 @@ def default_candidates(runs_dir: Path) -> list[Path]:
     return paths
 
 
+def parse_candidate(text: str) -> tuple[str | None, Path]:
+    """A candidate as ``label=path``, or a bare path that keeps the run's own name.
+
+    Same convention as ``experiments/source-screening/table.py``: an explicit
+    label is what orders and names the table row.
+    """
+    label, separator, path = text.partition("=")
+    if not separator:
+        return None, Path(text.strip())
+    if not label.strip() or not path.strip():
+        raise argparse.ArgumentTypeError(f"{text!r} is not label=path")
+    return label.strip(), Path(path.strip())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -528,6 +607,8 @@ def build_parser() -> argparse.ArgumentParser:
             "example:\n"
             "  set -a; . ./.env; set +a\n"
             "  uv run python experiments/normalization-review/rescore.py\n"
+            "A candidate is a run directory, or LABEL=PATH to name its table row "
+            "(as in experiments/source-screening/table.py).\n"
             "Defaults: base $AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full, "
             "candidates $AUDIOLAB_RUNS/eval/screen-*/full, panels configs/panels, "
             "data $AUDIOLAB_DATA. No model, audio or network request is used."
@@ -535,7 +616,9 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--base", type=Path, default=None, metavar="PATH")
-    parser.add_argument("--candidate", type=Path, action="append", default=None, metavar="PATH")
+    parser.add_argument(
+        "--candidate", type=parse_candidate, action="append", default=None, metavar="[LABEL=]PATH"
+    )
     parser.add_argument(
         "--runs-dir",
         type=Path,
