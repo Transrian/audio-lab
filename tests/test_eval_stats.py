@@ -94,3 +94,34 @@ def test_difference_uses_only_the_groups_both_runs_share():
     b = {"s2": (2.0, 10.0), "s3": (3.0, 10.0)}
     low, high = stats.difference_interval(a, b, draws=50)
     assert low <= 0.0 <= high  # only s2 is compared, and it is identical there
+
+
+def test_the_difference_interval_is_the_interval_of_its_draws():
+    """Hand-checkable only against each other: the two paths must not drift.
+
+    The totals vary across groups, so a difference in seed, in draw order or in
+    which columns are read moves the numbers; the empty shared case is the
+    documented point 0 of no draws.
+    """
+    a = {f"s{index:02d}": (float(index % 5), 10.0 + index / 7) for index in range(30)}
+    b = {f"s{index:02d}": (float((index * 3) % 7), 10.0 + index / 7) for index in range(30)}
+    for seed in (1, 20261107):
+        assert stats.interval_of(
+            stats.difference_draws(a, b, draws=500, seed=seed)
+        ) == stats.difference_interval(a, b, draws=500, seed=seed)
+    assert stats.interval_of(stats.difference_draws(a, b, draws=500)) == stats.difference_interval(
+        a, b, draws=500
+    )
+    # No shared group: no draw to read, and the interval of no draw is the point 0.
+    assert stats.difference_draws({"a": (1.0, 4.0)}, {"b": (2.0, 4.0)}, draws=50).size == 0
+    assert stats.interval_of(stats.difference_draws({}, {"b": (2.0, 4.0)}, draws=50)) == (0.0, 0.0)
+
+
+def test_a_non_default_confidence_moves_the_interval_of_the_same_draws():
+    """The delegated path still reads the confidence it was asked for."""
+    a = {f"s{index:02d}": (float(index % 5), 10.0) for index in range(30)}
+    b = {f"s{index:02d}": (float((index * 3) % 7), 10.0) for index in range(30)}
+    narrow = stats.difference_interval(a, b, draws=500, seed=3, confidence=0.5)
+    wide = stats.difference_interval(a, b, draws=500, seed=3, confidence=0.99)
+    assert narrow[0] > wide[0] and narrow[1] < wide[1]
+    assert narrow == stats.interval_of(stats.difference_draws(a, b, draws=500, seed=3), 0.5)
