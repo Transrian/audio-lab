@@ -6,7 +6,9 @@ panels listed in ``configs/suites/full.yaml``. Two things are refused, because
 either one would make the run's evaluation score meaningless:
 
 - a training clip whose audio ``sha256`` is the audio of a clip of a prepared
-  evaluation dataset (the same recording in both);
+  evaluation dataset. That hash is of the prepared clip's PCM, so it matches
+  prepared audio byte for byte: the same prepared clip, and not the same
+  recording prepared another way;
 - a training clip whose id prefix is an evaluation dataset name (the clip is
   named after a dataset that the panels score).
 
@@ -14,11 +16,13 @@ An evaluation dataset that is not prepared on this machine cannot be checked,
 so the run says so - one warning line per missing dataset - and goes on with a
 partial check rather than failing.
 
-What the guard does **not** do: it does not compare group ids across
-different corpora, because ids collide by accident across corpora. Keeping
-evaluation recordings out of a training preparation is the job of the
-fetchers, through their ``evaluation_groups`` exclusion; the guard is the
-last check, on the clips a run is actually about to train.
+What the guard does **not** do: it does not compare group ids across different
+corpora, because ids collide by accident across corpora. Nor does it recognize
+a recording that is only the *same one*: the same audio cut, trimmed, resampled,
+re-encoded or levelled differently hashes to something else and passes. Keeping
+evaluation recordings out of a training preparation is the job of the fetchers,
+through their ``evaluation_groups`` exclusion; the guard is the last check, on
+the clips a run is actually about to train.
 
 The run record keeps what was checked: the datasets, the missing ones and the
 number of training clips checked.

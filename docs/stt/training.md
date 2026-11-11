@@ -143,7 +143,9 @@ Every run — single dataset or mix — is checked before its model is loaded,
 against the evaluation datasets of the suite: the datasets behind the panels
 listed in `configs/suites/full.yaml`. A run is refused when
 
-- a training clip is the **audio** of an evaluation clip (the same `sha256`), or
+- a training clip is the **audio** of an evaluation clip (the same `sha256` —
+  the hash of the prepared clip's PCM, so this is that prepared audio byte for
+  byte), or
 - a training clip is **named after** an evaluation dataset (its id prefix is
   one of the suite's dataset names).
 
@@ -152,14 +154,16 @@ the run prints one warning line naming it and goes on with a partial check,
 rather than failing. The check prints a one-line summary of what it did.
 
 What the guard does **not** do: it does not compare group ids across different
-corpora, because ids collide by accident across corpora. Keeping evaluation
-recordings out of a training preparation stays the job of the fetchers, through
-their `evaluation_groups` exclusion; the guard is the last check, on the clips
-a run is actually about to train. What it checked is recorded in `train.json`
-under `leakage_guard` — the datasets checked, the missing ones, the number of
-training clips checked. It is never in `config.json`, because a resume is
-checked against that file field by field, and a new key there would refuse
-every run written before the guard existed.
+corpora, because ids collide by accident across corpora, and it does not
+recognize a recording that is only the *same one*: the same audio cut, trimmed,
+resampled, re-encoded or levelled differently hashes to something else and
+passes. Keeping evaluation recordings out of a training preparation stays the
+job of the fetchers, through their `evaluation_groups` exclusion; the guard is
+the last check, on the clips a run is actually about to train. What it checked
+is recorded in `train.json` under `leakage_guard` — the datasets checked, the
+missing ones, the number of training clips checked. It is never in `config.json`,
+because a resume is checked against that file field by field, and a new key
+there would refuse every run written before the guard existed.
 
 ## 3. What a run does
 
