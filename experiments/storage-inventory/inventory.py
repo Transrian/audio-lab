@@ -25,10 +25,10 @@ live; the report rows stay short and point at it:
   * ``$AUDIOLAB_DATA/mls-fr-train`` and ``$AUDIOLAB_DATA/librispeech-en-train``
     (plan 01 T4 takes its babble noise from them);
   * ``$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09`` and
-    ``$AUDIOLAB_RUNS/train/screen-nasa-en``, until plan 05 Part C is
-    documented, and the archived ICSI preparation
-    ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11`` (the frozen
-    input of its screening);
+    ``$AUDIOLAB_RUNS/train/screen-nasa-en``, kept for the re-screen comparison
+    the backlog's P-01 asks for (``docs/backlog.md``), and the archived ICSI
+    preparation ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11``
+    (the frozen input of its screening);
   * the evaluation run directories cited by ``docs/stt/screening.md`` or
     ``docs/stt/evaluation.md`` (they hold the per-clip answers the docs
     quote), and the transcript cache that holds those answers; the docs can
