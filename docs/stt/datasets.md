@@ -400,16 +400,20 @@ screening is a difference between corpora and not between recipes:
   2026-11-10 the prepared sets that predate the rule and still hold unwritable
   characters (measured by
   [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
-  are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
+  were `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
-  `voxpopuli-fr-train`, plus the archived pre-cleanup NASA preparation
-  `nasa-en-train.curly-2026-11-09`, which is not a training input and is kept
-  for the [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts),
-  and the archived pre-`plain_label` ICSI preparation
-  `icsi-en-train.pre-plain-label-2026-11-11`, which is not a training input and
-  is kept as the frozen input of the `icsi-en-train` screening
-  ([card](#icsi-en-train--english-research-meetings-one-close-mic-per-participant));
-  the per-source screening keeps the pre-rule sets unchanged for
+  `voxpopuli-fr-train`. Two preparations that were re-made have their pre-rule
+  version archived next to the new one, and the archives are what the screening
+  numbers came from:
+
+  - `nasa-en-train.curly-2026-11-09` is kept for the
+    [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
+  - `icsi-en-train.pre-plain-label-2026-11-11` is kept as the frozen input of the
+    `icsi-en-train` screening, and
+    `configs/train/screen-icsi-en-train.yaml` points at it
+    ([card](#icsi-en-train--english-research-meetings-one-close-mic-per-participant)).
+
+  The per-source screening keeps the pre-rule sets unchanged for
   reproducibility, and a re-preparation is what brings a set into the rule.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
@@ -707,18 +711,18 @@ costs nothing and a fresh clone downloads all of it again.
   their ids and their audio — and the 28 clips holding an underscore, which the
   rule cannot write, are left out; 22 stretches of the 15 speakers at their
   200-clip share take their place, the left-out clips no longer counting against
-  the share. Of the 8 724 kept labels, 2 776 differ from the archived set,
-  because the rule also does its routine writing (a lone dash, a space before
-  punctuation, a semicolon) on the others. The result is **8 746 clips, 7.7 h,
-  52 groups**: the 8 724 clips of the first set that the rule keeps — their
-  audio bit-identical to the 2026-11-08 preparation, their labels re-normalized
-  — plus the 22 later clips of the freed speakers. The per-source screening of
+  the share. Of the 8 724 kept labels, 2 776 differ from the archived set:
+  2 608 lose a lone dash, 291 lose a straight quote and 21 have a space before a
+  comma closed. The result is **8 746 clips, 7.7 h, 52 groups**: the 8 724 clips
+  of the first set that the rule keeps — their audio bit-identical to the
+  2026-11-08 preparation, their labels re-normalized — plus the 22 later clips of
+  the freed speakers. The per-source screening of
   2026-11-08 ran on the first set, so its numbers are the archived
-  preparation's: `icsi-en-train.pre-plain-label-2026-11-11` is no longer a
-  training input; it is the set the screen's numbers came from, and reproducing
-  that screen means pointing the run at the archived directory —
-  `configs/train/screen-icsi-en-train.yaml`'s `dataset:` now names the
-  re-prepared set, whose 8 746 clips cannot satisfy its `clips: 8752`.
+  preparation's: that preparation is the frozen input of the screen, and
+  `configs/train/screen-icsi-en-train.yaml` points at it (`dataset:
+  icsi-en-train.pre-plain-label-2026-11-11`, `clips: 8752`), which the
+  re-prepared `icsi-en-train` with its 8 746 clips no longer satisfies. Training
+  on the source from now on means the re-prepared set, which the rule wrote.
 - **Why it is here**: 70 hours of meetings that would have happened anyway, with
   a manual transcript and one microphone per participant: the same kind of data
   as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
