@@ -1,9 +1,7 @@
-# Label-text check (plan 03 A4, plan 08 P-06, closed 2026-11-11): report, never rewrite
+# Label-text check: report, never rewrite
 
-**Status:** the checker behind plan 03 A4 ("after each preparation, check it
-with a small script") and plan 08's step 1 (P-06, closed 2026-11-11).
-The plans are git-ignored; this page documents the helper. The script
-reports; it never re-prepares, rewrites, moves or deletes anything.
+**Status:** the checker a preparation is checked with after it is written; the
+script reports, it never re-prepares, rewrites, moves or deletes anything.
 
 [`check_text.py`](check_text.py) reads the manifest of every named prepared
 dataset (`$AUDIOLAB_DATA/<dataset>/manifest.jsonl`), calls
@@ -13,7 +11,7 @@ clips contain it. Since 2026-11-09 every training label is written through
 `plain_label`, so a preparation that ran that code holds no character the base
 model's tokenizer cannot write: **a dataset with no such character prints
 nothing** — silence is the pass. Called with no dataset name it checks every
-`*-train*` directory of the data root, which is plan 08's run.
+`*-train*` directory of the data root.
 
 ## Environment and inputs
 
@@ -75,5 +73,6 @@ plan 03's larger preparations.
 
 [Tests](../../tests/test_check_text.py) run the script on synthetic datasets:
 the table format, the per-clip counting, the silence of a clean dataset, the
-`*-train*` default, the missing-manifest failure, and a snapshot assertion
-that nothing under the data root is created, written or renamed.
+`*-train*` default, the missing-manifest failure, the malformed-manifest
+failure, and a snapshot assertion that nothing under the data root is created,
+written or renamed.

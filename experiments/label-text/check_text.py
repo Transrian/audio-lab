@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Report the characters of prepared training labels the base model cannot write.
 
-Plan 03 A4's checker, reused by plan 08 (P-06, closed 2026-11-11). Since
-2026-11-09 every training
-label is written through `plain_label` (`src/audiolab/data/train.py`), so a
-preparation that ran that code holds no character outside the base model's
-tokenizer vocabulary. This script is the proof, after each preparation: it
-reads the manifest of every named dataset
+Since 2026-11-09 every training label is written through `plain_label`
+(`src/audiolab/data/train.py`), so a preparation that ran that code holds no
+character outside the base model's tokenizer vocabulary. This script is the
+proof, after each preparation: it reads the manifest of every named dataset
 (`$AUDIOLAB_DATA/<dataset>/manifest.jsonl`), calls
 `audiolab.data.train.unwritable(clip.text)` on every clip, and reports, per
 dataset and per unwritable character, how many clips contain it.
@@ -32,7 +30,7 @@ from audiolab.data.train import unwritable
 
 
 def train_sets(data_dir: Path) -> list[str]:
-    """The prepared `*-train*` datasets, in directory order."""
+    """The prepared `*-train*` datasets, sorted by name."""
     return sorted(
         path.name for path in data_dir.iterdir() if path.is_dir() and "-train" in path.name
     )

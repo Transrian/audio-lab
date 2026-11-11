@@ -73,7 +73,7 @@ def test_table_per_dataset_and_character(tmp_path, capsys):
         "dirty-train",
         [
             "« bonjour »",  # « and »
-            "« au revoir »",  # « and » again: the clip counts once per character
+            "« au revoir »",  # both characters again, in another clip: each count is 2
             "wait — really?",  # em dash
             "wait … really",  # ellipsis
             "clean line",
@@ -91,8 +91,8 @@ def test_table_per_dataset_and_character(tmp_path, capsys):
     ]
 
 
-def test_a_clip_with_two_characters_counts_once_per_character(tmp_path, capsys):
-    """A clip holding a character twice is one clip, not two occurrences."""
+def test_a_character_twice_in_one_clip_counts_once(tmp_path, capsys):
+    """One clip holding « twice and » twice gives one clip per character."""
     root = tmp_path / "data"
     write_manifest(root, "x-train", ["« a » « b »"])
     assert check_text.main(["--data-dir", str(root), "x-train"]) == 0
