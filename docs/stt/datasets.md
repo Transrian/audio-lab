@@ -396,14 +396,14 @@ screening is a difference between corpora and not between recipes:
   (`2014-2020`); `…` becomes `...`. A clip whose label still holds a character
   outside the vocabulary (`+ & @ # ° _`, a letter such as `ş`) is left out and
   counted in the fetch report. The rule dates from 2026-11-09: a source prepared
-  earlier keeps its published characters until it is prepared again. On
-  2026-11-10 the prepared sets that predate the rule and still hold unwritable
-  characters (measured by
+  earlier keeps its published characters until it is prepared again. The
+  prepared sets that predate the rule and still hold unwritable characters
+  (measured on 2026-11-10 by
   [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
-  were `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
+  are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
-  `voxpopuli-fr-train`. Two of them were re-made since, and each archive is what
-  its screening numbers came from:
+  `voxpopuli-fr-train`. Two other preparations were re-made and their pre-rule
+  versions archived, and each archive is what its screening numbers came from:
 
   - `nasa-en-train.curly-2026-11-09` is kept for the
     [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
@@ -712,10 +712,11 @@ costs nothing and a fresh clone downloads all of it again.
   200-clip share take their place, the left-out clips no longer counting against
   the share. Of the 8 724 kept labels, 2 776 differ from the archived set:
   2 608 lose a lone dash, 291 lose a straight quote and 21 have a space before a
-  comma closed. The result is **8 746 clips, 7.7 h, 52 groups**: the 8 724 clips
-  of the first set that the rule keeps — their audio bit-identical to the
-  2026-11-08 preparation, their labels re-normalized — plus the 22 later clips of
-  the freed speakers. The per-source screening of 2026-11-08 ran on the first
+  comma closed (some clips have more than one). The result is **8 746 clips,
+  7.7 h, 52 groups**: the 8 724 clips of the first set that the rule keeps —
+  their audio bit-identical to the 2026-11-08 preparation, their labels
+  re-normalized — plus the 22 later clips of the freed speakers. The per-source
+  screening of 2026-11-08 ran on the first
   set, so its numbers are the archived preparation's: that preparation is the
   frozen input of the screen, and `configs/train/screen-icsi-en-train.yaml`
   names it, with the `clips: 8752` that the re-prepared set no longer holds.
