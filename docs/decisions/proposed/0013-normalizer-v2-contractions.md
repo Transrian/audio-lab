@@ -42,12 +42,17 @@ the v1 rules, applied to both sides of a score (reference and hypothesis):
 
 Rule 2 is the limitation the diagnostic measured: the experiment applied the
 simpler reading (`'s` always `is`), which turns a verbatim `it's been` into
-`it is been`. Against a correct hypothesis that says "it has been" that is
-still an error, so the simpler rule can read a mis-reading as correct, and the
-`has` pattern is common in meeting speech (the ICSI and NOTSOFAR panels are
-meetings). Rule 2 is therefore the recommended implementation, not an
-alternative: a v2 that expands `'s` to `is` everywhere would score style
-correctly on `it's` and incorrectly on `it's been`.
+`it is been`. That is wrong in both directions. It counts a **correct reading as
+an error**: a hypothesis saying "it has been" — the base model's style — no
+longer matches the transformed reference, which now says `is` where the speaker
+said `has`. And it counts an **incorrect reading as correct**: against the
+reference `it's been` (the verbatim spelling of the same words), a hypothesis
+that read `is` is scored right, because the transformed reference says `it is`
+too. The `has` pattern is common in meeting speech (the ICSI and NOTSOFAR panels
+are meetings), so both directions have weight. Rule 2 is therefore the
+recommended implementation, not an alternative: a v2 that expands `'s` to `is`
+everywhere would score style correctly on `it's` and incorrectly on
+`it's been`.
 
 Everything else stays v1. The normalizer version becomes
 `NORMALIZER_VERSION = 2` (`src/audiolab/eval/normalize.py`) for runs of the
@@ -62,19 +67,19 @@ where the diagnostic that motivates it was run.
 
 A dictation user says "it's" or "j'ai", and the two spellings mean the same
 thing; counting them as errors scores style, not recognition. The diagnostic
-re-scoring of the 16 screening runs against the base model (2026-11-10, the
-official pipeline plus the two rules of 1 and 3, with the official paired
-intervals) shows what the rules would do. Its numbers are in
+re-scoring of the 16 screening runs against the base model (the official
+pipeline plus the two rules of 1 and 3, with the official paired intervals)
+shows what the rules would do. Its numbers are in
 [screening.md, "What the voxpopuli-en-nonnative gains are"](../../stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are);
 that section is their home, and this proposal does not repeat its tables. What
 matters for the decision: the run that learned the spaced elision stays
 separably harmful, the non-native-English gains shrink but stay separable, and
 exactly one screening conclusion moves — NASA's harm on servicenow en-fr, from
-separable to not separable at a lower bound of exactly 0.0, a knife-edge rather
-than a large effect. The diagnostic used the simpler `'s` reading (always `is`),
-which is the limitation rule 2 fixes: the reported numbers therefore measure
-rules 1 and 3, and the `'s`-before-a-participle cases are the ones a v2 must
-still get right.
+separable to not separable, on an interval that ends on zero: a knife-edge
+rather than a large effect. The diagnostic used the simpler `'s` reading (always
+`is`), which is the limitation rule 2 fixes: the reported numbers therefore
+measure rules 1 and 3, and the `'s`-before-a-participle cases are the ones a v2
+must still get right.
 
 The cost is the intended one: a model that rewrites the user's words into
 another style ("it's" → "it is", or the other way round) is no longer
