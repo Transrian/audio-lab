@@ -36,8 +36,8 @@ base model served the same way (`parakeet-tdt-0.6b-v3-nemo/full`):
 
 Tokenization, edit counts, the per-group bootstrap and the paired difference
 intervals are all the official code (`audiolab.eval.metrics`,
-`audiolab.eval.stats`) with the frozen settings (10 000 draws, seed
-20261107). No model, no audio, no network: only run files and dataset
+`audiolab.eval.stats`) with its frozen settings (`stats.DRAWS`, `stats.SEED`).
+No model, no audio, no network: only run files and dataset
 manifests are read.
 
 ## The contraction table
@@ -100,8 +100,8 @@ uv run python experiments/normalization-review/rescore.py
 Base: `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`; candidates: all
 `$AUDIOLAB_RUNS/eval/screen-*/full`. The **full tables are this command's
 stdout**: one table per panel, plus the changed conclusions and, for each of
-them, how the 10 000 bootstrap draws sit around zero. Nothing has to be copied
-out of a note to read them.
+them, how the `stats.DRAWS` bootstrap draws sit around zero. Nothing has to be
+copied out of a note to read them.
 
 `--rules elision` / `--rules contractions` give the ablations, `--rules none`
 recomputes the official view as a sanity check, and `--base` / `--candidate` /

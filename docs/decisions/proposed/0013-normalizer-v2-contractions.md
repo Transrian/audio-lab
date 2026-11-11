@@ -100,6 +100,8 @@ an answer, not an acceptance — this proposal stays proposed, and nothing under
   doubles, and the reader still has to be told which view decides which
   question; the campaign's winning rule is one, per decision 0002.
 - **Wider equivalence classes** (courtesy formulas, near repeats, runs of
-  words deleted at the edges — the earlier style diagnostic that left ICSI's
-  gain at −1.41). Those hide more than style: the deletions that carry the
+  words deleted at the edges — the earlier style diagnostic, whose ICSI result
+  is in [screening.md, "What the voxpopuli-en-nonnative gains
+  are"](../../stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are)).
+  Those hide more than style: the deletions that carry the
   verbatim gains would disappear from the score, so they are left out of v2.
