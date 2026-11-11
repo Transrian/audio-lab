@@ -107,9 +107,6 @@ def roots(tmp_path, monkeypatch):
     write(cache / "fleurs-fr/archive.tar.gz")  # prepared + pinned: re-creatable
     write(cache / "granary-fr-train/shard.parquet")  # prepared, pinned via Hub map
     write(cache / "notsofar-en-train/archive.bin")  # pinned, not prepared here
-    # Unreferenced cache holding one pre-rename label-model answer (old id).
-    write(cache / "old-cache/a1.stt-a-qwen3-asr-1.7B.jsonl", "o" * 4)
-    write(cache / "old-cache/a2.stt-c-whisper-large-v3.300s.json", "o" * 5)
 
     runs = tmp_path / "runs"
     write(runs / ".identity-key", "k" * 65)
@@ -196,17 +193,10 @@ def test_classifications(roots, capsys):
     # 10 bytes audio, 5 + 2 bytes answers, 3 bytes of cached pages.
     assert "10 B (candidate)" in talk and "7 B (keep)" in talk and "3 B" in talk
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_CACHE/old-talk-cache")
-    assert "2 model-answer files" in row(text, "$AUDIOLAB_CACHE/old-talk-cache")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_CACHE/fleurs-fr")
     assert "pinned in audiolab.data.fleurs" in row(text, "$AUDIOLAB_CACHE/fleurs-fr")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_CACHE/granary-fr-train")
     assert "not prepared here" in row(text, "$AUDIOLAB_CACHE/notsofar-en-train")
-    # An unreferenced cache holding a pre-rename label-model answer: the note
-    # counts it and checks the siblings, so the owner sees what would be lost.
-    old = row(text, "$AUDIOLAB_CACHE/old-cache")
-    assert "candidate: unreferenced" in old
-    assert "1 of its 2 files are stt-a-qwen3-asr-1.7B.*" in old
-    assert "exist in no other cache directory" in old
 
     assert "keep (referenced)" in row(text, "$AUDIOLAB_RUNS/.identity-key")
     assert "docs/stt/evaluation.md" in row(text, "$AUDIOLAB_RUNS/.identity-key")
@@ -312,8 +302,8 @@ def test_totals_and_talk_table(roots, capsys):
     assert inventory.main(argv) == 0
     text = capsys.readouterr().out
 
-    # Every leaf counted once: 6 cache + 10 data + 3 runs leaves + 5 train + 6 eval.
-    assert "| **all** | 30 |" in text
+    # Every leaf counted once: 5 cache + 10 data + 3 runs leaves + 5 train + 6 eval.
+    assert "| **all** | 29 |" in text
     assert "candidate: re-creatable" in text
     assert "## Talk caches: downloaded audio vs model answers" in text
     talk_row = next(
@@ -324,8 +314,7 @@ def test_totals_and_talk_table(roots, capsys):
     )
     # The talk source's total: 10 + 5 + 2 + 3 bytes.
     assert "20 B" in talk_row
-    # The free space line names its units and, with df available, df's figure.
+    # The free space line names its units and uses no external tool.
     free_line = next(line for line in text.splitlines() if line.startswith("Free space:"))
     assert "free of" in free_line
-    if "df -h:" in free_line:
-        assert "1024-base" in free_line
+    assert "df" not in free_line

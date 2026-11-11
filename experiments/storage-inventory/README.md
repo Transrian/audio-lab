@@ -90,10 +90,7 @@ standard output. Exit codes: `0` for a complete inventory, `2` when a root is
 missing or not a directory (standard error, no partial report), and `3` when
 some path could not be read: the report then lists it under
 "Warnings: paths that could not be read" and the affected rows are measured
-as 0 B. The free-space line prints the binary-GiB figure and `df -h`'s figure
-together; they are the same value, differently rounded (this line rounds to
-the nearest GiB, df rounds 1024-base units up), so the one-gigabyte gap is
-explained in place. The result is pasted into the
+as 0 B. The result is pasted into the
 plan's `## Status` (git-ignored, like all machine facts); commit only this
 experiment, never the report.
 

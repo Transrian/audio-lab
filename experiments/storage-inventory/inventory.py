@@ -69,7 +69,6 @@ import os
 import re
 import shutil
 import stat as stat_module
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -144,11 +143,6 @@ DOC_CITED_EVAL_RUNS: dict[str, str] = {
         "run — its numbers are reproducible from this run only"
     ),
 }
-
-# The label-model id before the rename (talks.py's LABEL_MODEL is now
-# stt-v-qwen3-asr-1.7B). Answer files under this old id were written before
-# the rename; where they survive, this cache directory is the only copy.
-OLD_FORMAT_LABEL_ID = "stt-a-qwen3-asr-1.7B"
 
 TALK_AUDIO_SUFFIXES = (
     ".wav",
@@ -436,119 +430,6 @@ def talk_split(path: Path, problems: list[str] | None = None) -> tuple[int, int,
     return audio, answers, other
 
 
-def content_note(
-    path: Path,
-    problems: list[str] | None = None,
-    cache_root: Path | None = None,
-) -> str:
-    """What an unrecognised cache directory holds, counted, not guessed."""
-    answers = 0
-    audio = 0
-    other = 0
-    old_format: list[str] = []
-    try:
-        with os.scandir(path) as handle:
-            children = list(handle)
-    except OSError as error:
-        _problem(problems, f"cannot list {path}: {error}")
-        return ""
-    for child in children:
-        try:
-            child.stat(follow_symlinks=False)
-        except OSError as error:
-            _problem(problems, f"cannot stat {child.path}: {error}")
-            continue
-        if not child.is_file(follow_symlinks=False):
-            continue
-        if OLD_FORMAT_LABEL_ID in child.name:
-            old_format.append(child.name)
-        if child.name.endswith(TALK_ANSWER_SUFFIXES):
-            answers += 1
-        elif child.name.endswith(TALK_AUDIO_SUFFIXES):
-            audio += 1
-        else:
-            other += 1
-    parts = []
-    if answers:
-        parts.append(f"{answers} model-answer files")
-    if audio:
-        parts.append(f"{audio} audio files")
-    if other:
-        parts.append(f"{other} other files")
-    note = "holds " + ", ".join(parts) + " (no current pipeline reuses it)" if parts else ""
-    if old_format:
-        extra = _old_format_note(path, answers + audio + other, old_format, cache_root, problems)
-        if extra:
-            note = f"{note}; {extra}" if note else extra
-    return note
-
-
-def _old_format_note(
-    path: Path,
-    total_files: int,
-    old_format: list[str],
-    cache_root: Path | None,
-    problems: list[str] | None = None,
-) -> str:
-    """What pre-rename label-model answers this directory holds, checked, not assumed.
-
-    The current talk caches keep the renamed id (stt-v-qwen3-asr-1.7B, the
-    LABEL_MODEL in src/audiolab/data/talks.py). Whether the old-id answers
-    exist anywhere else is checked in the sibling cache directories, so the
-    note tells the owner exactly what deleting this directory would lose.
-    """
-    if cache_root is None:
-        return ""
-    try:
-        with os.scandir(cache_root) as handle:
-            siblings = [child.name for child in handle if child.is_dir(follow_symlinks=False)]
-    except OSError as error:
-        _problem(problems, f"cannot list {cache_root}: {error}")
-        return ""
-    only_here = [
-        name
-        for name in old_format
-        if not any(
-            (cache_root / sibling / name).is_file() for sibling in siblings if sibling != path.name
-        )
-    ]
-    if not only_here:
-        return ""
-    return (
-        f"{len(only_here)} of its {total_files} files are {OLD_FORMAT_LABEL_ID}.* "
-        "answers (pre-rename model id) that exist in no other cache directory "
-        "here (the current cache keeps the renamed id stt-v-qwen3-asr-1.7B): "
-        "deleting this directory loses them"
-    )
-
-
-def df_avail(path: Path) -> str:
-    """The device's free space as ``df -h`` prints it, or '' when df is absent.
-
-    Both figures come from the same statfs field (f_bavail): this report
-    shows it in binary GiB rounded to the nearest, and ``df -h`` rounds
-    1024-base units up — 792.49 GiB is "792 GiB" here and "793G" there.
-    The gap is display rounding only; printing both, in place, explains it
-    instead of leaving it looked up. A hung df (stale mount) must not hang
-    the inventory: after 5 s it is treated like df being absent.
-    """
-    try:
-        result = subprocess.run(
-            ["df", "-h", "--output=avail", str(path)],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5,
-            env={**os.environ, "LC_ALL": "C"},
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
-    if result.returncode != 0:
-        return ""
-    lines = result.stdout.splitlines()
-    return lines[-1].strip() if len(lines) >= 2 else ""
-
-
 def eval_model_name(eval_path: Path) -> str:
     """The model an evaluation run scored, from its run.json; '' when unknown."""
     for run_json in sorted(eval_path.glob("*/run.json")):
@@ -583,8 +464,6 @@ def classify(
     talk: set[str],
     pinned: dict[str, str],
     datasets: dict[str, str],
-    problems: list[str] | None = None,
-    cache_root: Path | None = None,
 ) -> None:
     """Plan 09's classes, in the order the plan applies them."""
     name = entry.path.name
@@ -742,10 +621,6 @@ def classify(
         model = eval_model_name(entry.path)
         if model:
             entry.extras.append(f"evaluates the {model} checkpoint (run.json)")
-    if entry.kind == "cache":
-        note = content_note(entry.path, problems, cache_root)
-        if note:
-            entry.extras.append(note)
     return
 
 
@@ -895,18 +770,7 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_train = repo_root / "configs" / "train"
     for entry in cache_entries + data_entries + runs_entries + train_entries + eval_entries:
-        classify(
-            entry,
-            data_root,
-            runs_root,
-            repo_train,
-            info,
-            talk,
-            pinned,
-            datasets,
-            problems,
-            cache_root,
-        )
+        classify(entry, data_root, runs_root, repo_train, info, talk, pinned, datasets)
 
     # The talk table (plan 09 step 4) and the checkpoint extras.
     talk_rows: list[tuple[Entry, int, int, int]] = []
@@ -943,9 +807,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     lines.append("")
 
-    # Free space of the device(s) behind the roots, re-measured now. The
-    # binary-GiB figure and df -h's figure are printed together: the same
-    # value, differently rounded (nearest GiB here, 1024-base units up there).
+    # Free space of the device(s) behind the roots, re-measured now, in the
+    # same binary units as every size above.
     root_pairs = [
         ("AUDIOLAB_CACHE", cache_root),
         ("AUDIOLAB_DATA", data_root),
@@ -956,14 +819,7 @@ def main(argv: list[str] | None = None) -> int:
         on_device = [(env, root) for env, root in root_pairs if root.stat().st_dev == device]
         usage = shutil.disk_usage(on_device[0][1])
         names = ", ".join(f"${env}" for env, _ in on_device)
-        line = f"{names}: {human(usage.free)} free of {human(usage.total)}"
-        avail = df_avail(on_device[0][1])
-        if avail:
-            line += (
-                f" (df -h: {avail} free — the same value; df rounds 1024-base "
-                "units up, this line rounds to the nearest GiB)"
-            )
-        free_lines.append(line)
+        free_lines.append(f"{names}: {human(usage.free)} free of {human(usage.total)}")
     lines.append("Free space: " + "; ".join(free_lines))
     lines.append("")
 
