@@ -4,9 +4,11 @@ Reads the three storage roots named by the environment ($AUDIOLAB_CACHE,
 $AUDIOLAB_DATA, $AUDIOLAB_RUNS) and reports, per directory: size, file count,
 newest file mtime, who in the repository references the name, and a
 classification (keep / candidate / unknown) that plan 09 takes to the owner
-(Q8). The script is strictly read-only on the storage tree: it uses
-``os.scandir`` and ``stat`` only, and writes only to stdout. Nothing under
-the storage roots is created, moved or renamed, not even a temporary file.
+(Q8). The script is read-only: it walks the tree with ``os.scandir`` and
+``stat``, reads one ``run.json`` per evaluation run, and writes nothing at
+all — its report goes to stdout. Nothing under the storage roots is created,
+written, moved or renamed, not even a temporary file, and the script starts
+no subprocess and sends no network request.
 
 Classification follows plan 09 (``plans/09-retention-p07.md``, git-ignored):
 
@@ -205,8 +207,8 @@ def _problem(problems: list[str] | None, message: str) -> None:
 def measure(path: Path, problems: list[str] | None = None) -> tuple[int, int, float]:
     """Total bytes, file count and newest mtime of everything under ``path``.
 
-    An ``os.scandir`` walk with ``stat`` only: it never opens a file and
-    never writes anything, so the storage tree stays bit for bit untouched.
+    An ``os.scandir`` walk with ``stat``: it reads only and writes nothing,
+    so the storage tree stays bit for bit untouched.
     A path that cannot be read is counted as 0 B and recorded in ``problems``
     (the report lists it, and ``main`` then exits 3 instead of 0).
     """
@@ -787,10 +789,9 @@ def main(argv: list[str] | None = None) -> int:
         "# Storage inventory (plan 09, P-07): list, never delete",
         "",
         f"Measured {datetime.now().astimezone().isoformat(timespec='seconds')} by "
-        "`experiments/storage-inventory/inventory.py`, strictly read-only "
-        "(os.scandir + stat; nothing written under the storage roots). Nothing was "
-        "deleted, moved or renamed. Sizes count every file, including partial "
-        "downloads and logs.",
+        "`experiments/storage-inventory/inventory.py`: it reads only and writes "
+        "nothing under the storage roots. Nothing was deleted, moved or renamed. "
+        "Sizes count every file, including partial downloads and logs.",
         "",
     ]
 

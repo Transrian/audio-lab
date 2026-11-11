@@ -12,8 +12,8 @@ Machine-specific detail stays in the ignored local notes.
 [`inventory.py`](inventory.py) walks the three storage roots named by the
 environment and reports, per directory, what the repository says about it:
 
-- size (an `os.scandir` walk with `stat` only, not `du` parsing), file count,
-  newest file mtime;
+- size (an `os.scandir` walk with `stat`, read-only; not `du` parsing), file
+  count, newest file mtime;
 - who references the name: `docs/`, `configs/` and `experiments/` (this topic
   directory excluded), the `configs/train/*.yaml` `dataset:` values and the
   `configs/panels/*.txt` `# dataset:` headers;
@@ -52,8 +52,8 @@ improvised (global rule 13).
 
 From the repository root, use the default Python 3.12 environment
 (`uv sync`); the experiment reads the core's registries
-(`audiolab.data.fetch`, `audiolab.data.talk_sources`) for the dataset,
-checksum-pinning and talk-source knowledge, and adds no dependency.
+(`audiolab.data.fetch`, `audiolab.data.talk_sources`) for the dataset and
+talk-source names, and adds no dependency.
 
 Inputs are read-only:
 
@@ -68,9 +68,9 @@ Inputs are read-only:
 - the repository's `docs/`, `configs/` and `experiments/` (default: the
   repository that contains this script).
 
-No server is started, no network request is sent, and nothing is written
-under the storage roots - not even a temporary file. Help needs neither data
-nor environment variables:
+No server is started, no subprocess runs, no network request is sent, and
+nothing is written under the storage roots - not even a temporary file. Help
+needs neither data nor environment variables:
 
 ```bash
 uv run python experiments/storage-inventory/inventory.py --help
