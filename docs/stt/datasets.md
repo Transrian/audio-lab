@@ -402,15 +402,14 @@ screening is a difference between corpora and not between recipes:
   [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
   were `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
-  `voxpopuli-fr-train`. Two preparations that were re-made have their pre-rule
-  version archived next to the new one, and the archives are what the screening
-  numbers came from:
+  `voxpopuli-fr-train`. Two of them were re-made since, and each archive is what
+  its screening numbers came from:
 
   - `nasa-en-train.curly-2026-11-09` is kept for the
     [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
-  - `icsi-en-train.pre-plain-label-2026-11-11` is kept as the frozen input of the
-    `icsi-en-train` screening, and
-    `configs/train/screen-icsi-en-train.yaml` points at it
+  - `icsi-en-train.pre-plain-label-2026-11-11` is the frozen input of the
+    `icsi-en-train` screening, and `configs/train/screen-icsi-en-train.yaml`
+    points at it
     ([card](#icsi-en-train--english-research-meetings-one-close-mic-per-participant)).
 
   The per-source screening keeps the pre-rule sets unchanged for
@@ -716,13 +715,10 @@ costs nothing and a fresh clone downloads all of it again.
   comma closed. The result is **8 746 clips, 7.7 h, 52 groups**: the 8 724 clips
   of the first set that the rule keeps — their audio bit-identical to the
   2026-11-08 preparation, their labels re-normalized — plus the 22 later clips of
-  the freed speakers. The per-source screening of
-  2026-11-08 ran on the first set, so its numbers are the archived
-  preparation's: that preparation is the frozen input of the screen, and
-  `configs/train/screen-icsi-en-train.yaml` points at it (`dataset:
-  icsi-en-train.pre-plain-label-2026-11-11`, `clips: 8752`), which the
-  re-prepared `icsi-en-train` with its 8 746 clips no longer satisfies. Training
-  on the source from now on means the re-prepared set, which the rule wrote.
+  the freed speakers. The per-source screening of 2026-11-08 ran on the first
+  set, so its numbers are the archived preparation's: that preparation is the
+  frozen input of the screen, and `configs/train/screen-icsi-en-train.yaml`
+  names it, with the `clips: 8752` that the re-prepared set no longer holds.
 - **Why it is here**: 70 hours of meetings that would have happened anyway, with
   a manual transcript and one microphone per participant: the same kind of data
   as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
