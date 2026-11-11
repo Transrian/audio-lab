@@ -1,6 +1,6 @@
 # Backlog
 
-Updated: 2026-11-10.
+Updated: 2026-11-11.
 
 The durable list of open work. The [roadmap](roadmap.md) holds milestones and
 completion criteria; this page holds concrete tasks and unanswered questions.
@@ -27,7 +27,6 @@ and each long labelling job on the STT server still needs the owner's go.
 | P-03 | Separate the value of talk audio from Qwen's label style. | Design a controlled comparison that changes only the labels of the same human-transcribed audio, for example LibriSpeech-PC or ICSI. The [screening hypothesis](stt/screening.md#what-each-source-does-alone) is not a result of this test. |
 | P-04 | Review contraction and apostrophe-spacing normalization. | Diagnostic done (2026-11-10, all 16 screening runs, official paired intervals): [experiments/normalization-review](../experiments/normalization-review/README.md). One screening conclusion moves — NASA's harm on servicenow en-fr becomes not separable under the diagnostic; proposed decision 0013 awaits the owner's call on (whether contraction and elision equivalence becomes the official scoring rule of the next campaign; answered "probably yes" on 2026-11-10, **deferred by the owner the same day — decision open for the next campaign**; 0013 remains proposed). Do not silently rewrite a campaign's scoring rules or historical results. |
 | P-05 | Review the NASA source filters. | The owner decided on 2026-11-10 to keep the episode-level music and archive filters and to leave NASA's Curious Universe out entirely; this is not implemented yet. Still open: whether the edge-word gate's selection bias is acceptable. The [NASA card](stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts) records the current filters and counts. |
-| P-06 | Re-prepare talk sets made before label-character cleanup. | Review the [training-source text rules](stt/datasets.md#training-sources) before a full training run. The existing screens do not need to be repeated solely to organize this repository. |
 
 ## Data campaign
 
@@ -50,6 +49,7 @@ so DS-01 comes before DS-03.
 | O-04 | Add Nemotron to the evaluated models? | A [model config](../configs/models/nemotron-3.5-transcribe-vllm.yaml) exists. Confirm access and a suitable evaluation budget before using it. |
 | O-05 | Review the AMI per-group training cap. | Check the current [training-source preparation](stt/datasets.md#training-sources) and AMI card before proposing a different sampling rule. |
 | O-06 | Pursue the remaining weak source candidates? | VOA Afrique and the European Commission Audiovisual Service remain documented in the [source register](stt/sources.md); their reasons and license constraints live there. |
+| O-07 | Mix guard for training: refuse clips whose text holds a character `unwritable()` reports unless the recipe sets `allow_unwritable_text: true`. | Undecided (owner, 2026-11-11); see plans/08 step 4. |
 
 ## Not started / deferred
 
