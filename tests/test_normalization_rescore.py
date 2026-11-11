@@ -26,7 +26,6 @@ FR = "fake-fr-full"
 NONSPEECH = "fake-ns-full"
 EN_REFERENCE = "it's a test don't worry"
 FR_REFERENCE = "j'ai un accord"
-REFERENCE_WORDS = 5
 N = 12
 DR = 200
 
