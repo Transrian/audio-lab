@@ -296,14 +296,19 @@ paired intervals and both sides of a score: the official normalizer plus only
 two style rules — English contractions to their expanded form, and the French
 elision spacing (`j' ai` → `j'ai`) — applied
 ([experiments/normalization-review](../../experiments/normalization-review/README.md),
-reproducible without a server or a GPU). The non-native-English gains shrink
-by 0.4 to 1.0 point and stay separable (ICSI −6.16 → −5.47, the talk sources
-−6.01 to −7.41 → −5.17 to −6.48, AMI −3.66 → −2.93, NASA −3.94 → −3.62), the
-uncleaned African run's elision damage is largely removed as the apostrophe
-diagnostic above predicted, and one conclusion moves: NASA's harm on
-servicenow en-fr, separable at +1.93 [+0.52, +3.38] officially, is not
-separable at +1.35 [0.00, +2.74] under the diagnostic. Whether the two rules
-become the official normalizer of the next campaign is
+reproducible without a server or a GPU; that README's reproduce command prints
+the full tables). The non-native-English gains shrink by 0.4 to 1.0 point and
+stay separable (ICSI −6.16 → −5.47, the talk sources −6.01 to −7.41 → −5.17 to
+−6.48, AMI −3.66 → −2.93, NASA −3.94 → −3.62), the uncleaned African run's
+elision damage is largely removed as the apostrophe diagnostic above predicted
+(servicenow en-fr +23.74 → +12.57), and one conclusion moves: NASA's harm on
+servicenow en-fr, separable at +1.93 [+0.52, +3.38] officially, is not separable
+at +1.35 [0.00, +2.74] under the diagnostic. That flip is a knife-edge: the
+diagnostic's lower bound is exactly 0.0, and of its 10 000 bootstrap draws 15
+land exactly on zero and 243 fall below it, so the 2.5th percentile sits on that
+atom. It says the diagnostic removes NASA's separability on that panel, not that
+there is a large effect. Whether the two rules become the official normalizer of
+the next campaign is
 [proposed decision 0013](../decisions/proposed/0013-normalizer-v2-contractions.md);
 every v1 result stays as published until it is accepted.
 

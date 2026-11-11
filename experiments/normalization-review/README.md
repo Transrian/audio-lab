@@ -66,14 +66,23 @@ cover the combinations the table does not list, such as `it'll`).
   canonical form.
 - `'s` is expanded only after `it that there here what who he she where how`,
   always to `is`. Possessives (`john's`, `tomorrow's`) are left alone. The
-  `has` reading before a participle (`it's been`) is not handled; it is rare
-  in speech and both sides of a score carry the same bias.
+  `has` reading before a participle is not handled either: `it's been`, `he's
+  got` and `that's gotten` become `it is been`, `he is got`, `that is gotten`,
+  so a correct `has` reading against a verbatim `'s` is still counted as an
+  error. That pattern is common in meeting speech (ICSI, NOTSOFAR), so the
+  proposed decision recommends a context rule instead: `'s` before
+  `been|got|gotten` expands to `has`, otherwise to `is`.
 - Out of scope, left as written: `y'all`, `ain't`, `'cause`, `'em`.
 - The elision rule only removes a space after an apostrophe that is already
-  there. A missing apostrophe (`l homme`) is a different defect and is not
-  fixed.
-- Typographic apostrophes (`’`) are mapped to the ASCII one before the rules
-  run, as the official normalizer would; no other character is touched.
+  there, and only the apostrophe of an elision: `l'homme` is untouched, a
+  missing apostrophe (`l homme`) is a different defect and is not fixed, and an
+  apostrophe before the letter (`rock 'n' roll`) is left alone. Every kind of
+  space counts (`j'  ai` with two spaces, a no-break space), because the
+  elision is the same in all of them.
+- Typographic apostrophes (`’`, `ʼ`) are mapped to the ASCII one before the
+  rules run, as the official normalizer would; no other character is touched, so
+  a spacing this script joins can never be an artifact of a dash or a quotation
+  mark being rewritten here.
 
 ## Reproduce
 
@@ -83,36 +92,34 @@ uv run python experiments/normalization-review/rescore.py
 ```
 
 Base: `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`; candidates: all
-`$AUDIOLAB_RUNS/eval/screen-*/full`. `--rules elision` / `--rules contractions`
-give the ablations, `--rules none` recomputes the official view as a sanity
-check, and `--base` / `--candidate` / `--runs-dir` / `--panels-dir` /
-`--data-dir` override the defaults. The unit tests for the rules and the
-pipeline are in `tests/test_normalization_rescore.py` (synthetic runs, CPU
-only).
+`$AUDIOLAB_RUNS/eval/screen-*/full`. The **full tables are this command's
+stdout**: one table per panel, plus the changed conclusions and, for each of
+them, how the 10 000 bootstrap draws sit around zero. Nothing has to be copied
+out of a note to read them.
+
+`--rules elision` / `--rules contractions` give the ablations, `--rules none`
+recomputes the official view as a sanity check, and `--base` / `--candidate` /
+`--runs-dir` / `--panels-dir` / `--data-dir` override the defaults. A candidate
+may be given as `LABEL=PATH` to name its row, as in
+[experiments/source-screening/table.py](../source-screening/table.py). The unit
+tests for the rules and the pipeline are in `tests/test_normalization_rescore.py`
+(synthetic runs, CPU only).
+
+The script refuses a run whose recorded normalizer version is not the version of
+the scoring code (`audiolab.eval.normalize.NORMALIZER_VERSION`), and the report
+header says which version produced the numbers: this diagnostic only means
+anything for runs scored under the rules it applies.
 
 ## Results (2026-11-10, the 16 screening runs)
 
-The full tables are in the plan file's `## Status` (git-ignored) and were
-written there by this script's output. The official column reproduces
-[docs/stt/screening.md](../../docs/stt/screening.md) exactly. What moves:
-
-- The uncleaned African-accented run's elision damage is largely removed
-  (fleurs-fr +11.45 → +1.19, mls-fr +12.86 → +0.51, cs-fleurs-fr-en
-  +10.52 → +2.19, servicenow en-fr +23.74 → +12.55, en-fr-ca +20.59 → +7.77
-  points vs base), the same order as the earlier apostrophe-only diagnostic;
-  it stays separably harmful, so its conclusion does not change.
-- The non-native-English gains shrink by 0.4 to 1.0 point and stay separable
-  (ICSI −6.16 → −5.47, NOTSOFAR −5.13 → −4.77, LibriSpeech-PC −1.61 → −1.37,
-  AMI −3.66 → −2.93, the talk sources −6.01 to −7.41 → −5.17 to −6.48,
-  NASA −3.94 → −3.62): most of those gains is deletions and edge style, not
-  contractions.
-- One conclusion moves: **NASA's harm on servicenow en-fr, separable at
-  +1.93 [+0.52, +3.38] under v1, is not separable at +1.35 [0.00, +2.74]
-  under the diagnostic**. That flip is a knife-edge: the lower bound is
-  exactly 0.0 (243 of the 10 000 bootstrap draws fall below zero, 15 land
-  exactly on it, and the 2.5th percentile sits on that atom) — it says the
-  diagnostic removes NASA's separability on that panel, not that there is a
-  large effect.
+The numbers are in
+[docs/stt/screening.md](../../docs/stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are),
+with the proposed decision [0013](../../docs/decisions/proposed/0013-normalizer-v2-contractions.md);
+the tables themselves are the reproduce command's stdout. In short: the
+uncleaned African-accented run's elision damage is largely removed but stays
+separably harmful, the non-native-English gains shrink by 0.4 to 1.0 point and
+stay separable, and one conclusion moves — NASA's harm on servicenow en-fr,
+separable officially, is not separable under the diagnostic.
 
 ## Limits
 
@@ -121,8 +128,8 @@ written there by this script's output. The official column reproduces
   and it is the owner's to accept (the question above).
 - It is a re-reading of frozen runs, not a re-evaluation: latencies, empty
   outputs, truncations and the formatted view are untouched.
-- The non-speech panel is unaffected by design: the rules never turn an
-  answer into nothing or nothing into an answer.
+- The non-speech panel is unaffected: the rules never turn an answer into
+  nothing or nothing into an answer, so its clips stay hallucinated or not.
 - The rule tables are a fixed, reviewable set (decision 0002's spirit): they
   are written out above and in the proposed decision, not learned from the
   data.

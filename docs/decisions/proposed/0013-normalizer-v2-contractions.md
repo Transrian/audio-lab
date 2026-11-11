@@ -13,7 +13,7 @@ edited report does, while the verbatim references and several training
 sources do not; and the first African-accented French run learned a space
 after the apostrophe from its labels ([screening](../../stt/screening.md)).
 
-This proposes a version 2 of the normalizer that adds two rules on top of
+This proposes a version 2 of the normalizer that adds three rules on top of
 the v1 rules, applied to both sides of a score (reference and hypothesis):
 
 1. **English contractions map to a canonical expanded form.** A fixed table:
@@ -30,10 +30,24 @@ the v1 rules, applied to both sides of a score (reference and hypothesis):
    possessives such as `john's`); `'ll` → ` will` and `'ve` → ` have` on
    any stem; `'d` is **never** expanded, because `he'd` is had or would and
    has no single canonical form.
-2. **The French elision spacing is closed:** `x' y` → `x'y` for `x` in
+2. **That `'s` is expanded by its context**, because `it's been`, `he's got`
+   and `that's gotten` mean `has`: `'s` expands to `has` before `been`, `got`
+   or `gotten`, and to `is` everywhere else the pronoun rule applies. The
+   table above names the `is` reading only; this rule chooses between the two
+   readings.
+3. **The French elision spacing is closed:** `x' y` → `x'y` for `x` in
    `c d j l m n s t`, `qu`, `jusqu`, `lorsqu`, `puisqu` (`j' ai` → `j'ai`,
    `d' accord` → `d'accord`). A missing apostrophe (`l homme`) is a
    different defect and is not fixed.
+
+Rule 2 is the limitation the diagnostic measured: the experiment applied the
+simpler reading (`'s` always `is`), which turns a verbatim `it's been` into
+`it is been`. Against a correct hypothesis that says "it has been" that is
+still an error, so the simpler rule can read a mis-reading as correct, and the
+`has` pattern is common in meeting speech (the ICSI and NOTSOFAR panels are
+meetings). Rule 2 is therefore the recommended implementation, not an
+alternative: a v2 that expands `'s` to `is` everywhere would score style
+correctly on `it's` and incorrectly on `it's been`.
 
 Everything else stays v1. The normalizer version becomes
 `NORMALIZER_VERSION = 2` (`src/audiolab/eval/normalize.py`) for runs of the
@@ -49,35 +63,27 @@ where the diagnostic that motivates it was run.
 A dictation user says "it's" or "j'ai", and the two spellings mean the same
 thing; counting them as errors scores style, not recognition. The diagnostic
 re-scoring of the 16 screening runs against the base model (2026-11-10, the
-official pipeline plus the two rules above, with the official paired
-intervals) shows what the rules would do:
-
-- they remove most of the damage the spaced elision did in the first
-  African-accented run: fleurs-fr +11.45 → +1.19, mls-fr +12.86 → +0.51,
-  cs-fleurs-fr-en +10.52 → +2.19, servicenow en-fr +23.74 → +12.55 and
-  en-fr-ca +20.59 → +7.77 points vs base, the same order as the earlier
-  apostrophe-only diagnostic. The run stays separably harmful, so its
-  screening conclusion is unchanged;
-- the non-native-English "gains" shrink by 0.4 to 1.0 point and stay
-  separable: ICSI −6.16 → −5.47, NOTSOFAR −5.13 → −4.77, LibriSpeech-PC
-  −1.61 → −1.37, AMI −3.66 → −2.93, the talk sources −6.01 to −7.41 → −5.17
-  to −6.48, NASA −3.94 → −3.62. Most of those gains is deletions and edge
-  style, not contractions, so a narrower rule set was chosen on purpose;
-- one screening conclusion moves: NASA's harm on servicenow en-fr, separable
-  at +1.93 [+0.52, +3.38] under v1, is not separable at +1.35 [0.00, +2.74]
-  under the diagnostic. That flip is a knife-edge: the diagnostic lower
-  bound is exactly 0.0 — of the 10 000 bootstrap draws, 243 fall below zero,
-  15 land exactly on it, and the 2.5th percentile sits on that atom — so it
-  should be read as "the diagnostic removes NASA's separability on that
-  panel", not as a large effect.
+official pipeline plus the two rules of 1 and 3, with the official paired
+intervals) shows what the rules would do. Its numbers are in
+[screening.md, "What the voxpopuli-en-nonnative gains are"](../../stt/screening.md#what-the-voxpopuli-en-nonnative-gains-are);
+that section is their home, and this proposal does not repeat its tables. What
+matters for the decision: the run that learned the spaced elision stays
+separably harmful, the non-native-English gains shrink but stay separable, and
+exactly one screening conclusion moves — NASA's harm on servicenow en-fr, from
+separable to not separable at a lower bound of exactly 0.0, a knife-edge rather
+than a large effect. The diagnostic used the simpler `'s` reading (always `is`),
+which is the limitation rule 2 fixes: the reported numbers therefore measure
+rules 1 and 3, and the `'s`-before-a-participle cases are the ones a v2 must
+still get right.
 
 The cost is the intended one: a model that rewrites the user's words into
 another style ("it's" → "it is", or the other way round) is no longer
 counted against. That trade-off is the owner's to take: whether contraction
-and elision equivalence becomes the official scoring rule of the next
-campaign. The owner answered "probably yes" to that question on 2026-11-10;
-the answer is recorded here as an answer, not an acceptance — this proposal
-is the formal step before acceptance.
+and elision equivalence becomes the official scoring rule. The owner answered
+"probably yes" to that question on 2026-11-10 and then deferred the decision the
+same day, leaving it open for the next campaign; the answer is recorded here as
+an answer, not an acceptance — this proposal stays proposed, and nothing under
+`src/audiolab/eval/` implements it.
 
 ## Alternatives considered
 
