@@ -703,17 +703,22 @@ costs nothing and a fresh clone downloads all of it again.
   `icsi-en-train.pre-plain-label-2026-11-11` and the source was prepared again on
   2026-11-11 with the current code, the pinned transcript archive and the
   corpus's signals re-downloaded (the download cache held no ICSI entry). The
-  291 straight quotes are dropped by `plain_label` — 291 labels rewritten, the
-  same clips with the same ids — and the 28 clips holding an underscore, which
-  the rule writes as nothing, are left out; 22 stretches of the 15 speakers at
-  their 200-clip share take their place, the left-out clips no longer counting
-  against the share. The result is **8 746 clips, 7.7 h, 52 groups**, the same
-  audio as the first set minus the 28 left-out clips (every kept clip is
-  bit-identical to its 2026-11-08 counterpart). The per-source screening of
+  291 straight quotes are dropped by `plain_label` — those 291 clips keep
+  their ids and their audio — and the 28 clips holding an underscore, which the
+  rule cannot write, are left out; 22 stretches of the 15 speakers at their
+  200-clip share take their place, the left-out clips no longer counting against
+  the share. Of the 8 724 kept labels, 2 776 differ from the archived set,
+  because the rule also does its routine writing (a lone dash, a space before
+  punctuation, a semicolon) on the others. The result is **8 746 clips, 7.7 h,
+  52 groups**: the 8 724 clips of the first set that the rule keeps — their
+  audio bit-identical to the 2026-11-08 preparation, their labels re-normalized
+  — plus the 22 later clips of the freed speakers. The per-source screening of
   2026-11-08 ran on the first set, so its numbers are the archived
   preparation's: `icsi-en-train.pre-plain-label-2026-11-11` is no longer a
-  training input and is kept as the frozen input of
-  `configs/train/screen-icsi-en-train.yaml`.
+  training input; it is the set the screen's numbers came from, and reproducing
+  that screen means pointing the run at the archived directory —
+  `configs/train/screen-icsi-en-train.yaml`'s `dataset:` now names the
+  re-prepared set, whose 8 746 clips cannot satisfy its `clips: 8752`.
 - **Why it is here**: 70 hours of meetings that would have happened anyway, with
   a manual transcript and one microphone per participant: the same kind of data
   as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
