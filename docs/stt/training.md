@@ -224,7 +224,7 @@ there would refuse every run written before the guard existed.
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset (for a mix, `datasets` — per-dataset clip counts, usable clips and clip hash — instead), the number of usable clips, the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, and the `leakage_guard` block (§2) |
+| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, and the `leakage_guard` block (§2) |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so.
