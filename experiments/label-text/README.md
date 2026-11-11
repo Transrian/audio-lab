@@ -1,9 +1,9 @@
 # Label-text check (plan 03 A4, plan 08 P-06, closed 2026-11-11): report, never rewrite
 
 **Status:** the checker behind plan 03 A4 ("after each preparation, check it
-with a small script") and plan 08's step 1 (P-06, closed 2026-11-11). The plans are git-ignored;
-this page documents the helper. The script reports; it never re-prepares,
-rewrites, moves or deletes anything.
+with a small script") and plan 08's step 1 (P-06, closed 2026-11-11).
+The plans are git-ignored; this page documents the helper. The script
+reports; it never re-prepares, rewrites, moves or deletes anything.
 
 [`check_text.py`](check_text.py) reads the manifest of every named prepared
 dataset (`$AUDIOLAB_DATA/<dataset>/manifest.jsonl`), calls
