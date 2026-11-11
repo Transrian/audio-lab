@@ -273,6 +273,40 @@ def test_unreadable_path_is_reported_and_exits_3(roots, monkeypatch, capsys):
     state["blocked"] = False
 
 
+def test_pinned_datasets_are_listed_by_name():
+    """The pinned set is explicit, pinned here by name.
+
+    The classifier must not learn which downloads are pinned by reading the
+    fetchers' source text: a renamed constant or a reworded comment would then
+    flip a cache between re-creatable and not re-downloadable without a test
+    noticing. This test is what notices.
+    """
+    assert inventory.PINNED_DATASETS == {
+        "african-accented-fr-train",
+        "ami-fr-speakers-en-train",
+        "cs-fleurs-fr-en",
+        "fleurs-en",
+        "fleurs-fr",
+        "granary-fr-train",
+        "icsi-en-train",
+        "librispeech-en",
+        "librispeech-en-train",
+        "librispeech-pc-en-train",
+        "mls-fr",
+        "mls-fr-train",
+        "nonspeech",
+        "notsofar-en-train",
+        "pxcorpus-fr-train",
+        "servicenow-codeswitched-en-fr",
+        "servicenow-codeswitched-en-fr-ca",
+        "voxpopuli-en-nonnative",
+        "voxpopuli-fr-train",
+    }
+    # Every name is a dataset some fetcher provides: a stale name (a dataset
+    # renamed in audiolab.data) fails here instead of a cache row.
+    assert inventory.PINNED_DATASETS <= set(inventory.fetcher_datasets())
+
+
 def test_totals_and_talk_table(roots, capsys):
     argv, _paths = roots
     assert inventory.main(argv) == 0

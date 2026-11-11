@@ -64,7 +64,6 @@ affected rows are measured as 0 B).
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import os
 import re
@@ -79,17 +78,36 @@ from pathlib import Path
 REPO_DIRS = ("docs", "configs", "experiments")
 RUNS_DOCS = ("docs/stt/screening.md", "docs/stt/evaluation.md")
 
-# A fetcher module pins a download when its source holds one of these: a
-# literal digest table, the ESC-50 csv sha, or the Hub's published sha256 of a
-# pinned revision (the huggingface helpers list it).
-PIN_MARKERS = (
-    "PINNED_SHA256",
-    "PINNED_MD5",
-    "PINNED_AUDIO_SHA256",
-    "PINNED_RECORDINGS",
-    "EXPECTED_CSV_SHA256",
-    "huggingface_sha256_map",
-    "huggingface_entries",
+# The datasets whose download a fetcher pins to a fixed digest (a literal
+# digest table, the ESC-50 csv sha, or the Hub's published sha256 of a pinned
+# revision), so the archive can be downloaded again and verified: the download
+# cache of such a dataset is re-creatable. This is an explicit list of names,
+# never a guess from the fetcher's source text: renaming a constant, or a word
+# in a comment, must not silently reclassify a cache. The test that pins this
+# set by name makes a fetcher that starts or stops pinning a deliberate change
+# here too, and a name that no fetcher provides fails it.
+PINNED_DATASETS = frozenset(
+    {
+        "african-accented-fr-train",
+        "ami-fr-speakers-en-train",
+        "cs-fleurs-fr-en",
+        "fleurs-en",
+        "fleurs-fr",
+        "granary-fr-train",
+        "icsi-en-train",
+        "librispeech-en",
+        "librispeech-en-train",
+        "librispeech-pc-en-train",
+        "mls-fr",
+        "mls-fr-train",
+        "nonspeech",
+        "notsofar-en-train",
+        "pxcorpus-fr-train",
+        "servicenow-codeswitched-en-fr",
+        "servicenow-codeswitched-en-fr-ca",
+        "voxpopuli-en-nonnative",
+        "voxpopuli-fr-train",
+    }
 )
 
 # Plan 09's keep list, the parts that name concrete entries: one table,
@@ -357,14 +375,13 @@ def fetcher_datasets() -> dict[str, str]:
 
 
 def pinned_fetchers() -> dict[str, str]:
-    """Dataset -> fetcher module, only the fetchers that pin a checksum."""
-    pinned: dict[str, str] = {}
-    for name, module_name in fetcher_datasets().items():
-        module = importlib.import_module(module_name)
-        source = Path(module.__file__).read_text(encoding="utf-8")
-        if any(marker in source for marker in PIN_MARKERS):
-            pinned[name] = module_name
-    return pinned
+    """Dataset -> fetcher module, for the datasets the inventory lists as pinned.
+
+    The decision is ``PINNED_DATASETS`` alone; the module name is only the
+    pointer the report gives to where the pin lives.
+    """
+    datasets = fetcher_datasets()
+    return {name: module for name, module in datasets.items() if name in PINNED_DATASETS}
 
 
 def is_prepared(data_root: Path, name: str) -> bool:

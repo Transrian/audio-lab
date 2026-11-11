@@ -114,8 +114,12 @@ splits every talk cache into downloaded audio (candidate) and model answers
   counts as a reference. A name the repository only mentions in prose still
   counts; reading the notes column is part of the review.
 - "Re-creatable" means the dataset is prepared (its `manifest.jsonl` exists)
-  and the fetcher module's source pins a checksum (a digest table, the
-  ESC-50 csv sha, or the Hub's published sha256 of a pinned revision). A
+  and the dataset is in the script's explicit pinned list (`PINNED_DATASETS`):
+  its fetcher pins the download to a fixed digest (a digest table, the ESC-50
+  csv sha, or the Hub's published sha256 of a pinned revision), so the archive
+  can be fetched again and verified. The list is written out by name, not
+  guessed from the fetchers' source text, and a test pins it: a fetcher that
+  starts or stops pinning changes that test, never a cache row silently. A
   download whose source can change or vanish under us is not called
   re-creatable, even when it looks fetchable again.
 - The screening checkpoints are candidates per plan 09 step 5, with one
