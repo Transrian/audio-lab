@@ -31,8 +31,9 @@ The `keep (rule above)` logic is:
 - `screen-peertube-fr`, the control run of the noise experiment (plan 02);
 - `mls-fr-train` and `librispeech-en-train`, where the noise experiment takes
   its babble noise from (plan 01 T4);
-- `nasa-en-train.curly-2026-11-09` and `screen-nasa-en`, until the NASA
-  re-screening is documented (plan 05 Part C), and
+- `nasa-en-train.curly-2026-11-09` and `screen-nasa-en`, the earlier NASA
+  preparation and the run that screened it: kept until the re-screen comparison
+  [P-01](../../docs/backlog.md) asks for is checked, and
   `icsi-en-train.pre-plain-label-2026-11-11`, the frozen input of the ICSI
   screening: its 2026-11-08 run trained on it, so re-making that screen means
   keeping it ([datasets card](../../docs/stt/datasets.md));

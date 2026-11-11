@@ -6,8 +6,8 @@ what it deliberately does not do. The code lives in `src/audiolab/train/`.
 
 An `audiolab train` run is described by one config file in `configs/train/`
 ([decision 0007](../decisions/accepted/0007-single-package-single-command.md)).
-The file's name is the run's name: `configs/train/fleurs-fr-v1.yaml` trains into
-`$AUDIOLAB_RUNS/train/fleurs-fr-v1/`.
+The file's name is the run's name: `configs/train/granary-fr-v1.yaml` trains into
+`$AUDIOLAB_RUNS/train/granary-fr-v1/`.
 
 ## 1. The environment it needs
 

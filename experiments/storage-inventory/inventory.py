@@ -127,13 +127,15 @@ KEEP_BY_NAME: dict[str, str] = {
         "frozen screening input of configs/train/screen-icsi-en-train.yaml, "
         "whose 2026-11-08 run trained on the 8 752 clips it holds"
     ),
-    "nasa-en-train.curly-2026-11-09": "kept until plan 05 Part C is documented",
+    # The NASA pair: the earlier preparation and the run that screened it, kept
+    # until the re-screen comparison the backlog's P-01 asks for is checked.
+    "nasa-en-train.curly-2026-11-09": "kept for the P-01 re-screen comparison (docs/backlog.md)",
     # The babble noise the noise experiment takes from them (plan 01 T4).
     "mls-fr-train": "babble noise of plan 01 T4",
     "librispeech-en-train": "babble noise of plan 01 T4",
     # Screening runs a plan still uses.
     "screen-peertube-fr": "control run of plan 02",
-    "screen-nasa-en": "kept until plan 05 Part C is documented",
+    "screen-nasa-en": "kept for the P-01 re-screen comparison (docs/backlog.md)",
 }
 
 # The candidate rules, in one table: the note the report shows for each one

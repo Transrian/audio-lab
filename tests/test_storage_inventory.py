@@ -87,7 +87,7 @@ def roots(tmp_path, monkeypatch):
     write(data / "ds-fr/manifest.jsonl")  # panel + train dataset
     write(data / "x-train/manifest.jsonl")  # train dataset of screen-x.yaml
     write(data / "mls-fr-train/manifest.jsonl")  # babble rule
-    write(data / "nasa-en-train.curly-2026-11-09/manifest.jsonl")  # plan 05 rule
+    write(data / "nasa-en-train.curly-2026-11-09/manifest.jsonl")  # P-01 keep rule
     write(data / "lonely-train/manifest.jsonl")  # prepared, referenced nowhere
     write(data / "docs-only-train/manifest.jsonl")  # prepared, named in docs only
     write(
@@ -172,7 +172,7 @@ def test_classifications(roots, capsys):
     assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/mls-fr-train")
     assert "babble" in row(text, "$AUDIOLAB_DATA/mls-fr-train")
     assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
-    assert "plan 05 Part C" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
+    assert "P-01" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_DATA/lonely-train")
     assert "unknown" in row(text, "$AUDIOLAB_DATA/mystery-dir")
     # A prepared dataset the docs alone name is referenced, so it is kept: the
