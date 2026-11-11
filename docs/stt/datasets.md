@@ -400,12 +400,16 @@ screening is a difference between corpora and not between recipes:
   2026-11-10 the prepared sets that predate the rule and still hold unwritable
   characters (measured by
   [`experiments/label-text/check_text.py`](../../experiments/label-text/check_text.py))
-  are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`, `icsi-en-train`,
+  are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
   `voxpopuli-fr-train`, plus the archived pre-cleanup NASA preparation
   `nasa-en-train.curly-2026-11-09`, which is not a training input and is kept
-  for the [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
-  the per-source screening keeps them unchanged for
+  for the [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts),
+  and the archived pre-`plain_label` ICSI preparation
+  `icsi-en-train.pre-plain-label-2026-11-11`, which is not a training input and
+  is kept as the frozen input of the `icsi-en-train` screening
+  ([card](#icsi-en-train--english-research-meetings-one-close-mic-per-participant));
+  the per-source screening keeps the pre-rule sets unchanged for
   reproducibility, and a re-preparation is what brings a set into the rule.
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
@@ -421,7 +425,7 @@ screening is a difference between corpora and not between recipes:
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
-| `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 752 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
+| `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 746 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
 | `notsofar-en-train` | en | CC-BY-4.0 | 240825.1_train | 2 330 | 12 | 2.1 | 0.2 GiB | 0.8 GiB |
 | `peertube-fr-train` | fr | CC-BY (per video, in the manifest) | listing | 12 000 | 77 | 31.8 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and 7.3 GiB of WAV stays in the cache |
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
@@ -666,7 +670,8 @@ costs nothing and a fresh clone downloads all of it again.
   80 175 stretches, 12 759 of which join two or more segments. The per-speaker
   share of 200 clips is what holds the preparation there: 8.6 % of those segments
   become clips, 8 752 of them (1 462 joining several segments) from 49 of the 75
-  meetings, 7.7 h, median 1.9 s. The longest clip is 19.98 s and every clip is
+  meetings, 7.7 h, median 1.9 s; the 2026-11-11 re-preparation of the same
+  source holds 8 746 (Prepared, below). The longest clip is 19.98 s and every clip is
   inside the window; 8 segments of the corpus are longer — the longest 95 s, two
   words with the times the annotators gave them — and none of them is a clip. The
   34 speakers that reach their share contribute 200 clips each and the 18 smaller
@@ -677,8 +682,9 @@ costs nothing and a fresh clone downloads all of it again.
   the cap: every arm of the screening is capped by the same rule, and this source
   cannot reach 12 000 clips under it. Joining the rows of a speaker changes how
   many clips a corpus gives, not how many a group may have, so the share is still
-  what holds this source, now at 8 752 clips. Its config sets `clips: 8752` next
-  to the reason.
+  what holds this source: at 8 746 clips after the 2026-11-11 re-preparation,
+  at 8 752 in the 2026-11-08 set. Its config sets `clips: 8752` next to the
+  reason, the size of the set the 2026-11-08 screening ran on.
 - **Decoding**: the corpus's signals are shorten-compressed SPHERE and the audio
   readers of this project do not decode them, so `ffmpeg` decodes every channel a
   preparation reads — the only external program any preparation runs — and the
@@ -690,6 +696,24 @@ costs nothing and a fresh clone downloads all of it again.
   prepared set is 0.8 GiB. The count and the checksum of a channel are checked by
   a function that reads the header alone, so the tests of a preparation run
   without ffmpeg and only one of them runs the real decoder.
+- **Prepared** (2026-11-08; re-prepared 2026-11-11): the 2026-11-08 preparation
+  of 8 752 clips predates the [label rule](#training-sources) and holds 319
+  clips with a character the base model cannot write — 291 with a straight
+  quote, 28 with an underscore — so it was moved aside as
+  `icsi-en-train.pre-plain-label-2026-11-11` and the source was prepared again on
+  2026-11-11 with the current code, the pinned transcript archive and the
+  corpus's signals re-downloaded (the download cache held no ICSI entry). The
+  291 straight quotes are dropped by `plain_label` — 291 labels rewritten, the
+  same clips with the same ids — and the 28 clips holding an underscore, which
+  the rule writes as nothing, are left out; 22 stretches of the 15 speakers at
+  their 200-clip share take their place, the left-out clips no longer counting
+  against the share. The result is **8 746 clips, 7.7 h, 52 groups**, the same
+  audio as the first set minus the 28 left-out clips (every kept clip is
+  bit-identical to its 2026-11-08 counterpart). The per-source screening of
+  2026-11-08 ran on the first set, so its numbers are the archived
+  preparation's: `icsi-en-train.pre-plain-label-2026-11-11` is no longer a
+  training input and is kept as the frozen input of
+  `configs/train/screen-icsi-en-train.yaml`.
 - **Why it is here**: 70 hours of meetings that would have happened anyway, with
   a manual transcript and one microphone per participant: the same kind of data
   as `ami-fr-speakers-en-train` without AMI's scenario meetings and without its
