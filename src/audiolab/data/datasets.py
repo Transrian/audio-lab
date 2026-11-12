@@ -145,6 +145,21 @@ DATASETS: dict[str, DatasetInfo] = {
         "the speaker two answers separated by a slash, so no one text matches the "
         "recording. No panels.",
     ),
+    "african-accented-fr-test": DatasetInfo(
+        name="african-accented-fr-test",
+        source="https://www.openslr.org/57 (African_Accented_French.tar.gz, speech/test)",
+        license="Apache-2.0",
+        split="test",
+        reference_style="the corpus's own prompted sentences, casing and punctuation kept; "
+        "the corpus's apostrophe spacing removed",
+        grouping="speaker (group = directory of the recordings)",
+        notes="The test part of the corpus african-accented-fr-train trains on: 515 "
+        "prompted sentences of 12 speakers, a single transcript per part. Its speakers "
+        "do not overlap the train part's (checked against the prepared train manifest "
+        "at preparation, a speaker in both is dropped, more than 10 % overlapping "
+        "stops). dev and devtest stay untouched as a reserve for a later campaign. "
+        "The train fetcher leaves its groups out (decision 0002).",
+    ),
     "pxcorpus-fr-train": DatasetInfo(
         name="pxcorpus-fr-train",
         source="https://zenodo.org/records/10080490 (PxCorpus.zip, PxSLU recordings)",

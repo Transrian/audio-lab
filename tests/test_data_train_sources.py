@@ -578,6 +578,140 @@ def test_african_french_refuses_a_transcript_line_without_text(dirs):
         )
 
 
+def fake_african_french_test_cache(cache: Path) -> None:
+    """The test part of SLR57: one transcript, one directory per speaker.
+
+    Eleven speakers with a transcript between them and ``cameroon_m_006`` as the
+    one a test may put in the prepared train manifest: a single overlap of
+    eleven is under the tenth that makes the preparation stop. ``gabon_f_024``
+    holds a recording with no transcript line and a ``devtest`` member is in the
+    archive to prove it is not read.
+    """
+    directory = cache / "african-accented-fr-train"
+    tone = write_tone(directory / "tone.wav", seconds=2.0)
+    root = "African_Accented_French"
+    speakers = (
+        "gabon_f_026",
+        "gabon_f_026",
+        "gabon_m_060",
+        "cameroon_m_006",
+        "gabon_m_003",
+        "gabon_m_058",
+        "gabon_f_024",
+        "gabon_m_072",
+        "gabon_m_074",
+        "chad_m_001",
+        "congo_m_013",
+    )
+    members = {
+        f"{root}/transcripts/test/ca16/prompts.txt": _text_file(
+            directory,
+            "test_prompts.txt",
+            "".join(
+                f"{speaker}_{index:03d} phrase {index} de {speaker}.\n"
+                for index, speaker in enumerate(speakers, start=1)
+            ),
+        ),
+        f"{root}/speech/test/ca16/gabon_f_024/gabon_f_024_999.wav": tone,
+        f"{root}/transcripts/devtest/ca16_read/conditioned.txt": _text_file(
+            directory, "devtest_conditioned.txt", "004_001 autre chose\n"
+        ),
+        f"{root}/speech/devtest/ca16/004/004_001.wav": tone,
+    }
+    for index, speaker in enumerate(speakers, start=1):
+        key = f"{speaker}_{index:03d}"
+        members[f"{root}/speech/test/ca16/{speaker}/{key}.wav"] = tone
+    make_archive(directory / "African_Accented_French.tar.gz", members)
+
+
+def test_african_french_test_reads_only_the_test_part_and_drops_an_overlap(dirs, monkeypatch):
+    """The test part is prepared in full; a train speaker in it is dropped."""
+    data, cache = dirs
+    fake_african_french_test_cache(cache)
+    monkeypatch.setattr(african_french, "TEST_EXPECTED_CLIPS", 11, raising=True)
+    write_manifest(
+        data / "african-accented-fr-train",
+        [
+            make_clip("african-accented-fr-train:113", group="african-accented-fr-train:113"),
+            make_clip(
+                "african-accented-fr-train:cameroon_m_006",
+                group="african-accented-fr-train:cameroon_m_006",
+            ),
+        ],
+    )
+
+    count = african_french.fetch_african_accented_fr_test(
+        "african-accented-fr-test", cache, data / "african-accented-fr-test", verbose=False
+    )
+    clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-test")}
+    assert count == 10
+    # The overlapping speaker is out; the recording without a transcript is out;
+    # the devtest member of the archive is not read.
+    assert "african-accented-fr-test:cameroon_m_006_004" not in clips
+    assert "african-accented-fr-test:gabon_f_024_999" not in clips
+    assert "african-accented-fr-test:004_001" not in clips
+    first = clips["african-accented-fr-test:gabon_f_026_001"]
+    # The corpus's own text is kept — casing and punctuation included.
+    assert first.text == "phrase 1 de gabon_f_026."
+    assert first.text_has_casing_punct is True
+    assert first.group == "african-accented-fr-test:gabon_f_026"
+    assert first.group_kind == "speaker"
+    assert first.source_split == "test"
+    assert first.license == "Apache-2.0"
+    assert first.category == "read"
+
+
+def test_african_french_test_stops_when_most_speakers_overlap(dirs, monkeypatch):
+    """A test part that shares most of its speakers with the train set is refused."""
+    data, cache = dirs
+    fake_african_french_test_cache(cache)
+    monkeypatch.setattr(african_french, "TEST_EXPECTED_CLIPS", 11, raising=True)
+    write_manifest(
+        data / "african-accented-fr-train",
+        [
+            make_clip(
+                f"african-accented-fr-train:{speaker}",
+                group=f"african-accented-fr-train:{speaker}",
+            )
+            for speaker in (
+                "gabon_f_026",
+                "gabon_m_060",
+                "cameroon_m_006",
+                "gabon_m_003",
+                "gabon_m_058",
+                "gabon_f_024",
+                "gabon_m_072",
+                "gabon_m_074",
+                "chad_m_001",
+                "congo_m_013",
+            )
+        ],
+    )
+    with pytest.raises(DownloadError, match="overlap the prepared train set"):
+        african_french.fetch_african_accented_fr_test(
+            "african-accented-fr-test", cache, data / "african-accented-fr-test", verbose=False
+        )
+
+
+def test_african_french_train_leaves_out_the_test_speakers(dirs):
+    """The train fetcher takes its exclusions from the prepared test manifest."""
+    data, cache = dirs
+    fake_african_french_cache(cache)
+    write_manifest(
+        data / "african-accented-fr-test",
+        [make_clip("african-accented-fr-test:113", group="african-accented-fr-test:113")],
+    )
+
+    count = african_french.fetch_african_accented_fr_train(
+        "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
+    )
+    # Both ca16 rows of speaker 113 are out; the yaoundé rows stand.
+    assert count == 1
+    assert {clip.id for clip in read_manifest(data / "african-accented-fr-train")} == {
+        "african-accented-fr-train:ctell1-01-0002",
+    }
+
+
 def fake_librispeech_train_cache(cache: Path, name: str = "librispeech-en-train") -> None:
     """A cache that looks like LibriSpeech train-clean-100.
 

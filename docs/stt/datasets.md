@@ -23,6 +23,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `servicenow-codeswitched-en-fr` | fr (en) | no license: evaluation only | test | 298 | 298 | 0.6 | 70 MiB |
 | `servicenow-codeswitched-en-fr-ca` | fr (en) | no license: evaluation only | test | 188 | 188 | 0.4 | 42 MiB |
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
+| `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -49,6 +50,7 @@ part of how precise its numbers can be:
 | `servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 | `servicenow-codeswitched-en-fr-ca` | 100 / 100 | 150 / 150 | 38 / 38 |
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
+| `african-accented-fr-test` | 100 / 10 | 396 / 10 | 119 / 2 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -77,6 +79,7 @@ dataset under a frozen panel.
 | `voxpopuli-fr-train` | `facebook/voxpopuli` | revision `42f01879c780b4a2e90ec0b4f616c2ece526e4f1` | sha256 published by the Hub for every `fr/train-*.parquet` (`src/audiolab/data/voxpopuli_train.py`) |
 | `mls-fr-train` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for the train metadata and every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `african-accented-fr-train` | OpenSLR SLR57 | `African_Accented_French.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it (`src/audiolab/data/african_french.py`) |
+| `african-accented-fr-test` | OpenSLR SLR57 | the same `African_Accented_French.tar.gz` (the test part of it) | sha256 of that same archive (`src/audiolab/data/african_french.py`) |
 | `librispeech-en-train` | OpenSLR SLR12 | `train-clean-100.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
 | `librispeech-pc-en-train` | OpenSLR SLR145 | `manifests.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it; the audio is `librispeech-en-train`'s own archive, checked against its sha256 (`src/audiolab/data/librispeech_pc.py`) |
 
@@ -322,6 +325,37 @@ Three kinds of clip that must stay silent, 300 in total:
   translationese and its switch positions are not ones a speaker would have
   chosen; one reader for the real audio; the synthetic subset dominates the
   panel by size.
+
+## `african-accented-fr-test` — African accented French, prompted sentences
+
+- **Source**: the `test` part of OpenSLR SLR57, the same archive
+  [`african-accented-fr-train`](#african-accented-fr-train--african-accented-french)
+  trains on: 515 recordings under `speech/test/ca16/`, one directory per
+  speaker, with the part's single transcript `transcripts/test/ca16/prompts.txt`
+  (515 lines, one per recording). The part's speakers are Cameroonian, Chadian,
+  Congolese and Gabonese. `dev` and `devtest` are in the same archive but are
+  not read: they stay untouched as a reserve for a later campaign.
+- **License**: Apache-2.0, as the train part.
+- **Audio**: 515 prompted sentences, one recording per line of the transcript.
+  12 speakers, 2 to 87 clips each; 0.31 h of audio.
+- **Text**: the corpus's own sentences, casing and punctuation kept
+  (`text_has_casing_punct: true`), with only the corpus's apostrophe spacing and
+  its whitespace runs removed, the same cleanup the train text gets. `category`
+  is `read` for every clip: the part's one transcript is its prompted sentences.
+- **Group**: the speaker's directory (`group_kind: speaker`), 12 groups.
+- **No overlap with the train part** (decision 0002): the preparation reads the
+  prepared `african-accented-fr-train` manifest and drops a test speaker it
+  already holds; 2026-11-12 that overlap was empty, so all 515 clips are in.
+  More than a tenth of the part's speakers overlapping stops the preparation.
+  The train fetcher keeps the check the other way: its `Take` takes its
+  exclusions from this manifest (`evaluation_groups`).
+- **Why it is here**: French spoken with an African accent, which no other
+  panel measures; [D-009](../owner/directives.md) keeps French first and this is
+  the only open-source set that holds it. The train part's known defect (the
+  transcripts put a space after the apostrophe, which the model learned) is
+  gone from the test text, so the set measures the accent, not the typing.
+- **Known limits**: prompted sentences, not spontaneous speech; 12 speakers;
+  the panel holds 10 of the 12 groups, so the interval is wide.
 
 ## Training sources
 
@@ -1551,7 +1585,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | none: no evaluation set comes from this corpus, and the dev and eval splits the challenge publishes are not read either | — |
-| `african-accented-fr-train` | none: no evaluation set comes from this corpus | — |
+| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 0 clips: the 12 test speakers are absent from the 190 prepared speakers, checked against the prepared test manifest by the fetcher |
 | `peertube-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
@@ -1559,7 +1593,7 @@ fetch`) before the training source is, because the check reads its manifest.
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the sources that are not evaluation sets at all
-(SLR57, Granary, PxCorpus, AMI, ICSI) publish no other split here. The recordings
+(Granary, PxCorpus, AMI, ICSI) publish no other split here. The recordings
 of NOTSOFAR are scored by no evaluation set of this campaign either: the corpus
 is one of the challenge's, and its dev and eval splits were left alone.
 
