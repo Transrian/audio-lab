@@ -30,7 +30,7 @@ from audiolab.data.librispeech_pc import fetch_librispeech_pc_en_train
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
 from audiolab.data.nasa import fetch_nasa_en_train
 from audiolab.data.nonspeech import fetch_nonspeech
-from audiolab.data.notsofar import fetch_notsofar_en_train
+from audiolab.data.notsofar import fetch_notsofar_en_eval, fetch_notsofar_en_train
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.talk_sources import fetch_talk_dataset
@@ -53,6 +53,7 @@ FETCHERS = {
     "nasa-en-train": fetch_nasa_en_train,
     "nonspeech": fetch_nonspeech,
     "notsofar-en-train": fetch_notsofar_en_train,
+    "notsofar-en-eval": fetch_notsofar_en_eval,
     "peertube-fr-train": fetch_talk_dataset,
     "peertube-edu-fr-train": fetch_talk_dataset,
     "debconf-en-train": fetch_talk_dataset,

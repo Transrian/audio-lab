@@ -63,6 +63,21 @@ DATASETS: dict[str, DatasetInfo] = {
         grouping="speaker (group = LibriSpeech speaker id)",
         notes="Audiobooks. Only test-clean is used; test-other is left for later.",
     ),
+    "notsofar-en-eval": DatasetInfo(
+        name="notsofar-en-eval",
+        source="https://huggingface.co/datasets/microsoft/NOTSOFAR "
+        "(benchmark-datasets/eval_set/240825.1_eval_full_with_GT)",
+        license="CC-BY-4.0",
+        split="240825.1_eval_full_with_GT",
+        reference_style="the annotators' words, cased and punctuated, without their markup",
+        grouping="speaker (group = the participant alias the corpus gives the speaker)",
+        notes="The challenge's evaluation meetings: real recorded meetings with one "
+        "close microphone per participant and human word-by-word transcripts. The "
+        "240629.1_eval_small subset of the same split holds no transcripts and is "
+        "not read. An alias the prepared notsofar-en-train holds is dropped from "
+        "this set, and the train fetcher leaves the set's aliases out (decision "
+        "0002).",
+    ),
     "icsi-en-train": DatasetInfo(
         name="icsi-en-train",
         source="https://groups.inf.ed.ac.uk/ami/icsi/ (ICSI_original_transcripts.zip and "

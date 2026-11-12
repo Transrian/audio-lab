@@ -24,6 +24,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `servicenow-codeswitched-en-fr-ca` | fr (en) | no license: evaluation only | test | 188 | 188 | 0.4 | 42 MiB |
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
 | `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
+| `notsofar-en-eval` | en | CC-BY-4.0 | 240825.1_eval_full_with_GT | 20 454 | 12 | 16.7 | 1.9 GiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -51,6 +52,7 @@ part of how precise its numbers can be:
 | `servicenow-codeswitched-en-fr-ca` | 100 / 100 | 150 / 150 | 38 / 38 |
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
 | `african-accented-fr-test` | 100 / 10 | 396 / 10 | 119 / 2 |
+| `notsofar-en-eval` | 100 / 10 | 600 / 10 | 4223 / 2 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -80,6 +82,7 @@ dataset under a frozen panel.
 | `mls-fr-train` | `facebook/multilingual_librispeech` | revision `2e83e61823b4c47dcbcb1980bb88601274127609` | sha256 published by the Hub for the train metadata and every `audio/*.tar.gz` (`src/audiolab/data/mls.py`) |
 | `african-accented-fr-train` | OpenSLR SLR57 | `African_Accented_French.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it (`src/audiolab/data/african_french.py`) |
 | `african-accented-fr-test` | OpenSLR SLR57 | the same `African_Accented_French.tar.gz` (the test part of it) | sha256 of that same archive (`src/audiolab/data/african_french.py`) |
+| `notsofar-en-eval` | `microsoft/NOTSOFAR` | the same revision `ba8fd0f034ce185fe4d24f47e53b4b8194795f07` (`eval_set/240825.1_eval_full_with_GT`) | sha256 published by the Hub for every `close_talk` recording, git blob sha1 for each transcript (`src/audiolab/data/notsofar.py`) |
 | `librispeech-en-train` | OpenSLR SLR12 | `train-clean-100.tar.gz` | sha256 of the archive (`src/audiolab/data/librispeech.py`) |
 | `librispeech-pc-en-train` | OpenSLR SLR145 | `manifests.tar.gz` | sha256 of the archive, recorded in the code because OpenSLR publishes no checksum for it; the audio is `librispeech-en-train`'s own archive, checked against its sha256 (`src/audiolab/data/librispeech_pc.py`) |
 
@@ -356,6 +359,42 @@ Three kinds of clip that must stay silent, 300 in total:
   gone from the test text, so the set measures the accent, not the typing.
 - **Known limits**: prompted sentences, not spontaneous speech; 12 speakers;
   the panel holds 10 of the 12 groups, so the interval is wide.
+
+## `notsofar-en-eval` — recorded meetings, one close mic per participant
+
+- **Source**: the `eval_set` of the same repository as
+  [`notsofar-en-train`](#notsofar-en-train--recorded-meetings-with-one-close-mic-per-participant),
+  the subset `240825.1_eval_full_with_GT` under
+  `benchmark-datasets/eval_set/`: 129 meetings of recorded meetings with
+  human word-by-word transcripts, each with `gt_transcription.json` and the
+  close-talking recordings `close_talk/CT_<n>.wav` (16 kHz mono), every file
+  checked against the checksum the Hub publishes for the pinned revision. The
+  subset `240629.1_eval_small` (80 meetings) holds no transcripts and is not
+  read; the `dev_set` is not read either.
+- **License**: CC-BY-4.0.
+- **Audio**: 129 meetings, 16.7 h. Twelve participants (the corpus's aliases
+  Beth, Brad, Chris, Donald, Jenny, John, Linda, Rachel, Ron, Sally, Sarah and
+  Tom) attend all of them; 20 454 clips, median 1.4 s, the longest 20 s.
+- **Text**: the annotators' words, cased and punctuated
+  (`text_has_casing_punct: true`), with the markup treated as in the train
+  split: `<ST/>` stays in the row and nothing here reads it, `<FILL*/>` goes
+  with its filler, `<PName>` keeps its name, and a row that holds only markup
+  or a `<UNKNOWN/>` or `<ISSUE/>` stretch is left out. Every clip has text.
+- **Group**: the speaker's alias (`group_kind: speaker`), 12 groups.
+- **No overlap with the train split** (decision 0002): the preparation reads
+  the prepared `notsofar-en-train` manifest and drops an eval alias it already
+  holds; on 2026-11-13 that overlap was empty, the eval meetings are a
+  different twelve people. The train fetcher keeps the check the other way:
+  its `Take` takes its exclusions from this manifest (`evaluation_groups`).
+- **Why it is here**: a third corpus of meetings really held (AMI and ICSI
+  are the other two), recorded after the base model's data and not in the
+  training list its card cites; the close microphones make it a hard,
+  spontaneous-speech set.
+- **Known limits**: twelve speakers — the split holds no more, so the panel
+  the plan expected (600 clips over at least fifteen speakers) cannot be
+  drawn from it: the sealed panel holds two whole groups and the full panel
+  spans the other ten, sixty clips of each. The challenge publishes a
+  thousand simulated hours in the same repository; they are not read.
 
 ## Training sources
 
@@ -801,8 +840,8 @@ costs nothing and a fresh clone downloads all of it again.
 - **What the source is**: the recorded meetings of the challenge — meetings of
   about six minutes, four to eight attendees in one of 30 conference rooms,
   transcribed by hand — not the simulated thousand hours published in the same
-  repository, and not the `dev_set` or the `eval_set`, which are not read for
-  anything. The challenge's README counts 237 meetings of it and the dataset's
+  repository, and not the `dev_set`, which is not read for anything; the
+  `eval_set` is read as [`notsofar-en-eval`](#notsofar-en-eval--recorded-meetings-one-close-mic-per-participant). The challenge's README counts 237 meetings of it and the dataset's
   page on Hugging Face 315; the revision this source pins holds 72 of them in
   its train split and 12 speakers, and the challenge says 10 of those 12 are also
   in the dev set of the campaign, which is one more reason not to read it here.
@@ -1584,7 +1623,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `nasa-en-train` | none: no evaluation set comes from this corpus | — |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
-| `notsofar-en-train` | none: no evaluation set comes from this corpus, and the dev and eval splits the challenge publishes are not read either | — |
+| `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
 | `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 0 clips: the 12 test speakers are absent from the 190 prepared speakers, checked against the prepared test manifest by the fetcher |
 | `peertube-fr-train` | none: no evaluation set comes from PeerTube | — |
 | `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
@@ -1593,9 +1632,8 @@ fetch`) before the training source is, because the check reads its manifest.
 
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the sources that are not evaluation sets at all
-(Granary, PxCorpus, AMI, ICSI) publish no other split here. The recordings
-of NOTSOFAR are scored by no evaluation set of this campaign either: the corpus
-is one of the challenge's, and its dev and eval splits were left alone.
+(Granary, PxCorpus, AMI, ICSI) publish no other split here. The dev split of
+NOTSOFAR is still not read, so no prepared source overlaps it.
 
 The voxpopuli check is the one that bites. The camera-ready way to break decision
 0002 would be to train on French parliamentary speech and then score the same

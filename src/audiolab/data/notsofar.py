@@ -10,14 +10,16 @@ meetings, the dataset's page on Hugging Face 315). Only the recorded one is used
 here: it is the speech humans really spoke, and the simulated one is a
 simulation of it. The data and its annotations are CC-BY-4.0.
 
-The release has three subsets and this source reads one of them, ``train_set``
-of the revision ``240825.1_train``, on Hugging Face, without a login: 72
-meetings. ``dev_set`` and ``eval_set`` are the development and evaluation
-subsets of the challenge; they are not read here at all — not for training and
-not for counting. ``gt_transcription.json``, the transcript of one meeting,
-names the speaker, the close-talking recording, and the start and end time of
-every utterance, with the corpus's annotation markup (``<ST/>``, ``<FILL/>``,
-``<UNKNOWN/>``, ``<PName>``) inside the text.
+# The release has three subsets. The train source reads ``train_set`` of the
+# revision ``240825.1_train``: 72 meetings. The evaluation source reads
+# ``eval_set`` of the revision ``240825.1_eval_full_with_GT`` — the challenge's
+# evaluation subset with its human transcripts (``gt_transcription.json`` per
+# meeting): 129 meetings. ``dev_set`` and the ``240629.1_eval_small`` subset of
+# the evaluation split (which holds no transcripts and no close-talking
+# recordings) are not read here at all. ``gt_transcription.json``, the
+# transcript of one meeting, names the speaker, the close-talking recording, and
+# the start and end time of every utterance, with the corpus's annotation markup
+# (``<ST/>``, ``<FILL/>``, ``<UNKNOWN/>``, ``<PName>``) inside the text.
 
 Each participant wears a **close-talking** microphone and its recordings are
 published (``close_talk/CT_<n>.wav``, 16 kHz mono), so a clip comes from the
@@ -41,13 +43,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from audiolab.core.audio import Audio, load_audio
-from audiolab.data.build import ManifestBuilder
+from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import DownloadError, download, huggingface_entries
 from audiolab.data.meeting import Chunk, merged
+from audiolab.data.store import MANIFEST_NAME, read_manifest
 from audiolab.data.train import (
     CLIP_CAP_PER_GROUP,
     TRAIN_CLIP_CAP,
     Take,
+    evaluation_groups,
     plan_clips,
     write_clips,
 )
@@ -61,6 +65,12 @@ REVISION = "ba8fd0f034ce185fe4d24f47e53b4b8194795f07"
 # evaluation subsets.
 SPLIT = "240825.1_train"
 DIRECTORY = f"benchmark-datasets/train_set/{SPLIT}"
+# The challenge's evaluation subset with human transcripts: real meetings, the
+# same recording layout and the same annotation format as the train split.
+EVAL_SPLIT = "240825.1_eval_full_with_GT"
+EVAL_DIRECTORY = f"benchmark-datasets/eval_set/{EVAL_SPLIT}"
+# The published size of the evaluation split at the pinned revision; tests patch this.
+EVAL_EXPECTED_CLIPS = 20454
 TRANSCRIPT_NAME = "gt_transcription.json"
 CLOSE_TALK = "close_talk"
 # The directory the split keeps its meetings under, which the corpus names MTG.
@@ -104,6 +114,69 @@ class Meeting:
     utterances: list[Chunk | None]
 
 
+def fetch_notsofar_en_eval(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
+    """Prepare the challenge's evaluation meetings in full.
+
+    An evaluation set (decision 0002): no cap, no length filter — the corpus's
+    own segmentation, with its human transcripts as the references. An alias
+    the prepared train set already holds names a person who would then be scored
+    on what she was trained on, so those aliases are dropped from the set and
+    the train fetcher drops them the other way round; a drop is reported, not a
+    cleanup.
+    """
+    release = Release(name, cache_dir, EVAL_DIRECTORY)
+    meetings = release.meetings()
+    excluded = _train_speaker_aliases(dataset_dir)
+    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+        for meeting in meetings:
+            chunks = [chunk for chunk in merged(meeting.utterances) if chunk.speaker not in excluded]
+            if not chunks:
+                continue
+            audio = release.recordings(meeting, chunks)
+            by_recording: dict[str, list[Chunk]] = {}
+            for chunk in chunks:
+                by_recording.setdefault(chunk.recording, []).append(chunk)
+            for recording, group in by_recording.items():
+                for chunk in group:
+                    builder.add(
+                        f"{name}:{chunk.id}",
+                        audio[recording].cut(chunk.start, chunk.end),
+                        language=LANGUAGE,
+                        text=chunk.text,
+                        text_has_casing_punct=True,
+                        group=f"{name}:{chunk.speaker}",
+                        group_kind="speaker",
+                        source_split=EVAL_SPLIT,
+                        license=LICENSE,
+                    )
+        if verbose:
+            dropped = sum(
+                1 for meeting in meetings for chunk in merged(meeting.utterances) if chunk.speaker in excluded
+            )
+            aliases = {chunk.speaker for meeting in meetings for chunk in merged(meeting.utterances)}
+            print(
+                f"  {name}: {len(builder.clips)} clips, {len(aliases)} aliases; "
+                f"{len(excluded & aliases)} aliases dropped as train overlaps ({dropped} clips)"
+            )
+        require_clips(name, len(builder.clips), EVAL_EXPECTED_CLIPS)
+        builder.write()
+    return len(builder.clips)
+
+
+def _train_speaker_aliases(dataset_dir: Path) -> set[str]:
+    """The aliases the prepared train set holds, or none when it is not prepared.
+
+    The check reads the manifest of ``notsofar-en-train``, the train split of the
+    same corpus, from the data directory next to this one; a machine that has
+    not prepared it yet excludes nothing, because the train fetcher keeps its
+    own check, the other way round.
+    """
+    train_manifest = dataset_dir.parent / "notsofar-en-train" / MANIFEST_NAME
+    if not train_manifest.is_file():
+        return set()
+    return {clip.group.partition(":")[2] for clip in read_manifest(train_manifest.parent)}
+
+
 def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare the recorded training meetings of NOTSOFAR-1 up to the cap."""
     release = Release(name, cache_dir)
@@ -116,6 +189,9 @@ def fetch_notsofar_en_train(name: str, cache_dir: Path, dataset_dir: Path, *, ve
             source_split=SPLIT,
             license=LICENSE,
             text_has_casing_punct=True,
+            # The evaluation split of the same corpus is an evaluation set
+            # (decision 0002): an alias scored there is never trained on.
+            excluded=evaluation_groups("notsofar-en-eval"),
             cap=TRAIN_CLIP_CAP,
             cap_per_group=CLIP_CAP_PER_GROUP,
         )
@@ -186,9 +262,10 @@ class Release:
     recording's checksum and URL are all found through it.
     """
 
-    def __init__(self, name: str, cache_dir: Path) -> None:
+    def __init__(self, name: str, cache_dir: Path, directory: str = DIRECTORY) -> None:
         self.name = name
         self.cache_dir = cache_dir
+        self.directory = directory
         self._files: dict[str, dict] | None = None
 
     def meetings(self) -> list[Meeting]:
@@ -216,7 +293,7 @@ class Release:
         if self._files is None:
             self._files = {
                 entry["path"]: entry
-                for entry in huggingface_entries(REPO, REVISION, DIRECTORY)
+                for entry in huggingface_entries(REPO, REVISION, self.directory)
                 if entry["type"] == "file"
             }
         return self._files
@@ -304,7 +381,7 @@ class Release:
                 f"{REPO}@{REVISION} lists no checksum for {path}: this source downloads only "
                 "the files the revision it is pinned to names and checksums"
             )
-        relative = Path(path).relative_to(DIRECTORY)
+        relative = Path(path).relative_to(self.directory)
         return download(self.url(path), self.cache_dir / self.name / relative, **digests)
 
     def url(self, path: str) -> str:
@@ -314,8 +391,8 @@ class Release:
         gives and which tells a file of this source from a file of the simulated
         set that shares the repository.
         """
-        if not path.startswith(f"{DIRECTORY}/"):
-            raise DownloadError(f"{path} is not a file of {DIRECTORY}")
+        if not path.startswith(f"{self.directory}/"):
+            raise DownloadError(f"{path} is not a file of {self.directory}")
         return f"https://huggingface.co/datasets/{REPO}/resolve/{REVISION}/{path}"
 
     def _in_parallel(self, work, items):

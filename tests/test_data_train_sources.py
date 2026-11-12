@@ -1884,7 +1884,9 @@ NOTSOFAR_TRANSCRIPTS = {
 }
 
 
-def notsofar_listing(directory: Path, transcripts: dict) -> list[dict]:
+def notsofar_listing(
+    directory: Path, transcripts: dict, split: str | None = None
+) -> list[dict]:
     """The files of the fixture as the Hub lists them, with their own digests.
 
     A recording is a large file the Hub keeps through its LFS store and names by
@@ -1892,15 +1894,16 @@ def notsofar_listing(directory: Path, transcripts: dict) -> list[dict]:
     the sha1 of that object. Both are the digests the real listing carries, so a
     download of the fixture is checked the way a download of the corpus is.
     """
-    paths = [f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}"]
+    split = split or notsofar.DIRECTORY
+    paths = [f"{split}/{notsofar.MEETINGS_DIRECTORY}"]
     for meeting in transcripts:
-        paths.append(f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}")
+        paths.append(f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}")
         paths.append(
-            f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{notsofar.TRANSCRIPT_NAME}"
+            f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{notsofar.TRANSCRIPT_NAME}"
         )
         for recording in sorted(_notsofar_recordings(transcripts, meeting)):
             paths.append(
-                f"{notsofar.DIRECTORY}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{recording}"
+                f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{recording}"
             )
     entries = []
     for path in paths:
@@ -1931,6 +1934,7 @@ def fake_notsofar_release(
     transcripts: dict | None = None,
     listing=None,
     seconds: float = 10.0,
+    split: str | None = None,
 ) -> Path:
     """A cache that looks like the train split of the corpus, without the Hub.
 
@@ -1942,14 +1946,15 @@ def fake_notsofar_release(
     is asked for through the same call the corpus's listing is.
     """
     transcripts = NOTSOFAR_TRANSCRIPTS if transcripts is None else transcripts
+    split = split or notsofar.DIRECTORY
     directory = cache / "fixture"
     for meeting, rows in transcripts.items():
-        transcript = directory / notsofar.DIRECTORY / notsofar.MEETINGS_DIRECTORY / meeting
+        transcript = directory / split / notsofar.MEETINGS_DIRECTORY / meeting
         transcript.mkdir(parents=True, exist_ok=True)
         (transcript / notsofar.TRANSCRIPT_NAME).write_text(json.dumps(rows), encoding="utf-8")
         for recording in _notsofar_recordings(transcripts, meeting):
             write_tone(transcript / recording, seconds=seconds)
-    entries = notsofar_listing(directory, transcripts)
+    entries = notsofar_listing(directory, transcripts, split)
     if listing is not None:
         entries = listing(entries)
     monkeypatch.setattr(
@@ -2179,3 +2184,128 @@ def test_notsofar_asks_the_hub_for_the_revision_it_pins(dirs):
     for other in ("css-datasets", "dev_set", "eval_set"):
         with pytest.raises(DownloadError, match="is not a file of"):
             release.url(other)
+
+
+# The evaluation split of the fixture: the same shape, one alias (Peter) a test
+# may put in the prepared train manifest to check the overlap drops.
+NOTSOFAR_EVAL_TRANSCRIPTS = {
+    "MTG_00010": [
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 1.0,
+            "end_time": 3.5,
+            "text": "We should ship it.",
+        },
+        {
+            "speaker_id": "Sophie",
+            "ct_wav_file_name": "close_talk/CT_22.wav",
+            "start_time": 4.0,
+            "end_time": 5.0,
+            "text": "I agree.",
+        },
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 5.5,
+            "end_time": 6.0,
+            "text": "Yeah.",
+        },
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 7.0,
+            "end_time": 9.0,
+            "text": "And we <PName> should </PName> log it.",
+        },
+    ],
+    "MTG_00011": [
+        {
+            "speaker_id": "Peter",
+            "ct_wav_file_name": "close_talk/CT_21.wav",
+            "start_time": 0.5,
+            "end_time": 2.5,
+            "text": "Same here.",
+        },
+        {
+            "speaker_id": "Anna",
+            "ct_wav_file_name": "close_talk/CT_23.wav",
+            "start_time": 3.0,
+            "end_time": 5.0,
+            "text": "Noted.",
+        },
+    ],
+}
+
+
+def test_notsofar_eval_reads_the_eval_split_and_drops_a_train_alias(dirs, monkeypatch):
+    """The evaluation split is prepared in full; a train alias in it is dropped."""
+    data, cache = dirs
+    fake_notsofar_release(
+        cache, monkeypatch, transcripts=NOTSOFAR_EVAL_TRANSCRIPTS, split=notsofar.EVAL_DIRECTORY
+    )
+    monkeypatch.setattr(notsofar, "EVAL_EXPECTED_CLIPS", 2, raising=True)
+    write_manifest(
+        data / "notsofar-en-train",
+        [make_clip("notsofar-en-train:Peter", group="notsofar-en-train:Peter")],
+    )
+
+    count = notsofar.fetch_notsofar_en_eval(
+        "notsofar-en-eval", cache, data / "notsofar-en-eval", verbose=False
+    )
+    clips = {clip.id: clip for clip in read_manifest(data / "notsofar-en-eval")}
+    assert count == 2
+    assert set(clips) == {
+        "notsofar-en-eval:MTG_00010.Sophie.0001",
+        "notsofar-en-eval:MTG_00011.Anna.0001",
+    }
+    sophie = clips["notsofar-en-eval:MTG_00010.Sophie.0001"]
+    assert sophie.text == "I agree."
+    assert sophie.text_has_casing_punct is True
+    assert sophie.group == "notsofar-en-eval:Sophie"
+    assert sophie.group_kind == "speaker"
+    assert sophie.source_split == notsofar.EVAL_SPLIT
+    assert sophie.license == "CC-BY-4.0"
+
+
+def test_notsofar_eval_keeps_everyone_without_a_prepared_train_set(dirs, monkeypatch):
+    """Without the prepared train manifest nothing is excluded."""
+    data, cache = dirs
+    fake_notsofar_release(
+        cache, monkeypatch, transcripts=NOTSOFAR_EVAL_TRANSCRIPTS, split=notsofar.EVAL_DIRECTORY
+    )
+    monkeypatch.setattr(notsofar, "EVAL_EXPECTED_CLIPS", 6, raising=True)
+
+    count = notsofar.fetch_notsofar_en_eval(
+        "notsofar-en-eval", cache, data / "notsofar-en-eval", verbose=False
+    )
+    assert count == 6
+    assert "notsofar-en-eval:MTG_00010.Peter.0000" in {
+        clip.id for clip in read_manifest(data / "notsofar-en-eval")
+    }
+
+
+def test_notsofar_eval_keeps_the_words_inside_the_markup():
+    """The PName tag goes, the word it marks stays, and the padding is joined."""
+    row = NOTSOFAR_EVAL_TRANSCRIPTS["MTG_00010"][3]
+    assert notsofar.clean_text(row["text"]) == "And we should log it."
+
+
+def test_notsofar_train_leaves_out_the_eval_aliases(dirs, monkeypatch):
+    """The train fetcher takes its exclusions from the prepared eval manifest."""
+    data, cache = dirs
+    fake_notsofar_release(cache, monkeypatch)
+    write_manifest(
+        data / "notsofar-en-eval",
+        [make_clip("notsofar-en-eval:Peter", group="notsofar-en-eval:Peter")],
+    )
+
+    count = notsofar.fetch_notsofar_en_train(
+        "notsofar-en-train", cache, data / "notsofar-en-train", verbose=False
+    )
+    # Peter's two clips are out; the rest of the fixture stands.
+    assert count == 2
+    assert {clip.id for clip in read_manifest(data / "notsofar-en-train")} == {
+        "notsofar-en-train:MTG_00001.Sophie.0001",
+        "notsofar-en-train:MTG_00002.Bert.0000",
+    }
