@@ -4,8 +4,8 @@
 # timestamped segments.
 name: whisper-large-v3-vllm
 api: transcriptions
-base_url_env: STT_BASE_URL
-api_key_env: STT_API_KEY
+base_url_env: HOME_STT_BASE_URL
+api_key_env: HOME_STT_API_KEY
 model: stt-v-whisper-large-v3
 send_language: true
 server_label: owner's home server

@@ -3,8 +3,8 @@
 # environment (D-015).
 name: qwen3-asr-1.7b-vllm
 api: transcriptions
-base_url_env: STT_BASE_URL
-api_key_env: STT_API_KEY
+base_url_env: HOME_STT_BASE_URL
+api_key_env: HOME_STT_API_KEY
 model: stt-v-qwen3-asr-1.7B
 send_language: true
 server_label: owner's home server
