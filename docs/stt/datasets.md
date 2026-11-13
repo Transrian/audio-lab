@@ -1606,8 +1606,40 @@ Per instance, as the listing of 2026-11-08 holds them:
   are left out of every preparation made after that set exists
   (`evaluation_datasets`, [decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md));
   the listing of 2026-11-13 holds one such talk.
-- **Prepared**: pending, the first preparation of the scale-up campaign; the
-  numbers go here when it is written.
+- **Prepared** (2026-11-13): the first preparation of this source is a larger
+  one, at the 40 000-clip cap of the scale-up —
+  `audiolab data fetch peertube-tech-fr-train --clips 40000` — prepared into
+  `$AUDIOLAB_DATA/peertube-tech-fr-train-40k`, the clips recorded under that
+  directory's name; the source has no 12 000-clip set. It read **320 of the
+  420 listed talks (220.1 h of the 289.5 h listed)** — a first batch of 286,
+  then 33, then 1, sized on the yield of the first — and reached the cap:
+  **40 000 clips, 111.2 h, 306 talks** (14 of the talks read yielded none),
+  median 8.9 s; 38 801 CC-BY and 1 199 CC0-1.0; 82 talks give their full
+  200-clip share, the smallest gives 4. Qwen labelled 55 791 candidate clips
+  and **15 720 of them (28.2 %) were rejected** because the two models
+  disagree — the 2026-11-09 preparations measured 32.8 % and 28.4 % for the
+  two parents; on the way, 1 599 candidates fell outside 0.5–20 s, 2 361
+  segments had no words, 285 no duration, 1 174 lost the words they repeated
+  from the one before, and 2 were decoding loops. The plan expected the
+  listing to run out near 25 000–35 000 clips; it did not — the cap was
+  reached with 100 talks of the listing still unread. The prepared set is
+  13 GiB; the 320 talks read leave 24 GiB of WAV in the cache.
+- **What the base model gets wrong**: Parakeet's text differs from the label
+  on 27 443 of the 40 000 clips (68.6 %); the mean `base_wer` is 15.2 %, and
+  31.4 % of the clips have a `base_wer` of 0 — between the two parents
+  (73.9 % for `peertube-fr-train`, 61.0 % for `peertube-edu-fr-train`). This
+  measures the base model against model labels, not against the speech: a
+  wrong label counts as a base-model error. 71 candidates were left out for a
+  character the base model cannot write, and the prepared set holds none:
+  `experiments/label-text/check_text.py` prints nothing for it. The one talk
+  of `peertube-edu-captions-fr` this listing holds is absent from the set
+  ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
+- **Known limits**: as in the parents' cards — the label error of the kept
+  clips is not measured (no human has checked a sample), and the labels depend
+  on the run (vLLM does not answer bit for bit the same when the requests sent
+  beside one change, and the cache keeps the first answer). The talks are the
+  parents' talks, so a mix of this source with a parent needs the `sha256`
+  guard described above.
 
 ### `debconf-en-train` — DebConf talks on the Debian instance
 
