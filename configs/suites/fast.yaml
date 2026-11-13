@@ -1,4 +1,4 @@
-# A short pass: one panel per case the project cares about, 856 clips in all
+# A short pass: one panel per case the project cares about
 # (D-009: French, English spoken by non-native speakers, French and English in
 # one sentence, and clips that must stay silent).
 # Use it while iterating; use full.yaml before believing a difference.
