@@ -408,6 +408,14 @@ def test_fetch_dataset_verifies_and_skips_a_prepared_dataset(dirs, capsys):
     assert "already prepared (1 clips), verified" in capsys.readouterr().out
 
 
+def test_fetch_dataset_names_a_shared_cache_in_the_hint(dirs, monkeypatch, capsys):
+    """The test part fetches from the train part's cache; the hint says so."""
+    _, cache = dirs
+    monkeypatch.setitem(FETCHERS, "african-accented-fr-test", lambda *args, **kwargs: 0)
+    fetch_dataset("african-accented-fr-test")
+    assert f"preparing (cache: {cache / 'african-accented-fr-train'})" in capsys.readouterr().out
+
+
 def make_manifest_clip(clip_id: str, audio: str, sha256: str = "0" * 64) -> Clip:
     return Clip(
         id=clip_id,

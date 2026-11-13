@@ -21,6 +21,9 @@ class DatasetInfo:
     reference_style: str
     grouping: str
     notes: str
+    #: The cache directory's name, when the fetcher stores under another
+    #: dataset's cache (the test part shares its archive with the train part).
+    cache_name: str | None = None
 
 
 DATASETS: dict[str, DatasetInfo] = {
@@ -174,6 +177,7 @@ DATASETS: dict[str, DatasetInfo] = {
         "at preparation, a speaker in both is dropped, more than 10 % overlapping "
         "stops). dev and devtest stay untouched as a reserve for a later campaign. "
         "The train fetcher leaves its groups out (decision 0002).",
+        cache_name="african-accented-fr-train",
     ),
     "pxcorpus-fr-train": DatasetInfo(
         name="pxcorpus-fr-train",

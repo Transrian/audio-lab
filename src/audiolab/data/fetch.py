@@ -101,7 +101,8 @@ def fetch_dataset(name: str, *, force: bool = False, verbose: bool = True) -> Pa
     if force and destination.exists():
         shutil.rmtree(destination)
     if verbose:
-        print(f"{name}: preparing (cache: {cache_dir() / name})")
+        cache_root = DATASETS[name].cache_name or name
+        print(f"{name}: preparing (cache: {cache_dir() / cache_root})")
     count = FETCHERS[name](name, cache_dir(), destination, verbose=verbose)
     if verbose:
         print(f"{name}: {count} clips prepared in {destination}")
