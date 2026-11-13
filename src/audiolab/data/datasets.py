@@ -227,6 +227,24 @@ DATASETS: dict[str, DatasetInfo] = {
         "model output, not human transcripts. Every clip carries the attribution of "
         "its video (channel, title, URL, license). No panels.",
     ),
+    "peertube-edu-captions-fr": DatasetInfo(
+        name="peertube-edu-captions-fr",
+        source="the French education ministry's PeerTube instances on apps.education.fr "
+        "(the human French caption tracks of the same listing as peertube-edu-fr-train)",
+        license="CC-BY / CC0-1.0",
+        split="listing (human captions)",
+        reference_style="the captions as written, cased and punctuated, cut at the "
+        "cues' time codes",
+        grouping="recording (group = PeerTube video uuid), at most 40 clips per talk",
+        notes="Conversational classroom French, labelled from human captions: no "
+        "labelling model is in the loop. The clips are kept only when Whisper "
+        "transcribes them within WER 0.35 of the caption, which is what removes "
+        "out-of-sync cues and biases the set toward clips Whisper gets right; the "
+        "talks of peertube-edu-fr-train are left out (decision 0002), and that "
+        "fetcher leaves this set's talks out of every preparation it makes after "
+        "the set exists. The category is tech or general by the talk's title. "
+        "Panels: as described in docs/stt/datasets.md.",
+    ),
     "debconf-en-train": DatasetInfo(
         name="debconf-en-train",
         source="https://peertube.debian.social (PeerTube API; the pinned list of videos "

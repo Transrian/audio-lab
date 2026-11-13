@@ -56,6 +56,8 @@ class TalkSource:
     what was asked for and when. ``spread_by`` is what a seeded selection spreads
     over (a conference, an instance, a room), and is what keeps the first talks
     of a source from all coming from the same corner of it.
+    ``evaluation_datasets`` are the evaluation sets prepared from this source's
+    corpus: a preparation of the source leaves their talks out (decision 0002).
     """
 
     name: str
@@ -66,6 +68,7 @@ class TalkSource:
     lister: Callable[[httpx.Client], list[Talk]]
     audio_url: Callable[[httpx.Client, Talk], str]
     spread_by: Callable[[Talk], str] | None = None
+    evaluation_datasets: tuple[str, ...] = ()
 
 
 def write_listing(source: TalkSource, listed_on: str, talks: list[Talk]) -> None:

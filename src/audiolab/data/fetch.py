@@ -28,12 +28,13 @@ from audiolab.data.icsi import fetch_icsi_en_train
 from audiolab.data.librispeech import fetch_librispeech_en, fetch_librispeech_en_train
 from audiolab.data.librispeech_pc import fetch_librispeech_pc_en_train
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
-from audiolab.data.nasa import fetch_nasa_en_test, fetch_nasa_en_train
-from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.music import fetch_nonspeech_music
-from audiolab.data.noisy import fetch_noisy
+from audiolab.data.nasa import fetch_nasa_en_test, fetch_nasa_en_train
 from audiolab.data.noise_bank import fetch_musan_noise, fetch_rirs_noises
+from audiolab.data.noisy import fetch_noisy
+from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.notsofar import fetch_notsofar_en_eval, fetch_notsofar_en_train
+from audiolab.data.peertube_edu_captions import fetch_peertube_edu_captions_fr
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.talk_sources import fetch_talk_dataset
@@ -55,6 +56,7 @@ FETCHERS = {
     "librispeech-pc-en-train": fetch_librispeech_pc_en_train,
     "nasa-en-train": fetch_nasa_en_train,
     "nasa-en-test": fetch_nasa_en_test,
+    "peertube-edu-captions-fr": fetch_peertube_edu_captions_fr,
     "nonspeech": fetch_nonspeech,
     "notsofar-en-train": fetch_notsofar_en_train,
     "notsofar-en-eval": fetch_notsofar_en_eval,

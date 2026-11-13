@@ -63,6 +63,9 @@ SOURCES: dict[str, TalkSource] = {
         lister=peertube_edu.list_talks,
         audio_url=peertube.smallest_file_url,
         spread_by=peertube_edu.spread_key,
+        # The captions set is prepared from this same listing: a preparation
+        # leaves its talks out (decision 0002, plan 01 T7).
+        evaluation_datasets=("peertube-edu-captions-fr",),
     ),
     "debconf-en-train": TalkSource(
         name="debconf-en-train",

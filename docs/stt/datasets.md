@@ -30,6 +30,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
 | `nonspeech-music` | none | PD or CC-BY per file, see below | 10 s excerpts of instrumental files | 261 | 39 | 0.7 | 80 MiB |
+| `peertube-edu-captions-fr` | fr | CC-BY or CC0-1.0, per video | listing (the 140 talks with a human caption track) | 4 367 | 113 | 9.9 | 1.1 GiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -63,6 +64,7 @@ part of how precise its numbers can be:
 | `noisy-fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 | `nonspeech-music` | 30 / 21 | 114 / 38 | 147 / 1 |
+| `peertube-edu-captions-fr` | 100 / 90 | 600 / 90 | 920 / 23 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -476,6 +478,64 @@ Three kinds of clip that must stay silent, 300 in total:
   41.3 %); five clips were left out because their transcript holds a character
   the base model cannot write; the sets are 60 episodes of four shows, so a
   show's recording conditions are sampled by 15 of its episodes.
+
+## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
+
+- **Source**: the eleven PeerTube instances of the French education ministry
+  (`*.apps.education.fr`), the same pinned listing as
+  [`peertube-edu-fr-train`](#peertube-edu-fr-train--the-education-ministrys-french-videos)
+  (2 595 videos listed 2026-11-08). Each instance's API lists the caption
+  tracks of a video; the scan of 2026-11-13 (cached, one request per second per
+  instance) found a French track that is **not** machine-generated
+  (`automaticallyGenerated: false`) on 140 talks (65.8 h) — 64 of them on
+  numerique-educatif, 34 on sciences-technologies, 29 on
+  arts-lettres-sciences-humaines, the rest one to six on nine other instances.
+  The 1 930 machine-generated tracks are not usable as references and were left
+  out.
+- **License**: the video's license from the listing, CC-BY or CC0-1.0; the
+  captions are assumed to share it. Every kept clip here is CC-BY.
+- **Audio**: 4 367 clips, 9.9 h, from 113 of the 139 usable talks (one is in
+  the training set and left out; twelve hold captions that yield no clip; the
+  rest had every candidate clip rejected by the gates below). 107 talks hit
+  the cap of 40 clips; the clip length is 3.0 to 15.0 s (median 7.6 s).
+- **Text**: the human caption track, cut into 3–15 s clips that end at a cue
+  whose text ends in `.`, `?`, `!` or `…` when possible, and never cross a gap
+  longer than 1 s; cased and punctuated (`text_has_casing_punct: true`). The
+  text is a reference written by people: no model wrote it, so the set has no
+  `base_wer` and no label to second.
+- **The gate is Whisper's, and the bias is stated plainly**: a clip is kept
+  only when the normalized WER of Whisper large-v3 on the clip against the
+  caption text is at most 0.35. That removes condensed subtitles and
+  misplaced cues — and **biases the set toward the clips Whisper gets right**,
+  so a score here is not independent of Whisper. The 20 490 candidate clips
+  had WER deciles 0.00, 0.00, 0.00, 0.00, 0.05, 0.08, 0.12, 0.17, 0.25, 0.41;
+  17 967 (87.7 %) met the threshold and 2 523 did not. Of the 17 967 that
+  met it, 4 367 became clips; 2 077 hold a character the base model cannot
+  write (after the plain-punctuation rule, almost all of them an `&`, a `+`,
+  an `=` or a `_`) and 11 523 went beyond the 40-clip share of their talk.
+- **Group**: the video's uuid (`group_kind: recording`): the clips of one talk
+  share its teacher, its room and its jargon. `category` is `tech` when the
+  talk's title matches the keyword list in the fetcher — 240 clips of 6 talks
+  (the plan's 15-talk threshold for a separate `tech` report in T9 is not
+  met) — and `general` otherwise: technical French is a subpopulation of the
+  set, not a separate dataset.
+- **No overlap with the training set** (decision 0002): the one talk of this
+  set that [`peertube-edu-fr-train`](#peertube-edu-fr-train--the-education-ministrys-french-videos)
+  already holds (73 of its clips are in that set) is left out at preparation,
+  and the train fetcher in turn reads this set's manifest
+  (`evaluation_groups`) and skips its talks in every preparation it makes
+  after the set exists — checked in `tests/test_data_peertube_edu_captions.py`.
+  The training set was prepared 2026-11-09, before this set, so only that one
+  talk is shared, and it is the set's exclusion that removes it.
+- **Why it is here**: real French speech close to the target use with
+  **human** references — the register no other panel here covers: not read
+  speech, not synthetic, not parliamentary, and not pseudo-labelled.
+- **Known limits**: 113 talks of the ministry's instances — the digital-education
+  catalog, including the five-part "Puissance 4" game-programming course and a
+  web-radio series — the 26 talks that yielded no clip (12 with captions too
+  short to cut, 14 whose candidate clips all failed a gate) are left out, so a
+  talk's absence is not a random sample; the captions are of the teachers' own
+  making, with their own timing errors the WER gate only partly removes.
 
 ## Noise banks — material for augmentation, not evaluation sets
 
@@ -1381,6 +1441,13 @@ published.
   eleven instances gives 9 to 11 talks; 25 talks give their full 200 clips and the
   smallest gives 3. The prepared set is 3.4 GiB, and the 119 talks read leave
   8.0 GiB of WAV in the cache.
+- **No overlap with the evaluation sets** (decision 0002): the prepared set
+  predates every evaluation set made from this listing, but one of its talks —
+  73 clips — is among the human-captioned talks of
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions),
+  and that set's preparation leaves the talk out. Every preparation made after
+  an evaluation set exists skips the set's talks (`evaluation_datasets` in
+  `talk_listing.py`), checked in `tests/test_data_peertube_edu_captions.py`.
 - **What the base model gets wrong**: Parakeet's text differs from the label on
   7 316 of the 12 000 clips (61.0 %); the mean `base_wer` is 12.7 %, and 39 % of
   the clips have a `base_wer` of 0. This measures the base model against model
@@ -1857,8 +1924,8 @@ fetch`) before the training source is, because the check reads its manifest.
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
 | `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 0 clips: the 12 test speakers are absent from the 190 prepared speakers, checked against the prepared test manifest by the fetcher |
-| `peertube-fr-train` | none: no evaluation set comes from PeerTube | — |
-| `peertube-edu-fr-train` | none: no evaluation set comes from PeerTube | — |
+| `peertube-fr-train` | none: no evaluation set comes from this instance | — |
+| `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks via `evaluation_groups` in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
 | `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
 

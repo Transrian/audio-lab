@@ -83,7 +83,13 @@ from audiolab.data.talk_clips import (
     segment_audio,
 )
 from audiolab.data.talk_listing import Talk, TalkSource, read_listing, reading_order
-from audiolab.data.train import CLIP_CAP_PER_GROUP, MIN_SECONDS, TRAIN_CLIP_CAP, Take
+from audiolab.data.train import (
+    CLIP_CAP_PER_GROUP,
+    MIN_SECONDS,
+    TRAIN_CLIP_CAP,
+    Take,
+    evaluation_groups,
+)
 from audiolab.eval.client import (
     ModelConfig,
     TranscriptionClient,
@@ -263,6 +269,15 @@ def fetch_talks(
         if verbose:
             say(f"  listing of {listed_on}: {len(talks)} talks")
         order = reading_order(talks, SEED, source.spread_by)
+        # A talk is one recording, and its clips are one group: a prepared
+        # evaluation set of this corpus holds talks that no preparation may read
+        # (decision 0002). The check reads their manifests, so it is what the
+        # evaluation sets were prepared with.
+        reserved = evaluation_groups(*source.evaluation_datasets, root=dataset_dir.parent)
+        if reserved:
+            order = [talk for talk in order if talk.id not in reserved]
+            if verbose:
+                say(f"  {len(reserved)} talks of a prepared evaluation set are left out")
         with (
             http_client() as http,
             client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
