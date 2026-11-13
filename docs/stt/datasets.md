@@ -852,6 +852,17 @@ screening is a difference between corpora and not between recipes:
 - **No overlap with the evaluation sets** ([decision
   0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
   below.
+- **Larger preparations** go to new directories named after their cap:
+  `audiolab data fetch granary-fr-train --clips 40000` prepares
+  `granary-fr-train-40k`. The 12 000-clip sets above are what the per-source
+  screening drew its runs from (`configs/train/screen-*.yaml`), and they stay
+  exactly as they are, so the screening is not scaled and remains
+  reproducible. A larger preparation is recorded under its directory's name —
+  the clip ids and the groups carry that prefix — reads the source in the same
+  order, and reuses the source's cache, so it takes the same clips and the same
+  talks first, then reads more. `CLIP_CAP_PER_GROUP` stays 200 at every cap,
+  and a source that runs out before the cap is prepared with what it has, as at
+  the default.
 
 | dataset | language | license | split | clips | groups | hours | prepared | downloaded |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
