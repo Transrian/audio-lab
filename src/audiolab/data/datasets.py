@@ -270,6 +270,21 @@ DATASETS: dict[str, DatasetInfo] = {
         "are left out. Every clip carries its attribution (NASA and the show, episode "
         "title, page URL). No panels.",
     ),
+    "nasa-en-test": DatasetInfo(
+        name="nasa-en-test",
+        source="https://www.nasa.gov/podcasts/ (the same listing as nasa-en-train, "
+        "60 episodes reserved by a constant rule, at most 15 per show)",
+        license="public domain (US government work)",
+        split="listing (reserved episodes)",
+        reference_style="NASA's own transcript of each episode, cased and punctuated, "
+        "aligned to the audio by Whisper large-v3; speaker labels and notes removed",
+        grouping="recording (group = episode page slug), at most 30 clips per episode",
+        notes="Conversational technical English, labelled from human transcripts. "
+        "The edge check is Whisper's, not the base model's, which is the model the "
+        "set is scored on; the set is thereby biased toward clips Whisper hears well "
+        "at the edges. Its episodes are left out of every nasa-en-train preparation "
+        "(decision 0002). Curious Universe is never reserved.",
+    ),
     "peertube-fr-train": DatasetInfo(
         name="peertube-fr-train",
         source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "

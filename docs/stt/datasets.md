@@ -25,6 +25,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
 | `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
 | `notsofar-en-eval` | en | CC-BY-4.0 | 240825.1_eval_full_with_GT | 20 454 | 12 | 16.7 | 1.9 GiB |
+| `nasa-en-test` | en | public domain (US government work) | listing (60 reserved episodes) | 1505 | 60 | 4.3 | 479 MiB |
 | `noisy-fleurs-fr` | fr | CC-BY-4.0 + material, per clip | derived: the source's panels | 676 | 332 | 2.0 | 214 MiB |
 | `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
@@ -57,6 +58,7 @@ part of how precise its numbers can be:
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
 | `african-accented-fr-test` | 100 / 10 | 396 / 10 | 119 / 2 |
 | `notsofar-en-eval` | 100 / 10 | 600 / 10 | 4223 / 2 |
+| `nasa-en-test` | 100 / 48 | 600 / 48 | 320 / 12 |
 | `noisy-fleurs-fr` | 100 / 100 | 533 / 266 | 143 / 66 |
 | `noisy-fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
@@ -409,6 +411,62 @@ Three kinds of clip that must stay silent, 300 in total:
   drawn from it: the sealed panel holds two whole groups and the full panel
   spans the other ten, sixty clips of each. The challenge publishes a
   thousand simulated hours in the same repository; they are not read.
+
+## `nasa-en-test` — NASA's podcasts, the human-transcribed evaluation set
+
+- **Source**: the same pinned listing as
+  [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
+  (774 episodes, five shows, 2026-11-09), of which 60 are reserved for this set
+  by a constant rule: the episodes whose groups a prepared `nasa-en-train`
+  (including the `.curly-2026-11-09` re-screening) holds are out, NASA's
+  Curious Universe is out, and of the rest the first 60 by
+  `sha256("nasa-test-" + episode id)`, at most 15 of a show. The rule is a
+  constant, so the reservation is the same on every machine and run. It comes
+  out 15 of each of the four remaining shows — 30.2 h of episodes (median
+  episode 26 minutes).
+- **License**: public domain (US government work), on the same evidence as the
+  training set's card.
+- **Audio**: 1505 clips, 4.3 h; 3 to 30 clips per episode (median 26, the cap
+  of 30 per group never reached); median clip 9.1 s, the longest 20 s.
+- **Text**: NASA's own transcript of each episode, cased and punctuated
+  (`text_has_casing_punct: true`), placed in time the same way as the training
+  set: Whisper segments the episode, and the transcript's words are aligned to
+  them clip by clip (`audiolab.data.aligned_clips`). Speaker labels and notes
+  are removed; a clip that would span a change of speaker or a note is left
+  out.
+- **The edge check is Whisper's, not the base model's** (where this set differs
+  from the training set): a clip is kept only when **Whisper** hears the
+  label's first and last words at the cut's edges — the model under test may
+  not screen its own labels, so Parakeet, which does that for the training
+  set, is not asked here. The consequence, stated plainly: **the set is
+  biased toward clips Whisper large-v3 hears well at the edges**; a model that
+  cuts words differently is not the one this gate favours. 195 labelled clips
+  were left out by the gate (195 of the 4352 the transcripts labelled, 4.5 %).
+- **`base_wer`**: Parakeet (the base model of the fine-tune) transcribes every
+  kept clip once, and its WER against the label is recorded, so a training mix
+  can find the clips it gets wrong. It does not vote: the gate is Whisper's.
+  The base model gets 942 of the 1505 kept clips wrong (62.6 %); the median
+  `base_wer` is 0.038.
+- **Group**: the episode page slug (`group_kind: recording`): the clips of one
+  episode share its guests and its jargon.
+- **No overlap with the training sets** (decision 0002): the reservation
+  leaves the 265 episodes of the two prepared training sets out before it
+  picks, and the training fetcher in turn reads this set's manifest
+  (`evaluation_groups`) and skips the reserved episodes of every preparation
+  it makes after the set exists — checked in `tests/test_data_nasa.py`. The
+  set was prepared 2026-11-13, after both training preparations, so their 11956
+  and 12000 clips hold none of its episodes. All seven Curious Universe
+  episodes of the listing are in the training sets, so the show's exclusion
+  only matters for a preparation that ever leaves them out.
+- **Why it is here**: conversational technical English with **human**
+  transcripts, the closest evaluation side to the target use the campaign had:
+  FLEURS and LibriSpeech are read speech, VoxPopuli a different register, and
+  the meetings sets a different task.
+- **Known limits**: the 43.5 % of candidate clips the transcripts label is the
+  alignment's yield, not a defect of the episodes (the training set's was
+  41.3 %); five clips were left out because their transcript holds a character
+  the base model cannot write; the sets are 60 episodes of four shows, so a
+  show's recording conditions are sampled by 15 of its episodes.
 
 ## Noise banks — material for augmentation, not evaluation sets
 
@@ -1535,6 +1593,9 @@ Per instance, as the listing of 2026-11-08 holds them:
 This source is listed and downloaded like the talks above, but its labels are not
 model output: NASA publishes a transcript with each episode, and that human text,
 cased and punctuated, is the label. A model only says *when* each word was said.
+Its 60 reserved episodes are the evaluation set
+[`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set);
+this preparation leaves them out (decision 0002).
 
 - **Source**: five NASA shows, read from their RSS feeds
   (`https://www.nasa.gov/feeds/podcasts/<show>`): each item gives the episode's
@@ -1782,7 +1843,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
-| `nasa-en-train` | none: no evaluation set comes from this corpus | — |
+| `nasa-en-train` | `nasa-en-test` (60 episodes reserved from the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved episodes of every preparation made after the set exists, checked in `tests/test_data_nasa.py` |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |

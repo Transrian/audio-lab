@@ -23,10 +23,20 @@ not a model's, and :mod:`audiolab.data.aligned_clips` is what places it in time.
 The licence is public domain: a work of the US government is not protected by
 copyright in the United States, and D-019 allows public domain. The evidence and
 the rules that follow from it are on the source's card in `docs/stt/datasets.md`.
+
+``nasa-en-test`` is the evaluation set of this source: 60 episodes reserved
+from the same listing by a constant rule (:func:`reserved_test_episodes`),
+at most 15 of a show, the episodes of the prepared training sets and of
+NASA's Curious Universe left out. Its labels are the same human text, placed
+in time the same way; the edge check is the segmentation model's instead of
+the base model's, because this set is scored on the base model and it may not
+screen its own labels. Every preparation of the training set leaves the
+reserved episodes out of what it reads (decision 0002).
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -68,7 +78,7 @@ from audiolab.data.talks import (
     prefetched,
     served,
 )
-from audiolab.data.train import TRAIN_CLIP_CAP, Take
+from audiolab.data.train import TRAIN_CLIP_CAP, Take, evaluation_groups
 from audiolab.eval.client import TranscriptionError
 
 NAME = "nasa-en-train"
@@ -516,6 +526,55 @@ SOURCE = TalkSource(
 )
 
 
+# The evaluation set.
+
+NAME_TEST = "nasa-en-test"
+# How many episodes the set holds, and how many of one show: a set that held
+# forty of one show would be that show's test set, not the source's.
+TEST_EPISODES = 60
+TEST_EPISODES_PER_SHOW = 15
+# At most this many clips per episode, as the training set's per-group cap:
+# one episode is one group, and a group may not dominate the set.
+TEST_CLIPS_PER_EPISODE = 30
+# A show the reservation never reads (owner, 2026-11-10; plan 05 Part B).
+EXCLUDED_SHOWS = frozenset({"curious-universe"})
+# The prepared training sets: their episodes are out of the reservation, and
+# the training set in turn leaves the reserved episodes out of every
+# preparation it makes after the evaluation set exists (decision 0002).
+TRAIN_VARIANTS = (NAME, "nasa-en-train.curly-2026-11-09")
+# The count of the edge check of the evaluation set, beside EDGES_UNHEARD,
+# which the training set's base-model check counts.
+EDGES_UNHEARD_TEST = "labelled clips whose first or last word the segmentation model does not hear"
+EDGES_FAILED_TEST = "labelled clips the segmentation model failed on"
+
+
+def reserved_test_episodes(episodes: list[Talk], used: frozenset[str]) -> list[Talk]:
+    """The episodes of the evaluation set, by a constant rule.
+
+    An episode is reserved when it is in the listing, its group is in none of
+    ``used`` (the groups of the prepared training sets), its show is not
+    excluded, and its ``sha256("nasa-test-" + id)`` is among the first
+    :data:`TEST_EPISODES`, at most :data:`TEST_EPISODES_PER_SHOW` of a show.
+    The rule is a constant, so the same episodes are reserved on every machine
+    and on every run, and whether or not the set is prepared yet: the
+    reservation is made from the listing, not from what a preparation wrote.
+    """
+    free = sorted(
+        (e for e in episodes if e.id not in used and e.channel not in EXCLUDED_SHOWS),
+        key=lambda e: hashlib.sha256(f"nasa-test-{e.id}".encode()).hexdigest(),
+    )
+    reserved: list[Talk] = []
+    per_show: Counter[str] = Counter()
+    for episode in free:
+        if len(reserved) >= TEST_EPISODES:
+            break
+        if per_show[episode.channel] >= TEST_EPISODES_PER_SHOW:
+            continue
+        reserved.append(episode)
+        per_show[episode.channel] += 1
+    return reserved
+
+
 # The preparation.
 
 
@@ -537,6 +596,14 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
         if verbose:
             say(f"  listing of {listed_on}: {len(episodes)} episodes")
         order = reading_order(episodes, SEED, SOURCE.spread_by)
+        # Episodes the evaluation set holds are not downloaded (decision 0002):
+        # the set's manifest is the source of the reservation, read before any
+        # download. A set not prepared on this machine reserves nothing here.
+        reserved = evaluation_groups(NAME_TEST, root=dataset_dir.parent)
+        if reserved:
+            order = [episode for episode in order if episode.id not in reserved]
+            if verbose:
+                say(f"  {len(reserved)} episodes reserved for {NAME_TEST} are left out")
         with (
             http_client() as http,
             client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
@@ -559,6 +626,108 @@ def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: b
             say(f"  {take.report()}")
         builder.write()
     return take.kept
+
+
+def fetch_nasa_en_test(name: str, cache: Path, dataset_dir: Path, *, verbose: bool) -> int:
+    """Prepare ``nasa-en-test``: the reserved episodes, labelled from the transcripts.
+
+    The labels are the same human text the training set uses, placed in time
+    the same way; what differs is the edge check. This set is scored on the
+    base model, so the base model does not screen its own labels:
+    :func:`with_whisper_edges` asks each cut clip of the segmentation model
+    instead, and the base model is asked once, for the ``base_wer``.
+    """
+    listed_on, episodes = read_listing(SOURCE)
+    cache = cache / NAME_TEST
+    used = evaluation_groups(*TRAIN_VARIANTS, root=dataset_dir.parent)
+    reserved = reserved_test_episodes(episodes, used)
+    cap = TEST_EPISODES * TEST_CLIPS_PER_EPISODE
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=cap) as builder:
+        take = Take(
+            name=NAME_TEST,
+            builder=builder,
+            language=LANGUAGE,
+            source_split="listing",
+            license=LICENSE,
+            text_has_casing_punct=True,
+            group_kind="recording",
+            cap=cap,
+            cap_per_group=TEST_CLIPS_PER_EPISODE,
+        )
+        tally: Counter[str] = Counter()
+        if verbose:
+            say(f"  listing of {listed_on}: {len(episodes)} episodes; "
+                f"{len(reserved)} reserved for {NAME_TEST}")
+        order = reading_order(reserved, SEED, SOURCE.spread_by)
+        with (
+            http_client() as http,
+            client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
+            client(BASE_MODEL) as parakeet_client,
+            closing(prefetched(order, partial(audio_file, http, cache, SOURCE))) as audio_files,
+        ):
+            whisper = served(whisper_client, LANGUAGE)
+            parakeet = served(parakeet_client, LANGUAGE)
+            episodes_read = 0
+            while not take.full():
+                batch = list(islice(audio_files, batch_size(take, episodes_read)))
+                if not batch:
+                    break
+                label_test_batch(batch, http, cache, whisper, parakeet, take, tally)
+                episodes_read += len(batch)
+                if verbose:
+                    say(f"  {episodes_read} episodes read, {take.kept} clips so far")
+        if verbose:
+            say(f"  {report(tally)}")
+            say(f"  {take.report()}")
+        builder.write()
+    return take.kept
+
+
+def label_test_batch(
+    batch: list[tuple[Talk, Path | None]],
+    http: httpx.Client,
+    cache: Path,
+    whisper: Served,
+    parakeet: Served,
+    take: Take,
+    tally: Counter[str],
+) -> None:
+    """The pages read again, Whisper on the episodes, the alignments, then the gate.
+
+    The passes keep the order of the other talk sources (D-020): every
+    Whisper request of the batch — the chunks and the edge check's clips —
+    before the first Parakeet one, which here only records the ``base_wer``.
+    """
+    pages = cache / "pages"
+    usable = []
+    for episode, path in batch:
+        reason = why_unusable(http, episode, pages, fresh=True)
+        if reason:
+            tally[f"episodes left out at preparation: {reason}"] += 1
+        else:
+            usable.append((episode, path))
+    whisper, parakeet = whisper.one_pass(), parakeet.one_pass()
+    heard = heard_talks(usable, cache, whisper.transcribe, tally, whisper.concurrency)
+    raise_if_stopped("labelling stopped")
+    labelled = [aligned(episode, page_text(http, episode.talk, pages), tally) for episode in heard]
+    room = take.cap - take.kept
+    sizes = shares([len(clips) for clips in labelled], room, take.cap_per_group)
+    for episode, clips, size in zip(heard, labelled, sizes, strict=True):
+        gate = Answers(cache / clips_file(episode.talk, SEGMENT_MODEL))
+        episode.agreed = with_whisper_edges(
+            episode, clips[:size], gate, whisper.transcribe, tally, whisper.concurrency
+        )
+    for episode in heard:
+        if episode.agreed:
+            offer_talk(
+                episode,
+                Answers(cache / clips_file(episode.talk, BASE_MODEL)),
+                parakeet.transcribe,
+                take,
+                LANGUAGE,
+                tally,
+                parakeet.concurrency,
+            )
 
 
 def label_batch(
@@ -667,6 +836,49 @@ def with_clean_edges(
             kept.append((clip, label))
         else:
             tally[EDGES_UNHEARD] += 1
+    return kept
+
+
+def with_whisper_edges(
+    episode: TalkInProgress,
+    clips: list[tuple[Segment, str]],
+    answers: Answers,
+    whisper: Transcribe,
+    tally: Counter[str],
+    concurrency: int = 1,
+) -> list[tuple[Segment, str]]:
+    """The clips whose cut the segmentation model confirms (:func:`same_edges`), ``concurrency`` at once.
+
+    The edge check of the evaluation set, where the base model of the
+    fine-tune is the model under test and may not screen its own labels. The
+    segmentation model hears each cut clip alone, as the base model does for
+    the training set, and a clip whose edge word it does not hear is left out:
+    the set is thereby biased toward clips it hears well at the edges, which
+    the card says. Its per-clip answers are cached in :func:`clips_file` under
+    the segmentation model's name, beside its chunk answers in the
+    ``CHUNK_SECONDS`` file, so a resumed preparation asks no clip twice.
+    """
+    if not clips:
+        return []
+    audio = load_audio(episode.audio_path)
+
+    def ask_whisper(clip: Segment) -> str | None:
+        """The segmentation model's text for one clip; None when the request fails."""
+        try:
+            return clip_text(answers, clip, audio, whisper)
+        except TranscriptionError:
+            return None
+
+    texts = map_requests(ask_whisper, [clip for clip, _ in clips], concurrency)
+    raise_if_stopped("labelling stopped")
+    kept = []
+    for (clip, label), heard in zip(clips, texts, strict=True):
+        if heard is None:
+            tally[EDGES_FAILED_TEST] += 1
+        elif same_edges(label, heard, LANGUAGE):
+            kept.append((clip, label))
+        else:
+            tally[EDGES_UNHEARD_TEST] += 1
     return kept
 
 

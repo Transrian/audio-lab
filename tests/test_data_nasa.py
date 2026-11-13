@@ -8,6 +8,8 @@ clips with that text, after every Whisper request of the batch (D-020).
 
 from __future__ import annotations
 
+import hashlib
+import io
 import sys
 from collections import Counter
 from contextlib import nullcontext
@@ -17,10 +19,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import write_tone  # noqa: E402
+from helpers import make_clip, write_tone  # noqa: E402
 
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import nasa, talks  # noqa: E402
@@ -437,3 +440,179 @@ def test_the_room_under_the_cap_is_shared_over_the_episodes_in_turn():
     assert nasa.shares([5, 1, 3], room=100, cap=2) == [2, 1, 2]
     assert nasa.shares([5, 1, 3], room=2, cap=10) == [1, 1, 0]
     assert nasa.shares([], room=5, cap=2) == []
+
+
+# The reservation of the evaluation set.
+
+
+def test_the_reservation_reserves_60_episodes_by_a_constant_rule():
+    # Four shows of a hundred episodes; two of them are in the training sets.
+    episodes = [episode(f"{show}-{i:03d}", channel=show) for show in "abcd" for i in range(100)]
+    used = frozenset({episodes[3].id, episodes[150].id})
+    reserved = nasa.reserved_test_episodes(episodes, used)
+
+    assert len(reserved) == nasa.TEST_EPISODES
+    per_show = Counter(e.channel for e in reserved)
+    assert all(count <= nasa.TEST_EPISODES_PER_SHOW for count in per_show.values())
+    assert all(e.id not in used for e in reserved)
+    # The rule is a constant: the same episodes, whatever the listing's order.
+    again = nasa.reserved_test_episodes(list(reversed(episodes)), used)
+    assert [e.id for e in again] == [e.id for e in reserved]
+    # And it is the first 60 of the constant hash, at most 15 per show.
+    free = [e for e in episodes if e.id not in used]
+    expected, per = [], Counter()
+    for one in sorted(free, key=lambda e: hashlib.sha256(f"nasa-test-{e.id}".encode()).hexdigest()):
+        if per[one.channel] >= 15:
+            continue
+        expected.append(one.id)
+        per[one.channel] += 1
+        if len(expected) == 60:
+            break
+    assert [e.id for e in reserved] == expected
+
+
+def test_the_reservation_never_reads_an_excluded_show():
+    episodes = [episode(f"cu-{i:03d}", channel="curious-universe") for i in range(100)]
+    assert nasa.reserved_test_episodes(episodes, frozenset()) == []
+
+
+# The exclusion of the evaluation set from the training set.
+
+
+def test_a_preparation_of_the_training_set_skips_the_episodes_of_the_evaluation_set(
+    tmp_path, monkeypatch, capsys
+):
+    # The evaluation set is prepared and holds the episode "one".
+    test_dir = tmp_path / nasa.NAME_TEST
+    test_dir.mkdir()
+    (test_dir / "manifest.jsonl").write_text(
+        make_clip(f"{nasa.NAME_TEST}:one", language="en", group=f"{nasa.NAME_TEST}:one").manifest_line()
+        + "\n",
+        encoding="utf-8",
+    )
+    episodes = [episode("one"), episode("two")]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, text=transcript)
+
+    monkeypatch.setattr(nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer)))
+    models = FakeModels(
+        [
+            {"start": 0.0, "end": 5.0, "text": " welcome to gravity assist episode seven."},
+            {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
+        ],
+        ["welcome to gravity assist episode seven", "thanks jim mars has two moons"],
+    )
+    models.serve(monkeypatch)
+    monkeypatch.setattr(talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0))
+
+    count = nasa.fetch_nasa_en_train(nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True)
+
+    assert count == 2
+    clips = read_manifest(tmp_path / "dataset")
+    assert {clip.source_url for clip in clips} == {f"{PAGES}/two/"}
+    # The reserved episode is never downloaded, and its page is never read.
+    assert all("/one/" not in path for path in asked)
+    assert "1 episodes reserved for nasa-en-test are left out" in capsys.readouterr().out
+
+
+# The preparation of the evaluation set.
+
+
+class FakeTestModels(FakeModels):
+    """Whisper and Parakeet, logged: Whisper gives the chunks' segments, then its
+    per-clip texts in turn, and Parakeet its texts in turn."""
+
+    def __init__(self, whisper_rows: list[dict], whisper_clip_texts: list[str], parakeet_texts: list[str]):
+        super().__init__(whisper_rows, parakeet_texts)
+        self.whisper_clip_texts = list(whisper_clip_texts)
+
+    def hear(self, model: str, wav: bytes) -> dict:
+        self.log.append(model)
+        if model == nasa.SEGMENT_MODEL:
+            # The chunk of a 60 s episode is 60 s; a clip is at most 20 s.
+            if sf.info(io.BytesIO(wav)).duration >= 30:
+                return self.whisper
+            return {"text": self.whisper_clip_texts.pop(0)}
+        return {"text": self.parakeet_texts.pop(0)}
+
+
+def test_a_preparation_of_the_evaluation_set_checks_the_edges_with_whisper(
+    tmp_path, monkeypatch, capsys
+):
+    episodes = [episode("one"), episode("two"), episode("curious", channel="curious-universe")]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    monkeypatch.setattr(
+        nasa,
+        "http_client",
+        lambda: httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, text=transcript))
+        ),
+    )
+    models = FakeTestModels(
+        [
+            {"start": 0.0, "end": 5.0, "text": " welcome to gravity assist episode seven."},
+            {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
+        ],
+        [
+            "welcome to gravity assist episode seven",
+            "to gravity assist episode seven",  # the cut took the first word
+            "welcome to gravity assist episode seven",
+            "to gravity assist episode seven",  # the cut took the first word
+        ],
+        ["welcome to gravity assist episode seven", "welcome to gravity assist episode seven"],
+    )
+    models.serve(monkeypatch)
+    monkeypatch.setattr(talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=60.0))
+
+    count = nasa.fetch_nasa_en_test(nasa.NAME_TEST, tmp_path / "cache", tmp_path / "dataset", verbose=True)
+
+    assert count == 2
+    whisper, parakeet = nasa.SEGMENT_MODEL, nasa.BASE_MODEL
+    # Every Whisper request of the batch — the chunks and the edge check — is sent
+    # before the first Parakeet one (D-020).
+    assert models.log == [
+        f"warm-up {whisper}",
+        whisper,
+        whisper,
+        whisper,
+        whisper,
+        whisper,
+        whisper,
+        f"warm-up {parakeet}",
+        parakeet,
+        parakeet,
+    ]
+    clips = read_manifest(tmp_path / "dataset")
+    # Each episode keeps its first clip, whose edge words Whisper confirms.
+    assert [clip.text for clip in clips] == [
+        "Welcome to Gravity Assist, Episode 7!",
+        "Welcome to Gravity Assist, Episode 7!",
+    ]
+    assert {clip.group for clip in clips} == {f"{nasa.NAME_TEST}:one", f"{nasa.NAME_TEST}:two"}
+    assert all(len([c for c in clips if c.group == clip.group]) == 1 for clip in clips)
+    assert all(clip.group_kind == "recording" for clip in clips)
+    assert all(clip.base_wer == 0 for clip in clips)
+    out = capsys.readouterr().out
+    assert "3 episodes; 2 reserved for nasa-en-test" in out
+    assert "4 of 4 candidate clips (100.0%) labelled" in out
+    assert f"2 {nasa.EDGES_UNHEARD_TEST}" in out
