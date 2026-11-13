@@ -474,9 +474,10 @@ Three kinds of clip that must stay silent, 300 in total:
 - **Group**: the speaker's alias (`group_kind: speaker`), 12 groups.
 - **No overlap with the train split** (decision 0002): the preparation reads
   the prepared `notsofar-en-train` manifest and drops an eval alias it already
-  holds; on 2026-11-13 that overlap was empty, the eval meetings are a
-  different twelve people. The train fetcher keeps the check the other way:
-  its `Take` takes its exclusions from this manifest (`evaluation_groups`).
+  holds — and stops, instead of dropping, if more than half of the eval
+  aliases overlapped; on 2026-11-13 that overlap was empty, the eval meetings
+  are a different twelve people. The train fetcher keeps the check the other
+  way: its `Take` takes its exclusions from this manifest (`evaluation_groups`).
 - **Why it is here**: a third corpus of meetings really held (AMI and ICSI
   are the other two), recorded after the base model's data and not in the
   training list its card cites; the close microphones make it a hard,

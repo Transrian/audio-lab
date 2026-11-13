@@ -122,11 +122,20 @@ def fetch_notsofar_en_eval(name: str, cache_dir: Path, dataset_dir: Path, *, ver
     the prepared train set already holds names a person who would then be scored
     on what she was trained on, so those aliases are dropped from the set and
     the train fetcher drops them the other way round; a drop is reported, not a
-    cleanup.
+    cleanup. If more than half the evaluation aliases overlap the train set,
+    the split is not disjoint and the preparation stops instead.
     """
     release = Release(name, cache_dir, EVAL_DIRECTORY)
     meetings = release.meetings()
     excluded = _train_speaker_aliases(dataset_dir)
+    aliases = {chunk.speaker for meeting in meetings for chunk in merged(meeting.utterances)}
+    overlap = sorted(aliases & excluded)
+    if overlap and len(overlap) > len(aliases) / 2:
+        raise DownloadError(
+            f"{name}: {len(overlap)} of the {len(aliases)} evaluation aliases overlap the "
+            f"prepared train set ({', '.join(overlap[:3])} …): the evaluation split is "
+            "not disjoint from the training data"
+        )
     with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
         for meeting in meetings:
             chunks = [
@@ -158,9 +167,6 @@ def fetch_notsofar_en_eval(name: str, cache_dir: Path, dataset_dir: Path, *, ver
                 for chunk in merged(meeting.utterances)
                 if chunk.speaker in excluded
             )
-            aliases = {
-                chunk.speaker for meeting in meetings for chunk in merged(meeting.utterances)
-            }
             print(
                 f"  {name}: {len(builder.clips)} clips, {len(aliases)} aliases; "
                 f"{len(excluded & aliases)} aliases dropped as train overlaps ({dropped} clips)"

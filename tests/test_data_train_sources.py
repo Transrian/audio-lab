@@ -2279,6 +2279,27 @@ def test_notsofar_eval_keeps_everyone_without_a_prepared_train_set(dirs, monkeyp
     }
 
 
+def test_notsofar_eval_stops_when_most_its_aliases_are_train_speakers(dirs, monkeypatch):
+    """More than half the evaluation aliases in the train set: stop, not drop."""
+    data, cache = dirs
+    fake_notsofar_release(
+        cache, monkeypatch, transcripts=NOTSOFAR_EVAL_TRANSCRIPTS, split=notsofar.EVAL_DIRECTORY
+    )
+    write_manifest(
+        data / "notsofar-en-train",
+        [
+            make_clip("notsofar-en-train:Peter", group="notsofar-en-train:Peter"),
+            make_clip("notsofar-en-train:Anna", group="notsofar-en-train:Anna"),
+        ],
+    )
+
+    with pytest.raises(DownloadError, match="not disjoint"):
+        notsofar.fetch_notsofar_en_eval(
+            "notsofar-en-eval", cache, data / "notsofar-en-eval", verbose=False
+        )
+    assert not (data / "notsofar-en-eval" / "manifest.jsonl").is_file()
+
+
 def test_notsofar_eval_keeps_the_words_inside_the_markup():
     """The PName tag goes, the word it marks stays, and the padding is joined."""
     row = NOTSOFAR_EVAL_TRANSCRIPTS["MTG_00010"][3]
