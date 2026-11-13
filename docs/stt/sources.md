@@ -207,6 +207,38 @@ speakers (none found).
 | 12 | English **PeerTube**, CC-BY or public domain | en | per video, declared by the uploader | At least 2 187 h in Science & Tech (2026-11-08), noisy (crypto and distribution channels), so a whitelist as for French. |
 | 8 | [LibriTTS-R](https://www.openslr.org/141/), [Hi-Fi TTS](https://www.openslr.org/109/) | en | **CC-BY-4.0** (2026-11-08) | Cased and punctuated read English: alternatives to LibriSpeech-PC (LibriTTS-R is the same LibriVox audio; Hi-Fi TTS has only ten speakers). |
 
+### Found in the DuplexJev / Sophon-Realtime data disclosure (2026-11-13)
+
+The model card of DuplexJev-32B-Para, the "ears" of Sophon-Realtime v1 (a
+full-duplex voice model opened 2026-11-08 by Adventists AI), lists its training
+mix corpus by corpus. Checked 2026-11-13 for what it adds to this register. The
+French items of that mix are already registered: Emilia-YODAS and its Granary
+derivative ([French variety](#french-variety), rows 1 and 12), Common Voice
+(row 7 and the [earlier project's](#candidates-the-earlier-project-already-trained-on)
+rows), FLEURS ([rejected](#rejected--never-used-by-decision) for training, used
+for evaluation) and MLS and VoxPopuli ([Used](#used--trained-on-here)). The new
+English items, with the decision for each:
+
+| # | Source | Language | License | Reason / note |
+| --- | --- | --- | --- | --- |
+| 24 | [otoSpeech](https://huggingface.co/datasets/otoearth/otoSpeech-full-duplex-turn-104h), with its DualTurn turn labels | en | **CC-BY-4.0** (as recorded in the DuplexJev-32B-Para card, 2026-11-13) | Spontaneous two-party conversations, one channel per speaker: 141 h per that card, the checked Hugging Face release holds 420 conversations (104.9 h). Per-speaker SRT transcripts with turn annotations: the closest open corpus found to conversational English with human-aligned text. Check against the frozen evaluation sets before acquisition. |
+| 25 | [VCTK](https://home.ee.tsu.lt/speechocean/datasets/vctk/) | en | **CC-BY-4.0** (as recorded in the card; the corpus page states the same) | Read multi-accent English (109 speakers, 44 h per the corpus page), used in that mix for accent judgments. Already referenced here as a permissive TTS voice ([Synthetic audio](#synthetic-audio-and-text-to-speech)); as a training source it is read speech, so check whether the base model already saw it. |
+
+Checked the same day and set aside for this project (the rest of that mix is
+Chinese, Japanese, Korean, Vietnamese, Thai, Arabic, Russian or Spanish, out of
+scope per [D-009](../owner/directives.md)):
+
+| Source | Language | License | Why set aside |
+| --- | --- | --- | --- |
+| Expresso, EARS (Meta) | en | CC-BY-NC-4.0 (as recorded in the card) | Paralinguistic English (whisper, laughter, speaking style); Expresso is 4 speakers and 40 h. Non-commercial: testing only per [decision 0009](../decisions/accepted/0009-non-commercial-datasets-for-testing-only.md), and its value is tone, not transcription. |
+| Stress-17K, TinyStress-15K | en | as recorded in the card, under its non-commercial data list | Word-stress annotation corpora; nothing usable as ASR labels. |
+| CSEMOTIONS | zh | Apache-2.0 (as recorded in the card) | Mandarin, about 10 h, ten professional speakers: out of scope. |
+| Emozionalmente | it | CC-BY-4.0 (as recorded in the card) | Italian: out of scope. |
+| EMNS | en | Apache-2.0 (as recorded in the card) | About 3 h, one speaker: too small. |
+| NonVerbalSpeech-38K, VocalSound | mixed | CC-BY-NC-4.0 and CC-BY-SA-4.0 (as recorded in the card) | Nonverbal event-detection corpora, mixed languages; no ASR use here. |
+| Smart Turn v3.2 training set | 23 languages | CC-BY-4.0 | Turn-end labels only: in the checked release the `spoken_text` field is empty, so no ASR labels. |
+| English Dialects | en | CC-BY-SA-4.0 (as recorded in the card) | Share-alike: not trained on ([D-019](../owner/directives.md)). |
+
 ### Evaluation sets considered
 
 These sets are for evaluation only, never for training. Acquiring one adds a card
