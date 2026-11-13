@@ -483,6 +483,6 @@ are optimistic, since clips of one voice are not independent.
   the population they are.
 
 Noise, reverberation, music and technical talks have their own panels since
-2026-11-12 (`noisy-fleurs-fr`, `noisy-fleurs-en`,
+2026-11-13 (`noisy-fleurs-fr`, `noisy-fleurs-en`,
 `noisy-servicenow-codeswitched-en-fr`, `nonspeech-music`, `nasa-en-test`,
 `peertube-edu-captions-fr`), listed in [datasets.md](datasets.md).
