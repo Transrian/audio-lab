@@ -468,10 +468,7 @@ are optimistic, since clips of one voice are not independent.
 
 ## 8. What this does not measure
 
-- noise and reverberation;
 - long-form audio (more than one utterance per request);
-- accents other than the non-native English of
-  `voxpopuli-en-nonnative`: that panel is measured, no other accent is;
 - which word a code switch or an accent cost, and term recall and named
   entities: the switches and the vocabulary are scored inside the sentence, not
   as a list of words that had to be right;
@@ -480,7 +477,12 @@ are optimistic, since clips of one voice are not independent.
   mid-sentence is still not measured;
 - a semantic score from a language model;
 - local models on our own GPUs (phase 1b);
-- music: the non-speech battery covers silence, noise and everyday ESC-50
-  sounds only;
+- accents beyond the African accent of `african-accented-fr-test` and the
+  non-native English of `voxpopuli-en-nonnative`;
 - the panels are small and were chosen by us, so absolute numbers use them as
   the population they are.
+
+Noise, reverberation, music and technical talks have their own panels since
+2026-11-12 (`noisy-fleurs-fr`, `noisy-fleurs-en`,
+`noisy-servicenow-codeswitched-en-fr`, `nonspeech-music`, `nasa-en-test`,
+`peertube-edu-captions-fr`), listed in [datasets.md](datasets.md).

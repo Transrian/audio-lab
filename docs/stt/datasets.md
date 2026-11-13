@@ -70,6 +70,67 @@ Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
 ``audiolab data fetch``.
 
+### Reference runs of the new panels (2026-11-13)
+
+The first full-suite numbers of the campaign, one run per model:
+``audiolab eval --model configs/models/<model>.yaml --suite configs/suites/full.yaml``
+— 7 712 panel items per run, 0 failed (the Qwen run's five timeout failures were
+resent on a second pass). The base model
+(``parakeet-tdt-0.6b-v3-crispasr``) is served on the homelab one request at a
+time; ``qwen3-asr-1.7b-vllm`` on the home vLLM, ten at once. Normalized WER in
+percent; the two non-speech panels are hallucination rates. The panels of the
+first phase 1 report keep their base column in the
+[screening](screening.md#results); they reproduce it here (fleurs-fr 4.99 against
+4.96, mls-fr 5.51 against 5.61, librispeech-en 2.04 against 2.04), so the two
+runs are consistent with that report.
+
+| panel | Parakeet | Qwen3 |
+| --- | --- | --- |
+| `african-accented-fr-test` | 6.57 | 4.93 |
+| `nasa-en-test` | 5.10 | 4.17 |
+| `notsofar-en-eval` | 7.29 | 7.40 |
+| `noisy-fleurs-en` | 10.11 | 6.89 |
+| `noisy-fleurs-fr` | 16.33 | 13.77 |
+| `noisy-servicenow-codeswitched-en-fr` | 19.20 | 20.25 |
+| `peertube-edu-captions-fr` | 13.94 | 7.78 |
+| `nonspeech` (hallucination) | 5.36 % | 16.43 % |
+| `nonspeech-music` (hallucination) | 1.75 % | 25.44 % |
+
+Formatted WER, the panels whose references carry casing and punctuation:
+
+| panel | Parakeet | Qwen3 |
+| --- | --- | --- |
+| `african-accented-fr-test` | 9.72 | 8.16 |
+| `nasa-en-test` | 14.65 | 13.41 |
+| `notsofar-en-eval` | 15.53 | 20.78 |
+| `noisy-fleurs-fr` | 19.16 | 16.56 |
+| `noisy-fleurs-en` | 15.62 | 12.34 |
+| `noisy-servicenow-codeswitched-en-fr` | 22.31 | 23.76 |
+| `peertube-edu-captions-fr` | 19.36 | 15.70 |
+
+Reading of the new panels:
+
+- Noise and reverberation cost 3 to 6 points of normalized WER on both models
+  (fleurs-fr 4.99 → 16.33 Parakeet, 4.04 → 13.77 Qwen3; fleurs-en 5.24 → 10.11,
+  3.51 → 6.89), and the code-switched set is the hardest condition of all for
+  both (13.12 → 19.20, 13.00 → 20.25).
+- Real meetings (`notsofar-en-eval`) are at the level of read speech for both
+  models (7.29 / 7.40), but the base model answers **empty on 8.5 % of its
+  clips** there (51 of 600), an empty-output rate it never shows above 2.4 % on
+  any other panel; Qwen3's is 1.5 %.
+- The base model stays silent on music (1.75 % hallucination) where Qwen3
+  writes words on **25.44 %** of the clips; on the whole non-speech battery the
+  gap is 5.36 % against 16.43 %.
+- `peertube-edu-captions-fr` is the panel the base model does worst of the new
+  speech sets (13.94); Qwen3 is much better on it (7.78) — part of that margin
+  is expected, since the set is kept only where Whisper is right, and Qwen
+  correlates with Whisper more than Parakeet does.
+- `nasa-en-test` is at read-speech level for both (5.10 / 4.17).
+
+The runs are reference numbers of the current suite, not a screening: they say
+where each model stands on each new panel before campaign 1's fine-tunes are
+trained.
+
 ## Frozen sources
 
 Every source is fetched at a pinned revision and verified against a checksum

@@ -16,3 +16,15 @@ panels:
   - cs-fleurs-fr-en-fast
   # what must stay silent
   - nonspeech-fast
+  - nonspeech-music-fast
+  # accents
+  - african-accented-fr-test-fast
+  # real meetings
+  - notsofar-en-eval-fast
+  # noise and reverberation
+  - noisy-fleurs-fr-fast
+  - noisy-fleurs-en-fast
+  - noisy-servicenow-codeswitched-en-fr-fast
+  # technical talks
+  - nasa-en-test-fast
+  - peertube-edu-captions-fr-fast

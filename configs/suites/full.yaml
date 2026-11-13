@@ -15,3 +15,15 @@ panels:
   - cs-fleurs-fr-en-full
   # what must stay silent
   - nonspeech-full
+  - nonspeech-music-full
+  # accents
+  - african-accented-fr-test-full
+  # real meetings
+  - notsofar-en-eval-full
+  # noise and reverberation
+  - noisy-fleurs-fr-full
+  - noisy-fleurs-en-full
+  - noisy-servicenow-codeswitched-en-fr-full
+  # technical talks
+  - nasa-en-test-full
+  - peertube-edu-captions-fr-full
