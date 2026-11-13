@@ -305,6 +305,31 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Hallucination battery: 50 silences, 50 low-level noises, 200 ESC-50 "
         "clips. No music (known gap).",
     ),
+    "musan-noise": DatasetInfo(
+        name="musan-noise",
+        source="https://www.openslr.org/17 (musan.tar.gz, musan/noise/)",
+        license="CC-BY-4.0 (corpus); free-sound files public domain, sound-bible files "
+        "per block CC BY 3.0 or public domain",
+        split="eval + train by the musan-split hash rule",
+        reference_style="no speech: the reference text is empty",
+        grouping="recording (group = the noise file)",
+        notes="Noise for the noisy evaluation sets (T4) and for training "
+        "augmentation (plan 02). One hash rule decides forever which half of the "
+        "files is for evaluation and which for training; the point-source noises "
+        "of RIRS_NOISES are copies of these files and are never read. No panels.",
+    ),
+    "rirs-noises": DatasetInfo(
+        name="rirs-noises",
+        source="https://www.openslr.org/28 (rirs_noises.zip)",
+        license="Apache-2.0",
+        split="eval = real rooms, train = simulated rooms",
+        reference_style="no speech: the reference text is empty",
+        grouping="recording (group = the RIR file)",
+        notes="Room impulse responses: the real-room RIRs are the evaluation "
+        "half, the simulated ones the training half, so a model augmented in "
+        "simulated rooms is scored in real ones. The point-source noises are "
+        "MUSAN copies and are never read. No panels.",
+    ),
     "voxpopuli-en-nonnative": DatasetInfo(
         name="voxpopuli-en-nonnative",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config en_accented)",

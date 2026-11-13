@@ -396,6 +396,59 @@ Three kinds of clip that must stay silent, 300 in total:
   spans the other ten, sixty clips of each. The challenge publishes a
   thousand simulated hours in the same repository; they are not read.
 
+## Noise banks — material for augmentation, not evaluation sets
+
+These two datasets hold the files that the noisy evaluation sets are mixed
+with (T4) and that the training augmentations take from (plan 02). They are
+not scored: they have no text to measure against and no panels, by
+deliberate refusal rather than by omission.
+
+## `musan-noise` — MUSAN's noise files for augmentation
+
+- **Source**: the `musan/noise/` part of
+  [MUSAN (OpenSLR 17)](https://www.openslr.org/17/), served from the OpenSLR
+  mirrors as `musan.tar.gz` (10.3 GiB; sha256 pinned in the fetcher). The
+  `musan/speech/` and `musan/music/` parts are not read here; the music part
+  is the material of `nonspeech-music`.
+- **License**: CC-BY-4.0 for the corpus; the `free-sound` files are marked
+  public domain in the archive, and the `sound-bible` files carry a licence
+  per block in `noise/sound-bible/LICENSE` — a block marked anything other
+  than public domain or CC BY 3.0 is dropped and counted, not kept.
+- **Prepared**: 929 files, 6.2 h, 684 MiB, one recording per group
+  (`group_kind: recording`). The 843 `free-sound` files are public domain; the
+  86 kept `sound-bible` files hold the block licence the corpus writes for
+  them (66 `Attribution 3.0`, i.e. CC-BY-3.0, and 20 `Public Domain`). One
+  `sound-bible` file is absent from the corpus's own licence file and is
+  dropped and counted, not kept.
+- **The split rule**: one constant hash rule decides forever which half of
+  the files is for evaluation and which for training
+  (`musan_split` in the fetcher): the earlier private project trained on the
+  odd half, so the even half — the one no model has seen — is the eval half
+  (466 files). A model augmented with training-half noise is then scored
+  against eval-half noise.
+- **Why it has no panels**: it is material, not an evaluation set; nothing is
+  scored on it, and a panel would imply a campaign to run. The noisy sets
+  that are scored use it as their noise source.
+
+## `rirs-noises` — room impulse responses: real rooms evaluate, simulated rooms train
+
+- **Source**: [RIRS_NOISES (OpenSLR 28)](https://www.openslr.org/28/),
+  `rirs_noises.zip` (1.3 GiB; sha256 pinned in the fetcher), the RIRs named by
+  the archive's `rir_list` files. Its `pointsource_noises/` are copies of MUSAN
+  files and are never read; the isotropic noises of the real directory, named
+  by a `noise_list`, are not RIRs and are never read either.
+- **License**: Apache-2.0.
+- **Audio**: 60 325 room impulse responses, 19.6 h, one recording per group
+  (`group_kind: recording`), no speech, empty text. The 325 real-room
+  recordings are eight-microphone measurements kept as their first channel;
+  the 60 000 simulated ones come from the three room sets, 20 000 each.
+- **The split rule**: the real-room RIRs are the evaluation half, the
+  simulated ones the training half, so a model augmented in simulated rooms is
+  scored in real rooms, which is the honest direction for a
+  noise-robustness claim.
+- **Why it has no panels**: as for `musan-noise`: material for the noisy sets
+  and for training augmentation, never scored on its own.
+
 ## Training sources
 
 Datasets whose name ends in `-train` hold training data. No panel is drawn from
