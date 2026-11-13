@@ -305,6 +305,44 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Hallucination battery: 50 silences, 50 low-level noises, 200 ESC-50 "
         "clips. No music (known gap).",
     ),
+    "noisy-fleurs-fr": DatasetInfo(
+        name="noisy-fleurs-fr",
+        source="derived: the fleurs-fr panel clips mixed with musan-noise (eval half), "
+        "rirs-noises (real rooms) and mls-fr-train babble",
+        license="per clip: the speech licence plus the material's, e.g. "
+        "CC-BY-4.0 (speech) + public domain (noise)",
+        split="the source's panels, in one acoustic condition per clip",
+        reference_style="the source clip's text, unchanged",
+        grouping="the source's group, re-prefixed (group = the FLEURS sentence)",
+        notes="A derived evaluation set: same texts, same groups, same sealing as "
+        "fleurs-fr, in noise, babble, reverberation and their mix. Every choice is "
+        "a hash of the clip id, so a re-preparation is byte-identical.",
+    ),
+    "noisy-fleurs-en": DatasetInfo(
+        name="noisy-fleurs-en",
+        source="derived: the fleurs-en panel clips mixed with musan-noise (eval half), "
+        "rirs-noises (real rooms) and librispeech-en-train babble",
+        license="per clip: the speech licence plus the material's, e.g. "
+        "CC-BY-4.0 (speech) + public domain (noise)",
+        split="the source's panels, in one acoustic condition per clip",
+        reference_style="the source clip's text, unchanged",
+        grouping="the source's group, re-prefixed (group = the FLEURS sentence)",
+        notes="The English side of noisy-fleurs-fr.",
+    ),
+    "noisy-servicenow-codeswitched-en-fr": DatasetInfo(
+        name="noisy-servicenow-codeswitched-en-fr",
+        source="derived: the servicenow-codeswitched-en-fr panel clips mixed with "
+        "musan-noise (eval half), rirs-noises (real rooms) and mls-fr-train and "
+        "librispeech-en-train babble",
+        license="no licence on the card (proposed decision 0011): evaluation only, "
+        "never redistributed; per clip the material's licence is added",
+        split="the source's panels, in one acoustic condition per clip",
+        reference_style="the source clip's transcript, unchanged",
+        grouping="the source's group, re-prefixed (group = the TTS voice)",
+        notes="Owner-approved (Q4, 2026-11-10). The babble alternates French and "
+        "English speakers. As for the source: synthetic speech with no licence, "
+        "used for evaluation only and never redistributed (proposed decision 0011).",
+    ),
     "musan-noise": DatasetInfo(
         name="musan-noise",
         source="https://www.openslr.org/17 (musan.tar.gz, musan/noise/)",

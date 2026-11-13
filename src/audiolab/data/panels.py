@@ -121,6 +121,11 @@ def load_suite(path: str | Path) -> SuiteSpec:
     return SuiteSpec(name=name, panels=[str(panel) for panel in raw["panels"]])
 
 
+def _derived_source(dataset: str) -> str | None:
+    """The source of a ``noisy-`` dataset: its panels are the source's, re-prefixed."""
+    return dataset.removeprefix("noisy-") if dataset.startswith("noisy-") else None
+
+
 def build_panels(
     dataset: str,
     clips: list[Clip],
@@ -138,6 +143,9 @@ def build_panels(
             )
     if not clips:
         raise ValueError(f"cannot build panels for {dataset}: the manifest is empty")
+    source = _derived_source(dataset)
+    if source is not None:
+        return _build_derived_panels(dataset, source, clips, panels_dir, built)
     chosen = select_panels(clips, DEFAULT_SEED)
     by_id = {clip.id: clip for clip in clips}
     panels = [
@@ -154,6 +162,59 @@ def build_panels(
         )
         for name in PANEL_NAMES
     ]
+    panels_dir.mkdir(parents=True, exist_ok=True)
+    for panel in panels:
+        panel_path(panel.title, panels_dir).write_text(panel.text(), encoding="utf-8")
+    return panels
+
+
+def _build_derived_panels(
+    dataset: str,
+    source: str,
+    clips: list[Clip],
+    panels_dir: Path,
+    built: str | None,
+) -> list[Panel]:
+    """The panels of a ``noisy-`` dataset: the source's, with the new prefix.
+
+    A derived set is mixed from the source's panel clips, so its panels are not
+    drawn again: the same ids, re-prefixed. A clip sealed in the source stays
+    sealed. The source's three panel files must exist, or the build is refused.
+    """
+    by_id = {clip.id: clip for clip in clips}
+    panels = []
+    for name in PANEL_NAMES:
+        source_path = panel_path(f"{source}-{name}", panels_dir)
+        if not source_path.is_file():
+            raise ValueError(
+                f"{source_path} is missing: a {dataset} panel needs the {source} panels"
+            )
+        source_panel = read_panel(source_path)
+        ids = []
+        for clip_id in source_panel.ids:
+            if not clip_id.startswith(f"{source}:"):
+                raise ValueError(f"{source_path} holds {clip_id!r}, not a {source} id")
+            derived_id = f"{dataset}:{clip_id.partition(':')[2]}"
+            if derived_id not in by_id:
+                raise ValueError(
+                    f"{dataset} holds no clip {derived_id}, which the {source} "
+                    f"{name} panel names"
+                )
+            ids.append(derived_id)
+        ids.sort()
+        panels.append(
+            Panel(
+                name=name,
+                dataset=dataset,
+                ids=ids,
+                items=len(ids),
+                seed=source_panel.seed,
+                manifest_sha256=manifest_id_sha256(clips),
+                clips_sha256=pcm_sha256_of([by_id[clip_id] for clip_id in ids]),
+                dataset_line=dataset_line(dataset, clips),
+                built=built or date.today().isoformat(),
+            )
+        )
     panels_dir.mkdir(parents=True, exist_ok=True)
     for panel in panels:
         panel_path(panel.title, panels_dir).write_text(panel.text(), encoding="utf-8")
@@ -370,7 +431,11 @@ def check_panel(path: Path, clips: list[Clip], dataset_dir: Path | None = None) 
     unknown = [clip_id for clip_id in panel.ids if clip_id not in known]
     if unknown:
         problems.append(f"{len(unknown)} ids are not in the manifest (first: {unknown[0]})")
-    expected = select_panels(clips, panel.seed)[panel.name]
+    source = _derived_source(panel.dataset)
+    if source is not None:
+        expected = _derived_expected_ids(path, source, panel)
+    else:
+        expected = select_panels(clips, panel.seed)[panel.name]
     if panel.ids != expected:
         problems.append(f"ids differ from what the current data and seed {panel.seed} produce")
     if panel.items != len(panel.ids):
@@ -390,3 +455,14 @@ def check_panel(path: Path, clips: list[Clip], dataset_dir: Path | None = None) 
 def load_dataset_clips(dataset: str) -> list[Clip]:
     """Read the manifest of one prepared dataset from the data directory."""
     return read_manifest(data_dir() / dataset)
+
+
+def _derived_expected_ids(path: Path, source: str, panel: Panel) -> list[str]:
+    """What a ``noisy-`` panel must hold: its source panel's ids, re-prefixed."""
+    source_path = path.parent / f"{source}-{panel.name}.txt"
+    if not source_path.is_file():
+        raise ValueError(f"{source_path} is missing: the {source} panels must be built")
+    return sorted(
+        f"{panel.dataset}:{clip_id.partition(':')[2]}"
+        for clip_id in read_panel(source_path).ids
+    )

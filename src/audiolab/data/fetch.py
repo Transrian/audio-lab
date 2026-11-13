@@ -30,6 +30,7 @@ from audiolab.data.librispeech_pc import fetch_librispeech_pc_en_train
 from audiolab.data.mls import fetch_mls_fr, fetch_mls_fr_train
 from audiolab.data.nasa import fetch_nasa_en_train
 from audiolab.data.nonspeech import fetch_nonspeech
+from audiolab.data.noisy import fetch_noisy
 from audiolab.data.noise_bank import fetch_musan_noise, fetch_rirs_noises
 from audiolab.data.notsofar import fetch_notsofar_en_eval, fetch_notsofar_en_train
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
@@ -57,6 +58,9 @@ FETCHERS = {
     "notsofar-en-eval": fetch_notsofar_en_eval,
     "musan-noise": fetch_musan_noise,
     "rirs-noises": fetch_rirs_noises,
+    "noisy-fleurs-fr": fetch_noisy,
+    "noisy-fleurs-en": fetch_noisy,
+    "noisy-servicenow-codeswitched-en-fr": fetch_noisy,
     "peertube-fr-train": fetch_talk_dataset,
     "peertube-edu-fr-train": fetch_talk_dataset,
     "debconf-en-train": fetch_talk_dataset,

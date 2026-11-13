@@ -25,6 +25,9 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
 | `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
 | `notsofar-en-eval` | en | CC-BY-4.0 | 240825.1_eval_full_with_GT | 20 454 | 12 | 16.7 | 1.9 GiB |
+| `noisy-fleurs-fr` | fr | CC-BY-4.0 + material, per clip | derived: the source's panels | 676 | 332 | 2.0 | 214 MiB |
+| `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
+| `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -53,6 +56,9 @@ part of how precise its numbers can be:
 | `cs-fleurs-fr-en` | 100 / 100 | 600 / 266 | 207 / 66 |
 | `african-accented-fr-test` | 100 / 10 | 396 / 10 | 119 / 2 |
 | `notsofar-en-eval` | 100 / 10 | 600 / 10 | 4223 / 2 |
+| `noisy-fleurs-fr` | 100 / 100 | 533 / 266 | 143 / 66 |
+| `noisy-fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
+| `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -139,6 +145,8 @@ gets the usual lines only.
   The file name is the clip id.
 - **Why it is here**: short, clean, read speech in the two languages of phase 1,
   and the only French set with a half-decent size that is clearly licensed.
+  Noisy versions of both panels: [`noisy-fleurs-fr`](#noisy-fleurs-fr--fleurs-french-in-noise-babble-and-reverb)
+  and [`noisy-fleurs-en`](#noisy-fleurs-en--fleurs-english-in-noise-babble-and-reverb).
 
 ## `mls-fr` — read audiobook French
 
@@ -293,6 +301,8 @@ Three kinds of clip that must stay silent, 300 in total:
   says nothing about a real speaker switching language; the sentences are
   written to be read rather than thought and dictated; and the intervals ignore
   the voice, so they are narrower than they should be.
+  Noisy version of the `en_fr` panel:
+  [`noisy-servicenow-codeswitched-en-fr`](#noisy-servicenow-codeswitched-en-fr--code-switched-tts-in-noise-babble-and-reverb).
 
 ## `cs-fleurs-fr-en` — code-switched FLEURS sentences
 
@@ -448,6 +458,71 @@ deliberate refusal rather than by omission.
   noise-robustness claim.
 - **Why it has no panels**: as for `musan-noise`: material for the noisy sets
   and for training augmentation, never scored on its own.
+
+## Noisy sets — the same panel clips, degraded acoustically
+
+A derived evaluation set: for every clip of a source's three panels, one
+deterministic acoustic mix, nothing else. The texts, the groups, the panel
+sizes and the sealing are the source's — a derived panel is the source's panel
+with the ids re-prefixed, so sealed stays sealed and a `--check` on either side
+agrees. Every choice in a mix is a hash of the clip id (which condition, which
+noise file, at which offset, which four babble speakers, which RIR), so a
+re-preparation is byte-identical and no model has ever seen a specific mix.
+One clip, one condition:
+
+- `noise-snr10` / `noise-snr5` / `noise-snr0`: eval-half MUSAN noise (the
+  reserved half) at that SNR, measured on the clip's active speech;
+- `babble-snr5`: four other speakers summed under the clip at 5 dB, from the
+  source's own language (`mls-fr-train` for French, `librispeech-en-train` for
+  English, alternating for the code-switched set) — four different
+  recordings, never the clip's own group;
+- `reverb`: one real-room RIR, direct path first;
+- `reverb-noise-snr10`: both, in that order.
+
+The license field is the source clip's licence plus the material's, e.g.
+`CC-BY-4.0 (speech) + public domain (noise)`.
+
+## `noisy-fleurs-fr` — FLEURS French in noise, babble and reverb
+
+- **Source**: derived from the `fleurs-fr` panel clips with the material of
+  `musan-noise` (eval half), `rirs-noises` (real rooms) and `mls-fr-train`
+  (babble). [Card of the source](#fleurs-fr-fleurs-en--read-wikipedia-sentences).
+- **License**: per clip, the source's plus the material's — CC-BY-4.0 (speech)
+  with public domain (noise), CC-BY-4.0 (babble) and Apache-2.0 (reverb) in
+  various combinations, as the field says.
+- **Prepared**: 676 clips, 332 groups, 2.0 h, 214 MiB — the full `fleurs-fr`
+  panel union (103 `noise-snr10`, 100 `noise-snr5`, 126 `noise-snr0`, 110
+  `babble-snr5`, 128 `reverb`, 109 `reverb-noise-snr10`).
+- **Panels**: the source's panels re-prefixed — fast 100/100, full 533/266,
+  sealed 143/66.
+
+## `noisy-fleurs-en` — FLEURS English in noise, babble and reverb
+
+- **Source**: derived from the `fleurs-en` panel clips with the material of
+  `musan-noise` (eval half), `rirs-noises` (real rooms) and `librispeech-en-train`
+  (babble). [Card of the source](#fleurs-fr-fleurs-en--read-wikipedia-sentences).
+- **License**: per clip, as for `noisy-fleurs-fr`.
+- **Prepared**: 647 clips, 350 groups, 1.8 h, 195 MiB (109 `noise-snr10`,
+  111 `noise-snr5`, 105 `noise-snr0`, 101 `babble-snr5`, 119 `reverb`,
+  102 `reverb-noise-snr10`).
+- **Panels**: the source's panels re-prefixed — fast 100/100, full 515/280,
+  sealed 132/70.
+
+## `noisy-servicenow-codeswitched-en-fr` — code-switched TTS in noise, babble and reverb
+
+- **Source**: derived from the `servicenow-codeswitched-en-fr` panel clips with
+  the material of `musan-noise` (eval half), `rirs-noises` (real rooms) and
+  `mls-fr-train` and `librispeech-en-train` (babble, alternating French and
+  English speakers). [Card of the source](#servicenow-codeswitched-en-fr-and-servicenow-codeswitched-en-fr-ca--synthetic-it-support-code-switching).
+- **License**: the source holds no licence —
+  [decision 0011](../decisions/accepted/0011-unlicensed-datasets-for-private-evaluation.md):
+  evaluation only, never redistributed. That condition travels with the mix;
+  per clip the material's licence is added on top.
+- **Prepared**: 298 clips, 298 groups, 0.6 h, 70 MiB (48 `noise-snr10`,
+  52 `noise-snr5`, 46 `noise-snr0`, 50 `babble-snr5`, 51 `reverb`,
+  51 `reverb-noise-snr10`).
+- **Panels**: the source's panels re-prefixed — fast 100/100, full 238/238,
+  sealed 60/60.
 
 ## Training sources
 
