@@ -17,7 +17,7 @@ language (``words`` and ``word_languages``); the reference text of an item is
 the corpus's transcript of the sentence, with casing and punctuation.
 
 The card carries no license. The owner approved its use for evaluation on
-2026-11-08 (proposed decision 0011): it is never trained on and never
+2026-11-08 (decision 0011): it is never trained on and never
 redistributed.
 """
 
@@ -42,7 +42,7 @@ CONFIGS = {
 }
 # French is the framing language of every utterance, in both configurations.
 LANGUAGE = "fr"
-LICENSE = "no license on the card: evaluation only, never trained on (proposed decision 0011)"
+LICENSE = "no license on the card: evaluation only, never trained on (decision 0011)"
 FILE_NAME = "test-00000-of-00001.parquet"
 COLUMNS = ["ID", "audio", "utterance", "voice"]
 # sha256 of each file at that revision, as the Hub publishes it; recorded from

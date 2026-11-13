@@ -368,14 +368,14 @@ DATASETS: dict[str, DatasetInfo] = {
         source="derived: the servicenow-codeswitched-en-fr panel clips mixed with "
         "musan-noise (eval half), rirs-noises (real rooms) and mls-fr-train and "
         "librispeech-en-train babble",
-        license="no licence on the card (proposed decision 0011): evaluation only, "
+        license="no licence on the card (decision 0011): evaluation only, "
         "never redistributed; per clip the material's licence is added",
         split="the source's panels, in one acoustic condition per clip",
         reference_style="the source clip's transcript, unchanged",
         grouping="the source's group, re-prefixed (group = the TTS voice)",
         notes="Owner-approved (Q4, 2026-11-10). The babble alternates French and "
         "English speakers. As for the source: synthetic speech with no licence, "
-        "used for evaluation only and never redistributed (proposed decision 0011).",
+        "used for evaluation only and never redistributed (decision 0011).",
     ),
     "nonspeech-music": DatasetInfo(
         name="nonspeech-music",
@@ -430,8 +430,7 @@ DATASETS: dict[str, DatasetInfo] = {
     "servicenow-codeswitched-en-fr": DatasetInfo(
         name="servicenow-codeswitched-en-fr",
         source="https://huggingface.co/datasets/ServiceNow-AI/asr_codeswitched (config en_fr)",
-        license="no license on the card: evaluation only, never trained on "
-        "(proposed decision 0011)",
+        license="no license on the card: evaluation only, never trained on (decision 0011)",
         split="test",
         reference_style="corpus transcript of the code-switched sentence: casing "
         "and punctuation kept",
@@ -443,8 +442,7 @@ DATASETS: dict[str, DatasetInfo] = {
     "servicenow-codeswitched-en-fr-ca": DatasetInfo(
         name="servicenow-codeswitched-en-fr-ca",
         source="https://huggingface.co/datasets/ServiceNow-AI/asr_codeswitched (config en_fr_ca)",
-        license="no license on the card: evaluation only, never trained on "
-        "(proposed decision 0011)",
+        license="no license on the card: evaluation only, never trained on (decision 0011)",
         split="test",
         reference_style="corpus transcript of the code-switched sentence: casing "
         "and punctuation kept",
