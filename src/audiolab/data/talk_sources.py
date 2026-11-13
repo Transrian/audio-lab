@@ -19,7 +19,7 @@ from pathlib import Path
 import httpx
 
 from audiolab.data import debconf, fosdem, nasa, peertube, peertube_edu
-from audiolab.data.datasets import DATASETS
+from audiolab.data.datasets import DATASETS, base_dataset
 from audiolab.data.talk_listing import Talk, TalkSource
 from audiolab.data.talks import PreparedAudio, fetch_talks, prepare_audio
 
@@ -112,10 +112,24 @@ SOURCES: dict[str, TalkSource] = {
 }
 
 
-def fetch_talk_dataset(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
-    """Prepare one talk dataset, whatever its source is."""
+def fetch_talk_dataset(
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool, clips: int | None = None
+) -> int:
+    """Prepare one talk dataset, whatever its source is.
+
+    ``name`` may be a larger preparation of the source (``peertube-fr-train-40k``):
+    the source and its registry entry are looked up under the base name, and the
+    clips are recorded under the given name, which is the directory they land in.
+    """
+    base = base_dataset(name)
     return fetch_talks(
-        SOURCES[name], cache_dir, dataset_dir, license=DATASETS[name].license, verbose=verbose
+        SOURCES[base],
+        cache_dir,
+        dataset_dir,
+        license=DATASETS[base].license,
+        verbose=verbose,
+        name=name,
+        clips=clips,
     )
 
 

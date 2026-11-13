@@ -30,6 +30,7 @@ import re
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
+from audiolab.data.datasets import base_dataset
 from audiolab.data.download import DownloadError, download, open_archive
 from audiolab.data.librispeech import PINNED_SHA256 as LIBRISPEECH_SHA256
 from audiolab.data.librispeech import (
@@ -58,12 +59,18 @@ _NOT_A_LETTER = re.compile(r"[^A-Za-zÀ-Þà-ÿ]")
 
 
 def fetch_librispeech_pc_en_train(
-    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool, clips: int | None = None
 ) -> int:
-    """Prepare LibriSpeech-PC over LibriSpeech train-clean-100, up to the cap."""
+    """Prepare LibriSpeech-PC over LibriSpeech train-clean-100, up to the cap.
+
+    ``clips`` is the cap of a larger preparation (``librispeech-pc-en-train-40k``):
+    the clips are recorded under ``name``, the directory they land in, and the
+    audio and the manifests are read from the source's own cache, so the larger
+    preparation downloads nothing the usual one already read.
+    """
     manifests = download(
         MANIFESTS_URL,
-        cache_dir / name / MANIFESTS_NAME,
+        cache_dir / base_dataset(name) / MANIFESTS_NAME,
         sha256=PINNED_SHA256.get(MANIFESTS_NAME, ""),
     )
     # The audio comes from the cache entry of librispeech-en-train, so the two
@@ -74,7 +81,9 @@ def fetch_librispeech_pc_en_train(
         sha256=PINNED_AUDIO_SHA256,
     )
     texts = read_texts(name, manifests)
-    with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
+    with ManifestBuilder(
+        dataset_dir, verbose=verbose, total=clips if clips is not None else None
+    ) as builder:
         dropped = {"without restored text": 0, "with a heading in capitals": 0}
         take = prepare_train_audio(
             name,
@@ -82,6 +91,7 @@ def fetch_librispeech_pc_en_train(
             builder,
             text_for_clip=_restored(texts, dropped),
             text_has_casing_punct=True,
+            cap=clips,
         )
         if verbose:
             left_out = ", ".join(f"{count} {what}" for what, count in dropped.items())

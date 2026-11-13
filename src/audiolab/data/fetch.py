@@ -10,6 +10,7 @@ again (:class:`~audiolab.data.build.ManifestBuilder`).
 
 from __future__ import annotations
 
+import inspect
 import shutil
 from pathlib import Path
 
@@ -21,7 +22,7 @@ from audiolab.data.african_french import (
 from audiolab.data.ami import fetch_ami_fr_speakers_en_train
 from audiolab.data.codeswitched import fetch_servicenow_codeswitched
 from audiolab.data.csfleurs import fetch_cs_fleurs_fr_en
-from audiolab.data.datasets import DATASETS
+from audiolab.data.datasets import DATASETS, base_dataset
 from audiolab.data.fleurs import fetch_fleurs
 from audiolab.data.granary import fetch_granary_fr_train
 from audiolab.data.icsi import fetch_icsi_en_train
@@ -38,6 +39,7 @@ from audiolab.data.peertube_edu_captions import fetch_peertube_edu_captions_fr
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.talk_sources import fetch_talk_dataset
+from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.data.voxpopuli import fetch_voxpopuli_nonnative
 from audiolab.data.voxpopuli_train import fetch_voxpopuli_fr_train
 
@@ -79,11 +81,61 @@ FETCHERS = {
 }
 
 
-def fetch_dataset(name: str, *, force: bool = False, verbose: bool = True) -> Path:
-    """Make ``name`` ready under the data directory and return that directory."""
-    if name not in FETCHERS:
+def validate_clips_cap(clips: int) -> None:
+    """The cap a ``--clips`` asks for: a multiple of 1 000, at least 13 000.
+
+    12 000 is the default and keeps the original directory, so a cap of it or
+    less is not a larger preparation and is refused rather than given a
+    colliding directory.
+    """
+    if clips % 1000:
+        raise ValueError(f"{clips} is not a multiple of 1 000 clips")
+    if clips < 13_000:
+        raise ValueError(
+            f"{clips} clips: 12 000 is the default and keeps the original directory; "
+            "a larger preparation takes at least 13 000"
+        )
+
+
+def sized_dataset_name(name: str, clips: int) -> str:
+    """The directory of a larger preparation of ``name``: the cap in thousands.
+
+    ``granary-fr-train`` with 40 000 clips is ``granary-fr-train-40k``.
+
+    Only a training dataset is prepared larger: a name that does not end in
+    ``-train`` is refused, and the cap must pass :func:`validate_clips_cap`, so
+    the directory never collides with the 12 000-clip set the screening drew
+    its runs from, which stays as it is.
+    """
+    if not name.endswith("-train"):
+        raise ValueError(
+            f"{name}: --clips sizes a training dataset (a name ending in -train); "
+            f"it is not one, so it is prepared as it is"
+        )
+    validate_clips_cap(clips)
+    return f"{name}-{clips // 1000}k"
+
+
+def fetch_dataset(
+    name: str, *, force: bool = False, verbose: bool = True, clips: int | None = None
+) -> Path:
+    """Make ``name`` ready under the data directory and return that directory.
+
+    ``clips`` is the cap of a larger preparation of a training source (see
+    :func:`sized_dataset_name`); without it the preparation is the source's
+    usual one, into its usual directory.
+    """
+    base = base_dataset(name)
+    if clips is not None and base != name:
+        raise ValueError(
+            f"{name}: the name of a sized preparation already names its cap; "
+            f"pass the source's name ({base}) with --clips"
+        )
+    if clips is not None:
+        name = sized_dataset_name(name, clips)
+    if base not in FETCHERS:
         known = ", ".join(sorted(DATASETS))
-        raise ValueError(f"unknown dataset {name!r}; known datasets: {known}")
+        raise ValueError(f"unknown dataset {base!r}; known datasets: {known}")
     destination = data_dir() / name
     manifest = destination / "manifest.jsonl"
 
@@ -98,12 +150,25 @@ def fetch_dataset(name: str, *, force: bool = False, verbose: bool = True) -> Pa
             print(f"{name}: already prepared ({len(read_manifest(destination))} clips), verified")
         return destination
 
+    fetcher = FETCHERS[base]
+    accepts_clips = "clips" in inspect.signature(fetcher).parameters
+    if clips is not None and not accepts_clips:
+        raise ValueError(
+            f"{base}: the clip cap is fixed for this source ({TRAIN_CLIP_CAP} clips); "
+            f"--clips is not supported for it"
+        )
     if force and destination.exists():
         shutil.rmtree(destination)
     if verbose:
-        cache_root = DATASETS[name].cache_name or name
+        cache_root = DATASETS[base].cache_name or base
         print(f"{name}: preparing (cache: {cache_dir() / cache_root})")
-    count = FETCHERS[name](name, cache_dir(), destination, verbose=verbose)
+    count = fetcher(
+        name,
+        cache_dir(),
+        destination,
+        verbose=verbose,
+        **({"clips": clips} if accepts_clips else {}),
+    )
     if verbose:
         print(f"{name}: {count} clips prepared in {destination}")
     return destination

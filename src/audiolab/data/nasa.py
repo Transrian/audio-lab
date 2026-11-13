@@ -57,6 +57,7 @@ from audiolab.core.progress import say
 from audiolab.core.stop import raise_if_stopped
 from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
+from audiolab.data.datasets import base_dataset
 from audiolab.data.download import DownloadError
 from audiolab.data.talk_clips import Answers, Segment, Transcribe, candidates, clip_text
 from audiolab.data.talk_listing import Talk, TalkSource, read_listing, reading_order
@@ -581,19 +582,29 @@ def reserved_test_episodes(episodes: list[Talk], used: frozenset[str]) -> list[T
 # The preparation.
 
 
-def fetch_nasa_en_train(name: str, cache: Path, dataset_dir: Path, *, verbose: bool) -> int:
-    """Prepare ``nasa-en-train`` up to the clip cap, returning the clip count."""
+def fetch_nasa_en_train(
+    name: str, cache: Path, dataset_dir: Path, *, verbose: bool, clips: int | None = None
+) -> int:
+    """Prepare ``nasa-en-train`` up to the clip cap, returning the clip count.
+
+    ``clips`` is the cap of a larger preparation (``nasa-en-train-30k``): the
+    clips are recorded under ``name``, the directory they land in, and the
+    episodes are read from the source's own cache and in the same seeded order,
+    so an episode the usual preparation already labelled is not asked again.
+    """
+    cap = clips if clips is not None else TRAIN_CLIP_CAP
     listed_on, episodes = read_listing(SOURCE)
-    cache = cache / NAME
-    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+    cache = cache / base_dataset(name)
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=cap) as builder:
         take = Take(
-            name=NAME,
+            name=name,
             builder=builder,
             language=LANGUAGE,
             source_split="listing",
             license=LICENSE,
             text_has_casing_punct=True,
             group_kind="recording",
+            cap=cap,
         )
         tally: Counter[str] = Counter()
         if verbose:

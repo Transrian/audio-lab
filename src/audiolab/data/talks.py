@@ -241,19 +241,35 @@ def http_client() -> httpx.Client:
 
 
 def fetch_talks(
-    source: TalkSource, cache_dir: Path, dataset_dir: Path, *, license: str, verbose: bool
+    source: TalkSource,
+    cache_dir: Path,
+    dataset_dir: Path,
+    *,
+    license: str,
+    verbose: bool,
+    name: str | None = None,
+    clips: int | None = None,
 ) -> int:
     """Prepare the pinned talks of ``source`` up to the clip cap, returning the clip count.
 
     ``license`` is what the dataset's registry entry states (D-018); every clip
     is recorded under the licence of its own talk all the same, which is what a
     listing of several licences needs.
+
+    ``name`` is the dataset the clips are recorded under: the source's name for
+    its usual preparation, the directory's name for a larger one, so that a clip
+    and its group carry that prefix. ``clips`` is the cap of that larger
+    preparation; without it the source's usual cap. The server answers are
+    cached under the source's name either way, so a larger preparation re-reads
+    nothing the usual one already asked, and the talks are read in the same
+    seeded order, so it reads the same talks first, then more.
     """
+    cap = clips if clips is not None else TRAIN_CLIP_CAP
     listed_on, talks = read_listing(source)
     cache = cache_dir / source.name
-    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=cap) as builder:
         take = Take(
-            name=source.name,
+            name=name or source.name,
             builder=builder,
             language=source.language,
             source_split="listing",
@@ -262,7 +278,7 @@ def fetch_talks(
             # and punctuation included: no talk source differs here.
             text_has_casing_punct=True,
             group_kind="recording",
-            cap=TRAIN_CLIP_CAP,
+            cap=cap,
             cap_per_group=CLIP_CAP_PER_GROUP,
         )
         tally: Counter[str] = Counter()

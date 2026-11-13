@@ -24,6 +24,7 @@ from functools import partial
 from pathlib import Path
 
 from audiolab.data.build import ManifestBuilder
+from audiolab.data.datasets import base_dataset
 from audiolab.data.download import DownloadError, download, huggingface_sha256_map
 from audiolab.data.parquet import audio_of, rows
 from audiolab.data.train import CLIP_CAP_PER_GROUP, TRAIN_CLIP_CAP, Take
@@ -55,12 +56,19 @@ ACCENTED_COLUMNS = ["speaker_id", "accent"]
 
 
 def fetch_voxpopuli_fr_train(
-    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool, clips: int | None = None
 ) -> int:
-    """Prepare the French train split up to the cap, returning the number of clips."""
-    cache = cache_dir / name
+    """Prepare the French train split up to the cap, returning the number of clips.
+
+    ``clips`` is the cap of a larger preparation (``voxpopuli-fr-train-40k``):
+    the clips are recorded under ``name``, the directory they land in, and the
+    shards are read from the source's own cache, so the larger preparation
+    downloads nothing the usual one already read.
+    """
+    cap = clips if clips is not None else TRAIN_CLIP_CAP
+    cache = cache_dir / base_dataset(name)
     shards = _shards(SPLIT_PATH, SHARD_PREFIX)
-    with ManifestBuilder(dataset_dir, verbose=verbose, total=TRAIN_CLIP_CAP) as builder:
+    with ManifestBuilder(dataset_dir, verbose=verbose, total=cap) as builder:
         take = Take(
             name=name,
             builder=builder,
@@ -69,7 +77,7 @@ def fetch_voxpopuli_fr_train(
             license=LICENSE,
             text_has_casing_punct=True,
             excluded=_accented_speakers(cache_dir),
-            cap=TRAIN_CLIP_CAP,
+            cap=cap,
             cap_per_group=CLIP_CAP_PER_GROUP,
         )
 

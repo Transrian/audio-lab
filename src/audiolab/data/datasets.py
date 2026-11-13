@@ -12,7 +12,24 @@ writes the new wording; the grant itself is unchanged either way.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+
+# A larger preparation of a training source keeps the source's name and appends
+# its cap: `granary-fr-train-40k` is the 40 000-clip preparation of
+# `granary-fr-train`. The registry and the fetchers know the source, not the
+# size, so every lookup of a prepared name goes through :func:`base_dataset`.
+_SIZE_SUFFIX = re.compile(r"-\d+k$")
+
+
+def base_dataset(name: str) -> str:
+    """The registry name behind a prepared name: strip a trailing ``-<k>k`` cap.
+
+    `granary-fr-train-40k` is the 40 000-clip preparation of `granary-fr-train`,
+    and both are prepared from the same source under the same cache. A name
+    without the suffix is its own base.
+    """
+    return _SIZE_SUFFIX.sub("", name)
 
 
 @dataclass(frozen=True)

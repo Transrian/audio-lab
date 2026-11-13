@@ -18,7 +18,7 @@ from audiolab.core.gpu import add_gpu_argument, list_gpus
 from audiolab.core.paths import cache_dir, data_dir, runs_dir
 from audiolab.core.stop import EXIT_STOPPED, Stopped, install_signal_handlers
 from audiolab.data.datasets import DATASETS
-from audiolab.data.fetch import fetch_dataset
+from audiolab.data.fetch import fetch_dataset, sized_dataset_name, validate_clips_cap
 from audiolab.data.panels import (
     DEFAULT_PANELS_DIR,
     PANEL_NAMES,
@@ -31,6 +31,7 @@ from audiolab.data.panels import (
 from audiolab.data.talk_listing import Talk, write_listing
 from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
+from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
 from audiolab.eval.report import (
     REPORT_NAME,
@@ -70,9 +71,12 @@ def cmd_data_list(args: argparse.Namespace) -> int:
 def cmd_data_fetch(args: argparse.Namespace) -> int:
     """Download and prepare one dataset or every dataset the spec lists."""
     names = args.names or sorted(DATASETS)
+    if args.clips is not None and not args.names:
+        raise ValueError("--clips sizes one dataset; give its name")
     for name in names:
-        print(f"fetching {name} into {data_dir() / name}")
-        fetch_dataset(name, force=args.force)
+        target = sized_dataset_name(name, args.clips) if args.clips is not None else name
+        print(f"fetching {name} into {data_dir() / target}")
+        fetch_dataset(name, force=args.force, clips=args.clips)
     return 0
 
 
@@ -90,8 +94,13 @@ def cmd_data_list_talks(args: argparse.Namespace) -> int:
 def cmd_data_fetch_audio(args: argparse.Namespace) -> int:
     """Download the audio of the first talks of a talk source, without labelling them."""
     name = args.name
+    if args.clips is not None:
+        validate_clips_cap(args.clips)
+        hours = HOURS_PER_CAP * args.clips / TRAIN_CLIP_CAP
+    else:
+        hours = args.hours if args.hours is not None else HOURS_PER_CAP
     print(f"preparing the audio of {name} into {cache_dir() / name}")
-    prepared = prepare_talk_audio(name, cache_dir(), args.hours)
+    prepared = prepare_talk_audio(name, cache_dir(), hours)
     return 0 if prepared.talks else 1
 
 
@@ -99,6 +108,13 @@ def at_least_one(text: str) -> int:
     """A count of at least one, for a command-line option."""
     if not text.isdecimal() or int(text) < 1:
         raise argparse.ArgumentTypeError(f"{text!r} is not a whole number of at least 1")
+    return int(text)
+
+
+def clips_cap(text: str) -> int:
+    """A ``--clips`` value: a whole number of clips; its cap is checked in fetch."""
+    if not text.isdecimal() or int(text) < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number of clips")
     return int(text)
 
 
@@ -259,6 +275,14 @@ def _add_data_commands(commands: argparse._SubParsersAction) -> None:
     )
     fetch.add_argument("names", nargs="*", help="dataset names; all of them when omitted")
     fetch.add_argument("--force", action="store_true", help="prepare again even if already present")
+    fetch.add_argument(
+        "--clips",
+        type=clips_cap,
+        default=None,
+        help="prepare a training dataset with a larger cap, a multiple of 1 000 of at "
+        "least 13 000: the set lands in a new directory named after the cap "
+        "(granary-fr-train --clips 40000 -> granary-fr-train-40k)",
+    )
     fetch.set_defaults(func=cmd_data_fetch)
 
     listing_talks = _command(
@@ -284,12 +308,20 @@ def _add_data_commands(commands: argparse._SubParsersAction) -> None:
         "audiolab data fetch-audio debconf-en-train --hours 65",
     )
     fetch_audio.add_argument("name", choices=sorted(SOURCES), help="talk dataset name")
-    fetch_audio.add_argument(
+    hours_or_clips = fetch_audio.add_mutually_exclusive_group()
+    hours_or_clips.add_argument(
         "--hours",
         type=float,
-        default=HOURS_PER_CAP,
+        default=None,
         help=f"how much talk to prepare (default {HOURS_PER_CAP:g} h, which is what "
         "the 12 000-clip cap needs at the measured yield)",
+    )
+    hours_or_clips.add_argument(
+        "--clips",
+        type=clips_cap,
+        default=None,
+        help="plan the talk of a larger cap, a multiple of 1 000 of at least 13 000, "
+        "at the measured yield of the 12 000-clip cap",
     )
     fetch_audio.set_defaults(func=cmd_data_fetch_audio)
 

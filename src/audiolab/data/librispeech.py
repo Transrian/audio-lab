@@ -95,6 +95,7 @@ def prepare_train_audio(
     *,
     text_for_clip: Callable[[str], str | None] | None = None,
     text_has_casing_punct: bool = False,
+    cap: int | None = None,
 ) -> Take:
     """Prepare the clips of ``train-clean-100``, in the archive's published order.
 
@@ -104,6 +105,10 @@ def prepare_train_audio(
     place of the published text, or ``None`` for a clip it cannot label. Such a
     source counts what it drops itself, in its own closure, and only it knows
     what its text looks like, hence ``text_has_casing_punct``.
+
+    ``cap`` is the clip cap of a larger preparation; without it the source's
+    usual cap, and the clips are recorded under ``name``, which is the
+    directory a larger preparation lands in.
 
     The whole archive is read once for its transcripts, then again for the audio
     of the clips taken from its beginning.
@@ -117,7 +122,7 @@ def prepare_train_audio(
         license=LICENSE,
         text_has_casing_punct=text_has_casing_punct,
         excluded=evaluation_groups(EVALUATION_DATASET),
-        cap=TRAIN_CLIP_CAP,
+        cap=cap if cap is not None else TRAIN_CLIP_CAP,
         cap_per_group=CLIP_CAP_PER_GROUP,
     )
 

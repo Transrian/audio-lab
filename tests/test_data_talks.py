@@ -1038,3 +1038,72 @@ def test_answers_written_from_several_threads_are_each_cached_whole(tmp_path):
     assert Answers(tmp_path / "answers.jsonl").answers == {key: {"text": text} for key in keys}
     lines = (tmp_path / "answers.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) == 200, "no line is torn or written over another"
+
+
+def test_a_larger_preparation_of_the_source_reuses_the_answers_of_the_smaller(
+    tmp_path, monkeypatch
+):
+    """The usual preparation's cache is the larger one's: no re-asking.
+
+    Two talks, one clip each. A preparation with a cap of one reads the first
+    talk of the seeded order and asks the three models for it. A larger
+    preparation of the same source, into another directory under the directory's
+    name, must ask nothing again for that talk and read on to the next.
+    """
+    rows = [whisper_row(0.0, 5.0, "Bonjour.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    source = make_source(tmp_path, [talk("a"), talk("b")])
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "EXPECTED_CLIPS_PER_TALK", 1)
+
+    assert (
+        talks.fetch_talks(
+            source, tmp_path / "cache", tmp_path / "small", license="CC-BY", verbose=False, clips=1
+        )
+        == 1
+    )
+    (small_clip,) = read_manifest(tmp_path / "small")
+    cache = tmp_path / "cache" / "test-fr-train"
+    asked_first = {path.name.partition(".")[0] for path in cache.glob(f"*.{WHISPER}.300s.jsonl")}
+    assert len(asked_first) == 1, "the cap of one read one talk"
+    assert small_clip.id.startswith("test-fr-train:"), "the usual name for the usual directory"
+
+    log.clear()
+    assert (
+        talks.fetch_talks(
+            source,
+            tmp_path / "cache",
+            tmp_path / "large",
+            license="CC-BY",
+            verbose=False,
+            name="test-fr-train-40k",
+            clips=2,
+        )
+        == 2
+    )
+
+    requests = [entry for entry in log if not entry.startswith("download")]
+    assert requests == [
+        f"warm-up {WHISPER}",
+        WHISPER,
+        f"warm-up {QWEN}",
+        QWEN,
+        f"warm-up {PARAKEET}",
+        PARAKEET,
+    ], "only the second talk was asked, in the order of the passes"
+    downloads = {entry.split(" ", 1)[1] for entry in log if entry.startswith("download")}
+    assert len(downloads) == 2, "the larger preparation reads both talks"
+    assert asked_first <= downloads, "the smaller preparation's talk is read first"
+    new_talk = (downloads - asked_first).pop()
+    clips = read_manifest(tmp_path / "large")
+    assert {clip.id.split(":", 1)[0] for clip in clips} == {"test-fr-train-40k"}, (
+        "the larger directory's name prefixes its clips"
+    )
+    assert {clip.id.split(":", 1)[1].partition("-")[0] for clip in clips} == asked_first | {
+        new_talk
+    }, "the smaller preparation's talks stay first, then the larger one reads on"
