@@ -258,8 +258,9 @@ Second batch:
   budget and recipe, scored on the suite of 2026-11-13 against its base run)
   shows the text defect was its English harm: no answer of its purely English
   panels holds the unknown token (10 of its 7 712 answers hold one, all on
-  French or code-switched panels; the base holds none, the run above 592 of
-  4 116), librispeech-en is not separable from the base (−0.07 [−0.26, +0.11]),
+  French or code-switched panels; the base run of this suite holds none, the
+  first screen's base held 3, the run above 592 of 4 116), librispeech-en is
+  not separable from the base (−0.07 [−0.26, +0.11]),
   fleurs-en improves (−0.67 [−0.95, −0.39]) and servicenow en-fr is not
   separable (−1.05 [−2.37, +0.32]); the gains stay, cs-fleurs-fr-en −2.21
   [−3.25, −1.29], voxpopuli-en-nonnative −4.45 [−5.78, −3.36] and fleurs-fr
@@ -268,8 +269,9 @@ Second batch:
   and it harms notsofar-en-eval (+3.69 [1.97, 5.65]). The hallucination rate
   is still above the base on non-speech (5.36 → 8.57, +3.21 [0.36, 6.07]; the
   run above was at 10.36): the label fix did not explain it, and its 24
-  non-speech answers are still short conversational fragments ("Yeah.",
-  "What do you think?"), now spelled with real apostrophes.
+  non-speech answers are still short conversational fragments as in the first
+  screen ("I'm going to talk about", "What do you think?"), now spelled with
+  real apostrophes.
 - **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
   label style**, the model learning to write like a stronger ASR model (a kind
   of distillation), since the human-labelled podcast does not give all of it:

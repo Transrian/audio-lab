@@ -1766,11 +1766,17 @@ this preparation leaves them out (decision 0002).
   | NASA in Silicon Valley | 102 | 46.9 |
   | Gravity Assist | 96 | 35.9 |
 
-- **What the listing leaves out**, from the 845 items of the four feeds, each
-  rule in `src/audiolab/data/nasa.py`:
-  - no item that links no page under `www.nasa.gov/podcasts/` (no link, or a
-    page on `appel.nasa.gov`) in the current feeds; the rule is still applied
-    at every listing;
+- **What the listing leaves out**, from the 884 items of the four feeds on
+  2026-11-13, each rule in `src/audiolab/data/nasa.py`:
+  - 39 items the feed reader drops before the listing's checks, because they
+    link no usable page under `www.nasa.gov/podcasts/`: 33 carry an empty
+    `<link>` (6 in Houston We Have a Podcast, 27 in Small Steps, Giant Leaps),
+    5 in Small Steps, Giant Leaps link the show's section page (2) or a page
+    on `appel.nasa.gov` (3), and 1 in Houston We Have a Podcast ends its page
+    URL with a space and a U+200E that `episode_slug` refuses
+    (`call-sign-white-flight`). All 39 carry an MP3, so it is the page check
+    that drops them; the reader keeps its page and MP3 guards at every
+    listing. The 845 they leave are what the rules below work on;
   - 17 repeats, an episode aired again being listed once, under its first
     airing. Two episodes are the same when they share a page, an MP3 file or a
     title once an "Encore" or a series' "Ep. N:" prefix and punctuation are set
