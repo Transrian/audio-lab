@@ -656,8 +656,10 @@ def fetch_nasa_en_test(name: str, cache: Path, dataset_dir: Path, *, verbose: bo
         )
         tally: Counter[str] = Counter()
         if verbose:
-            say(f"  listing of {listed_on}: {len(episodes)} episodes; "
-                f"{len(reserved)} reserved for {NAME_TEST}")
+            say(
+                f"  listing of {listed_on}: {len(episodes)} episodes; "
+                f"{len(reserved)} reserved for {NAME_TEST}"
+            )
         order = reading_order(reserved, SEED, SOURCE.spread_by)
         with (
             http_client() as http,
@@ -847,7 +849,7 @@ def with_whisper_edges(
     tally: Counter[str],
     concurrency: int = 1,
 ) -> list[tuple[Segment, str]]:
-    """The clips whose cut the segmentation model confirms (:func:`same_edges`), ``concurrency`` at once.
+    """The clips whose cut the segmentation model confirms, ``concurrency`` at once.
 
     The edge check of the evaluation set, where the base model of the
     fine-tune is the model under test and may not screen its own labels. The

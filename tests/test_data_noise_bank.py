@@ -9,11 +9,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
-
 from helpers import write_tone
+
 from audiolab.data import noise_bank
-from audiolab.data.store import read_manifest
 from audiolab.data.download import DownloadError
+from audiolab.data.store import read_manifest
 
 
 @pytest.fixture
@@ -65,8 +65,12 @@ def _fake_musan_archive(directory: Path, *, with_licence: bool = True) -> Path:
     for name in names:
         write_tone(directory / name, seconds=0.3, frequency=200)
     if with_licence:
-        (directory / "musan/noise/sound-bible/LICENSE").write_text(SOUND_BIBLE_LICENCE, encoding="utf-8")
-    members = sorted(p.relative_to(directory).as_posix() for p in directory.rglob("*") if p.is_file())
+        (directory / "musan/noise/sound-bible/LICENSE").write_text(
+            SOUND_BIBLE_LICENCE, encoding="utf-8"
+        )
+    members = sorted(
+        p.relative_to(directory).as_posix() for p in directory.rglob("*") if p.is_file()
+    )
     archive = directory / "musan.tar.gz"
     with tarfile.open(archive, "w:gz") as handle:
         for name in members:
@@ -180,12 +184,13 @@ def _fake_rirs_archive(directory: Path) -> Path:
         "--rir-id 00002 --room-id RVB_room RIRS_NOISES/real_rirs_isotropic_noises/RVB_b.wav\n"
     )
     (real / "noise_list").write_text(
-        "--noise-id 00001 --noise-type isotropic RIRS_NOISES/real_rirs_isotropic_noises/RVB_noise.wav\n"
+        "--noise-id 00001 --noise-type isotropic "
+        "RIRS_NOISES/real_rirs_isotropic_noises/RVB_noise.wav\n"
     )
     for room in ("smallroom", "mediumroom", "largeroom"):
         sim = directory / f"RIRS_NOISES/simulated_rirs/{room}"
         sim.mkdir(parents=True)
-        write_tone(sim / f"Room001/Room001-00001.wav", seconds=0.01, frequency=200)
+        write_tone(sim / "Room001/Room001-00001.wav", seconds=0.01, frequency=200)
         (sim / "rir_list").write_text(
             f"--rir-id {room}-00001 --room-id Room001 "
             f"RIRS_NOISES/simulated_rirs/{room}/Room001/Room001-00001.wav\n"
@@ -194,10 +199,13 @@ def _fake_rirs_archive(directory: Path) -> Path:
     point.mkdir(parents=True)
     write_tone(point / "noise-free-sound-0000.wav", seconds=0.01, frequency=150)
     (point / "noise_list").write_text(
-        "--noise-id noise-free-sound-0000 RIRS_NOISES/pointsource_noises/noise-free-sound-0000.wav\n"
+        "--noise-id noise-free-sound-0000 "
+        "RIRS_NOISES/pointsource_noises/noise-free-sound-0000.wav\n"
     )
     members = sorted(
-        p.relative_to(directory).as_posix() for p in directory.rglob("*") if p.is_file() and "rirs_noises.zip" not in p.name
+        p.relative_to(directory).as_posix()
+        for p in directory.rglob("*")
+        if p.is_file() and "rirs_noises.zip" not in p.name
     )
     archive = directory / "rirs_noises.zip"
     with zipfile.ZipFile(archive, "w") as handle:
@@ -232,7 +240,9 @@ def test_rirs_preps_the_rirs_of_the_lists_and_never_the_noises(dirs, monkeypatch
     assert clips["rirs-noises:RVB_a"].source_split == "eval"
     assert clips["rirs-noises:RVB_a"].category == "real-rir"
     assert clips["rirs-noises:simulated/smallroom/Room001/Room001-00001"].source_split == "train"
-    assert clips["rirs-noises:simulated/smallroom/Room001/Room001-00001"].category == "simulated-rir"
+    assert (
+        clips["rirs-noises:simulated/smallroom/Room001/Room001-00001"].category == "simulated-rir"
+    )
     # The 8-channel measurement is stored as channel 0, mono, 16 kHz.
     a, rate = sf.read(str(data / "rirs-noises" / clips["rirs-noises:RVB_a"].audio), always_2d=True)
     assert a.shape == (160, 1) and rate == 16000

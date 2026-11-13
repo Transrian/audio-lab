@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 import soundfile as sf
-
 from helpers import write_tone
+
+from audiolab.core.audio import SAMPLE_RATE
 from audiolab.data import music
 from audiolab.data.panels import (
     NONSPEECH_FAST,
@@ -19,7 +20,6 @@ from audiolab.data.panels import (
     select_panels,
 )
 from audiolab.data.store import read_manifest
-from audiolab.core.audio import SAMPLE_RATE
 
 FMA_LICENCE = """\
 music-fma-0001
@@ -83,16 +83,52 @@ def test_music_licence_ok(licence, ok):
     ("licence", "ok"),
     [
         # The wordings the archive's own licence files actually use.
-        ("Stormy Blues by Arne Huseby is licensed under a Attribution 3.0 International License.", True),
-        ("Live At Blues Alley by U.S. Army Blues is licensed under a Public Domain Mark 1.0 License.", True),
-        ("Mussorgsky's Pictures at an Exhibition by Skidmore College Orchestra is licensed under a Public Domain License.", True),
-        ("wcfsymphony In Concert by Jason Weinberger & wcfsymphony is licensed under a Creative Commons Attribution License.", True),
-        ("Audionautix: Acoustic by Jason Shaw is licensed under a Attribution 3.0 United States License.", True),
+        (
+            "Stormy Blues by Arne Huseby is licensed under a Attribution 3.0 "
+            "International License.",
+            True,
+        ),
+        (
+            "Live At Blues Alley by U.S. Army Blues is licensed under "
+            "a Public Domain Mark 1.0 License.",
+            True,
+        ),
+        (
+            "Mussorgsky's Pictures at an Exhibition by Skidmore College Orchestra "
+            "is licensed under a Public Domain License.",
+            True,
+        ),
+        (
+            "wcfsymphony In Concert by Jason Weinberger & wcfsymphony is licensed under "
+            "a Creative Commons Attribution License.",
+            True,
+        ),
+        (
+            "Audionautix: Acoustic by Jason Shaw is licensed under "
+            "a Attribution 3.0 United States License.",
+            True,
+        ),
         ("Attribution 3.0 Unported (CC BY 3.0)", True),
-        ("Paris, Lisboa by Jahzzar is licensed under a Attribution-ShareAlike 3.0 International License.", False),
-        ("Selections from the November 2006 Concert by Advent Chamber Orchestra is licensed under a Attribution-Share Alike 3.0 United States License.", False),
-        ("Singles by bueno.sair.es is licensed under a Attribution-ShareAlike 2.5 Portugal License.", False),
-        ("Go On by Morgan Sadler is licensed under a Attribution-NoDerivatives 3.0 International License.", False),
+        (
+            "Paris, Lisboa by Jahzzar is licensed under a Attribution-ShareAlike 3.0 "
+            "International License.",
+            False,
+        ),
+        (
+            "Selections from the November 2006 Concert by Advent Chamber Orchestra is "
+            "licensed under a Attribution-Share Alike 3.0 United States License.",
+            False,
+        ),
+        (
+            "Singles by bueno.sair.es is licensed under a Attribution-ShareAlike 2.5 "
+            "Portugal License.",
+            False,
+        ),
+        (
+            "Go On by Morgan Sadler is licensed under a Attribution-NoDerivatives 3.0 "
+            "International License.",
+            False,
+        ),
         ("Attribution-NoDerfff.0 Unported (CC BY-ND 3.0)", False),
         ("CC BY-SA 3.0 DE", False),
     ],
@@ -163,7 +199,9 @@ def test_music_fetch_keeps_only_licensed_instrumental_files(dirs, monkeypatch, c
     monkeypatch.setattr(music, "MUSAN_SHA256", "")
     monkeypatch.setattr(music, "MUSIC_EXPECTED_CLIPS", 2, raising=True)
 
-    count = music.fetch_nonspeech_music("nonspeech-music", cache, data / "nonspeech-music", verbose=True)
+    count = music.fetch_nonspeech_music(
+        "nonspeech-music", cache, data / "nonspeech-music", verbose=True
+    )
 
     clips = {clip.id: clip for clip in read_manifest(data / "nonspeech-music")}
     assert count == 2
@@ -217,14 +255,23 @@ def test_music_panels_draw_the_family(tmp_path):
     from helpers import make_clip
 
     # 60 groups: the first forty hold two clips each, the rest one.
-    clips = [make_clip(f"nonspeech-music:music-x{i:03d}", language="none", group=f"nonspeech-music:g{i % 60}") for i in range(100)]
+    clips = [
+        make_clip(
+            f"nonspeech-music:music-x{i:03d}", language="none", group=f"nonspeech-music:g{i % 60}"
+        )
+        for i in range(100)
+    ]
     build_panels("nonspeech-music", clips, panels_dir=tmp_path)
 
     by_id = {clip.id: clip for clip in clips}
     ids_of = {}
     for name in "sealed full fast".split():
         path = panel_path(f"nonspeech-music-{name}", tmp_path)
-        ids_of[name] = {l for l in path.read_text().splitlines() if l.strip() and not l.startswith("#")}
+        ids_of[name] = {
+            line
+            for line in path.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        }
         assert check_panel(path, clips) == []
     # The sealed part holds whole artists back: every clip of a sealed artist
     # is sealed, and a sealed artist never appears in the full panel.
@@ -241,10 +288,17 @@ def test_a_big_artist_is_sealed_whole(tmp_path):
     """When the first sealed artist is large, the whole artist is sealed, not a cut of it."""
     from helpers import make_clip
 
-    clips = (
-        [make_clip(f"nonspeech-music:music-big{i:03d}", language="none", group="nonspeech-music:BigArtist") for i in range(80)]
-        + [make_clip(f"nonspeech-music:music-s{i:03d}", language="none", group=f"nonspeech-music:small{i}") for i in range(20)]
-    )
+    clips = [
+        make_clip(
+            f"nonspeech-music:music-big{i:03d}", language="none", group="nonspeech-music:BigArtist"
+        )
+        for i in range(80)
+    ] + [
+        make_clip(
+            f"nonspeech-music:music-s{i:03d}", language="none", group=f"nonspeech-music:small{i}"
+        )
+        for i in range(20)
+    ]
     chosen = select_panels(clips, 1234)
 
     big = {f"nonspeech-music:music-big{i:03d}" for i in range(80)}

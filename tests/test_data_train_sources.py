@@ -1884,9 +1884,7 @@ NOTSOFAR_TRANSCRIPTS = {
 }
 
 
-def notsofar_listing(
-    directory: Path, transcripts: dict, split: str | None = None
-) -> list[dict]:
+def notsofar_listing(directory: Path, transcripts: dict, split: str | None = None) -> list[dict]:
     """The files of the fixture as the Hub lists them, with their own digests.
 
     A recording is a large file the Hub keeps through its LFS store and names by
@@ -1898,13 +1896,9 @@ def notsofar_listing(
     paths = [f"{split}/{notsofar.MEETINGS_DIRECTORY}"]
     for meeting in transcripts:
         paths.append(f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}")
-        paths.append(
-            f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{notsofar.TRANSCRIPT_NAME}"
-        )
+        paths.append(f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{notsofar.TRANSCRIPT_NAME}")
         for recording in sorted(_notsofar_recordings(transcripts, meeting)):
-            paths.append(
-                f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{recording}"
-            )
+            paths.append(f"{split}/{notsofar.MEETINGS_DIRECTORY}/{meeting}/{recording}")
     entries = []
     for path in paths:
         file = directory / path

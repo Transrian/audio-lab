@@ -486,7 +486,9 @@ def test_a_preparation_of_the_training_set_skips_the_episodes_of_the_evaluation_
     test_dir = tmp_path / nasa.NAME_TEST
     test_dir.mkdir()
     (test_dir / "manifest.jsonl").write_text(
-        make_clip(f"{nasa.NAME_TEST}:one", language="en", group=f"{nasa.NAME_TEST}:one").manifest_line()
+        make_clip(
+            f"{nasa.NAME_TEST}:one", language="en", group=f"{nasa.NAME_TEST}:one"
+        ).manifest_line()
         + "\n",
         encoding="utf-8",
     )
@@ -506,18 +508,31 @@ def test_a_preparation_of_the_training_set_skips_the_episodes_of_the_evaluation_
         asked.append(request.url.path)
         return httpx.Response(200, text=transcript)
 
-    monkeypatch.setattr(nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer)))
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
     models = FakeModels(
         [
-            {"start": 0.0, "end": 5.0, "text": " welcome to gravity assist episode seven."},
+            {
+                "start": 0.0,
+                "end": 5.0,
+                "text": " welcome to gravity assist episode seven.",
+            },
             {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
         ],
-        ["welcome to gravity assist episode seven", "thanks jim mars has two moons"],
+        [
+            "welcome to gravity assist episode seven",
+            "thanks jim mars has two moons",
+        ],
     )
     models.serve(monkeypatch)
-    monkeypatch.setattr(talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0))
+    monkeypatch.setattr(
+        talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0)
+    )
 
-    count = nasa.fetch_nasa_en_train(nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True)
+    count = nasa.fetch_nasa_en_train(
+        nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
 
     assert count == 2
     clips = read_manifest(tmp_path / "dataset")
@@ -534,7 +549,12 @@ class FakeTestModels(FakeModels):
     """Whisper and Parakeet, logged: Whisper gives the chunks' segments, then its
     per-clip texts in turn, and Parakeet its texts in turn."""
 
-    def __init__(self, whisper_rows: list[dict], whisper_clip_texts: list[str], parakeet_texts: list[str]):
+    def __init__(
+        self,
+        whisper_rows: list[dict],
+        whisper_clip_texts: list[str],
+        parakeet_texts: list[str],
+    ):
         super().__init__(whisper_rows, parakeet_texts)
         self.whisper_clip_texts = list(whisper_clip_texts)
 
@@ -582,9 +602,13 @@ def test_a_preparation_of_the_evaluation_set_checks_the_edges_with_whisper(
         ["welcome to gravity assist episode seven", "welcome to gravity assist episode seven"],
     )
     models.serve(monkeypatch)
-    monkeypatch.setattr(talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=60.0))
+    monkeypatch.setattr(
+        talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=60.0)
+    )
 
-    count = nasa.fetch_nasa_en_test(nasa.NAME_TEST, tmp_path / "cache", tmp_path / "dataset", verbose=True)
+    count = nasa.fetch_nasa_en_test(
+        nasa.NAME_TEST, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
 
     assert count == 2
     whisper, parakeet = nasa.SEGMENT_MODEL, nasa.BASE_MODEL

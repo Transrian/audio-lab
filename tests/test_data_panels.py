@@ -121,7 +121,9 @@ def test_every_nonspeech_panel_holds_silences_noises_and_sounds():
     assert family_counts(chosen["sealed"]) == {
         k: v for k, v in NONSPEECH_SEALED.items() if v and k != "music"
     }
-    assert family_counts(chosen["fast"]) == {k: v for k, v in NONSPEECH_FAST.items() if k != "music"}
+    assert family_counts(chosen["fast"]) == {
+        k: v for k, v in NONSPEECH_FAST.items() if k != "music"
+    }
     assert family_counts(chosen["full"]) == {"silence": 40, "noise": 40, "esc50": 200}
 
     sealed, full, fast = (set(chosen[name]) for name in "sealed full fast".split())

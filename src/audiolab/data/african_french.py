@@ -273,7 +273,9 @@ def _key(path_in_archive: str) -> str:
     return base
 
 
-def _read_transcripts(name: str, archive: Path, transcript_names: tuple[str, ...]) -> dict[str, str]:
+def _read_transcripts(
+    name: str, archive: Path, transcript_names: tuple[str, ...]
+) -> dict[str, str]:
     """Every transcript of the archive's part, keyed by recording name."""
     transcripts: dict[str, str] = {}
     read = 0

@@ -138,7 +138,7 @@ def fetch_nonspeech_music(name: str, cache_dir: Path, dataset_dir: Path, *, verb
     report, eligible = _decide(wavs, texts)
     if verbose:
         for subcollection in sorted(report):
-            counts = ", ".join(f"{l} {n}" for l, n in sorted(report[subcollection].items()))
+            counts = ", ".join(f"{kind} {n}" for kind, n in sorted(report[subcollection].items()))
             print(f"  {subcollection}: {counts}")
         print(f"  {name}: {len(eligible)} eligible files before the {MAX_FILES} cap")
     selected = _spread(eligible, MAX_FILES)
@@ -171,7 +171,10 @@ def fetch_nonspeech_music(name: str, cache_dir: Path, dataset_dir: Path, *, verb
                 length = int(EXCERPT_SECONDS * SAMPLE_RATE)
                 if len(audio.samples) > length:
                     offset = _offset(stem) % (len(audio.samples) - length)
-                    audio = Audio(samples=audio.samples[offset : offset + length], sample_rate=SAMPLE_RATE)
+                    audio = Audio(
+                        samples=audio.samples[offset : offset + length],
+                        sample_rate=SAMPLE_RATE,
+                    )
                 builder.add(clip_id, audio, **fields)
         if verbose:
             per: dict[str, int] = {}

@@ -71,7 +71,11 @@ def _prepared(dataset: str) -> Path:
 def fetch_noisy(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare one noisy set: the source's panel clips, each in one condition."""
     source = _source(name)
-    missing = [d for d in (*BABBLES[source], source, "musan-noise", "rirs-noises") if not (data_dir() / d / "manifest.jsonl").is_file()]
+    missing = [
+        d
+        for d in (*BABBLES[source], source, "musan-noise", "rirs-noises")
+        if not (data_dir() / d / "manifest.jsonl").is_file()
+    ]
     if missing:
         raise DownloadError(f"{name} needs the prepared datasets: {', '.join(missing)}")
     source_dir = _prepared(source)
@@ -266,7 +270,9 @@ def _active_speech_power(samples: np.ndarray) -> float:
     if len(samples) < frame:
         return float(np.mean(samples.astype(np.float64) ** 2))
     powers = (
-        (samples[: frame * (len(samples) // frame)].astype(np.float64) ** 2).reshape(-1, frame).mean(axis=1)
+        (samples[: frame * (len(samples) // frame)].astype(np.float64) ** 2)
+        .reshape(-1, frame)
+        .mean(axis=1)
     )
     active = powers[powers >= powers.max() / 10.0 ** (35 / 10)]
     return float(active.mean())

@@ -199,8 +199,7 @@ def _build_derived_panels(
             derived_id = f"{dataset}:{clip_id.partition(':')[2]}"
             if derived_id not in by_id:
                 raise ValueError(
-                    f"{dataset} holds no clip {derived_id}, which the {source} "
-                    f"{name} panel names"
+                    f"{dataset} holds no clip {derived_id}, which the {source} {name} panel names"
                 )
             ids.append(derived_id)
         ids.sort()
@@ -296,10 +295,7 @@ def _select_nonspeech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
             sealed += members[group]
             sealed_groups.add(group)
         full = [
-            clip_id
-            for group in order
-            if group not in sealed_groups
-            for clip_id in members[group]
+            clip_id for group in order if group not in sealed_groups for clip_id in members[group]
         ]
         panels["sealed"] += sealed
         panels["full"] += full
@@ -492,6 +488,5 @@ def _derived_expected_ids(path: Path, source: str, panel: Panel) -> list[str]:
     if not source_path.is_file():
         raise ValueError(f"{source_path} is missing: the {source} panels must be built")
     return sorted(
-        f"{panel.dataset}:{clip_id.partition(':')[2]}"
-        for clip_id in read_panel(source_path).ids
+        f"{panel.dataset}:{clip_id.partition(':')[2]}" for clip_id in read_panel(source_path).ids
     )

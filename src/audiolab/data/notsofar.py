@@ -129,7 +129,9 @@ def fetch_notsofar_en_eval(name: str, cache_dir: Path, dataset_dir: Path, *, ver
     excluded = _train_speaker_aliases(dataset_dir)
     with ManifestBuilder(dataset_dir, verbose=verbose) as builder:
         for meeting in meetings:
-            chunks = [chunk for chunk in merged(meeting.utterances) if chunk.speaker not in excluded]
+            chunks = [
+                chunk for chunk in merged(meeting.utterances) if chunk.speaker not in excluded
+            ]
             if not chunks:
                 continue
             audio = release.recordings(meeting, chunks)
@@ -151,9 +153,14 @@ def fetch_notsofar_en_eval(name: str, cache_dir: Path, dataset_dir: Path, *, ver
                     )
         if verbose:
             dropped = sum(
-                1 for meeting in meetings for chunk in merged(meeting.utterances) if chunk.speaker in excluded
+                1
+                for meeting in meetings
+                for chunk in merged(meeting.utterances)
+                if chunk.speaker in excluded
             )
-            aliases = {chunk.speaker for meeting in meetings for chunk in merged(meeting.utterances)}
+            aliases = {
+                chunk.speaker for meeting in meetings for chunk in merged(meeting.utterances)
+            }
             print(
                 f"  {name}: {len(builder.clips)} clips, {len(aliases)} aliases; "
                 f"{len(excluded & aliases)} aliases dropped as train overlaps ({dropped} clips)"

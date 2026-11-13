@@ -6,10 +6,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from helpers import make_clip
-from audiolab.core.audio import SAMPLE_RATE, Audio
-from audiolab.core.audio import to_int16
+
+from audiolab.core.audio import SAMPLE_RATE, Audio, to_int16
 from audiolab.data import noisy
 from audiolab.data.download import DownloadError
 from audiolab.data.panels import build_panels, check_panel, panel_path, read_panel
@@ -27,9 +26,7 @@ def _speech(seconds: float = 2.0, amplitude: float = 0.5) -> np.ndarray:
 
 
 def _noise(seconds: float = 2.0) -> np.ndarray:
-    return (np.random.default_rng(7).normal(0, 0.2, int(seconds * SAMPLE_RATE))).astype(
-        np.float32
-    )
+    return (np.random.default_rng(7).normal(0, 0.2, int(seconds * SAMPLE_RATE))).astype(np.float32)
 
 
 def _measured_snr(speech: np.ndarray, noise: np.ndarray, mix: np.ndarray) -> float:
@@ -83,7 +80,6 @@ def _fake_material(path):
 
 def test_peak_is_scaled_down_to_under_one():
     speech = _speech(amplitude=0.95)
-    noise = _noise()
     clip = make_clip("src:one")
 
     with pytest.MonkeyPatch().context() as mp:
@@ -122,9 +118,12 @@ def test_babble_uses_four_different_groups_and_alternates_pools():
     en_pool = [(Path(f"en/g{k}/c{i}.wav"), f"en:g{k}") for k in range(5) for i in range(2)]
 
     with pytest.MonkeyPatch().context() as mp:
-        mp.setattr(noisy, "load_audio", lambda source, sample_rate=SAMPLE_RATE: (
-            loaded.append(Path(source)) or Audio(samples=_speech(seconds=0.5), sample_rate=SAMPLE_RATE)
-        ))
+
+        def load(source, sample_rate=SAMPLE_RATE):
+            loaded.append(Path(source))
+            return Audio(samples=_speech(seconds=0.5), sample_rate=sample_rate)
+
+        mp.setattr(noisy, "load_audio", load)
         mixed, license_ = noisy._babble_segment(
             "src:one", int(1.0 * SAMPLE_RATE), [(fr_pool, "CC-BY-4.0"), (en_pool, "CC-BY-4.0")]
         )
@@ -140,9 +139,13 @@ def test_babble_uses_four_different_groups_and_alternates_pools():
 def test_babble_stops_when_a_pool_has_too_few_groups():
     pool = [(Path(f"g{k}/c0.wav"), f"g{k}") for k in range(3)]
     with pytest.MonkeyPatch().context() as mp:
-        mp.setattr(noisy, "load_audio", lambda source, sample_rate=SAMPLE_RATE: Audio(
-            samples=_speech(seconds=0.5), sample_rate=SAMPLE_RATE
-        ))
+        mp.setattr(
+            noisy,
+            "load_audio",
+            lambda source, sample_rate=SAMPLE_RATE: Audio(
+                samples=_speech(seconds=0.5), sample_rate=SAMPLE_RATE
+            ),
+        )
 
         with pytest.raises(DownloadError, match="fewer than four free groups"):
             noisy._babble_segment("src:one", int(0.5 * SAMPLE_RATE), [(pool, "CC-BY-4.0")])
@@ -187,7 +190,9 @@ def test_the_license_names_the_material(condition, expected):
 
 
 def _source_clips(prefix: str) -> list:
-    return [make_clip(f"{prefix}:g{g}c{i}", group=f"{prefix}:g{g}") for g in (1, 2) for i in range(3)]
+    return [
+        make_clip(f"{prefix}:g{g}c{i}", group=f"{prefix}:g{g}") for g in (1, 2) for i in range(3)
+    ]
 
 
 def test_derived_panels_map_the_source_ids_and_keep_sealing(tmp_path):

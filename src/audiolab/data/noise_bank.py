@@ -173,7 +173,10 @@ def fetch_musan_noise(name: str, cache_dir: Path, dataset_dir: Path, *, verbose:
         if verbose:
             counts = ", ".join(f"{half} {n}" for half, n in sorted(per_split.items()))
             cats = ", ".join(f"{c} {n}" for c, n in sorted(per_category.items()))
-            print(f"  {name}: {len(builder.clips)} files ({counts}; {cats}); {dropped} dropped by licence")
+            print(
+                f"  {name}: {len(builder.clips)} files ({counts}; {cats}); "
+                f"{dropped} dropped by licence"
+            )
         require_clips(name, len(builder.clips), MUSAN_EXPECTED_CLIPS)
         builder.write()
     return len(builder.clips)
@@ -205,7 +208,8 @@ def fetch_rirs_noises(name: str, cache_dir: Path, dataset_dir: Path, *, verbose:
     cache = cache_dir / "rirs-noises"
     archive = download(RIRS_URL, cache / "rirs_noises.zip", sha256=RIRS_SHA256)
     rirs = _rirs(archive)
-    with zipfile.ZipFile(archive) as zip:  # the archive stays open: one open per clip would take hours
+    # The archive stays open: one open per clip would take hours.
+    with zipfile.ZipFile(archive) as zip:
         with ManifestBuilder(dataset_dir, verbose=verbose, total=len(rirs)) as builder:
             for member, category, split, stem in rirs:
                 clip_id = f"{name}:{stem}"
@@ -261,7 +265,8 @@ def _rirs(archive: Path) -> list[tuple[str, str, str, str]]:
     """
     out: list[tuple[str, str, str, str]] = []
     with zipfile.ZipFile(archive) as zip:
-        for line in zip.read("RIRS_NOISES/real_rirs_isotropic_noises/rir_list").decode().splitlines():
+        real_list = zip.read("RIRS_NOISES/real_rirs_isotropic_noises/rir_list").decode()
+        for line in real_list.splitlines():
             member = line.split()[-1]
             out.append((member, "real-rir", "eval", Path(member).name.removesuffix(".wav")))
         for room in ("smallroom", "mediumroom", "largeroom"):
@@ -272,7 +277,10 @@ def _rirs(archive: Path) -> list[tuple[str, str, str, str]]:
                 # The rooms hold their files in per-room subdirectories and name
                 # them alike, so the stem is the path under the room directory.
                 relative = Path(member.removeprefix(prefix))
-                out.append((member, "simulated-rir", "train", f"simulated/{room}/{relative.with_suffix('').as_posix()}"))
+                category = "simulated-rir"
+                split = "train"
+                clip_id = f"simulated/{room}/{relative.with_suffix('').as_posix()}"
+                out.append((member, category, split, clip_id))
     return out
 
 
