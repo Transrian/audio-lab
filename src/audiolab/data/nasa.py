@@ -89,12 +89,12 @@ FEED = "https://www.nasa.gov/feeds/podcasts/{show}"
 # The shows this source reads, by the slug of their feed, with their names.
 # On a Mission is left out: it is made by JPL, which Caltech runs for NASA, and
 # its feed names "NASA/JPL/Caltech" as the copyright holder, so it is not a
-# work of the US government.
+# work of the US government. Curious Universe is left out too: see
+# EXCLUDED_SHOWS.
 SHOWS = {
     "houston-we-have-a-podcast": "Houston We Have a Podcast",
     "small-steps-giant-leaps": "Small Steps, Giant Leaps",
     "nasa-in-silicon-valley": "NASA in Silicon Valley",
-    "curious-universe": "NASA's Curious Universe",
     "gravity-assist": "Gravity Assist",
 }
 # What the feed of a show may name as its copyright holder: NASA, or NASA's own
@@ -536,7 +536,10 @@ TEST_EPISODES_PER_SHOW = 15
 # At most this many clips per episode, as the training set's per-group cap:
 # one episode is one group, and a group may not dominate the set.
 TEST_CLIPS_PER_EPISODE = 30
-# A show the reservation never reads (owner, 2026-11-10; plan 05 Part B).
+# The show the listing and the reservation of nasa-en-test never read (owner,
+# 2026-11-10): the music beds under the speech and the archival recordings the
+# listing's filters leave out concentrate in that show, so the source excludes
+# it entirely rather than episode by episode.
 EXCLUDED_SHOWS = frozenset({"curious-universe"})
 # The prepared training sets: their episodes are out of the reservation, and
 # the training set in turn leaves the reserved episodes out of every
