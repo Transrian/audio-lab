@@ -303,7 +303,8 @@ DATASETS: dict[str, DatasetInfo] = {
         reference_style="no speech: the reference text is empty",
         grouping="clip (group = clip id)",
         notes="Hallucination battery: 50 silences, 50 low-level noises, 200 ESC-50 "
-        "clips. No music (known gap).",
+        "clips. The music of the battery lives in `nonspeech-music`, with its "
+        "own panels and its own family numbers.",
     ),
     "noisy-fleurs-fr": DatasetInfo(
         name="noisy-fleurs-fr",
@@ -342,6 +343,18 @@ DATASETS: dict[str, DatasetInfo] = {
         notes="Owner-approved (Q4, 2026-11-10). The babble alternates French and "
         "English speakers. As for the source: synthetic speech with no licence, "
         "used for evaluation only and never redistributed (proposed decision 0011).",
+    ),
+    "nonspeech-music": DatasetInfo(
+        name="nonspeech-music",
+        source="https://www.openslr.org/17 (musan.tar.gz, musan/music/)",
+        license="per file, from the sub-collection's LICENSE: public domain or CC-BY "
+        "(any version); files with vocals or other licences are not read",
+        split="10 s excerpts, one per file, up to 300 files spread over the sub-collections",
+        reference_style="no speech: the reference text is empty",
+        grouping="artist where the annotation gives one, else the file",
+        notes="Music for the hallucination battery (backlog N-03): a model should "
+        "transcribe it as empty. Only instrumental, redistributable files are "
+        "kept. The speech part of the archive is not read.",
     ),
     "musan-noise": DatasetInfo(
         name="musan-noise",

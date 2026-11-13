@@ -116,9 +116,12 @@ def family_counts(ids: list[str]) -> Counter:
 
 def test_every_nonspeech_panel_holds_silences_noises_and_sounds():
     # Version 1 sealed the 50 silences, so no fast or full run ever scored one.
+    # The music family (nonspeech-music) is not in this battery and is skipped.
     chosen = select_panels(battery_clips(), 1234)
-    assert family_counts(chosen["sealed"]) == {k: v for k, v in NONSPEECH_SEALED.items() if v}
-    assert family_counts(chosen["fast"]) == NONSPEECH_FAST
+    assert family_counts(chosen["sealed"]) == {
+        k: v for k, v in NONSPEECH_SEALED.items() if v and k != "music"
+    }
+    assert family_counts(chosen["fast"]) == {k: v for k, v in NONSPEECH_FAST.items() if k != "music"}
     assert family_counts(chosen["full"]) == {"silence": 40, "noise": 40, "esc50": 200}
 
     sealed, full, fast = (set(chosen[name]) for name in "sealed full fast".split())

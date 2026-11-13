@@ -1,0 +1,38 @@
+# panel: nonspeech-music-fast
+# dataset: nonspeech-music (261 clips in 39 groups; fma 42, fma-western-art 48, hd-classical 19, jamendo 5, rfm 147)
+# items: 30  (clip ids below, one per line)
+# clips_sha256: 883dead6724803e352492b880f30fe5c9f88f5c98d8f8b6a55342caddf1de3a4  (sha256 of the sorted id/audio hashes)
+# manifest_sha256: c93e09c67c888687295b9b2bd05ef8adf7056b7406109e81b45a4622037c92c7  (sha256 of the sorted manifest ids)
+# seed: 20261107
+# built: 2026-11-13  (date the panel was frozen; never rebuilt)
+# audio and reference text live under $AUDIOLAB_DATA
+nonspeech-music:music-fma-0001
+nonspeech-music:music-fma-0004
+nonspeech-music:music-fma-0032
+nonspeech-music:music-fma-0033
+nonspeech-music:music-fma-0040
+nonspeech-music:music-fma-0041
+nonspeech-music:music-fma-0060
+nonspeech-music:music-fma-0072
+nonspeech-music:music-fma-0098
+nonspeech-music:music-fma-0102
+nonspeech-music:music-fma-0114
+nonspeech-music:music-fma-0119
+nonspeech-music:music-fma-0122
+nonspeech-music:music-fma-wa-0000
+nonspeech-music:music-fma-wa-0033
+nonspeech-music:music-fma-wa-0038
+nonspeech-music:music-fma-wa-0041
+nonspeech-music:music-fma-wa-0064
+nonspeech-music:music-fma-wa-0066
+nonspeech-music:music-fma-wa-0067
+nonspeech-music:music-fma-wa-0069
+nonspeech-music:music-fma-wa-0074
+nonspeech-music:music-fma-wa-0079
+nonspeech-music:music-fma-wa-0081
+nonspeech-music:music-hd-0026
+nonspeech-music:music-hd-0028
+nonspeech-music:music-hd-0040
+nonspeech-music:music-hd-0045
+nonspeech-music:music-jamendo-0042
+nonspeech-music:music-jamendo-0044

@@ -43,9 +43,11 @@ FAST_CLIPS = 100
 SEALED_GROUP_SHARE = 0.2
 # The non-speech battery is sized per family, so that every panel holds every
 # family. Only the clips generated here can be sealed: ESC-50 is public and
-# widely copied, so a sealed copy of it would prove little.
-NONSPEECH_SEALED = {"silence": 10, "noise": 10, "esc50": 0}
-NONSPEECH_FAST = {"silence": 10, "noise": 10, "esc50": 40}
+# widely copied, so a sealed copy of it would prove little. The music family
+# joins with numbers of its own; the families above keep theirs, so the frozen
+# nonspeech panels still check.
+NONSPEECH_SEALED = {"silence": 10, "noise": 10, "esc50": 0, "music": 40}
+NONSPEECH_FAST = {"silence": 10, "noise": 10, "esc50": 40, "music": 30}
 
 
 @dataclass(frozen=True)
@@ -261,18 +263,45 @@ def _select_speech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
 def _select_nonspeech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
     """Sealed, full and fast panels drawn family by family.
 
-    Families are silence, noise and ESC-50 sounds. The whole battery is shuffled
-    once and split by family, keeping the shuffled order; the first clips of a
-    family are sealed and the rest form its full panel. The battery has 300
-    clips, too few for three disjoint panels, so the fast panel is an evenly
-    spread subset of the full one. Drawing per family guarantees that silences,
-    the case where models are known to invent text, are scored in every panel.
+    Families are silence, noise, ESC-50 sounds and music. The whole battery is
+    shuffled once and split by family, keeping the shuffled order; the first
+    clips of a family are sealed and the rest form its full panel. The battery
+    is too small for three disjoint panels, so the fast panel is an evenly
+    spread subset of the full one. Drawing per family guarantees that
+    silences, the case where models are known to invent text, are scored in
+    every panel.
+
+    The sealed part holds whole groups back, as the speech panels do: a family
+    whose groups hold several clips (the music battery groups files by artist)
+    seals artists, so a sealed artist's clips never leak into the full panel.
+    For families whose groups are single clips, that is exactly the old rule.
     """
+    group_of = {clip.id: clip.group for clip in clips}
     panels: dict[str, list[str]] = {"sealed": [], "full": [], "fast": []}
     for family, ids in sorted(_families(clips, seed).items()):
         sealed_count = NONSPEECH_SEALED[family]
-        full = ids[sealed_count:]
-        panels["sealed"] += ids[:sealed_count]
+        order: list[str] = []
+        members: dict[str, list[str]] = {}
+        for clip_id in ids:
+            group = group_of[clip_id]
+            if group not in members:
+                members[group] = []
+                order.append(group)
+            members[group].append(clip_id)
+        sealed: list[str] = []
+        sealed_groups: set[str] = set()
+        for group in order:
+            if len(sealed) >= sealed_count:
+                break
+            sealed += members[group]
+            sealed_groups.add(group)
+        full = [
+            clip_id
+            for group in order
+            if group not in sealed_groups
+            for clip_id in members[group]
+        ]
+        panels["sealed"] += sealed
         panels["full"] += full
         panels["fast"] += _evenly_spaced(full, NONSPEECH_FAST[family])
     return {name: sorted(ids) for name, ids in panels.items()}

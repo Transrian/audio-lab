@@ -28,6 +28,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `noisy-fleurs-fr` | fr | CC-BY-4.0 + material, per clip | derived: the source's panels | 676 | 332 | 2.0 | 214 MiB |
 | `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
+| `nonspeech-music` | none | PD or CC-BY per file, see below | 10 s excerpts of instrumental files | 261 | 39 | 0.7 | 80 MiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -59,6 +60,7 @@ part of how precise its numbers can be:
 | `noisy-fleurs-fr` | 100 / 100 | 533 / 266 | 143 / 66 |
 | `noisy-fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
+| `nonspeech-music` | 30 / 21 | 114 / 38 | 147 / 1 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -210,7 +212,9 @@ Three kinds of clip that must stay silent, 300 in total:
   2026-11-08 before any score was published, and the new sealed clips are all
   taken from the old sealed panel, so none of them was ever scored.
 - **Why it is here**: a model that hallucinates on silence or noise is unusable
-  even when its WER looks good, and this is cheap to check.
+  even when its WER looks good, and this is cheap to check. The battery's
+  music — a model must stay silent on that too — is the separate set
+  [`nonspeech-music`](#nonspeech-music--music-for-the-hallucination-battery).
 - **Levels**: the noise is scaled to a target **RMS** of -60 to -30 dBFS, which
   is what a level in dBFS normally means; scaling by the peak instead would put
   the clips about 10 dB below the level their name claims.
@@ -523,6 +527,36 @@ The license field is the source clip's licence plus the material's, e.g.
   51 `reverb-noise-snr10`).
 - **Panels**: the source's panels re-prefixed — fast 100/100, full 238/238,
   sealed 60/60.
+
+## `nonspeech-music` — music for the hallucination battery
+
+- **Source**: the `musan/music/` part of
+  [MUSAN (OpenSLR 17)](https://www.openslr.org/17/) — the same archive as
+  `musan-noise`; only its music part is read here, and the noise part never.
+- **License**: per file, from the sub-collection's own `LICENSE`: only blocks
+  the corpus marks public domain or CC-BY (any version) are kept — share-alike,
+  non-commercial and no-derivatives variants are different licences and are
+  dropped, as are files whose `ANNOTATIONS` mark them as having vocals (a sung
+  file would hand a hallucinating model words to output). The licence field
+  holds the block's wording, e.g. `CC BY 3.0` or
+  `Live At Blues Alley by U.S. Army Blues is licensed under a Public Domain
+  Mark 1.0 License.`.
+- **Prepared**: 261 clips, 39 groups, 0.7 h, 80 MiB — one 10 s excerpt per
+  file at a hash-chosen offset, spread over the five sub-collections: rfm 147
+  (one sticky CC BY 3.0 header over the list), fma-western-art 48, fma 42,
+  hd-classical 19, jamendo 5 (its catalogue is mostly share-alike and
+  no-derivatives, so only five of its CC-BY files remain after the vocal
+  filter). The 300-file cap was not reached.
+- **Group**: the artist where the annotation gives one (`group_kind: artist`),
+  else the file (`recording`) — two files by one artist are not independent.
+- **Panels**: fast 30, full 114, sealed 147 — the `music` family of the
+  non-speech battery, sized on its own so the frozen `nonspeech` panels keep
+  checking. The sealed part holds whole artists back, as the speech panels do:
+  here that is the entire rfm catalogue, one artist (Kevin MacLeod), which the
+  40-clip family budget seals in one go.
+- **Why it is here**: the `nonspeech` battery (backlog N-03) had no music, and
+  a model that transcribes music is hallucinating: the reference is empty, as
+  for the silences and the noises.
 
 ## Training sources
 
