@@ -493,7 +493,7 @@ Three kinds of clip that must stay silent, 300 in total:
 
 - **Source**: the same pinned listing as
   [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
-  (774 episodes, five shows, 2026-11-09), of which 60 are reserved for this set
+  (768 episodes, four shows, 2026-11-13), of which 60 are reserved for this set
   by a constant rule: the episodes whose groups a prepared `nasa-en-train`
   (including the `.curly-2026-11-09` re-screening) holds are out, NASA's
   Curious Universe is out, and of the rest the first 60 by
@@ -536,9 +536,10 @@ Three kinds of clip that must stay silent, 300 in total:
   (`evaluation_groups`) and skips the reserved episodes of every preparation
   it makes after the set exists — checked in `tests/test_data_nasa.py`. The
   set was prepared 2026-11-13, after both training preparations, so their 11956
-  and 12000 clips hold none of its episodes. All seven Curious Universe
-  episodes of the listing are in the training sets, so the show's exclusion
-  only matters for a preparation that ever leaves them out.
+  and 12000 clips hold none of its episodes. The listing of 2026-11-13
+  holds no episode of NASA's Curious Universe: the source no longer reads the
+  show, and the reservation leaves it out too
+  (`EXCLUDED_SHOWS` in `src/audiolab/data/nasa.py`).
 - **Why it is here**: conversational technical English with **human**
   transcripts, the closest evaluation side to the target use the campaign had:
   FLEURS and LibriSpeech are read speech, VoxPopuli a different register, and
@@ -1744,57 +1745,62 @@ Its 60 reserved episodes are the evaluation set
 [`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set);
 this preparation leaves them out (decision 0002).
 
-- **Source**: five NASA shows, read from their RSS feeds
+- **Source**: four NASA shows, read from their RSS feeds
   (`https://www.nasa.gov/feeds/podcasts/<show>`): each item gives the episode's
   MP3 and the page on `www.nasa.gov/podcasts/` whose body holds the transcript.
+  NASA's Curious Universe is not read: the music beds under the speech and the
+  archival recordings the rules below leave out concentrate in that show, so
+  the source excludes it entirely rather than episode by episode
+  (`EXCLUDED_SHOWS` in `src/audiolab/data/nasa.py`).
   `audiolab data list-talks nasa-en-train` reads the feeds, fetches every episode
   page once (kept raw in `$AUDIOLAB_CACHE/nasa-en-train/pages`, never in the
   repository) and pins the episodes in
   [`nasa_listing.json`](../../src/audiolab/data/nasa_listing.json): show, title,
-  page, MP3 and duration, no text. The listing of 2026-11-09 holds **774
-  episodes, 523.0 h**, the median episode 38 minutes long:
+  page, MP3 and duration, no text. The listing of 2026-11-13 holds **768
+  episodes, 521.8 h**, the median episode 39 minutes long:
 
   | show | episodes | hours |
   | --- | --- | --- |
   | Houston We Have a Podcast | 419 | 373.5 |
-  | Small Steps, Giant Leaps | 150 | 65.3 |
+  | Small Steps, Giant Leaps | 151 | 65.6 |
   | NASA in Silicon Valley | 102 | 46.9 |
   | Gravity Assist | 96 | 35.9 |
-  | NASA's Curious Universe | 7 | 1.4 |
 
-- **What the listing leaves out**, from the 993 items of the five feeds, each
+- **What the listing leaves out**, from the 845 items of the four feeds, each
   rule in `src/audiolab/data/nasa.py`:
-  - 50 items that link no page under `www.nasa.gov/podcasts/` (no link, or a page
-    on `appel.nasa.gov`);
-  - 20 repeats, an episode aired again being listed once, under its first airing.
-    Two episodes are the same when they share a page, an MP3 file or a title once
-    an "Encore" or a series' "Ep. N:" prefix and punctuation are set aside: the
-    11 episodes of Houston We Have a Podcast's "Mars Ep. N" series, which air
-    earlier episodes again, 3 "Encore" republications and 6 episodes posted
-    twice. The feeds are read oldest first, so the copy kept is the first aired.
-    3 more pages say their episode aired before ("This episode originally aired
-    as episode 355", "Podcast Archive 2009 … originally aired on", "the
-    rebroadcast of a conversation");
+  - no item that links no page under `www.nasa.gov/podcasts/` (no link, or a
+    page on `appel.nasa.gov`) in the current feeds; the rule is still applied
+    at every listing;
+  - 17 repeats, an episode aired again being listed once, under its first
+    airing. Two episodes are the same when they share a page, an MP3 file or a
+    title once an "Encore" or a series' "Ep. N:" prefix and punctuation are set
+    aside: the 11 episodes of Houston We Have a Podcast's "Mars Ep. N" series,
+    which air earlier episodes again, and 6 episodes posted twice (3 in Houston
+    We Have a Podcast, 3 in NASA in Silicon Valley). The feeds are read oldest
+    first, so the copy kept is the first aired. 3 more pages say their episode
+    aired before ("This episode originally aired as episode 355"
+    (`callsign-white-flight`), "Originally aired on February 2…"
+    (`podcast-archive-2009-nasas-kepler-mission-to-look-for-earth-like-planets`),
+    "the rebroadcast of a conversation"
+    (`throwback-thursday-featuring-veteran-astronaut-steve-smith`));
   - 48 pages without a transcript, all of NASA in Silicon Valley (its "Live"
     video streams and its short news pieces, whose page holds a caption or a
     link), a page counting as a transcript when it holds 60 words per minute of
-    audio (people say about 150); and 3 pages that hold more than 250 words per
-    minute, each with its transcript written twice (the median page holds 168,
-    the fastest of the others 239);
-  - 47 episodes that play recordings, 42 of them from NASA's Curious Universe: a
-    transcript note or a speaker label names archival audio, a broadcast or a
-    clip, an archive, an excerpt or an announcer (`[ARCHIVAL Apollo 11
-    Broadcast: …]`, `APOLLO 8 ARCHIVAL:`, `[Clip of Sidedoor podcast begins]`,
-    `[NBC NIGHTLINE's CHRIS WALLACE: …]`, `[Meteorologist audio: …]`,
-    `[John F. Kennedy Archive: …]`, `Voyager excerpt:`, `Launch announcer:`,
-    `Unidentified launch voice 1:`). The episode is left out whole: some of those
-    recordings are another broadcaster's, the page does not say whose each one
-    is, and a transcript sometimes writes their words as lines of the show
-    (`Archival: 5…4…3…2…1 and liftoff…`), which a clip would then carry;
+    audio (people say about 150); and 2 pages that hold more than 250 words per
+    minute, each with its transcript written twice (the median page holds 169,
+    the fastest of the others 224);
+  - 5 episodes that play recordings: a transcript note or a speaker label names
+    archival audio, a broadcast or a clip, an archive, an excerpt or an
+    announcer (`[Apollo 8 launch clip]`, `[NASA TV Report]`, `Announcer:`,
+    `[Sound clip.]`). The episode is left out whole: some of those recordings
+    are another broadcaster's, the page does not say whose each one is, and a
+    transcript sometimes writes their words as lines of the show, which a clip
+    would then carry;
   - 1 transcript that writes its notes as plain words (below, under *The
     transcript*);
-  - 2 pages with a copyright notice and 45 pages crediting music of a third
-    party (below).
+  - 1 page with a copyright notice (below). No page of the current feeds
+    credits music of a third party; both rules are still applied at every
+    listing.
 - **License and attribution**: public domain. A work of the US government is not
   protected by copyright in the United States (17 U.S.C. § 105), and NASA's media
   guidelines (<https://www.nasa.gov/nasa-brand-center/images-and-media/>, checked
@@ -1820,11 +1826,11 @@ this preparation leaves them out (decision 0002).
     or "used with permission", or audio, a recording, a clip or footage
     "provided by" or "courtesy of" someone — is left out whole, since a notice
     does not say which minutes it covers. A notice and not a word: guests say
-    "copyright" in passing. The two episodes left out play archive clips "used
-    courtesy of the New Mexico Public Media Collection"
-    (`sun-series-soaring-toward-the-sun`) and audio of a conversation "provided
-    by Explore Mars and the Planetary Society"
-    (`gravity-assist-what-if-we-found-life-on-mars`).
+    "copyright" in passing. The one left out plays audio of a conversation
+    "provided by Explore Mars and the Planetary Society"
+    (`gravity-assist-what-if-we-found-life-on-mars`); the other page of the
+    listing of 2026-11-09 (`sun-series-soaring-toward-the-sun`) is no longer in
+    the feeds.
   - Each preparation fetches every page it reads again and applies the
     listing's rules to it, so an episode whose page took a notice, or lost its
     transcript, since the listing is skipped and counted.
@@ -1833,9 +1839,10 @@ this preparation leaves them out (decision 0002).
     Music"), its theme ("composed by … of SYSTEM Sounds") or a note naming a
     piece and its composer (`[Song: Ants Instrumental by Taylor Welsh]`). Such
     music plays under the speech where the transcript does not note it, and its
-    licence is unknown, which D-019 does not train on. That costs 45 episodes,
-    17.2 h, all of NASA's Curious Universe (the episodes no other rule leaves
-    out; the show keeps 7, 1.4 h). Elsewhere, clips are kept away
+    licence is unknown, which D-019 does not train on. The listing of
+    2026-11-13 leaves none: all 45 of the listing of 2026-11-09 (17.2 h) were
+    of NASA's Curious Universe, which the source no longer reads. Elsewhere,
+    clips are kept away
     from music where the transcript notes it: a line with a note of a sound
     (`[ Music ]`, `[Song: …]`, `<Intro Music>`) and the line of text on each side
     of it are not labelled. Music the transcript does not note is not detected.
@@ -1884,7 +1891,7 @@ this preparation leaves them out (decision 0002).
   clip at a time, and every Whisper request of a batch is sent before the first
   Parakeet one.
 - **Split and order**: `source_split` is `listing`; episodes are read in a seeded
-  shuffle (`SEED`) spread over the show, so a first cap covers the five shows
+  shuffle (`SEED`) spread over the show, so a first cap covers the four shows
   rather than Houston We Have a Podcast, which holds 71 % of the hours. The
   audio is the MP3 the listing pinned, converted to 16 kHz mono WAV.
 - **Prepared audio**: before the labelling run, the first 65 h of the reading
