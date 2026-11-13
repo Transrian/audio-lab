@@ -1966,7 +1966,10 @@ this preparation leaves them out (decision 0002).
   them, so a model trained on those labels learned to write its unknown token,
   which is most of this source's harm on English in the
   [screening](screening.md#what-each-source-does-alone). The set prepared again
-  writes none of them; it is not screened yet.
+  writes none of them: its re-screen (2026-11-13, `screen-nasa-en-plain`)
+  holds the unknown token in 10 of 7 712 answers, none of them in a purely
+  English panel (against 592 of 4 116 in the first screen), and the first
+  screen's English harm is gone.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of

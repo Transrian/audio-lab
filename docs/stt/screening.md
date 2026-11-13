@@ -254,7 +254,22 @@ Second batch:
   analysed: the card's rules keep clips away from noted sounds only. The
   training labels are now written in the characters the base model can write
   ([Training sources](datasets.md#training-sources)) and `nasa-en-train` was
-  prepared again; its new screen is to come.
+  prepared again. Its re-screen (`screen-nasa-en-plain`, 2026-11-13, the same
+  budget and recipe, scored on the suite of 2026-11-13 against its base run)
+  shows the text defect was its English harm: no answer of its purely English
+  panels holds the unknown token (10 of its 7 712 answers hold one, all on
+  French or code-switched panels; the base holds none, the run above 592 of
+  4 116), librispeech-en is not separable from the base (−0.07 [−0.26, +0.11]),
+  fleurs-en improves (−0.67 [−0.95, −0.39]) and servicenow en-fr is not
+  separable (−1.05 [−2.37, +0.32]); the gains stay, cs-fleurs-fr-en −2.21
+  [−3.25, −1.29], voxpopuli-en-nonnative −4.45 [−5.78, −3.36] and fleurs-fr
+  −0.31 [−0.55, −0.08]. On panels the first screen did not score, it gains on
+  `nasa-en-test` (5.10 → 2.83) and on peertube-edu-captions-fr (13.94 → 7.44),
+  and it harms notsofar-en-eval (+3.69 [1.97, 5.65]). The hallucination rate
+  is still above the base on non-speech (5.36 → 8.57, +3.21 [0.36, 6.07]; the
+  run above was at 10.36): the label fix did not explain it, and its 24
+  non-speech answers are still short conversational fragments ("Yeah.",
+  "What do you think?"), now spelled with real apostrophes.
 - **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
   label style**, the model learning to write like a stronger ASR model (a kind
   of distillation), since the human-labelled podcast does not give all of it:
