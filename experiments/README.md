@@ -10,6 +10,7 @@ feature of the maintained `audiolab` core
 | [Normalization review](normalization-review/README.md) | Re-score finished screening runs with contraction and elision rules on top of the frozen normalizer (plan 07, P-04; diagnostic only) | [rescore.py](normalization-review/rescore.py) |
 | [Label-text check](label-text/README.md) | Report how many training clips hold a character the base model cannot write, after each preparation | [check_text.py](label-text/check_text.py) |
 | [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (plan 09, P-07) | [inventory.py](storage-inventory/inventory.py) |
+| [Leakage audit](leakage-audit/README.md) | Reproduce the VoxPopuli session-overlap table from the two prepared manifests (plan 01, T8) | [sessions.py](leakage-audit/sessions.py) |
 
 The [research index](../docs/research/README.md) links questions and findings.
 The [backlog](../docs/backlog.md) tracks open work and pauses; creating an
