@@ -1,6 +1,6 @@
 # Backlog
 
-Updated: 2026-11-11.
+Updated: 2026-11-13.
 
 The durable list of open work. The [roadmap](roadmap.md) holds milestones and
 completion criteria; this page holds concrete tasks and unanswered questions.
@@ -50,6 +50,7 @@ so DS-01 comes before DS-03.
 | O-05 | Review the AMI per-group training cap. | Check the current [training-source preparation](stt/datasets.md#training-sources) and AMI card before proposing a different sampling rule. |
 | O-06 | Pursue the remaining weak source candidates? | VOA Afrique and the European Commission Audiovisual Service remain documented in the [source register](stt/sources.md); their reasons and license constraints live there. |
 | O-07 | Mix guard for training: refuse clips whose text holds a character `unwritable()` reports unless the recipe sets `allow_unwritable_text: true`. | Undecided (owner, 2026-11-11); the rule the guard would enforce is in the [training-source rules](stt/datasets.md#training-sources) and the mix support in [mixing datasets](stt/training.md#mixing-datasets). |
+| O-08 | VoxPopuli: 206 of the evaluation set's 307 plenary sessions are in `voxpopuli-fr-train` too — drop the 1 967 shared-session train clips or keep them? | [Proposed decision 0014](decisions/proposed/0014-voxpopuli-shared-sessions.md); the audit (speaker and session overlap) is in the [leakage table](stt/datasets.md#training-sources). |
 
 ## Not started / deferred
 
@@ -59,7 +60,6 @@ so DS-01 comes before DS-03.
 | N-02 | Consider a general multi-run `audiolab table` command. | Deferred. The [source-screening helper](../experiments/source-screening/README.md) is a narrowly scoped reporting script, not the implementation or approval of a general core command. |
 | N-03 | Add music to non-speech evaluation coverage. | The [evaluation limits](stt/evaluation.md) explain the current gap. Select a permissible source and review the frozen-panel protocol before adding coverage. |
 | N-04 | Review further English evaluation coverage. | Start from the existing [evaluation coverage](stt/evaluation.md), including English and non-native-English panels; identify what remains missing rather than assuming FLEURS is the only English set. |
-| N-05 | Investigate train/test source overlap with speaker and session exclusion. | Compare concrete corpus cases, such as MLS and VoxPopuli, against the [leakage rules](stt/datasets.md). This is a question to test, not permission to weaken the audit. |
 | N-06 | Explore GGUF export. | Deferred; no exporter, target runtime or acceptance criterion is selected. |
 | N-07 | Begin a TTS project. | TTS is within the repository's scope (D-003); its concrete project and protocol remain to be defined. It is not excluded by the STT-first roadmap. |
 | N-08 | Review and select a low-bit audio pilot. | [QAT/QAD feasibility study](research/low-bit-training.md): literature reviewed; no implementation or run. Before execution, select the checkpoint, deployment GPU/runtime, quality margins and budget; prove the export path, then compare INT8 and mostly-4-bit PTQ before considering QAT/QAD. This does not resume paused training or select a TTS project. |
