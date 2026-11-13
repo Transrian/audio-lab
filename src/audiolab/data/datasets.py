@@ -3,6 +3,11 @@
 Every dataset is described here once, including its license, and ``audiolab
 data list`` prints this registry: a license is recorded in exactly one place.
 The prose cards in `docs/stt/datasets.md` are written by hand and link here.
+
+A license cites its decision as it stood when the dataset was prepared, so a
+prepared manifest keeps the wording of its own preparation and a
+re-preparation after the decision moved (proposed to accepted, for instance)
+writes the new wording; the grant itself is unchanged either way.
 """
 
 from __future__ import annotations
