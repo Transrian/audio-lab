@@ -1557,6 +1557,58 @@ Per instance, as the listing of 2026-11-08 holds them:
 | `tube-numerique-educatif` | 518 | 313.4 |
 | `tube-sciences-technologies` | 637 | 267.5 |
 
+### `peertube-tech-fr-train` — the tech talks of the two French PeerTube listings
+
+- **Source**: the union of the pinned listings of
+  [`peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french)
+  (519 talks) and [`peertube-edu-fr-train`](#peertube-edu-fr-train--the-education-ministrys-french-videos)
+  (2 595 videos), kept when the talk's title holds a word of the technology the
+  model trains on — the list of words is `TECH_TITLE` in
+  [`src/audiolab/data/peertube_tech.py`](../../src/audiolab/data/peertube_tech.py).
+  `audiolab data list-talks peertube-tech-fr-train` computes the union from the
+  two parents' pinned listings — no network — and writes it to
+  [`peertube_tech_listing.json`](../../src/audiolab/data/peertube_tech_listing.json).
+  The listing of 2026-11-13 holds **421 talks, 289.5 h**: 240 of the Capitole's
+  talks and 181 of the ministry's videos, no video in both listings. The shortest
+  is 525 s and the median 2 179 s.
+- **License and attribution**: CC-BY or CC0-1.0 per video, as each parent
+  declares it (406 CC-BY, 15 CC0-1.0; the Capitole is all CC-BY). It is the
+  parents' audio under the parents' licences — no acquisition beyond the two
+  sources of [sources.md](sources.md#french-variety), rows 3 bis and 22. Every
+  clip carries its video's `source_url`, `source_title`, `source_author` and
+  `license`, as in the parents' cards.
+- **Why it is here**: scale-up of the French technical vocabulary the screening
+  measured on the two parents (2026-11-10, plan 03 of the training-data
+  campaign): the talks whose titles already say they are about what a developer
+  dictates — programming, networks, data, artificial intelligence — in the
+  source the base model's target use is built for
+  ([D-009](../owner/directives.md)). The title words are the source's own
+  definition; the listing pins what they kept.
+- **Split and order**: `source_split` is `listing`; the listing is written with
+  the Capitole's talks first and the ministry's after, each in its parent's
+  order, and read in a seeded shuffle (`SEED`, `src/audiolab/data/talks.py`)
+  spread over the instance (`spread_by` = the talk's instance): the two parents
+  are very uneven, and a plain shuffle could spend a selection on one of them.
+  The audio and the three labelling passes are the parents', as described in the
+  [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french);
+  the answers are cached per talk and per model under
+  `$AUDIOLAB_CACHE/peertube-tech-fr-train`, a directory of its own, since the
+  clips it keeps are recorded under its own name.
+- **Group**: the recording (`group_kind: recording`, the video uuid), at most
+  200 clips per talk.
+- **Overlap with the parents**: the talks are the parents' talks, so a
+  preparation of this source and a preparation of a parent can keep the same
+  audio. That is allowed: the guard against a training mix double-counting
+  audio is the `sha256` check of `src/audiolab/train/data.py`, which refuses a
+  mix whose two datasets share one.
+- **Evaluation exclusion**: the talks of
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  are left out of every preparation made after that set exists
+  (`evaluation_datasets`, [decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md));
+  the listing of 2026-11-13 holds one such talk.
+- **Prepared**: pending, the first preparation of the scale-up campaign; the
+  numbers go here when it is written.
+
 ### `debconf-en-train` — DebConf talks on the Debian instance
 
 - **Source**: [`peertube.debian.social`](https://peertube.debian.social), the

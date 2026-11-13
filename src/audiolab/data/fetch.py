@@ -70,6 +70,7 @@ FETCHERS = {
     "nonspeech-music": fetch_nonspeech_music,
     "peertube-fr-train": fetch_talk_dataset,
     "peertube-edu-fr-train": fetch_talk_dataset,
+    "peertube-tech-fr-train": fetch_talk_dataset,
     "debconf-en-train": fetch_talk_dataset,
     "fosdem-en-train": fetch_talk_dataset,
     "pxcorpus-fr-train": fetch_pxcorpus_fr_train,

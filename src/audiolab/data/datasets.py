@@ -342,6 +342,23 @@ DATASETS: dict[str, DatasetInfo] = {
         "Labels are model output, not human transcripts. Every clip carries the "
         "attribution of its video (author, title, URL, license). No panels.",
     ),
+    "peertube-tech-fr-train": DatasetInfo(
+        name="peertube-tech-fr-train",
+        source="https://videos.capitoledulibre.org and the French education ministry's "
+        "PeerTube instances (the tech titles of the pinned listings of peertube-fr-train "
+        "and peertube-edu-fr-train; the pinned list is "
+        "src/audiolab/data/peertube_tech_listing.json)",
+        license="CC-BY / CC0-1.0",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR checked against Whisper), casing and punctuation",
+        grouping="recording (group = PeerTube video uuid)",
+        notes="Training data at scale for the base model: the talks of the two French "
+        "PeerTube listings whose titles carry a word of the technology the model trains "
+        "(peertube_tech.TECH_TITLE), labelled as described in docs/stt/datasets.md. "
+        "Labels are model output, not human transcripts. Every clip carries the "
+        "attribution of its video (channel, title, URL, license). The talks of "
+        "peertube-edu-captions-fr are left out (decision 0002). No panels.",
+    ),
     "voxpopuli-fr-train": DatasetInfo(
         name="voxpopuli-fr-train",
         source="https://huggingface.co/datasets/facebook/voxpopuli (config fr, split train)",

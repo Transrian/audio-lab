@@ -62,11 +62,13 @@ def talk(talk_id: str = "v1", *, license: str = "CC-BY", channel: str = "Talks",
 
 def make_source(tmp_path, listed: list[Talk], **fields) -> TalkSource:
     """A talk source whose pinned listing holds ``listed``, written on 2026-11-08."""
+    name = fields.pop("name", "test-fr-train")
+    listing_path = fields.pop("listing_path", tmp_path / f"{name}-listing.json")
     source = TalkSource(
-        name=fields.pop("name", "test-fr-train"),
+        name=name,
         language=fields.pop("language", "fr"),
         allowed_licenses=fields.pop("allowed_licenses", frozenset({"CC-BY", "CC0-1.0"})),
-        listing_path=tmp_path / f"{fields.get('name', 'test')}-listing.json",
+        listing_path=listing_path,
         listing_filter={"language": "fr"},
         lister=lambda http: listed,
         audio_url=fields.pop("audio_url", lambda http, one: one.url),

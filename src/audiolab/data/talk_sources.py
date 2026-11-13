@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from audiolab.data import debconf, fosdem, nasa, peertube, peertube_edu
+from audiolab.data import debconf, fosdem, nasa, peertube, peertube_edu, peertube_tech
 from audiolab.data.datasets import DATASETS, base_dataset
 from audiolab.data.talk_listing import Talk, TalkSource
 from audiolab.data.talks import PreparedAudio, fetch_talks, prepare_audio
@@ -31,6 +31,12 @@ CAPITOLE_DU_LIBRE = "https://videos.capitoledulibre.org"
 # The licences a listing of the PeerTube sources may hold: CC BY and CC0, the
 # two PeerTube ids whose videos may train a published model (D-019).
 PEERTUBE_LICENSES = frozenset(peertube.LICENSES.values())
+
+
+def tech_list_talks(http: httpx.Client) -> list[Talk]:
+    """The tech talks of the two French PeerTube sources, from their pinned listings: no network."""
+    return peertube_tech.list_union(SOURCES["peertube-fr-train"], SOURCES["peertube-edu-fr-train"])
+
 
 SOURCES: dict[str, TalkSource] = {
     "peertube-fr-train": TalkSource(
@@ -110,6 +116,26 @@ SOURCES: dict[str, TalkSource] = {
     # are listed here for `list-talks` and `fetch-audio`, which they share.
     nasa.NAME: nasa.SOURCE,
 }
+
+# The tech talks of the two French PeerTube listings, one source: its listing is
+# the union of the parents' pinned listings kept by peertube_tech.TECH_TITLE, so
+# its lister reads the parents' listings rather than the network.
+SOURCES["peertube-tech-fr-train"] = TalkSource(
+    name="peertube-tech-fr-train",
+    language="fr",
+    allowed_licenses=PEERTUBE_LICENSES,
+    listing_path=DATA / "peertube_tech_listing.json",
+    listing_filter={
+        "union": ["peertube-fr-train", "peertube-edu-fr-train"],
+        "title_must_hold": "a word of peertube_tech.TECH_TITLE",
+    },
+    lister=tech_list_talks,
+    audio_url=peertube.smallest_file_url,
+    spread_by=peertube_edu.spread_key,
+    # The captions set is prepared from the edu parent's listing: a preparation
+    # leaves its talks out (decision 0002, plan 01 T7).
+    evaluation_datasets=("peertube-edu-captions-fr",),
+)
 
 
 def fetch_talk_dataset(
