@@ -502,8 +502,9 @@ Three kinds of clip that must stay silent, 300 in total:
   episode 26 minutes).
 - **License**: public domain (US government work), on the same evidence as the
   training set's card.
-- **Audio**: 1505 clips, 4.3 h; 3 to 30 clips per episode (median 26, the cap
-  of 30 per group never reached); median clip 9.1 s, the longest 20 s.
+- **Audio**: 1505 clips, 4.3 h; 3 to 30 clips per episode (median 26, two
+  episodes end at the 30-clip share the fetcher gives each episode); median
+  clip 9.1 s, the longest 20 s.
 - **Text**: NASA's own transcript of each episode, cased and punctuated
   (`text_has_casing_punct: true`), placed in time the same way as the training
   set: Whisper segments the episode, and the transcript's words are aligned to
@@ -516,8 +517,11 @@ Three kinds of clip that must stay silent, 300 in total:
   not screen its own labels, so Parakeet, which does that for the training
   set, is not asked here. The consequence, stated plainly: **the set is
   biased toward clips Whisper large-v3 hears well at the edges**; a model that
-  cuts words differently is not the one this gate favours. 195 labelled clips
-  were left out by the gate (195 of the 4352 the transcripts labelled, 4.5 %).
+  cuts words differently is not the one this gate favours. The gate was given
+  1 705 of the 4 352 the transcripts labelled — at most 30 per episode, the
+  share the fetcher allows an episode to take — and it left out 195 of those;
+  the 5 clips with a character the base model cannot write fell after the
+  gate, leaving the 1 505.
 - **`base_wer`**: Parakeet (the base model of the fine-tune) transcribes every
   kept clip once, and its WER against the label is recorded, so a training mix
   can find the clips it gets wrong. It does not vote: the gate is Whisper's.
@@ -554,7 +558,8 @@ Three kinds of clip that must stay silent, 300 in total:
   instance) found a French track that is **not** machine-generated
   (`automaticallyGenerated: false`) on 140 talks (65.8 h) — 64 of them on
   numerique-educatif, 34 on sciences-technologies, 29 on
-  arts-lettres-sciences-humaines, the rest one to six on nine other instances.
+  arts-lettres-sciences-humaines, the remaining 13 one to six on six other
+  instances (9 in all hold a human caption track; the other two hold none).
   The 1 930 machine-generated tracks are not usable as references and were left
   out.
 - **License**: the video's license from the listing, CC-BY or CC0-1.0; the
