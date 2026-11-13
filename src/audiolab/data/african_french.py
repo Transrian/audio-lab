@@ -243,7 +243,7 @@ def fetch_african_accented_fr_train(
 
 
 def training_text(text: str) -> str:
-    """Clean one transcript into the text a training clip is labelled with.
+    """Clean one transcript into the text a clip of this corpus is labelled with.
 
     The cleanup is deterministic and only ever removes spaces: the ones the
     corpus writes around an apostrophe that follows a letter (``d' accord``,
@@ -251,8 +251,9 @@ def training_text(text: str) -> str:
     punctuation (``il y en a plus  il y en a encore``). Nothing is added back —
     the text stays lowercase and unpunctuated, as the corpus published it.
 
-    Only a training source does this. Evaluation references are scored as
-    published, so a scorer counts the corpus's own spelling.
+    Both prepared sets of the corpus store the cleaned text, the training
+    labels and the evaluation references alike; the scorer is unaffected by
+    the cleanup, since it tokenizes on whitespace.
     """
     return WHITESPACE_RUN.sub(" ", APOSTROPHE_SPACING.sub("'", text)).strip()
 
