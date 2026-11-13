@@ -74,10 +74,11 @@ prepared data by ``audiolab data panels --check``; the clip counts are checked b
 
 The first full-suite numbers of the campaign, one run per model:
 ``audiolab eval --model configs/models/<model>.yaml --suite configs/suites/full.yaml``
-— 7 712 panel items per run, 0 failed (the Qwen run's five timeout failures were
-resent on a second pass). The base model
-(``parakeet-tdt-0.6b-v3-crispasr``) is served on the homelab one request at a
-time; ``qwen3-asr-1.7b-vllm`` on the home vLLM, ten at once. Normalized WER in
+— 7 712 panel items per run, 0 failed (the Qwen run's records show 15 clips
+answered only after a retry: 9 on the second attempt and 6 on the third). The
+base model (``parakeet-tdt-0.6b-v3-crispasr``) is served by CrispASR on the
+owner's home server, and ``qwen3-asr-1.7b-vllm`` by vLLM on the owner's home
+server. Normalized WER in
 percent; the two non-speech panels are hallucination rates. The panels of the
 first phase 1 report keep their base column in the
 [screening](screening.md#results); they reproduce it here (fleurs-fr 4.99 against
