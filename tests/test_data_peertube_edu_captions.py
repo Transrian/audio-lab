@@ -208,8 +208,9 @@ def test_the_scan_caches_each_caption_list_and_never_asks_twice(tmp_path, monkey
     cache = tmp_path / "cache"
 
     found = captions.scan_captions(http=None, talks=talks_list, cache=cache, verbose=False)
-
-    assert asked == [
+    # The instances are read in parallel, so the order of the requests is not a
+    # contract; the contract is that every video is asked exactly once.
+    assert sorted(asked) == [
         f"{INSTANCE_A}/api/v1/videos/t-one/captions",
         f"{INSTANCE_B}/api/v1/videos/t-two/captions",
     ]
