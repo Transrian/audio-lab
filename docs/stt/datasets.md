@@ -317,9 +317,12 @@ Three kinds of clip that must stay silent, 300 in total:
 - **Overlap with the prepared training source** (2026-11-13):
   `voxpopuli-fr-train` holds no clip of the 27 speakers of this set, but 206 of
   its 307 plenary sessions are in the source as well: 480 of the 737 clips here
-  (1.6 h of the 2.4) and 1 967 of the source's 12 000 (4.7 h of 29.0) were
+  (1.6 h of the 2.4) and 1 956 of the source's 12 000 (4.67 h of 29.0) were
   recorded in the same sittings, in the same rooms and with the same
-  microphones. That is not a text leak — different languages, different
+  microphones. A session is the clip id's prefix before the language tag, and
+  the population is the prepared data — the two manifests —, reproducible with
+  [`experiments/leakage-audit/sessions.py`](../../experiments/leakage-audit/README.md).
+  That is not a text leak — different languages, different
   utterances — but it is the one overlap that shares acoustics with an
   evaluation set; whether it disqualifies those train clips is
   [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md).
@@ -1974,7 +1977,7 @@ fetch`) before the training source is, because the check reads its manifest.
 
 | training source | evaluation set checked | left out |
 | --- | --- | --- |
-| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 967 train clips (4.7 h) share the rooms and microphones of 480 evaluation clips (1.6 h), [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md) |
+| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 956 train clips (4.67 h) share the rooms and microphones of 480 evaluation clips (1.6 h); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)), [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md) |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
@@ -2000,11 +2003,15 @@ The voxpopuli check is the one that bites. The camera-ready way to break decisio
 people reading English: the exclusion is by speaker, and the
 prepared French source holds 229 speakers, none of them one of the 27. The
 session check goes further: 206 of the evaluation set's 307 plenary sessions
-are in the prepared source too, so 480 of its 737 clips (1.6 h) and 1 967 of the
-source's 12 000 (4.7 h) were recorded in the same sittings, rooms and
-microphones. That shares acoustics, not text — the languages and the utterances
+are in the prepared source too, so 480 of its 737 clips (1.6 h) and 1 956 of the
+source's 12 000 (4.67 h) were recorded in the same sittings, rooms and
+microphones. A session is the clip id's prefix before the language tag, the
+population the prepared manifests
+([`experiments/leakage-audit`](../../experiments/leakage-audit/README.md)).
+That shares acoustics, not text — the languages and the utterances
 are different — and whether it disqualifies those train clips is
 [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md).
+
 ## Known overlap with what models were trained on
 
 These splits are test sets, but a test set is not automatically data the model

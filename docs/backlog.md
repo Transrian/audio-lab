@@ -50,7 +50,7 @@ so DS-01 comes before DS-03.
 | O-05 | Review the AMI per-group training cap. | Check the current [training-source preparation](stt/datasets.md#training-sources) and AMI card before proposing a different sampling rule. |
 | O-06 | Pursue the remaining weak source candidates? | VOA Afrique and the European Commission Audiovisual Service remain documented in the [source register](stt/sources.md); their reasons and license constraints live there. |
 | O-07 | Mix guard for training: refuse clips whose text holds a character `unwritable()` reports unless the recipe sets `allow_unwritable_text: true`. | Undecided (owner, 2026-11-11); the rule the guard would enforce is in the [training-source rules](stt/datasets.md#training-sources) and the mix support in [mixing datasets](stt/training.md#mixing-datasets). |
-| O-08 | VoxPopuli: 206 of the evaluation set's 307 plenary sessions are in `voxpopuli-fr-train` too — drop the 1 967 shared-session train clips or keep them? | [Proposed decision 0014](decisions/proposed/0014-voxpopuli-shared-sessions.md); the audit (speaker and session overlap) is in the [leakage table](stt/datasets.md#training-sources). |
+| O-08 | VoxPopuli: 206 of the evaluation set's 307 plenary sessions are in `voxpopuli-fr-train` too — drop the 1 956 shared-session train clips or keep them? | [Proposed decision 0014](decisions/proposed/0014-voxpopuli-shared-sessions.md); the audit (speaker and session overlap) is in the [leakage table](stt/datasets.md#training-sources). |
 
 ## Not started / deferred
 
