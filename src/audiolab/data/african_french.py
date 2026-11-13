@@ -252,8 +252,14 @@ def training_text(text: str) -> str:
     the text stays lowercase and unpunctuated, as the corpus published it.
 
     Both prepared sets of the corpus store the cleaned text, the training
-    labels and the evaluation references alike; the scorer is unaffected by
-    the cleanup, since it tokenizes on whitespace.
+    labels and the evaluation references alike. The cleanup is not neutral for
+    the scorer: it keeps the apostrophe and tokenizes on whitespace, so
+    ``d' accord`` scores as two words and ``d'accord`` as one. It keeps the
+    corpus's own typing out of what the train labels teach. For the test
+    references it changes nothing the scorer could see: none of the 515
+    published prompts writes a space after an apostrophe (verified against
+    the pinned archive), and the runs of whitespace it removes are collapsed
+    by the tokenization.
     """
     return WHITESPACE_RUN.sub(" ", APOSTROPHE_SPACING.sub("'", text)).strip()
 
