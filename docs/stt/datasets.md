@@ -1032,6 +1032,18 @@ costs nothing and a fresh clone downloads all of it again.
 - **What a cap covers**: the cap was reached after 13 315 rows: 1 243 without
   restored text and 72 with a heading were dropped on the way. Same per-group
   share as `librispeech-en-train`.
+- **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
+  librispeech-pc-en-train --clips 40000`, prepared into
+  `$AUDIOLAB_DATA/librispeech-pc-en-train-40k`; the 12 000-clip set above is
+  unchanged, and its 119 speakers are all in the larger set. Nothing was
+  downloaded (the shared SLR12 audio archive and the 25 MiB of manifests were
+  already in the cache) and no model was called. The split runs out below the
+  cap: it holds 28 539 utterances, of which 2 498 have no restored text and
+  144 begin with a heading in capitals, leaving 25 897 rows — **25 896 clips,
+  91.1 h, 251 speakers**, median 14.0 s, CC-BY-4.0 — the one remaining row
+  beyond 20 s left out. The scale-up plan expected the 40 000-clip cap; the
+  valid rows of `train-clean-100` top out at 25 897, so this is the source
+  running out, not the cap stopping it. The prepared set is 9.9 GiB.
 
 ### `ami-fr-speakers-en-train` — English meetings spoken by French-L1 participants
 
