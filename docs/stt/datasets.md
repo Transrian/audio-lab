@@ -1923,6 +1923,26 @@ Per instance, as the listing of 2026-11-08 holds them:
   7 768 of the 12 000 clips (64.7 %); the mean `base_wer` is 7.0 %, and 35 % of
   the clips have a `base_wer` of 0. This measures the base model against model
   labels, not against the speech: a wrong label counts as a base-model error.
+- **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
+  fosdem-en-train --clips 30000`, prepared into
+  `$AUDIOLAB_DATA/fosdem-en-train-30k`; the 12 000-clip set above is
+  unchanged, and its 124 talks are all in the larger set. It read **333 talks
+  (170.4 h of the 2 574.3 h listed)** — a first batch of 215, then 117, then 1,
+  of which one could not be downloaded and was skipped and counted — and
+  reached the cap: **30 000 clips, 89.4 h, 300 talks** (33 of the talks read
+  yielded none, including the un-downloadable one), median 9.9 s, all CC-BY-2.0-BE; 12 talks give their full
+  200-clip share, the smallest gives 5. Qwen labelled 38 551 candidate clips
+  and **8 373 of them (21.7 %) were rejected** because the two models
+  disagree — a shade below the 22–33 % band the 2026-11-09 preparations
+  measured; on the way, 2 184 candidates fell outside 0.5–20 s, 463 segments
+  had no words, 69 no duration, and 483 lost the words they repeated from the
+  one before. Parakeet's text differs from the label on 19 174 of the 30 000
+  clips (63.9 %), the mean `base_wer` is 6.7 %, and 36.1 % of the clips have a
+  `base_wer` of 0 — the same shape as the 12 000-clip set (64.7 %). 178
+  candidates were left out for a character the base model cannot write; the
+  prepared set holds none. The scale-up plan expected the listing to run out
+  near 20 000–25 000 clips; the 30 000 cap was reached instead, with 5 144
+  listed talks still unread. The prepared set is 9.7 GiB.
 - **Known limits**: **the label error of the kept clips is not measured** — no
   human has checked a sample, so how many wrong labels the agreement test lets
   through is unknown. What the test lets through, and why a preparation from an
