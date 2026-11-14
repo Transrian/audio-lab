@@ -266,3 +266,22 @@ def test_raw_under_is_none_when_the_words_do_not_recompose_the_tokens():
     tokens = audit.tokens("one hundred and one", "en", "normalized")
     assert len(tokens) == 3
     assert audit.raw_under(tokens, "one hundred and one", "en") is None
+
+
+def test_align_ops_consumes_every_token_exactly_once():
+    """The edit path is a valid alignment: each side is consumed, in order, once."""
+    cases = [
+        (["we"], ["we", "are", "ready"]),  # insertions at the end: the row boundary
+        (["we", "are", "ready"], ["we"]),  # deletions at the end: the column boundary
+        ([], ["a", "b"]),
+        (["a", "b"], []),
+        (["a"], ["b"]),
+        (["the", "quick"], ["quick", "brown", "fox"]),
+        (["a", "b", "c", "d"], ["a", "x", "c", "y", "d"]),
+    ]
+    for reference, hypothesis in cases:
+        ops = audit.align_ops(reference, hypothesis)
+        consumed_reference = [token for _, token, _ in ops if token]
+        consumed_hypothesis = [token for _, _, token in ops if token]
+        assert consumed_reference == reference
+        assert consumed_hypothesis == hypothesis

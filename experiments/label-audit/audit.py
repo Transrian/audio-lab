@@ -389,9 +389,18 @@ class Diff:
 
 
 def align_ops(reference: list[str], hypothesis: list[str]) -> list[tuple[str, str, str]]:
-    """The word-level edit path: (kind, reference token, hypothesis token)."""
+    """The word-level edit path: (kind, reference token, hypothesis token).
+
+    The path consumes every token of both sides exactly once, so the caller can
+    put the raw word of each side under its token.
+    """
     n, m = len(reference), len(hypothesis)
-    table = [[0] * (m + 1) for _ in range(n + 1)]
+    # The boundaries are the cost of deleting or inserting the whole other side;
+    # leaving them zero underestimates the distance next to them and the
+    # backtrack walks off the table.
+    table = [[j for j in range(m + 1)] for _ in range(n + 1)]
+    for i in range(1, n + 1):
+        table[i][0] = i
     for i in range(n):
         for j in range(m):
             cost = 0 if reference[i] == hypothesis[j] else 1
@@ -521,8 +530,10 @@ def examples(dataset: str, spec: dict, root: Path) -> str:
         "",
         f"Differences in the normalized view (normalizer v{NORMALIZER_VERSION}), what the WER "
         "counts; the bare interjections it drops (uh, um, hmm) are not in it. "
-        f"{', '.join(f'{c} {counts_per[c]}' for c in CATEGORIES)} of the {len(kept)} kept clips "
-        "have differences; at most 10 of a category are shown.",
+        f"{len(kept)} of the kept clips differ from the human text — by category: "
+        f"{', '.join(f'{c} {counts_per[c]}' for c in CATEGORIES)}. "
+        "A clip is shown in the first category one of its differences falls in; "
+        "at most 10 of a category are shown.",
         "",
         "| clip | category | human | qwen label |",
         "|---|---|---|---|",
