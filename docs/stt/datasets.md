@@ -1814,6 +1814,25 @@ Per instance, as the listing of 2026-11-08 holds them:
   7 978 of the 12 000 clips (66.5 %); the mean `base_wer` is 8.3 %, and 34 % of
   the clips have a `base_wer` of 0. This measures the base model against model
   labels, not against the speech: a wrong label counts as a base-model error.
+- **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
+  debconf-en-train --clips 30000`, prepared into
+  `$AUDIOLAB_DATA/debconf-en-train-30k`; the 12 000-clip set above is
+  unchanged, and its 100 talks are all in the larger set. It read **263 talks
+  (166.0 h of the 1 244.4 h listed)** — a first batch of 215, then 47, then 1
+  — and reached the cap: **30 000 clips, 84.9 h, 249 talks** (14 of the talks
+  read yielded none), median 9.2 s, all CC-BY; 17 talks give their full
+  200-clip share, the smallest gives 1. Qwen labelled 44 112 candidate clips
+  and **14 030 of them (31.8 %) were rejected** because the two models
+  disagree; on the way, 3 176 candidates fell outside 0.5–20 s, 1 336
+  segments had no words, 43 no duration, 1 065 lost the words they repeated
+  from the one before, and 2 were decoding loops. Parakeet's text differs from
+  the label on 19 874 of the 30 000 clips (66.2 %), the mean `base_wer` is
+  8.2 %, and 33.8 % of the clips have a `base_wer` of 0 — the same shape as
+  the 12 000-clip set (66.5 %). 82 candidates were left out for a character
+  the base model cannot write; the prepared set holds none. The scale-up plan
+  expected the listing to run out near 20 000–25 000 clips; the 30 000 cap was
+  reached instead, with 1 656 listed videos still unread. The prepared set is
+  9.2 GiB.
 - **Known limits**: **the label error of the kept clips is not measured** — no
   human has checked a sample, so how many wrong labels the agreement test lets
   through is unknown. What the test lets through, and why a preparation from an
