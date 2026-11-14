@@ -8,11 +8,13 @@ link, the hash and the duration the fetcher writes are the real things.
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import os
 import random
 from pathlib import Path
 
+import numpy as np
 import pytest
 import soundfile as sf
 from helpers import make_clip, write_tone
@@ -260,6 +262,37 @@ def test_fetch_copies_when_the_link_fails(tmp_path, fake_qwen, monkeypatch):
         dest_wav = root / NAME / clip.audio
         assert dest_wav.read_bytes() == source_wav
         assert os.stat(dest_wav).st_nlink == 1  # a copy, not a link
+
+
+def test_fetch_never_writes_through_the_link(tmp_path, fake_qwen):
+    """A write to a linked file lands on the source's inode, on the same file.
+
+    The fetcher therefore only links and copies the source's bytes verbatim;
+    the source's files come back exactly as they were, checked on samples near
+    full scale, where a 16-bit to float32 round trip would move a sample by
+    one — the silent change a re-encoding of the linked file would make.
+    """
+    root = tmp_path / "data"
+    make_source(root, 1, 2)
+    clip_dir = root / "nasa-en-train"
+    clips = read_manifest(clip_dir)
+    wav_path = clip_dir / clips[1].audio
+    samples = np.array([32767, -32768, 30000, -30000, 16384, -16385], dtype="<i2")
+    sf.write(str(wav_path), samples, 16000, subtype="PCM_16")
+    before = wav_path.read_bytes()
+    clips[1] = dataclasses.replace(clips[1], sha256=pcm_sha256(wav_path))
+    write_manifest(clip_dir, clips)
+
+    fake_qwen.texts = lambda index: f"the answer is {index}"
+    fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)
+    assert wav_path.read_bytes() == before
+    derived = read_manifest(root / NAME)
+    assert os.stat(root / NAME / derived[1].audio).st_ino == os.stat(wav_path).st_ino
+
+    # A second preparation keeps the links; it writes nothing through them either.
+    (root / NAME / "manifest.jsonl").unlink()
+    fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)
+    assert wav_path.read_bytes() == before
 
 
 def test_fetch_fails_cleanly_when_the_source_is_missing(tmp_path):

@@ -16,7 +16,13 @@ downloaded) and, for every clip in id order:
 - links the clip's WAV from the source into the new set, with ``os.link``: the
   audio is the same file, not a copy. Only when the link fails (the two
   directories on different filesystems) the file is copied, and the copies are
-  counted and reported;
+  counted and reported. The linked file is never written: a write to a hard
+  link lands on the source's file, on the same inode, and a re-encoding is not
+  the same bytes anyway (the int16 to float32 round trip moves a sample near
+  full scale by one). The clip keeps the source's ``sha256`` and
+  ``duration_s``: they describe the linked bytes exactly. Nothing is decoded,
+  so the preparation has no partial state to resume — a stopped run is re-run,
+  and a link that is already there is kept;
 - sets the text to ``plain_label`` of the Qwen answer. The answers come from
   the label audit's cache (``audiolab.data.label_audit``: the same per-clip
   files the audit of the same clips read, so the audit's clips are never asked
@@ -46,10 +52,10 @@ from audiolab.core.audio import load_audio
 from audiolab.core.parallel import map_requests
 from audiolab.core.progress import say
 from audiolab.core.stop import Stopped, raise_if_stopped, stop_requested
-from audiolab.data.build import ManifestBuilder, file_name_for
+from audiolab.data.build import file_name_for
 from audiolab.data.download import DownloadError
 from audiolab.data.label_audit import answer_path, read_answer, write_answer
-from audiolab.data.store import Clip, read_manifest
+from audiolab.data.store import Clip, read_manifest, write_manifest
 from audiolab.data.talk_clips import wav_bytes
 from audiolab.data.talks import LABEL_MODEL, client, served
 from audiolab.data.train import plain_label
@@ -90,26 +96,27 @@ def fetch_nasa_en_train_qwen(
     if verbose:
         say(f"  {name}: {empty} clips with an empty Qwen answer ({empty / len(source_clips):.2%})")
 
-    linked, copied = 0, 0
-    with ManifestBuilder(dataset_dir, verbose=verbose, total=len(source_clips)) as builder:
-        for clip in source_clips:
-            new_id = f"{name}:{clip.id.split(':', 1)[1]}"
-            # The path the builder writes the clip to, so the link is the clip's
-            # own file: the builder's verification write is in place on the same
-            # file (the source is already 16 kHz mono PCM_16, as it writes).
-            wav = dataset_dir / "audio" / file_name_for(new_id)
-            if not wav.is_file():
-                wav.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    os.link(source_dir / clip.audio, wav)
-                    linked += 1
-                except OSError:
-                    shutil.copy2(source_dir / clip.audio, wav)
-                    copied += 1
-            text = texts[clip.id]
-            builder.add(
-                new_id,
-                partial(load_audio, wav),
+    linked, copied, kept = 0, 0, 0
+    clips: list[Clip] = []
+    audio_dir = dataset_dir / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    for clip in source_clips:
+        new_id = f"{name}:{clip.id.split(':', 1)[1]}"
+        wav = audio_dir / file_name_for(new_id)
+        state = _link_clip(source_dir / clip.audio, wav)
+        if state == "linked":
+            linked += 1
+        elif state == "copied":
+            copied += 1
+        else:
+            kept += 1
+        text = texts[clip.id]
+        clips.append(
+            Clip(
+                id=new_id,
+                audio=str(Path("audio") / file_name_for(new_id)),
+                sha256=clip.sha256,
+                duration_s=clip.duration_s,
                 language=clip.language,
                 text=text,
                 text_has_casing_punct=bool(text),
@@ -123,10 +130,34 @@ def fetch_nasa_en_train_qwen(
                 source_author=clip.source_author,
                 base_wer=clip.base_wer,
             )
-        builder.write()
+        )
+        if verbose and len(clips) % 500 == 0:
+            say(f"  ... {len(clips)} clips prepared")
+        raise_if_stopped(f"preparation of {dataset_dir.name} stopped")
+    write_manifest(dataset_dir, clips)
     if verbose:
-        say(f"  {name}: {linked} WAVs linked, {copied} copied")
-    return len(builder.clips)
+        say(f"  {name}: {linked} WAVs linked, {copied} copied, {kept} already linked")
+    return len(clips)
+
+
+def _link_clip(source: Path, target: Path) -> str:
+    """One clip's audio in the new set: the source's file, not its bytes.
+
+    A hard link makes the two names one file; only a filesystem that refuses
+    the link gets a copy. A target that already is the source's file is kept
+    as it is — writing through a link would alter the source, on the same
+    inode — and a target that is another file is replaced by the link.
+    """
+    if target.is_file() or target.is_symlink():
+        if os.path.samefile(target, source):
+            return "kept"
+        target.unlink()
+    try:
+        os.link(source, target)
+        return "linked"
+    except OSError:
+        shutil.copy2(source, target)
+        return "copied"
 
 
 def _qwen_answers(
