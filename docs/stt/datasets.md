@@ -2177,6 +2177,57 @@ this preparation leaves them out (decision 0002).
   sources, but not equal to it: a false start or a repeat the transcript edited
   out counts as a base-model error, and the edge check keeps only clips whose
   first and last words Parakeet already hears.
+- **Larger preparation** (2026-11-14, the scale-up): `audiolab data fetch
+  nasa-en-train --clips 30000`, prepared into
+  `$AUDIOLAB_DATA/nasa-en-train-30k`. The 11 956-clip set above is unchanged,
+  but this preparation reads a different listing from it: the listing was
+  re-pinned on 2026-11-13 (768 episodes; NASA's Curious Universe no longer in
+  it, matching the source's `EXCLUDED_SHOWS`), so the larger set is **not** a
+  superset of the other one. Of the 265 episodes the 11 956-clip set holds, 18
+  are not in the larger set: its 7 Curious Universe episodes (248 clips), left
+  out on purpose, and 11 of Houston We Have a Podcast, still in the listing
+  but past the 576-episode cut below in the seeded order. The preparation read
+  **576 episodes** (575 keep clips) in seven batches — 215, 300, 51, 7, then 1,
+  1 and 1 as the cap neared — and reached it: **30 000 clips, 86.8 h**, median
+  9.3 s, all public domain (US government work), no episode past its
+  200-clip share (the largest gives 173, seven give under 10):
+
+  | show | episodes | clips | hours |
+  | --- | --- | --- | --- |
+  | Houston We Have a Podcast | 271 | 15 925 | 45.3 |
+  | Small Steps, Giant Leaps | 136 | 7 119 | 21.8 |
+  | Gravity Assist | 81 | 4 239 | 12.4 |
+  | NASA in Silicon Valley | 87 | 2 717 | 7.4 |
+
+  Whisper's segments — of which 1 864 lost the words they repeated from the
+  one before, 131 had no duration and 2 454 no words — gave 120 552 candidate
+  clips, and the transcripts labelled **52 053 of them (43.2 %)**, a little
+  above the 41.3 % of the 2026-11-09 preparation. The other candidates are
+  counted under the first test of the alignment (above) they fail, in the order
+  the tests run:
+
+  | left out because | clips |
+  | --- | --- |
+  | shorter than 1 s or longer than 20 s | 2 214 |
+  | the first or last word Whisper heard has no pair in the transcript | 18 121 |
+  | the two texts do not meet at an edge: the words just outside the clip are not each other's pair, so a transcript word there may have been said inside it | 23 672 |
+  | a word the scorer drops ("Um,") is just outside the clip | 351 |
+  | an edge falls inside a written word (`1,000`) | 183 |
+  | a change of speaker or a note inside the clip | 12 789 |
+  | on or next to a line that notes a sound | 2 957 |
+  | fewer than 90 % of the words paired on one side | 7 107 |
+  | more than two unpaired words in a row | 1 105 |
+
+  Of the labelled clips, 4 577 were left out because the first or last word
+  Parakeet hears is not the label's, 59 more for a character the base model
+  cannot write, and the 30 000 kept are what the set holds; the other 17 417
+  were past the room left under the cap and were never sent. Parakeet's text
+  differs from the label on 18 107 of the 30 000 clips (60.4 %), the mean
+  `base_wer` is 5.2 %, and 39.6 % of the clips have a `base_wer` of 0 — the
+  same shape as the 11 956-clip set (60.5 %). The 60 reserved episodes of
+  [`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set)
+  were left out of what it read, and none of the set's clips is one of them.
+  The prepared set is 9.5 GiB.
 - **Known limits**: **the label error of the kept clips is not measured** — the
   thresholds bound how far a label may stray from Whisper's words, and nobody
   has checked a sample against the audio. The first set kept NASA's typography:
