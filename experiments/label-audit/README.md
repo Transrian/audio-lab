@@ -75,9 +75,9 @@ Every step is idempotent: `transcribe` asks only for what is not cached, and
 
 One answer is one JSON file per clip and model, holding the model id, the
 language sent, the request extras and the audio's `sha256`. A reuse is trusted
-only when all of them match what the current caller would send: a model id
-served by another engine, a clip prepared again with other audio, or another
-language is asked again. The shared helper is
+only when all of them match what the current caller would send: another model
+id, a clip prepared again with other audio, or another language is asked
+again. The shared helper is
 [`audiolab.data.label_audit`](../../src/audiolab/data/label_audit.py); the
 `nasa-en-train-qwen` fetcher
 ([`audiolab.data.relabel`](../../src/audiolab/data/relabel.py)) reads the same

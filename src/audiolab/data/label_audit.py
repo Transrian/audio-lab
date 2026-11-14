@@ -16,10 +16,9 @@ An answer is one JSON file per clip and model, under
 everything that can change the answer — the model id, the language sent, the
 extras of the request, and the ``sha256`` of the clip's audio — and a reuse is
 trusted only when every one of them matches what the current caller would send
-(D-017): the same model id served by another engine, a clip prepared again with
-other audio, or a caller sending another language are all asked again. The raw
-text is kept, not what was read from it, so a changed reading never reuses an
-old one.
+(D-017): another model id, a clip prepared again with other audio, or a caller
+sending another language are all asked again. The raw text is kept, not what
+was read from it, so a changed reading never reuses an old one.
 
 The audit's clip sample is fixed the same way: ``random.Random(seed).sample``
 over the manifest's ids sorted, written to ``<dataset>-sample.json`` next to
