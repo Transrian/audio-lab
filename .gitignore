@@ -37,3 +37,5 @@ dist/
 
 # Local agent working notes (see AGENTS.md)
 /plans/
+# Conversation maps written by the agent harness
+/.carte/
