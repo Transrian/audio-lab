@@ -398,7 +398,7 @@ pipeline](datasets.md#label-error-of-the-agreement-pipeline)).
 
 | panel | plain (A) | qwen (B) | B − A | 95 % CI | verdict |
 | --- | --- | --- | --- | --- | --- |
-| african-accented-fr-test-full | 4.97 % | 4.85 % | −0.13 % | [−0.65, 0.42] | not separable |
+| african-accented-fr-test-full | 4.97 % | 4.85 % | −0.13 % | [−0.65, 0.42] | not separable (approx.) |
 | cs-fleurs-fr-en-full | 13.89 % | 14.18 % | +0.28 % | [−0.08, 0.65] | not separable |
 | fleurs-en-full | 4.57 % | 4.79 % | +0.21 % | [−0.01, 0.44] | not separable |
 | fleurs-fr-full | 4.68 % | 4.73 % | +0.05 % | [−0.14, 0.25] | not separable |
@@ -437,9 +437,12 @@ is reported to the owner as an observation, and the pre-registered reading
 (c) — tightening the agreement threshold — does not follow from it, because
 (c) was registered on the code-switched panels.
 
-The qwen run was trained on a later commit than the plain run; no training or
-evaluation code changed in between (the commit range touched only new config
-files), and both runs are 10 000-clip screens of the same 12 k source.
+The qwen run was trained on a later commit than the plain run. Nothing in the
+training or evaluation packages changed between the two run commits (the diff
+of `src/audiolab/train` and `src/audiolab/eval` from `a677b06` to `463150e` is
+empty), and the two run manifests pair the 10 000 clips clip by clip: same
+durations, the same audio files on disk (the hard links above), 9 112 of the
+10 000 texts different.
 
 ## The batch normalization bug
 
@@ -502,9 +505,18 @@ trained with it.
   the English and code-switched panels ([above](#what-each-source-does-alone)), which says little about its
   speech or its transcripts.
 - **Model labels or human labels.** The four talk sources are labelled by
-  models, and how many of their labels are wrong is not measured. The one
-  human-labelled source of the same register, NASA, differs from them in more
-  than its labels, so the screening does not say what model labels cost or bring.
+  models. How good the kept labels are is measured on similar clips — 3.7 %
+  WER against NASA's transcripts in English and 6.5 % against the ministry's
+  captions in French
+  ([label error of the agreement
+  pipeline](datasets.md#label-error-of-the-agreement-pipeline)) — and what
+  model labels cost or bring is measured on the same audio, one model's labels
+  against a human's ([label style](#label-style-same-audio)): no separable
+  difference on the registered panels. What the screening still does not say:
+  each talk set's own label error — the sets hold no human text, so those
+  numbers are on similar audio, not per set — and whether the talk gains hold
+  at the scale of the larger preparations, which a 10 000-clip screen does not
+  decide.
 - **A panel can reward a style.** `voxpopuli-en-nonnative` has verbatim
   references and the base model writes like an edited report, so a source with
   verbatim transcripts gains there without recognizing more words
