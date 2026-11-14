@@ -5,6 +5,9 @@ One run directory per training config, under ``$AUDIOLAB_RUNS/train/<name>/``:
 - ``config.json``     what the run was started as: its config, its base model and
                       the clips it drew, written before it trains;
 - ``manifest.jsonl``  the clips this run trains on, in NeMo's manifest format;
+- ``noise.jsonl``     the NeMo manifest of the run's noise bank (only for a run
+                      that mixes noise in); ``reverb.jsonl`` is the same for its
+                      reverb bank;
 - ``train-log.jsonl`` one line per logged interval, with the loss;
 - ``resume.ckpt``     the one resume slot, rewritten as the run goes, deleted
                       when the run finishes;
@@ -34,6 +37,10 @@ MODEL_NAME = "model.nemo"
 TRAIN_JSON = "train.json"
 CONFIG_NAME = "config.json"
 MODEL_CONFIG = "model.yaml"
+# Written only by a run that augments: the NeMo noise manifest of its noise
+# bank, and of its reverb bank (a dataset of room impulse responses).
+NOISE_MANIFEST_NAME = "noise.jsonl"
+REVERB_MANIFEST_NAME = "reverb.jsonl"
 
 
 class TrainRunError(ValueError):

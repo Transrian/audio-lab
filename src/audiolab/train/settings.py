@@ -62,13 +62,26 @@ def optim_config(config: TrainConfig) -> dict:
     }
 
 
-def dataset_config(config: TrainConfig, manifest_path: Path) -> dict:
+def dataset_config(
+    config: TrainConfig,
+    manifest_path: Path,
+    *,
+    noise_manifest: Path | None = None,
+    reverb_manifest: Path | None = None,
+) -> dict:
     """The dataset NeMo reads: our manifest, at the rate the prepared audio is in.
 
     The clips were filtered when they were drawn, so nothing here drops a clip:
-    what a run sees is exactly what the config says.
+    what a run sees is exactly what the config says. When a probability is
+    above 0, the dict also carries NeMo's ``augmentor``: one entry per
+    perturbation, keyed by NeMo's perturbation names (``noise``, ``impulse``),
+    each with its ``prob`` and the manifest the perturbation reads a random
+    file from per augmented clip. No ``rng`` is passed: the run seeds itself
+    (``pl.seed_everything`` with workers) and each data worker's Python
+    ``random`` is seeded at worker init, which is the module NeMo's
+    perturbations draw from.
     """
-    return {
+    settings = {
         "manifest_filepath": str(manifest_path),
         "sample_rate": SAMPLE_RATE,
         "batch_size": config.batch_size,
@@ -88,6 +101,31 @@ def dataset_config(config: TrainConfig, manifest_path: Path) -> dict:
         # would otherwise put two tokens in every transcript that are not text.
         "use_start_end_token": False,
     }
+    augmentor = {}
+    if config.noise_prob > 0.0:
+        if noise_manifest is None:
+            raise ValueError("noise_prob is above 0 but no noise manifest was given")
+        augmentor["noise"] = {
+            "prob": config.noise_prob,
+            "manifest_path": str(noise_manifest),
+            "min_snr_db": config.noise_min_snr_db,
+            "max_snr_db": config.noise_max_snr_db,
+        }
+    if config.reverb_prob > 0.0:
+        if reverb_manifest is None:
+            raise ValueError("reverb_prob is above 0 but no reverb manifest was given")
+        augmentor["impulse"] = {
+            "prob": config.reverb_prob,
+            "manifest_path": str(reverb_manifest),
+            # A RIR of a different length or peak than the clip would change the
+            # clip's level or cut its ends; both are the room's doing, not the
+            # signal's, and are normalized or shifted away.
+            "normalize_impulse": True,
+            "shift_impulse": True,
+        }
+    if augmentor:
+        settings["augmentor"] = augmentor
+    return settings
 
 
 def _rate(group: dict) -> float:

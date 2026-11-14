@@ -41,7 +41,13 @@ from audiolab.core.stop import install_signal_handlers, raise_if_stopped, stop_r
 from audiolab.train.config import TrainConfig
 from audiolab.train.loss import UpdateLoss, as_float, batch_loss, last_logged_loss, write_loss_line
 from audiolab.train.order import ClipOrder
-from audiolab.train.run import MODEL_NAME, RESUME_NAME, TrainRunError
+from audiolab.train.run import (
+    MODEL_NAME,
+    NOISE_MANIFEST_NAME,
+    RESUME_NAME,
+    REVERB_MANIFEST_NAME,
+    TrainRunError,
+)
 from audiolab.train.settings import (
     check_rates,
     dataset_config,
@@ -309,9 +315,21 @@ def fine_tune(
     else:
         model = ASRModel.from_pretrained(model_name=base.hf_id, map_location="cpu")
 
+    # A run that augments wrote its banks' NeMo manifests into the run
+    # directory; the perturbation reads a random file from one of them per
+    # augmented clip, from disk, so memory stays bounded however long a run goes.
+    noise_manifest = directory / NOISE_MANIFEST_NAME if config.noise_prob > 0.0 else None
+    reverb_manifest = directory / REVERB_MANIFEST_NAME if config.reverb_prob > 0.0 else None
     # Everything that decides what this run trains is set here, in one place.
     with open_dict(model.cfg):
-        model.cfg.train_ds = OmegaConf.create(dataset_config(config, manifest_path))
+        model.cfg.train_ds = OmegaConf.create(
+            dataset_config(
+                config,
+                manifest_path,
+                noise_manifest=noise_manifest,
+                reverb_manifest=reverb_manifest,
+            )
+        )
         model.cfg.optim = OmegaConf.create(optim_config(config))
         model.cfg.optim_param_groups = OmegaConf.create(optim_param_groups(config))
         # No validation loop: a short run does not need one, and a held-out WER

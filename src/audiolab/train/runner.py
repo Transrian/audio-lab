@@ -27,6 +27,7 @@ from audiolab.train.data import (
     dataset_dir,
     load_training_clips,
     select_mix,
+    write_bank_manifest,
     write_nemo_manifest,
 )
 from audiolab.train.guard import GuardResult, check_leakage
@@ -37,7 +38,9 @@ if TYPE_CHECKING:  # what the heavy step returns; importing it would need PyTorc
 from audiolab.train.run import (
     LOG_NAME,
     MANIFEST_NAME,
+    NOISE_MANIFEST_NAME,
     RESUME_NAME,
+    REVERB_MANIFEST_NAME,
     TrainRunError,
     config_differences,
     prepare_run_dir,
@@ -70,6 +73,12 @@ class Training:
     base: Checkpoint
     base_identity: str
     resuming: bool
+    # The run's augmentation, written down as the banks were read: one entry
+    # per enabled perturbation, with its probabilities, SNR range, the bank it
+    # came from, and the hash of the manifest written into the run directory.
+    # ``None`` when the run does not augment: the record then says no more than
+    # the run that augmented nothing says today.
+    augmentation: dict | None = None
 
 
 def train_checkpoint(training: Training, *, print_line: Callable[[str], None] = say) -> TrainResult:
@@ -140,6 +149,9 @@ def run_training(
     # resume is checked against.
     write_run_config(directory, started)
     write_nemo_manifest(directory / MANIFEST_NAME, _manifest_entries(config, drawn, data_dir))
+    # A run that augments writes its banks' NeMo manifests into the run
+    # directory, so the record can hash what the perturbations actually read.
+    augmentation = _write_bank_manifests(config, directory, data_dir)
 
     # The GPU is chosen before the heavy step imports torch, because
     # CUDA_VISIBLE_DEVICES has to be set before CUDA is initialised (D-008).
@@ -151,6 +163,7 @@ def run_training(
         base=base,
         base_identity=base_identity,
         resuming=not fresh and resume_checkpoint(directory) is not None,
+        augmentation=augmentation,
     )
     print_line(
         "resuming from the last resume slot"
@@ -180,6 +193,45 @@ def _clips_line(name: str, drawn: TrainingClips) -> str:
         f"({drawn.outside_duration} outside the duration window, "
         f"{drawn.without_text} without text)"
     )
+
+
+def _write_bank_manifests(
+    config: TrainConfig, directory: Path, data_dir: Path | None
+) -> dict | None:
+    """The NeMo manifests of a run's banks, written into its run directory.
+
+    One file per enabled perturbation, built from the train half of its bank,
+    and the block the run record keeps: what it did to the audio, from which
+    bank, and the hash of the file the perturbations read. ``None`` when the
+    run does not augment, and no file is written then: the run directory of a
+    run that augmented nothing is the run directory of today.
+    """
+    if config.noise_prob <= 0.0 and config.reverb_prob <= 0.0:
+        return None
+    blocks: dict = {}
+    if config.noise_prob > 0.0:
+        lines, digest = write_bank_manifest(
+            directory / NOISE_MANIFEST_NAME, dataset_dir(config.noise_bank, data_dir)
+        )
+        blocks["noise"] = {
+            "prob": config.noise_prob,
+            "min_snr_db": config.noise_min_snr_db,
+            "max_snr_db": config.noise_max_snr_db,
+            "bank": config.noise_bank,
+            "bank_lines": lines,
+            "manifest_sha256": digest,
+        }
+    if config.reverb_prob > 0.0:
+        lines, digest = write_bank_manifest(
+            directory / REVERB_MANIFEST_NAME, dataset_dir(config.reverb_bank, data_dir)
+        )
+        blocks["reverb"] = {
+            "prob": config.reverb_prob,
+            "bank": config.reverb_bank,
+            "bank_lines": lines,
+            "manifest_sha256": digest,
+        }
+    return blocks
 
 
 def _start_payload(
@@ -267,7 +319,7 @@ def _record(
             "clips_available": training.clips.available,
             "sampled_ids_sha256": training.clips.ids_sha256,
         }
-    return {
+    record = {
         "name": config.name,
         "config": config.to_dict(),
         **data_record,
@@ -290,3 +342,8 @@ def _record(
         "peak_vram_gib": round(result.peak_vram_gib, 2),
         "device": result.device,
     }
+    # The augmentation block only for a run that augmented: a run that did not
+    # keeps the record of a run that could not have had one.
+    if training.augmentation:
+        record["augmentation"] = training.augmentation
+    return record
