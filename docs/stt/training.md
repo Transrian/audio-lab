@@ -72,6 +72,12 @@ gpu: "0"                                  # an index or a UUID prefix
 seed: 20261107
 resume_every: 500                         # updates between resume-slot rewrites
 log_every: 50                             # updates between log lines
+noise_prob: 0.4                           # chance a clip is mixed with noise; 0 disables
+noise_bank: musan-noise                   # a prepared dataset; only its train half
+noise_min_snr_db: 0.0                     # signal over noise after the mix, in dB
+noise_max_snr_db: 20.0                    # above noise_min_snr_db
+reverb_prob: 0.2                          # chance a clip is convolved with an RIR; 0 disables
+reverb_bank: rirs-noises                  # a prepared dataset of RIRs; only its train half
 ```
 
 `base_model`, `updates`, `batch_size`, `lr_encoder` and `lr_heads` are required
@@ -83,10 +89,16 @@ other field has a default and may be left out: `base_model_env` (`""`),
 `grad_accumulation` (1), `weight_decay` (1e-3), `schedule` (`constant`),
 `warmup_updates` (0), `precision` (`bf16-mixed`), `grad_clip` (1.0),
 `max_clip_seconds` (20), `workers` (4), `gpu` (0), `seed` (20261107),
-`resume_every` (500) and `log_every` (50).
+`resume_every` (500), `log_every` (50), `noise_prob` (0.0), `noise_bank` (`""`),
+`noise_min_snr_db` (0.0), `noise_max_snr_db` (20.0), `reverb_prob` (0.0) and
+`reverb_bank` (`""`).
 **An unknown key is refused**, so a typo cannot silently train something else
 than the file says. `clips` must be at least `batch_size`, `warmup_updates` must
-be smaller than `updates`, and the two learning rates must be positive.
+be smaller than `updates`, the two learning rates must be positive, a
+probability must be in `[0, 1]`, `noise_max_snr_db` must be above
+`noise_min_snr_db`, and a probability above 0 needs its bank (there would be
+nothing to mix, and a run that guessed a bank would train on audio the file
+never named).
 
 `base_model_env` is how a machine keeps a local copy of a checkpoint while the
 config names the public one: the variable wins over `base_model` when it is set,
@@ -165,6 +177,57 @@ missing ones, the number of training clips checked. It is never in `config.json`
 because a resume is checked against that file field by field, and a new key
 there would refuse every run written before the guard existed.
 
+### Noise and reverberation
+
+A probability above 0 turns on one of NeMo's perturbations, per clip, during
+the run:
+
+- `noise_prob` mixes each selected clip with one noise file, at a random
+  signal-to-noise ratio drawn from `[noise_min_snr_db, noise_max_snr_db]`;
+- `reverb_prob` convolves each selected clip with one room impulse response
+  (a RIR), simulating reverberation, with the impulse normalized and shifted
+  so the room changes the room, not the level or the length of the speech.
+
+The transcript is unchanged; the model learns to transcribe through noise and
+reverb. When both are 0 — the default — the run is exactly the run of before
+these fields existed: no `augmentor` reaches NeMo, and the run directory and
+`train.json` are what they were.
+
+**Only the train half of a bank.** A bank is a prepared dataset like any other
+(its cards live in [datasets.md](datasets.md)); the run writes a NeMo manifest
+from its rows with `source_split == "train"` only. The eval half of a bank is
+what the noisy panels of the suite are scored against, and a run that
+augmented with it would have trained on its test set. A bank with no train row
+refuses the run.
+
+**The bank manifests.** For each enabled perturbation the run writes its bank's
+NeMo manifest into the run directory — `noise.jsonl` for the noise,
+`reverb.jsonl` for the reverb — with one line per clip of the train half,
+sorted by id, absolute audio paths. A file longer than 20 s becomes one line
+per 20 s window (its `offset` and `duration`), so a perturbation never loads a
+whole multi-minute file for one clip. NeMo picks a random line per augmented
+clip and reads it from disk; that is what keeps the run's memory bounded, and
+it is why nothing in the run caches the bank's audio.
+
+**What the record says.** `train.json` of an augmenting run carries an
+`augmentation` block: for each enabled perturbation, its probability, its SNR
+range (noise), the bank it read, the number of lines in the bank's manifest
+and the sha256 of that manifest. The `config` block carries the same fields
+the file named. A run that did not augment records no `augmentation` block and
+no bank fields, so an old run and a run that never wrote them read as the same
+run on a resume.
+
+**Determinism, and where it stops.** The run seeds itself
+(`pl.seed_everything(seed, workers=True)`) and each data worker's Python
+`random` is seeded at worker init, which is what the perturbations draw from.
+So the same config, seed and worker count give the same augmentations in an
+**uninterrupted** run. After a resume the clip order is restored (the order is
+drawn from `seed` and the epoch, not from the workers' state), but the
+workers' random state is not part of the resume slot: the augmentations a
+resumed run applies from the slot on are not the ones the uninterrupted run
+would have applied. That difference is not repaired, and a run that was
+resumed is not bit-for-bit the run that would not have stopped.
+
 ## 3. What a run does
 
 1. It draws `clips` clips from the dataset's manifest: clips that are shorter
@@ -176,6 +239,8 @@ there would refuse every run written before the guard existed.
    this succeeds, so a run that cannot find its data costs no directory.
 2. It writes a NeMo manifest inside the run directory: one line per clip with an
    absolute path, its duration and its text. NeMo reads that, not our manifest.
+   A run that augments writes its banks' manifests the same way
+   ([above](#noise-and-reverberation)).
 3. It loads the base model on the CPU, replaces its training data settings with
    the run's, and builds AdamW through NeMo's own parameter groups: the encoder
    (and its preprocessor) at `lr_encoder`, the decoder and the joint at
@@ -221,10 +286,11 @@ there would refuse every run written before the guard existed.
 |---|---|
 | `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well. Written before the first update, never rewritten; a resume is checked against it (§5) |
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
+| `noise.jsonl`, `reverb.jsonl` | only for a run that augments: the NeMo manifest of its noise bank and its reverb bank, the train half of each, one line per ≤20 s window (§2) |
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, and the `leakage_guard` block (§2) |
+| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, the `leakage_guard` block (§2), and, for a run that augmented, the `augmentation` block: per perturbation, its probability, its SNR range (noise), its bank, the bank's line count and the sha256 of the bank's manifest (§2) |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so.
