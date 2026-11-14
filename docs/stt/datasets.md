@@ -887,6 +887,56 @@ screening is a difference between corpora and not between recipes:
 read from the network; the cache keeps those bytes, so preparing a source again
 costs nothing and a fresh clone downloads all of it again.
 
+### Label error of the agreement pipeline
+
+Five sources are labelled by the talks pipeline: Whisper large-v3 and
+Qwen3-ASR 1.7B answer each clip, and a clip is kept where the two agree —
+Whisper's text at most 0.15 normalized WER away from Qwen's — with the kept
+label Qwen's text (`src/audiolab/data/talks.py`). How good the kept labels are
+had not been measured; `experiments/label-audit/audit.py` measures it on clips
+that hold a human text beside the audio. A fixed draw (`random.Random(20261110).sample`
+over the ids sorted, cached with the whole id set as its key) of 3 000 clips of
+`nasa-en-train` — NASA's own near-verbatim transcripts — and 1 000 of
+[`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+— the ministry's human captions. Both models are asked for each clip's audio
+(the answers cached by model, language and audio hash,
+[D-017](../owner/directives.md)), the
+pipeline's own rule decides kept and rejected, and the kept and the rejected
+labels are scored against the human text with the evaluation normalizer (v1).
+
+- **`nasa-en-train` (en)**: the rule keeps 2 853 of 3 000 clips (95.1 %), and
+  the kept labels score **3.7 % WER** against NASA's transcripts (median per
+  clip 2.2 %). The 147 rejected (4.9 %) would have scored 15.5 % WER. By how
+  the base model did on the same human label (`base_wer`): the kept WER is 2.7 %
+  where the base is under 0.1 (2 403 of 2 436 kept), 8.8 % at 0.1–0.2
+  (399 of 453), 14.0 % at 0.2–0.3 (45 of 92) and 16.9 % at 0.3 and up
+  (6 of 19); the rejected score 8.2 / 14.3 / 19.5 / 29.2 % in the same buckets.
+  The rule keeps most where the audio is cleanest, and the kept labels are
+  worst where the clip is hardest.
+- **`peertube-edu-captions-fr` (fr)**: the rule keeps 806 of 1 000 clips
+  (80.6 %), and the kept labels score **6.5 % WER** against the captions
+  (median per clip 4.5 %). The 194 rejected (19.4 %) would have scored 22.9 %.
+  The captions carry no `base_wer`, so there is no bucket split.
+
+Word by word, the kept labels differ from the human text in four categories
+(`audit.py examples`, at most 30 classified examples per arm; the per-clip rows
+in the cache as `label-audit/<dataset>-scored.jsonl`): filler insertions — the
+near-verbatim transcript leaves out the "you know" and "so" the model hears —
+numbers, a digit the label reads as words or reads back wrong, name spellings,
+and the rest. Of the 1 529 kept English clips with differences: filler
+insertions 66, numbers 40, name spellings 132, the rest 1 291. Of the 504
+French: filler insertions 1, numbers 32, name spellings 75, the rest 396.
+
+Two caveats. The human text is not the talk sets: the English numbers are on
+NASA's podcasts — clean, read interviews with near-verbatim transcripts — and
+the French ones on the ministry's captions, the closest human reference the
+French talk sets have. The talk sets themselves hold no human text, so these
+are what the rule lets through on similar audio, not a per-set measurement. And
+the labels the pipeline keeps are Qwen's: the number also says what a model
+label costs against a human one on the same audio, which is what the
+`nasa-en-train-qwen` arm of the [screening](screening.md#label-style-same-audio)
+measures, trained on the same clips.
+
 ### `granary-fr-train` — pseudo-labelled YouTube French
 
 - **Source**: `espnet/yodas-granary`, `data/fr000/asr_only/*.parquet` on Hugging
@@ -1495,9 +1545,11 @@ published.
   scale-up plan expected the listing to run out near 26 000–30 000 clips; the
   cap was reached instead, with 231 of the 519 talks still unread. The
   prepared set is 12 GiB.
-- **Known limits**: **the label error of the kept clips is not measured** — no
-  human has checked a sample, so how many wrong labels the agreement test lets
-  through is unknown. It lets through a word both models get wrong, and one word
+- **Known limits**: **the label error of the kept clips is measured on similar
+  clips** — on 1 000 French clips with human captions the agreement rule keeps
+  80.6 % and the kept labels score 6.5 % WER against them ([label error of the
+  agreement pipeline](#label-error-of-the-agreement-pipeline)). The rule lets
+  through a word both models get wrong, and one word
   only one of them gets wrong in a long enough clip: Qwen writes "on utilise
   l'ADN" where the speaker says "FDN" (French Data Network, which Whisper and
   Parakeet both heard), and the clip is kept with Qwen's text. Technical terms and
@@ -1615,9 +1667,11 @@ published.
   The scale-up plan expected the source to run out near 26 000–30 000 clips;
   the cap was reached instead, with 2 062 listed talks still unread. The
   prepared set is 12 GiB.
-- **Known limits**: **the label error of the kept clips is not measured** — no
-  human has checked a sample, so how many wrong labels the agreement test lets
-  through is unknown. What the test lets through, and why a preparation from an
+- **Known limits**: **the label error of the kept clips is measured on similar
+  clips** — on 1 000 French clips with human captions the agreement rule keeps
+  80.6 % and the kept labels score 6.5 % WER against them ([label error of the
+  agreement pipeline](#label-error-of-the-agreement-pipeline)). What the test
+  lets through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
 
@@ -1717,8 +1771,10 @@ Per instance, as the listing of 2026-11-08 holds them:
   of `peertube-edu-captions-fr` this listing holds is absent from the set
   ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
 - **Known limits**: as in the parents' cards — the label error of the kept
-  clips is not measured (no human has checked a sample), and the labels depend
-  on the run (vLLM does not answer bit for bit the same when the requests sent
+  clips is measured on similar clips (on 1 000 French clips with human
+  captions the kept labels score 6.5 % WER against them, [label error of the
+  agreement pipeline](#label-error-of-the-agreement-pipeline)), and the labels
+  depend on the run (vLLM does not answer bit for bit the same when the requests sent
   beside one change, and the cache keeps the first answer). The talks are the
   parents' talks, so a mix of this source with a parent needs the `sha256`
   guard described above.
@@ -1836,9 +1892,12 @@ Per instance, as the listing of 2026-11-08 holds them:
   expected the listing to run out near 20 000–25 000 clips; the 30 000 cap was
   reached instead, with 1 656 listed videos still unread. The prepared set is
   9.2 GiB.
-- **Known limits**: **the label error of the kept clips is not measured** — no
-  human has checked a sample, so how many wrong labels the agreement test lets
-  through is unknown. What the test lets through, and why a preparation from an
+- **Known limits**: **the label error of the kept clips is measured on similar
+  clips** — on 3 000 English clips with near-verbatim human transcripts the
+  agreement rule keeps 95.1 % and the kept labels score 3.7 % WER against them
+  ([label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
+  through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
 
@@ -1946,9 +2005,12 @@ Per instance, as the listing of 2026-11-08 holds them:
   prepared set holds none. The scale-up plan expected the listing to run out
   near 20 000–25 000 clips; the 30 000 cap was reached instead, with 5 144
   listed talks still unread. The prepared set is 9.7 GiB.
-- **Known limits**: **the label error of the kept clips is not measured** — no
-  human has checked a sample, so how many wrong labels the agreement test lets
-  through is unknown. What the test lets through, and why a preparation from an
+- **Known limits**: **the label error of the kept clips is measured on similar
+  clips** — on 3 000 English clips with near-verbatim human transcripts the
+  agreement rule keeps 95.1 % and the kept labels score 3.7 % WER against them
+  ([label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
+  through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
 
@@ -2231,9 +2293,14 @@ this preparation leaves them out (decision 0002).
   [`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set)
   were left out of what it read, and none of the set's clips is one of them.
   The prepared set is 9.5 GiB.
-- **Known limits**: **the label error of the kept clips is not measured** — the
-  thresholds bound how far a label may stray from Whisper's words, and nobody
-  has checked a sample against the audio. The first set kept NASA's typography:
+- **Known limits**: **the label error of the kept clips is measured on a sample
+  of the set** — had the agreement rule labelled the same 3 000 clips, it keeps
+  95.1 % of them, and the kept labels — Qwen's, not NASA's — score 3.7 % WER
+  against NASA's transcripts ([label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)). The set's own labels are
+  NASA's near-verbatim transcripts, bound to Whisper's words by the edge
+  thresholds; the clips the rule drops have not been checked against the audio.
+  The first set kept NASA's typography:
   `’` for every apostrophe (6 452 clips held one, none a straight `'`), and
   `“ ”`, `—` and `–`. The tokenizer of Parakeet TDT 0.6B v3 has no piece for
   them, so a model trained on those labels learned to write its unknown token,
