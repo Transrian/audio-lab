@@ -37,6 +37,7 @@ from audiolab.data.nonspeech import fetch_nonspeech
 from audiolab.data.notsofar import fetch_notsofar_en_eval, fetch_notsofar_en_train
 from audiolab.data.peertube_edu_captions import fetch_peertube_edu_captions_fr
 from audiolab.data.pxcorpus import fetch_pxcorpus_fr_train
+from audiolab.data.relabel import fetch_nasa_en_train_qwen
 from audiolab.data.store import read_manifest, verify_clips
 from audiolab.data.talk_sources import fetch_talk_dataset
 from audiolab.data.train import TRAIN_CLIP_CAP
@@ -57,6 +58,7 @@ FETCHERS = {
     "librispeech-en-train": fetch_librispeech_en_train,
     "librispeech-pc-en-train": fetch_librispeech_pc_en_train,
     "nasa-en-train": fetch_nasa_en_train,
+    "nasa-en-train-qwen": fetch_nasa_en_train_qwen,
     "nasa-en-test": fetch_nasa_en_test,
     "peertube-edu-captions-fr": fetch_peertube_edu_captions_fr,
     "nonspeech": fetch_nonspeech,

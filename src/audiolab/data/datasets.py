@@ -314,6 +314,20 @@ DATASETS: dict[str, DatasetInfo] = {
         "are left out. Every clip carries its attribution (NASA and the show, episode "
         "title, page URL). No panels.",
     ),
+    "nasa-en-train-qwen": DatasetInfo(
+        name="nasa-en-train-qwen",
+        source="the same clips and audio as nasa-en-train, relabelled (no new source)",
+        license="public domain (US government work)",
+        split="listing",
+        reference_style="model labels (Qwen3-ASR alone, no agreement filter), "
+        "casing and punctuation",
+        grouping="recording (group = episode page slug), as nasa-en-train",
+        notes="The label-style test set: the same clips, audio and clip order as "
+        "nasa-en-train, with the text of every clip replaced by the Qwen3-ASR answer, "
+        "so a run on it differs from a run on nasa-en-train in the labels alone. "
+        "Prepared from the source's manifest by src/audiolab/data/relabel.py; "
+        "described in docs/stt/datasets.md. No panels.",
+    ),
     "nasa-en-test": DatasetInfo(
         name="nasa-en-test",
         source="https://www.nasa.gov/podcasts/ (the same listing as nasa-en-train, "
