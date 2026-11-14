@@ -200,6 +200,57 @@ def write_nemo_manifest(path: Path, entries: list[tuple[Clip, Path]]) -> int:
     return len(lines)
 
 
+# How long one row of a bank manifest may cover: a perturbation reads its one
+# noise file from disk per augmented clip, and this is what keeps that read
+# bounded instead of loading a whole multi-minute file for one clip.
+BANK_WINDOW_SECONDS = 20.0
+
+
+def write_bank_manifest(path: Path, bank_dir: Path) -> tuple[int, str]:
+    """The NeMo noise manifest of a prepared bank, for its train half.
+
+    NeMo's perturbations pick a random manifest line per augmented clip and
+    read it from disk, one JSON line per row: ``audio_filepath``, ``duration``,
+    ``offset``, ``text``. Only rows with ``source_split == "train"`` are
+    written, sorted by id, with the bank's audio as absolute paths: the eval
+    half of a bank is what the noisy panels of the suite are scored against,
+    and a run that augmented with it would have trained on its test set. A
+    long file becomes one row per ``BANK_WINDOW_SECONDS`` window (its
+    ``offset`` and ``duration``), so no line ever covers more than a window.
+
+    Returns the number of lines written and the sha256 of the file's content,
+    both of which the run record keeps.
+    """
+    train = [clip for clip in read_manifest(bank_dir) if clip.source_split == "train"]
+    if not train:
+        raise TrainDataError(f"{bank_dir} holds no row with source_split == 'train'")
+    lines = []
+    for clip in sorted(train, key=lambda clip: clip.id):
+        if clip.source_split != "train":
+            # Unreachable while the filter above stands; a manifest row that
+            # was not the train half must never reach a run's manifest.
+            raise TrainDataError(f"{clip.id} is not the train half of its bank")
+        audio = str((bank_dir / clip.audio).resolve())
+        offset = 0.0
+        while offset < clip.duration_s:
+            end = min(offset + BANK_WINDOW_SECONDS, clip.duration_s)
+            lines.append(
+                json.dumps(
+                    {
+                        "audio_filepath": audio,
+                        "duration": round(end - offset, 3),
+                        "offset": round(offset, 3),
+                        "text": "",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            offset = end
+    content = "\n".join(lines) + "\n"
+    path.write_text(content, encoding="utf-8")
+    return len(lines), hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 def dataset_dir(name: str, data_dir: Path | None = None) -> Path:
     """Where a prepared dataset lives; refused if nothing has prepared it."""
     from audiolab.core.paths import data_dir as default_data_dir
