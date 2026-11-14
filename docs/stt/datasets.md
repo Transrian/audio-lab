@@ -882,6 +882,7 @@ screening is a difference between corpora and not between recipes:
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.7 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
 | `nasa-en-train` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 3.7 GiB | not measured: the MP3 files are deleted once their sound is out, and the 265 episodes read leave 15.0 GiB of WAV in the cache |
+| `nasa-en-train-qwen` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 0: the audio is a hard link to `nasa-en-train`'s files | 0: nothing is fetched, the labels are the label audit's cached Qwen answers |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -2316,6 +2317,37 @@ this preparation leaves them out (decision 0002).
   engineers, scientists and astronauts, several voices per episode — with labels
   a human wrote. It is the one English source of that register whose labels are
   not a model's, so its arm says what the talks' model labels cost.
+
+### `nasa-en-train-qwen` — the same NASA audio, with Qwen's labels alone
+
+- **Source**: derived from
+  [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
+  by `src/audiolab/data/relabel.py` (`audiolab data fetch nasa-en-train-qwen`):
+  the same 11 956 clips and 265 episodes, and each clip's WAV is a **hard link**
+  to the source's file, not a copy — the audio is identical by construction,
+  the clip keeps the source's `sha256` and `duration_s`, and the preparation
+  decodes nothing. A re-encoding of a linked file would land on the source's
+  inode, on the same file, and the writer's 16-bit to float32 round trip is not
+  the identity at near-full-scale samples.
+- **Text**: the text of **every** clip is `plain_label` of the Qwen3-ASR 1.7B
+  answer — no agreement filter, no dropping: an empty answer would be an empty
+  text, skipped by the training draw, and there are none (0 of 11 956). The
+  answers are cached per clip, keyed by the model, the language and the audio
+  hash ([D-017](../owner/directives.md)), so the preparation never asks the
+  server for what the [label audit](#label-error-of-the-agreement-pipeline)
+  already asked.
+- **Why it is here**: the label arm of the label-style test — the same clips,
+  the same audio, the same draw, and only the labels change from NASA's human
+  transcripts to a model's. What that buys is measured in the
+  [screening](screening.md#label-style-same-audio), against
+  `screen-nasa-en-plain` on the identical audio.
+- **Label error**: that of Qwen alone against the human text — on the audit's
+  3 000-clip draw, the unfiltered Qwen text scores **4.2 % WER** (median per
+  clip 2.7 %) against NASA's near-verbatim transcripts: the 2 853 clips the
+  agreement rule keeps score 3.7 % and the 147 it rejects 15.5 %, and this set
+  holds all of them.
+- **Group**: the source's episodes, renamed under the set's own name
+  (`group_kind: recording`); the audio inherits the source's known limits.
 
 ### No overlap with the evaluation sets
 

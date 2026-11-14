@@ -363,6 +363,84 @@ Two consequences:
   with a share of Granary, so that the model keeps what it knew. That is a
   hypothesis for the mix phase; this screening does not test it.
 
+## Label style (same audio)
+
+The four talk sources all gain on the code-switched panels
+([above](#what-each-source-does-alone)). Their labels have one property no other
+screened source has: the text is Qwen's, not a human's. A candidate
+explanation of the gain is the label style rather than the audio. This test
+changes only the labels of the same audio.
+
+**Design.** [`nasa-en-train-qwen`](datasets.md#nasa-en-train-qwen--the-same-nasa-audio-with-qwens-labels-alone)
+is `nasa-en-train` with the labels replaced by Qwen's: the same 11 956 clips,
+the same audio — each clip's WAV is a hard link of the source's file — and the
+text of every clip is `plain_label` of the Qwen answer, without the agreement
+filter. It is trained with the recipe of `screen-nasa-en-plain` (the config
+differs only in `dataset`), the same base model, the same suite, and it is
+compared against `screen-nasa-en-plain`, not against the base: the two runs
+train on the same 10 000 clips — the drawn suffix sets of the two run manifests
+are identical — so the comparison isolates the labels. The labels really
+differ: 10 886 of the 11 956 texts are not the source's, and on the audit's
+3 000-clip draw the unfiltered Qwen text scores 4.2 % WER against NASA's
+transcripts ([label error of the agreement
+pipeline](datasets.md#label-error-of-the-agreement-pipeline)).
+
+**Pre-registered reading**, written before the table was computed:
+
+- (a) Qwen labels better on the code-switched panels, with intervals excluding
+  zero → the label style explains part of the talk gain;
+- (b) no separable difference → the talk gains come from the audio;
+- (c) human labels better → the model labels cost accuracy, and the agreement
+  threshold should be tightened before the large preparations continue.
+
+**Result** (`table.py`, paired over the ids both runs answered, normalized WER;
+`n < 20` groups: interval approximate):
+
+| panel | plain (A) | qwen (B) | B − A | 95 % CI | verdict |
+| --- | --- | --- | --- | --- | --- |
+| african-accented-fr-test-full | 4.97 % | 4.85 % | −0.13 % | [−0.65, 0.42] | not separable |
+| cs-fleurs-fr-en-full | 13.89 % | 14.18 % | +0.28 % | [−0.08, 0.65] | not separable |
+| fleurs-en-full | 4.57 % | 4.79 % | +0.21 % | [−0.01, 0.44] | not separable |
+| fleurs-fr-full | 4.68 % | 4.73 % | +0.05 % | [−0.14, 0.25] | not separable |
+| librispeech-en-full | 1.96 % | 1.94 % | −0.02 % | [−0.16, 0.11] | not separable |
+| mls-fr-full | 5.01 % | 5.29 % | +0.28 % | [0.08, 0.53] | plain better (approx.) |
+| nasa-en-test-full | 2.83 % | 4.28 % | +1.46 % | [1.07, 1.88] | plain better |
+| noisy-fleurs-en-full | 9.37 % | 9.93 % | +0.55 % | [0.14, 0.99] | plain better |
+| noisy-fleurs-fr-full | 16.66 % | 16.61 % | −0.04 % | [−0.51, 0.41] | not separable |
+| noisy-servicenow-codeswitched-en-fr-full | 16.56 % | 17.32 % | +0.76 % | [−0.48, 2.03] | not separable |
+| nonspeech-full (hallucination) | 8.57 % | 6.43 % | −2.14 % | [−5.00, 0.71] | not separable |
+| nonspeech-music-full (hallucination) | 5.26 % | 1.75 % | −3.51 % | [−8.26, 0.00] | not separable |
+| notsofar-en-eval-full | 10.98 % | 7.68 % | −3.30 % | [−5.10, −1.68] | qwen better (approx.) |
+| peertube-edu-captions-fr-full | 7.44 % | 9.60 % | +2.17 % | [1.08, 3.44] | plain better |
+| servicenow-codeswitched-en-fr-ca-full | 14.10 % | 13.83 % | −0.27 % | [−1.47, 0.99] | not separable |
+| servicenow-codeswitched-en-fr-full | 12.07 % | 12.32 % | +0.25 % | [−1.00, 1.46] | not separable |
+| voxpopuli-en-nonnative-full | 15.71 % | 12.84 % | −2.87 % | [−3.97, −1.98] | qwen better |
+
+**Reading (b) holds.** None of the four code-switched panels is separable
+(cs-fleurs-fr-en +0.28 [−0.08, 0.65], servicenow en-fr +0.25 [−1.00, 1.46],
+en-fr-ca −0.27 [−1.47, 0.99], noisy en-fr +0.76 [−0.48, 2.03]). Replacing the
+human labels with Qwen's labels does not move those panels on the same audio,
+so this test does not support the label-style explanation of the talk gain:
+where the talk gain is real, it comes from the audio — or it is not real, which
+the larger preparations decide, not this 10 000-clip screen.
+
+**Outside the pre-registered reading.** Six panels are separable, in both
+directions: qwen's labels are better on notsofar-en-eval (−3.30 [−5.10, −1.68],
+10 groups) and voxpopuli-en-nonnative (−2.87 [−3.97, −1.98]); the human labels
+are better on nasa-en-test (+1.46 [1.07, 1.88]), peertube-edu-captions-fr
+(+2.17 [1.08, 3.44]), mls-fr (+0.28 [0.08, 0.53], 14 groups) and
+noisy-fleurs-en (+0.55 [0.14, 0.99]). Two of those four are human text of the
+model's own register: trained on model labels, the model is clearly worse on
+NASA's held-out human-transcribed episodes and on the ministry's captions. That
+is the accuracy cost of model labels where the human text is the reference; it
+is reported to the owner as an observation, and the pre-registered reading
+(c) — tightening the agreement threshold — does not follow from it, because
+(c) was registered on the code-switched panels.
+
+The qwen run was trained on a later commit than the plain run; no training or
+evaluation code changed in between (the commit range touched only new config
+files), and both runs are 10 000-clip screens of the same 12 k source.
+
 ## The batch normalization bug
 
 The first two runs (Granary, LibriSpeech) came back broken, and the way they
