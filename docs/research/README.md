@@ -11,6 +11,7 @@ binding choices live in [decisions](../decisions/README.md).
 |---|---|---|
 | Low-bit audio models: QAT and QAD | Feasibility review completed; deployment and quality experiments not run | [Evidence, limitations and proposed pilot](low-bit-training.md) |
 | Per-source STT screening | Initial screens reported; follow-up work paused | [Method, results and limits](../stt/screening.md); [reporting script](../../experiments/source-screening/README.md) |
+| External projects to watch | Watch list; nothing run or evaluated | [Projects to watch](watchlist.md) |
 
 A result can stay in a domain document, as the screening does. Link to its home
 instead of copying it here.
