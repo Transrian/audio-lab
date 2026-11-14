@@ -915,6 +915,17 @@ costs nothing and a fresh clone downloads all of it again.
 - **Why it is here**: the widest variety of French in the register — real YouTube
   speech, in several registers — and the only pseudo-labelled source of the
   screening, so its arms can compare model labels with human ones.
+- **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
+  granary-fr-train --clips 40000`, prepared into
+  `$AUDIOLAB_DATA/granary-fr-train-40k`; the 12 000-clip set above is
+  unchanged, and its 2 725 videos are all in the larger set. It reads all 315
+  shards of the split (98 already cached, 217 downloaded) and the source runs
+  out before the cap: **37 971 clips, 26.3 h, 8 802 videos**, median 1.5 s,
+  all audio CC-BY-3.0, labels CC-BY-4.0. On the way, 2 965 rows shorter than
+  0.5 s and 2 710 longer than 20 s were left out, and 45 with a character the
+  base model cannot write; the prepared set holds none of those. The scale-up
+  plan expected the split to stop near 35 000–38 000 clips; 37 971 is the top
+  of that band. The prepared set is 3.0 GiB.
 
 ### `voxpopuli-fr-train` — European Parliament French
 
