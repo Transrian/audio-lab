@@ -10,10 +10,13 @@ dataset: peertube-fr-train
 
 clips: 10000
 updates: 2000
-# 16 clips per update. Two at a time is what fits clips of up to 20 s of dense
-# read speech in 32 GB (four already does not).
-batch_size: 2
-grad_accumulation: 8
+# 16 clips per update, one at a time: the control's two-at-a-time batch peaks
+# at 22.4 GB on a 32 GB card, which does not fit the 24 GB cards this test runs
+# on. The effective batch (16 clips per update), the seed, the clip order and
+# the optimizer are unchanged, so only the order of the floating-point sums
+# differs, as it does between any two cards.
+batch_size: 1
+grad_accumulation: 16
 max_clip_seconds: 20.0
 
 # The earlier private project's per-source screening rates, full encoder,
