@@ -532,6 +532,60 @@ Applied separately to each candidate, against the control:
 
 ### Results
 
+Normalized WER, paired against the control (a negative difference is better for
+the candidate; bold when the 95 % interval excludes zero). The noisy panels
+come from the control's `noisy-only` evaluation, the clean panels from its full
+evaluation; every clip was answered by both sides of every pair.
+
+Noisy panels:
+
+| panel | control | n40 | n40r20 |
+|---|---|---|---|
+| noisy-fleurs-en | 9.39 % | −0.15 [−0.43, 0.11] | −0.09 [−0.37, 0.20] |
+| noisy-fleurs-fr | 16.31 % | +0.04 [−0.39, 0.48] | +0.01 [−0.41, 0.42] |
+| noisy-servicenow en-fr | 16.38 % | +0.11 [−0.93, 1.12] | +0.14 [−0.59, 0.86] |
+
+Clean panels:
+
+| panel | control | n40 | n40r20 |
+|---|---|---|---|
+| cs-fleurs-fr-en | 14.17 % | −0.17 [−0.38, 0.04] | **−0.40** [−0.63, −0.19] |
+| fleurs-en | 4.93 % | +0.11 [−0.02, 0.26] | +0.11 [−0.01, 0.24] |
+| fleurs-fr | 4.78 % | −0.01 [−0.17, 0.16] | −0.03 [−0.20, 0.15] |
+| librispeech-en | 1.95 % | +0.04 [−0.01, 0.09] | +0.06 [0.00, 0.12] |
+| mls-fr * | 5.04 % | −0.02 [−0.15, 0.11] | +0.08 [−0.00, 0.15] |
+| nonspeech (hallucination rate) | 1.43 % | +0.36 [−1.07, 2.14] | +0.71 [−0.71, 2.14] |
+| servicenow en-fr-ca | 11.52 % | +0.63 [−0.09, 1.47] | +0.30 [−0.47, 1.12] |
+| servicenow en-fr | 10.82 % | +0.51 [−0.14, 1.24] | +0.25 [−0.25, 0.86] |
+| voxpopuli-en-nonnative | 13.81 % | **+0.22** [0.02, 0.45] | +0.25 [−0.01, 0.51] |
+
+\* mls-fr has few speaker groups (n < 20); its intervals are approximate.
+
+### What the decision rule says
+
+- **n40 — reject.** No noisy panel improves with an interval excluding zero,
+  so the adopt branch cannot fire. One clean panel does get measurably worse:
+  non-native English, voxpopuli-en-nonnative, at +0.22 [0.02, 0.45] — and the
+  best noisy gain (0.15, not separable) is smaller than that loss. That is the
+  reject branch, exactly as written before the numbers.
+- **n40r20 — inconclusive.** No noisy panel improves with an interval
+  excluding zero (no adopt), and no clean panel gets measurably worse (no
+  reject); the only significant clean effect is an improvement, on the
+  code-switched panel (−0.40). The rule's inconclusive branch applies: report
+  the numbers and propose a stronger dose — 80 % of the clips,
+  `noise_prob: 0.8` — or a different SNR range, before deciding. That
+  follow-up run is proposed here and **not started**: it needs the owner's go.
+  The 40 % dose of decision 0004 is now measured and, as is, not supported;
+  see the [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
+
+The noise did not help where it was aimed: on the noisy panels the candidates
+land within a tenth of a point of the control (formatted WER 14.69 / 19.36 /
+20.73 % for n40 and 14.70 / 19.41 / 20.37 % for n40r20, against 14.64 / 19.17 /
+20.40 %), and the small negative drift on the non-native English panel shows up
+in both, significant for n40. If 80 % of the clips still shows nothing on the
+noisy panels, the honest conclusion is that this amount of MUSAN noise, at
+0–20 dB, does not buy the model the robustness the recipe hoped for.
+
 ## What these numbers do not say
 
 - **Same clips is not same hours.** Granary clips are short (8.3 h for 12 000
