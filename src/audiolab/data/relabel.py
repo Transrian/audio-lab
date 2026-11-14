@@ -16,13 +16,14 @@ downloaded) and, for every clip in id order:
 - links the clip's WAV from the source into the new set, with ``os.link``: the
   audio is the same file, not a copy. Only when the link fails (the two
   directories on different filesystems) the file is copied, and the copies are
-  counted and reported. The linked file is never written: a write to a hard
-  link lands on the source's file, on the same inode, and a re-encoding is not
-  the same bytes anyway (the int16 to float32 round trip moves a sample near
-  full scale by one). The clip keeps the source's ``sha256`` and
-  ``duration_s``: they describe the linked bytes exactly. Nothing is decoded,
-  so the preparation has no partial state to resume — a stopped run is re-run,
-  and a link that is already there is kept;
+  counted and reported. The linked file is never opened for writing — a write
+  to a hard link lands on the source's file, on the same inode, and a
+  re-encoding is not the same bytes anyway (the int16 to float32 round trip
+  moves a sample near full scale by one); a clip is decoded only when its
+  answer is missing, to encode the request. The clip keeps the source's
+  ``sha256`` and ``duration_s``: they describe the linked bytes exactly.
+  Nothing is written clip by clip, so a stopped run is simply re-run — the
+  links are kept, and the manifest is written when the set is complete;
 - sets the text to ``plain_label`` of the Qwen answer. The answers come from
   the label audit's cache (``audiolab.data.label_audit``: the same per-clip
   files the audit of the same clips read, so the audit's clips are never asked

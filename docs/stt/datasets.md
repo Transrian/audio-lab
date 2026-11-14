@@ -2326,9 +2326,14 @@ this preparation leaves them out (decision 0002).
   the same 11 956 clips and 265 episodes, and each clip's WAV is a **hard link**
   to the source's file, not a copy — the audio is identical by construction,
   the clip keeps the source's `sha256` and `duration_s`, and the preparation
-  decodes nothing. A re-encoding of a linked file would land on the source's
-  inode, on the same file, and the writer's 16-bit to float32 round trip is not
-  the identity at near-full-scale samples.
+  never opens a linked file for writing (a write to a link would land on the
+  source's inode, on the same file, and a re-encoding is not the same bytes
+  anyway — the 16-bit to float32 round trip moves a sample near full scale by
+  one); a clip is read only when its answer is missing, to encode the request.
+  What protects the linked bytes is the per-clip `sha256` of the source's
+  manifest — the `pcm_sha256` of the audio, checked by `verify_clips` — not the
+  frozen set's baseline, which hashes the `manifest.jsonl` files, not the
+  audio.
 - **Text**: the text of **every** clip is `plain_label` of the Qwen3-ASR 1.7B
   answer — no agreement filter, no dropping: an empty answer would be an empty
   text, skipped by the training draw, and there are none (0 of 11 956). The
