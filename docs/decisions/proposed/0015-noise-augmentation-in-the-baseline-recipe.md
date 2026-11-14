@@ -42,8 +42,8 @@ Does the baseline recipe keep or drop noise augmentation?
 2. **Run the follow-up the inconclusive branch names first**: 80 % of the
    clips (`noise_prob: 0.8`), same banks and range — one more train+eval cycle
    (~3 h of 3090 GPU) — and decide with the full dose-response in hand.
-3. **Keep the clause as a default** anyway, because the control's non-native
-   English cost (0.22 points) is small and the earlier project's recipe used
+3. **Keep the clause as a default** anyway, because n40's non-native English
+   cost (0.22 points) is small and the earlier project's recipe used
    the noise. This is against the measured evidence and is not recommended.
 
 The follow-up run (option 2) is staged but not started: it needs the owner's

@@ -579,7 +579,8 @@ Clean panels:
   see the [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
 
 The noise did not help where it was aimed: on the noisy panels the candidates
-land within a tenth of a point of the control (formatted WER 14.69 / 19.36 /
+land within 0.15 points of the control, with no interval separating them
+(formatted WER 14.69 / 19.36 /
 20.73 % for n40 and 14.70 / 19.41 / 20.37 % for n40r20, against 14.64 / 19.17 /
 20.40 %), and the small negative drift on the non-native English panel shows up
 in both, significant for n40. If 80 % of the clips still shows nothing on the

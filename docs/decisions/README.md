@@ -61,3 +61,4 @@ Never invent alternatives after the fact.
 | [0012](proposed/0012-heavy-model-stack-as-a-locked-extra.md) | global | proposed | The heavy model stack becomes a locked, optional extra |
 | [0013](proposed/0013-normalizer-v2-contractions.md) | stt | proposed | Normalizer v2: contractions and elision spacing, for the next campaign |
 | [0014](proposed/0014-voxpopuli-shared-sessions.md) | stt | proposed | VoxPopuli: train clips from the evaluation set's plenary sessions |
+| [0015](proposed/0015-noise-augmentation-in-the-baseline-recipe.md) | stt/parakeet-fr | proposed | Noise augmentation in the baseline recipe |

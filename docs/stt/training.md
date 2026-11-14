@@ -193,6 +193,12 @@ reverb. When both are 0 — the default — the run is exactly the run of before
 these fields existed: no `augmentor` reaches NeMo, and the run directory and
 `train.json` are what they were.
 
+Before choosing a dose, note what has been measured: noise on 40 % of the
+clips (the dose of decision 0004) was tested against its own control in
+[screening.md, "Noise augmentation"](screening.md#noise-augmentation) and, as
+is, is not supported; a stronger dose is proposed but not started
+([proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md)).
+
 **Only the train half of a bank.** A bank is a prepared dataset like any other
 (its cards live in [datasets.md](datasets.md)); the run writes a NeMo manifest
 from its rows with `source_split == "train"` only. The eval half of a bank is
