@@ -946,6 +946,22 @@ costs nothing and a fresh clone downloads all of it again.
   earlier project trained on.
 - **What it costs**: 29.0 h for 12 000 clips; the shards are large (about 3.0 GiB
   each), so a cap of 12 000 clips reads three of the thirteen — 8.6 GiB of Parquet.
+- **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
+  voxpopuli-fr-train --clips 40000`, prepared into
+  `$AUDIOLAB_DATA/voxpopuli-fr-train-40k`; the 12 000-clip set above is
+  unchanged, and its 229 speakers are all in the larger set. It reads all
+  thirteen shards (64 760 rows; three already cached, ten downloaded) and the
+  split runs out below the cap: **26 973 clips, 65.9 h, 230 speakers**,
+  median 8.2 s, data CC0-1.0. What runs it out: 29 482 rows beyond the
+  200-clip share of a speaker (82 speakers hold the full 200), 8 801 rows
+  without a named speaker, 3 784 rows of the 27 speakers of
+  `voxpopuli-en-nonnative` — the evaluation subset, whose speakers this split
+  also records — 2 352 rows without text, 2 065 longer than 20 s, and 104
+  with a character the base model cannot write, which the prepared set holds
+  none of. The scale-up plan expected the cap at 40 000 clips; with only
+  about 230 named speakers at a 200-clip share, the valid rows of the split
+  top out near 27 000, so this is the source running out, not the cap
+  stopping it. The prepared set is 7.2 GiB.
 
 ### `mls-fr-train` — read audiobook French
 
