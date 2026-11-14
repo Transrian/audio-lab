@@ -44,6 +44,12 @@ TRAIN_FIELDS = (
     "seed",
     "resume_every",
     "log_every",
+    "noise_prob",
+    "noise_bank",
+    "noise_min_snr_db",
+    "noise_max_snr_db",
+    "reverb_prob",
+    "reverb_bank",
 )
 # The keys with no sensible guess: a run that picked its own size, batch or rate
 # would be another run than the file says, so these must be written down.
@@ -109,6 +115,22 @@ class TrainConfig:
     resume_every: int = 500
     # How often a loss line is appended to the run's log.
     log_every: int = 50
+    # The chance a clip is mixed with a noise file; 0 disables the noise
+    # entirely, and a run with it at 0 is the run it never wrote it in.
+    noise_prob: float = 0.0
+    # The prepared noise bank: a dataset whose train half feeds the noise.
+    # Only ``source_split == "train"`` rows of it are used; its eval half is
+    # what the noisy panels of the suite are scored against.
+    noise_bank: str = ""
+    # The signal-to-noise range the mix is drawn from, in dB: the minimum and
+    # maximum the clip's signal keeps over the noise after the mix.
+    noise_min_snr_db: float = 0.0
+    noise_max_snr_db: float = 20.0
+    # The chance a clip is convolved with a room impulse response; 0 disables
+    # the reverb, and the bank it reads from: the train half of a dataset of
+    # RIRs, the same rule as ``noise_bank``.
+    reverb_prob: float = 0.0
+    reverb_bank: str = ""
     # The datasets of a mix run, in config order. Empty for a single-dataset
     # run, whose dataset and clips are the fields above.
     datasets: tuple[DatasetShare, ...] = ()
@@ -181,6 +203,12 @@ class TrainConfig:
             seed=int(raw.get("seed", cls.seed)),
             resume_every=int(raw.get("resume_every", cls.resume_every)),
             log_every=int(raw.get("log_every", cls.log_every)),
+            noise_prob=float(raw.get("noise_prob", cls.noise_prob)),
+            noise_bank=str(raw.get("noise_bank") or "").strip(),
+            noise_min_snr_db=float(raw.get("noise_min_snr_db", cls.noise_min_snr_db)),
+            noise_max_snr_db=float(raw.get("noise_max_snr_db", cls.noise_max_snr_db)),
+            reverb_prob=float(raw.get("reverb_prob", cls.reverb_prob)),
+            reverb_bank=str(raw.get("reverb_bank") or "").strip(),
             datasets=shares,
             source=source,
         )
@@ -248,6 +276,32 @@ class TrainConfig:
             )
         if self.max_clip_seconds < 1.0:
             raise TrainConfigError(f"{where}: max_clip_seconds must be at least 1")
+        # Augmentation: a probability a run could not guess, a bank a run could
+        # not open, and an SNR range that must be a range. All of it is refused
+        # here, so a run that would fail inside a data worker fails before it
+        # loads a model.
+        for name, prob in (("noise", self.noise_prob), ("reverb", self.reverb_prob)):
+            if not 0.0 <= prob <= 1.0:
+                raise TrainConfigError(
+                    f"{where}: {name}_prob must be a probability between 0 and 1, not {prob}"
+                )
+        if self.noise_max_snr_db <= self.noise_min_snr_db:
+            raise TrainConfigError(
+                f"{where}: noise_max_snr_db must be above noise_min_snr_db "
+                f"({self.noise_min_snr_db} and {self.noise_max_snr_db})"
+            )
+        for name, prob, bank in (
+            ("noise", self.noise_prob, self.noise_bank),
+            ("reverb", self.reverb_prob, self.reverb_bank),
+        ):
+            if prob > 0 and not bank:
+                raise TrainConfigError(
+                    f"{where}: {name}_prob above 0 needs {name}_bank: there is no noise to mix"
+                )
+            if bank and not NAME_PATTERN.match(bank):
+                raise TrainConfigError(
+                    f"{where}: {name}_bank {bank!r} is not a prepared dataset name"
+                )
 
     def weights(self) -> Checkpoint:
         """The base model to start from, after the local override this file cannot hold."""
@@ -264,9 +318,20 @@ class TrainConfig:
         ``datasets`` (the entries, in config order) instead of ``dataset`` and
         ``clips``: the sum is the other datasets' business, and a record that
         held both would be one the config file did not say.
+
+        The augmentation fields are recorded only for a run that augments: a
+        run with every probability at 0 is exactly the run they did not name,
+        and its ``config.json`` and ``train.json`` must stay what they were,
+        so a resume of an older run still reads as the same run.
         """
         recorded = asdict(self)
         recorded.pop("source", None)
+        if self.noise_prob <= 0.0:
+            for key in ("noise_prob", "noise_bank", "noise_min_snr_db", "noise_max_snr_db"):
+                recorded.pop(key)
+        if self.reverb_prob <= 0.0:
+            for key in ("reverb_prob", "reverb_bank"):
+                recorded.pop(key)
         if self.datasets:
             recorded.pop("dataset")
             recorded.pop("clips")
