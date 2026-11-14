@@ -1596,7 +1596,7 @@ published.
   peertube-edu-fr-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/peertube-edu-fr-train-40k` — the clips are recorded under
   that directory's name; the 12 000-clip set above is unchanged. It read
-  **420 of the 2 483 listed talks (243.2 h)** — a first batch of 286, then
+  **420 of the 2 482 listed talks (243.2 h)** — a first batch of 286, then
   133, then 1 — and reached the cap: **40 000 clips, 107.0 h, 393 talks**
   (27 of the talks read yielded none), median 8.4 s; 38 108 CC-BY and 1 892
   CC0-1.0; 75 talks give their full 200-clip share, the smallest gives 2.
@@ -1608,11 +1608,11 @@ published.
   (62.8 %), the mean `base_wer` is 12.7 %, and 37.2 % of the clips have a
   `base_wer` of 0 — the same shape as the 12 000-clip set (61.0 %). 66
   candidates were left out for a character the base model cannot write; the
-  prepared set holds none. The 112 talks of
+  prepared set holds none. The 113 talks of
   `peertube-edu-captions-fr` that this listing holds are absent from every
   batch ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
   The scale-up plan expected the source to run out near 26 000–30 000 clips;
-  the cap was reached instead, with 2 063 listed talks still unread. The
+  the cap was reached instead, with 2 062 listed talks still unread. The
   prepared set is 12 GiB.
 - **Known limits**: **the label error of the kept clips is not measured** — no
   human has checked a sample, so how many wrong labels the agreement test lets
