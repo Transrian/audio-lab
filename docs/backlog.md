@@ -1,6 +1,6 @@
 # Backlog
 
-Updated: 2026-11-13.
+Updated: 2026-11-14.
 
 The durable list of open work. The [roadmap](roadmap.md) holds milestones and
 completion criteria; this page holds concrete tasks and unanswered questions.
@@ -22,7 +22,7 @@ and each long labelling job on the STT server still needs the owner's go.
 
 | ID | Work or question | Reference / next step before execution |
 |---|---|---|
-| P-02 | Label more of the talk pools and test a training mix. | Mix support and the leakage guard are implemented in the [training interface](stt/training.md#mixing-datasets); choosing the mix and the labelling budget still need the owner. Granary as an anchor is a [hypothesis](stt/screening.md#what-the-base-model-already-saw), not a selected recipe. |
+| P-02 | Label more of the talk pools and test a training mix. | The "label more" part is **done** (2026-11-14): nine larger preparations, 300 840 clips in total, each leaving the evaluation talks out — the [cards](stt/datasets.md) and the [register rows](stt/sources.md) hold the numbers. What remains is with the owner: choosing the mix and the labelling budget; an agent proposal of a mix v1 with the real numbers is awaiting the owner's answer. Mix support and the leakage guard are implemented in the [training interface](stt/training.md#mixing-datasets). Granary as an anchor is a [hypothesis](stt/screening.md#what-the-base-model-already-saw), not a selected recipe. |
 | P-03 | Separate the value of talk audio from Qwen's label style. | Design a controlled comparison that changes only the labels of the same human-transcribed audio, for example LibriSpeech-PC or ICSI. The [screening hypothesis](stt/screening.md#what-each-source-does-alone) is not a result of this test. |
 | P-04 | Review contraction and apostrophe-spacing normalization. | Diagnostic done (2026-11-10, all 16 screening runs, official paired intervals): [experiments/normalization-review](../experiments/normalization-review/README.md). One screening conclusion moves — NASA's harm on servicenow en-fr becomes not separable under the diagnostic. The decision on whether contraction and elision equivalence becomes the official scoring rule of the next campaign is the owner's: he answered "probably yes" on 2026-11-10 and deferred it the same day, so [proposed decision 0013](decisions/proposed/0013-normalizer-v2-contractions.md) remains proposed and is open for the next campaign. Do not silently rewrite a campaign's scoring rules or historical results. |
 | P-05 | Review the NASA source filters. | Done 2026-11-13: the owner's 2026-11-10 decision is implemented — NASA's Curious Universe is out of the source entirely (`EXCLUDED_SHOWS` in `src/audiolab/data/nasa.py`), the listing is re-pinned (768 episodes, 2026-11-13), the episode-level music and archive filters are unchanged. Still open: whether the edge-word gate's selection bias is acceptable; the plan keeps it for training and never for evaluation sets. The [NASA card](stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts) records the current filters and counts. |
@@ -37,7 +37,7 @@ so DS-01 comes before DS-03.
 |---|---|---|
 | DS-01 | New evaluation sets for what the panels do not measure: other French accents, real meetings, noise and reverberation, music, technical talks with human references. | [Evaluation limits](stt/evaluation.md). Adding panels to the suites needs the owner's agreement; existing panels never change. Covers N-03 and part of N-04 and N-05. |
 | DS-02 | Noise and reverberation augmentation in training, and a controlled test of it. | [Decision 0004](decisions/accepted/0004-parakeet-fr-baseline-recipe.md) plans noise on about 40 % of samples; [training](stt/training.md) has none today. The training half of the noise must never be the half used by evaluation. |
-| DS-03 | Larger training preparations than 12 000 clips, and French technical talks as their own source. | The 12 000-clip sets stay as the [screening](stt/screening.md) used them. Needs DS-01's evaluation talks excluded first. Part of P-02. |
+| DS-03 | Larger training preparations than 12 000 clips, and French technical talks as their own source. | **Done** (2026-11-14): the nine larger preparations (each in its own `-40k`/`-30k` directory, [cards](stt/datasets.md), [register rows](stt/sources.md)) and [the tech talks as their own source](stt/datasets.md#peertube-tech-fr-train--the-tech-talks-of-the-two-french-peertube-listings); DS-01's evaluation talks are excluded from all of them (checked per set). The 12 000-clip sets stay as the [screening](stt/screening.md) used them. The mix choice and the labelling budget remain with the owner (P-02). |
 
 ## Owner review needed
 
