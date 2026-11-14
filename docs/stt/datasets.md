@@ -859,8 +859,9 @@ screening is a difference between corpora and not between recipes:
   exactly as they are, so the screening is not scaled and remains
   reproducible. A larger preparation is recorded under its directory's name —
   the clip ids and the groups carry that prefix — reads the source in the same
-  order, and reuses the source's cache, so it takes the same clips and the same
-  talks first, then reads more. `CLIP_CAP_PER_GROUP` stays 200 at every cap,
+  order, and reuses the source's cache, so it takes the same talks first, and
+  the same clips wherever the current text rule keeps them, then reads more.
+  `CLIP_CAP_PER_GROUP` stays 200 at every cap,
   and a source that runs out before the cap is prepared with what it has, as at
   the default.
 
@@ -1690,7 +1691,9 @@ Per instance, as the listing of 2026-11-08 holds them:
   `audiolab data fetch peertube-tech-fr-train --clips 40000` — prepared into
   `$AUDIOLAB_DATA/peertube-tech-fr-train-40k`, the clips recorded under that
   directory's name; the source has no 12 000-clip set. It read **320 of the
-  420 listed talks (220.1 h of the 289.5 h listed)** — a first batch of 286,
+  421 listed talks (420 readable; 1 left out for
+  [decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)),
+  220.1 h of the 289.5 h listed** — a first batch of 286,
   then 33, then 1, sized on the yield of the first — and reached the cap:
   **40 000 clips, 111.2 h, 306 talks** (14 of the talks read yielded none),
   median 8.9 s; 38 801 CC-BY and 1 199 CC0-1.0; 82 talks give their full
@@ -1701,7 +1704,7 @@ Per instance, as the listing of 2026-11-08 holds them:
   segments had no words, 285 no duration, 1 174 lost the words they repeated
   from the one before, and 2 were decoding loops. The plan expected the
   listing to run out near 25 000–35 000 clips; it did not — the cap was
-  reached with 100 talks of the listing still unread. The prepared set is
+  reached with 100 of the 420 readable talks still unread. The prepared set is
   13 GiB; the 320 talks read leave 24 GiB of WAV in the cache.
 - **What the base model gets wrong**: Parakeet's text differs from the label
   on 27 443 of the 40 000 clips (68.6 %); the mean `base_wer` is 15.2 %, and
