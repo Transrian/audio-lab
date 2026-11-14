@@ -1,0 +1,32 @@
+# The label-style test (plan 06, Part B): the same run as screen-nasa-en-plain,
+# on nasa-en-train-qwen — the same clips and audio with the text of every clip
+# replaced by the Qwen3-ASR answer. Only the dataset differs, so a comparison
+# against screen-nasa-en-plain measures the labels alone (docs/stt/screening.md,
+# "Label style"). Why these numbers: docs/stt/screening.md.
+base_model: nvidia/parakeet-tdt-0.6b-v3
+base_model_env: AUDIOLAB_PARAKEET_NEMO
+dataset: nasa-en-train-qwen
+
+clips: 10000
+updates: 2000
+# 16 clips per update. Two at a time is what fits clips of up to 20 s of dense
+# read speech in 32 GB (four already does not).
+batch_size: 2
+grad_accumulation: 8
+max_clip_seconds: 20.0
+
+# The earlier private project's per-source screening rates, full encoder,
+# constant (decision 0004 keeps a constant rate).
+lr_encoder: 1.0e-5
+lr_heads: 3.0e-5
+weight_decay: 1.0e-3
+schedule: constant
+warmup_updates: 0
+precision: bf16-mixed
+grad_clip: 1.0
+
+workers: 4
+gpu: "0"
+seed: 20261107
+resume_every: 500
+log_every: 50
