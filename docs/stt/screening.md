@@ -485,6 +485,53 @@ model on the five fast panels the base was scored on (fleurs-en 5.69 % against
 5.94 %, mls-fr 5.20 % against 5.73 %), and every run in [Results](#results) was
 trained with it.
 
+## Noise augmentation
+
+The baseline recipe (decision 0004) always mixed noise into about 40 % of the
+training samples; it was never implemented. This test measures what the noise
+brings, using the PeerTube FR screen as the control, because its 2 000 updates
+on 10 000 clips are short enough to repeat with the augmentation.
+
+### What was run
+
+- **Control**: the existing run [screen-peertube-fr](#the-runs). Its
+  full-suite evaluation predates the noisy panels, so it was re-evaluated on
+  the three noisy panels alone (a `noisy-only` suite, 1 286 items): that is the
+  control's number on the noisy panels, and its existing full evaluation is the
+  clean baseline.
+- **`noise-peertube-fr-n40`**: a copy of the control's config with noise mixed
+  into 40 % of the clips, drawn from the train half of `musan-noise` at a
+  random signal-to-noise ratio of 0–20 dB.
+- **`noise-peertube-fr-n40-r20`**: the same, plus a reverb (a room impulse
+  response from the train half of `rirs-noises`) convolved into 20 % of the
+  clips.
+
+Same base model, same 10 000 clips (same seed), same 2 000 updates, same
+optimizer. One machine-level difference: the control ran its 16 clips per
+update as two micro-batches of 8 on a 32 GB card (peak 22.42 GB), which does
+not fit the 24 GB cards this test ran on, so the candidates accumulate sixteen
+one-clip micro-batches per update. The effective batch (16 clips per update),
+the clip order, the seed and the optimizer are unchanged; only the order of
+the floating-point sums differs, the same class of difference the candidate
+cards (3090 against the control's 5090) already bring. Each candidate was then
+evaluated on the full suite and on the noisy panels.
+
+### The decision rule, before the numbers
+
+Applied separately to each candidate, against the control:
+
+- **Adopt** (into the baseline recipe): at least one of the three noisy panels
+  improves with a 95 % interval excluding zero, and no clean panel is worse
+  with an interval excluding zero.
+- **Reject**: any clean panel is worse with an interval excluding zero, and the
+  noisy gain (the largest improvement among the noisy panels) is smaller than
+  that loss.
+- **Inconclusive** (anything else): report the numbers and propose a stronger
+  dose (80 % of the clips, `noise_prob: 0.8`) or a different SNR range before
+  deciding.
+
+### Results
+
 ## What these numbers do not say
 
 - **Same clips is not same hours.** Granary clips are short (8.3 h for 12 000
