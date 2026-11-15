@@ -207,7 +207,7 @@ Before choosing a dose, note what has been measured: noise on 40 % of the
 clips (the dose of decision 0004) was tested at screening scale, with and
 without reverb, against a matched control in
 [screening.md, "Noise augmentation"](screening.md#noise-augmentation) — both
-doses were rejected by the rule pre-committed before the numbers, and the
+arms were rejected by the rule pre-committed before the numbers, and the
 rule's stronger-dose run was not selected. The open question of what the
 baseline recipe keeps is
 [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).

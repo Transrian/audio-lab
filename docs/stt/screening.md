@@ -533,8 +533,10 @@ recorded. The matched control's
 its `base_model_env` field names (`AUDIOLAB_PARAKEET_NEMO`, the local copy)
 was unset when it ran, and the config falls back to `base_model`
 ([`src/audiolab/train/config.py`](../../src/audiolab/train/config.py)); the
-run restored the same local Parakeet weights the other three runs record as
-`sha256=3cbdc858…` — the sha256 of that local file is the recorded identity.
+run restored the Hugging Face hub cache snapshot of
+`nvidia/parakeet-tdt-0.6b-v3` (its training log records the restore from
+`…/hub/models--nvidia--parakeet-tdt-0.6b-v3/snapshots/541d1f99…/parakeet-tdt-0.6b-v3.nemo`),
+whose sha256 is `3cbdc858…` — the identity the other three runs record.
 
 The original control was trained in a different state of the repository, so it
 differs from the candidates in more than the augmentation:
@@ -553,7 +555,9 @@ differs from the candidates in more than the augmentation:
 - **Code version and card.** Sixteen training-code commits sit between the
   original control's and the candidates' commits (including the clip order and
   a change to the resume random state), and the cards differ (RTX 5090
-  against RTX 3090).
+  against RTX 3090). The matched control ran a later commit (`9398ab2`) than
+  the candidates (`91dfec6`), but `git log 91dfec6..9398ab2 -- src/audiolab`
+  is empty: the training code is the same in all three 3090 runs.
 
 Each "candidate − original control" difference therefore mixes the
 augmentation with run-to-run variance: the original control and a candidate
@@ -674,9 +678,11 @@ paired against the original control (transcription only — no retraining):
 
 None is separable.
 
-**Run-to-run, matched control against original control.** The same recipe
-trained twice, with the candidates' micro-batch, card class and code: the
-first, crude estimate of run-to-run variance.
+**Run-to-run, matched control against original control.** The original
+control's recipe trained twice — once as the original control (2 × 8,
+RTX 5090, older code, stock sampler) and once with the candidates'
+micro-batch, card class and code — so this gap is training randomness plus
+those setup differences: a first, crude estimate of run-to-run variance.
 
 | panel | original control | matched − original |
 |---|---|---|
@@ -698,11 +704,11 @@ first, crude estimate of run-to-run variance.
 | servicenow en-fr | 10.82 % | +0.43 [−0.16, 1.09] |
 | voxpopuli-en-nonnative | 13.81 % | **+0.23** [0.04, 0.50] |
 
-Across the 17 panels the two runs of the same recipe agree within about
-0.1–0.4 points; the only separable difference is `voxpopuli-en-nonnative` at
-+0.23 [0.04, 0.50] (they also differ by two clips on the `nonspeech`
-hallucination panel: 4 of 280 for the original control, 2 of 280 for the
-matched control). Run-to-run noise is on the same scale as the candidate
+The 15 WER panels differ by at most 0.43 points (`servicenow-codeswitched-en-fr`
+at +0.43 [−0.16, 1.09]); the `nonspeech` hallucination rate differs by 0.71
+(two clips: 4 of 280 for the original control, 2 of 280 for the matched
+control); the only separable difference is `voxpopuli-en-nonnative` at
++0.23 [0.04, 0.50]. Run-to-run noise is on the same scale as the candidate
 effects above.
 
 ### What the decision rule says
@@ -729,7 +735,8 @@ applied to the tables above, as written:
   and the two control runs of the same recipe differ by two clips on that
   very panel (4 of 280 for the original control, 2 of 280 for the matched
   control). Count WER only — leaving the two hallucination-rate panels out —
-  and n40r20's only separable clean effect is the 0.07-point `mls-fr` loss,
+  and n40r20's only separable clean loss is the 0.07-point `mls-fr` one (its
+  other separable clean effect is the improvement on `cs-fleurs-fr-en`),
   which its 0.24 noisy gain exceeds: the arm would then be **inconclusive**,
   and the rule's n80 clause would have run an 80 % copy of n40r20. The rule
   pre-committed this case, so the verdict stands — but it is not robust to
@@ -753,13 +760,23 @@ is relative — a candidate is judged against the control, not against absolute
 numbers — so the ordering has no effect on the verdicts; it is noted here for
 strict pre-registration.
 
-**The noise did not help where it was aimed**, at this scale: against the
-matched control the largest noisy-panel difference is 0.31 points (n40 on
-`noisy-fleurs-en`, a gain), and the candidates' formatted WER on the noisy
-panels (14.69 / 19.36 / 20.73 % for n40, 14.70 / 19.41 / 20.37 % for n40r20)
-stays within 0.3 points of the matched control's (14.78 / 19.39 / 20.63 %).
-At screening scale, this amount of MUSAN noise at 0–20 dB does not buy the
-model a measurable gain on the noisy panels; what a different noise, a
+**The adopt clause, a reading to be noted.** The committed adopt clause —
+"at least one of the three noisy panels improves with a 95 % interval
+excluding zero" — is an interpretation of the test's first formulation,
+"the noisy panels improve with a 95 % interval excluding zero": any one
+panel counts, not the set. The stricter reading changes no verdict under the
+tables above: n40's adopt is blocked by its separable clean loss either way,
+and n40r20 has no separable noisy gain at all.
+
+**The noise did not pay for itself**, at this scale. Against the matched
+control, one of the six noisy-panel comparisons is separable — n40 on
+`noisy-fleurs-en` at −0.31 [−0.61, −0.03] — and the other five are not
+(candidates' formatted WER 14.69 / 19.36 / 20.73 % for n40 and 14.70 / 19.41
+/ 20.37 % for n40r20, within 0.3 points of the matched control's 14.78 /
+19.39 / 20.63 %). The single gain is of the size of the run-to-run difference
+between the two controls on the same panel (+0.15 [−0.10, 0.42]), and it is
+smaller than the separable clean loss of the candidate that made it (0.75),
+so it is not a consistent gain from the noise. What a different noise, a
 different SNR range, or a test at the recipe's scale would show is left to
 [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
 

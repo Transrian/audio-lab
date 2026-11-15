@@ -7,7 +7,8 @@
 ## Finding
 
 Decision 0004's recipe always included noise on about 40 % of the training
-samples; every run in this repository so far omitted it. The test measures
+samples; every run in this repository before this test omitted it. The test
+measures
 that clause at screening scale: 2 000-update fine-tunes of the base model on
 10 000 clips of `peertube-fr-train` at 1e-5 / 3e-5 — (a) MUSAN noise on 40 %
 of the clips at 0–20 dB (`noise-peertube-fr-n40`) and (b) that plus room
@@ -24,9 +25,11 @@ the candidates carry except the augmentation.
 Result (paired, normalized WER; full tables in
 [screening.md](../../stt/screening.md), "Noise augmentation"):
 
-- **no noisy panel improved with a 95 % interval excluding zero for either
-  dose** against the matched control (the noisy-panel deltas run from −0.31
-  to +0.01);
+- **one of the six noisy-panel comparisons against the matched control is
+  separable — n40 on `noisy-fleurs-en`, −0.31 [−0.61, −0.03] — and the other
+  five are not** (deltas from −0.31 to +0.01); the single gain is of the size
+  of the run-to-run difference between the two controls on the same panel
+  (+0.15 [−0.10, 0.42]), so it is not a consistent gain from the noise;
 - **n40 = reject** under the rule committed before the numbers: its only
   separable clean loss is `servicenow-codeswitched-en-fr-ca` at +0.75
   [0.03, 1.63]; its largest noisy gain (0.31, `noisy-fleurs-en`) is smaller
@@ -49,18 +52,21 @@ is reported with its caveats: of the 61 pre-registered comparisons, 7 are
 separable, against the 3.05 expected from test-set sampling alone — the
 comparisons are not independent and the intervals cover test-set sampling
 only, not training variance, so the count is a benchmark, not a p-value.
-Run-to-run, the two control runs of the same recipe agree within about
-0.1–0.4 points on the 17 panels, with one separable difference
-(`voxpopuli-en-nonnative` +0.23 [0.04, 0.50]) — the same scale as the
+Run-to-run, the two control runs of the same recipe differ by at most 0.43
+points on the 15 WER panels, the `nonspeech` hallucination rate differs by
+0.71 (two clips), and the only separable difference is
+`voxpopuli-en-nonnative` at +0.23 [0.04, 0.50] — the same scale as the
 candidate effects.
 
-The earlier, unmatched comparison (against the original control) showed the
-same pattern — no separable noisy gain, and a +0.22 [0.02, 0.45] loss on
-`voxpopuli-en-nonnative` for n40. That panel holds 600 clips from only 22
-speaker groups and rewards the base model's verbatim style; its loss is one
-of many uncorrected comparisons on single runs, and against the matched
-control the same difference is −0.01 [−0.17, 0.20], not separable. It is
-recorded as history, not as evidence.
+The earlier, unmatched comparison (against the original control) had no
+separable noisy gain, and a +0.22 [0.02, 0.45] loss on `voxpopuli-en-nonnative`
+for n40. That panel holds 600 clips from only 22 speaker groups and rewards a
+verbatim transcription style — its references are raw verbatim while the base
+model writes like an edited report ([screening.md](../../stt/screening.md#what-these-numbers-do-not-say),
+"A panel can reward a style"); its loss is one of many uncorrected comparisons
+on single runs, and against the matched control the same difference is
+−0.01 [−0.17, 0.20], not separable. It is recorded as history, not as
+evidence.
 
 The 40 % dose is measured at screening scale and, as is, not supported there.
 The screens do not measure decision 0004's ~30 000-update recipe, so this is
@@ -76,19 +82,25 @@ Does the baseline recipe keep or drop noise augmentation?
    stand). Cheapest; leaves the robustness question for a later, targeted
    test.
 2. **Test a different noise before deciding**: a different SNR range, babble
-   noise (speech noise) instead of MUSAN, or a test at the recipe's scale
-   (about 30 000 updates on the recipe's data, where the dose sits in the
-   full recipe). Each is a matched-control cycle of its own: the first two
-   cost a screening-scale retrain and a full-suite evaluation (the two control
-   evaluations above took 8 and 24 min); the third is a run of the recipe
-   itself — at the screening's measured 0.41 updates/s that is about 20 h of
-   one RTX 3090, plus evaluation — and only the third answers the recipe's
-   question.
+   noise (speech noise) instead of MUSAN (a prepared babble bank first), or a
+   test at the recipe's scale (about 30 000 updates on the recipe's data,
+   where the dose sits in the full recipe). A new screening-scale arm costs
+   one training run plus a full-suite evaluation — about 81 min of one RTX
+   3090 (the arms' training wall times) and about 24 min of transcription (a
+   full suite from a cold cache) — judged against the existing matched
+   control, which stays valid while the training code does not change; a new
+   matched control is needed only if the code changes, at the cost of another
+   such cycle. The recipe-scale test is a run of the recipe itself — about
+   20 h of one RTX 3090 at the screening's measured 0.41 updates/s, measured
+   with the screen's 16 clips/update on peertube-length clips, plus
+   evaluation — and only it answers the recipe's question.
 3. **Keep the clause as a default** anyway, because the earlier project's
    recipe used the noise. The measured 40 % dose at screening scale does not
-   support it: no separable noisy-panel gain, and separable clean losses on
-   both candidates (the larger one resting on a four-clip hallucination gap).
-   Not recommended.
+   support it: the single separable noisy-panel gain (n40 on `noisy-fleurs-en`,
+   −0.31) is within the run-to-run spread between the two controls on that
+   panel and does not pay for the separable clean losses, which both candidates
+   show (the larger one resting on a four-clip hallucination gap). Not
+   recommended.
 
 Whichever way this is decided, decision 0004 is a record of the starting
 recipe and is not edited.
