@@ -204,6 +204,12 @@ def write_nemo_manifest(path: Path, entries: list[tuple[Clip, Path]]) -> int:
 # noise file from disk per augmented clip, and this is what keeps that read
 # bounded instead of loading a whole multi-minute file for one clip.
 BANK_WINDOW_SECONDS = 20.0
+# The shortest tail window that reaches the manifest. A tail shorter than this
+# on a file that has other windows is dropped: NeMo adds a short noise to a
+# random part of the clip instead of looping it, so such a fragment adds a
+# moment of noise, not a dose. A file shorter than one window keeps its single
+# row, whatever its length: it is the whole noise that row holds.
+MIN_TAIL_WINDOW_SECONDS = 5.0
 
 
 def build_bank_manifest(bank_dir: Path) -> tuple[list[str], str]:
@@ -216,7 +222,10 @@ def build_bank_manifest(bank_dir: Path) -> tuple[list[str], str]:
     half of a bank is what the noisy panels of the suite are scored against,
     and a run that augmented with it would have trained on its test set. A
     long file becomes one row per ``BANK_WINDOW_SECONDS`` window (its
-    ``offset`` and ``duration``), so no line ever covers more than a window.
+    ``offset`` and ``duration``), so no line ever covers more than a window;
+    a tail window shorter than ``MIN_TAIL_WINDOW_SECONDS`` is dropped when the
+    file has other windows, and a file shorter than one window keeps its
+    single row.
 
     Returns the lines and the sha256 of the content they make: a run records
     the hash in ``config.json`` before it writes the file, and a resume is
@@ -228,26 +237,27 @@ def build_bank_manifest(bank_dir: Path) -> tuple[list[str], str]:
         raise TrainDataError(f"{bank_dir} holds no row with source_split == 'train'")
     lines = []
     for clip in sorted(train, key=lambda clip: clip.id):
-        if clip.source_split != "train":
-            # Unreachable while the filter above stands; a manifest row that
-            # was not the train half must never reach a run's manifest.
-            raise TrainDataError(f"{clip.id} is not the train half of its bank")
         audio = str((bank_dir / clip.audio).resolve())
+        windows = []
         offset = 0.0
         while offset < clip.duration_s:
             end = min(offset + BANK_WINDOW_SECONDS, clip.duration_s)
+            windows.append((offset, round(end - offset, 3)))
+            offset = end
+        if len(windows) > 1 and windows[-1][1] < MIN_TAIL_WINDOW_SECONDS:
+            windows.pop()
+        for offset, duration in windows:
             lines.append(
                 json.dumps(
                     {
                         "audio_filepath": audio,
-                        "duration": round(end - offset, 3),
+                        "duration": duration,
                         "offset": round(offset, 3),
                         "text": "",
                     },
                     ensure_ascii=False,
                 )
             )
-            offset = end
     content = "\n".join(lines) + "\n"
     return lines, hashlib.sha256(content.encode("utf-8")).hexdigest()
 

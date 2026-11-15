@@ -241,6 +241,64 @@ def test_a_long_noise_file_becomes_windows_of_at_most_the_window(tmp_path):
     assert len(short) == 1 and short[0]["duration"] == 10.0
 
 
+def test_a_tail_window_shorter_than_five_seconds_is_dropped(tmp_path):
+    """The tail of a multi-window file that short covers a moment of the clip:
+    NeMo places a short noise on a random part of it, so the fragment is
+    dropped rather than mixed at a dose the bank did not mean. A tail that is
+    exactly the limit is kept, and a file of a single window is never touched.
+    """
+    root = write_bank(
+        tmp_path / "data",
+        "noise-bank",
+        [
+            {"id": "noise-bank:t24", "source_split": "train", "duration_s": 24.0},
+            {"id": "noise-bank:t44", "source_split": "train", "duration_s": 44.0},
+            {"id": "noise-bank:t25", "source_split": "train", "duration_s": 25.0},
+        ],
+    )
+    path = tmp_path / "noise.jsonl"
+    count, _ = write_bank_manifest(path, root / "noise-bank")
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert count == 5
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_t24.wav")
+    ] == [(0.0, 20.0)]
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_t44.wav")
+    ] == [(0.0, 20.0), (20.0, 20.0)]
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_t25.wav")
+    ] == [(0.0, 20.0), (20.0, 5.0)]
+
+
+def test_a_file_shorter_than_five_seconds_keeps_its_single_window(tmp_path):
+    """The drop is for the tail of a file that has other windows: a file
+    shorter than one window is the whole noise its row holds, and dropping it
+    would leave the row with no noise at all."""
+    root = write_bank(
+        tmp_path / "data",
+        "noise-bank",
+        [
+            {"id": "noise-bank:tiny", "source_split": "train", "duration_s": 0.5},
+            {"id": "noise-bank:under", "source_split": "train", "duration_s": 4.9},
+            {"id": "noise-bank:at", "source_split": "train", "duration_s": 5.0},
+        ],
+    )
+    path = tmp_path / "noise.jsonl"
+    count, _ = write_bank_manifest(path, root / "noise-bank")
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert count == 3
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_tiny.wav")
+    ] == [(0.0, 0.5)]
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_under.wav")
+    ] == [(0.0, 4.9)]
+    assert [
+        (line["offset"], line["duration"]) for line in windows_for(lines, "noise-bank_at.wav")
+    ] == [(0.0, 5.0)]
+
+
 def test_a_bank_with_no_train_row_is_refused(tmp_path):
     root = write_bank(
         tmp_path / "data",

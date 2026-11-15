@@ -211,9 +211,30 @@ NeMo manifest into the run directory — `noise.jsonl` for the noise,
 `reverb.jsonl` for the reverb — with one line per clip of the train half,
 sorted by id, absolute audio paths. A file longer than 20 s becomes one line
 per 20 s window (its `offset` and `duration`), so a perturbation never loads a
-whole multi-minute file for one clip. NeMo picks a random line per augmented
-clip and reads it from disk; that is what keeps the run's memory bounded, and
-it is why nothing in the run caches the bank's audio.
+whole multi-minute file for one clip; a tail window shorter than 5 s is
+dropped when the file has other windows (see below why such a fragment adds a
+moment of noise, not a dose), and a file shorter than one window keeps its
+single row, whatever its length. NeMo picks a random line per augmented clip
+and reads it from disk; that is what keeps the run's memory bounded, and it is
+why nothing in the run caches the bank's audio. The run also records the sha256
+of each bank manifest it writes in `config.json`, and a resume is refused when
+the recomputed manifest differs: a bank re-prepared between a stop and a
+resume would change what the run mixes, and that is a refusal, not a silent
+continuation.
+
+**How the noise is applied — and how the panels do it differently.** NeMo's
+noise perturbation (the `noise` entry of the `augmentor`,
+`NoisePerturbation` in the NeMo pinned by
+[requirements/nemo.txt](../../requirements/nemo.txt)) scales the noise to the
+drawn SNR and adds it to the clip without looping it: a noise window shorter
+than the clip covers a random part of the clip, and the rest of it stays
+clean. The SNR is computed on whole-clip power: the signal side is the RMS of
+the whole training clip, silence at the ends included, while the noisy panels
+of the suite set the SNR on the power of the active part of the speech (the
+20 ms frames within 35 dB of the loudest frame,
+[`src/audiolab/data/noisy.py`](../../src/audiolab/data/noisy.py)) and loop the
+noise over the full length of the clip. A training mix and a panel mix at the
+same number of dB are therefore not the same dose.
 
 **What the record says.** `train.json` of an augmenting run carries an
 `augmentation` block: for each enabled perturbation, its probability, its SNR
@@ -290,7 +311,7 @@ resumed is not bit-for-bit the run that would not have stopped.
 
 | file | what it is |
 |---|---|
-| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well. Written before the first update, never rewritten; a resume is checked against it (§5) |
+| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well — and, for a run that augments, the sha256 of each bank manifest it writes (§2). Written before the first update, never rewritten; a resume is checked against it (§5) |
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
 | `noise.jsonl`, `reverb.jsonl` | only for a run that augments: the NeMo manifest of its noise bank and its reverb bank, the train half of each, one line per ≤20 s window (§2) |
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
@@ -370,8 +391,9 @@ the last digit at updates 70 and 80.
 
 A slot belongs to the run that wrote it, so a resume has to be that run: the
 config in hand is compared with `config.json`, and a difference — a field of the
-config, the base model's identity, or the clips the same seed now draws from a
-dataset that was prepared again — refuses to resume and names what changed. Put
+config, the base model's identity, the clips the same seed now draws from a
+dataset that was prepared again, or a bank manifest recomputed from a bank that
+was re-prepared — refuses to resume and names what changed. Put
 the old value back, or start another run with `--fresh`. A slot with no
 `config.json` beside it is refused too: nothing on disk would say which run it
 belongs to, and so is a slot that does not record how many batches it trained
