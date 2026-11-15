@@ -72,10 +72,10 @@ gpu: "0"                                  # an index or a UUID prefix
 seed: 20261107
 resume_every: 500                         # updates between resume-slot rewrites
 log_every: 50                             # updates between log lines
-# Noise and reverb augmentation. The values below show the shape of the
-# fields; they are examples, not a recommendation - the 0.4 / 0.2 doses of
-# decision 0004 were tested and, as is, are not supported: the result is in
-# screening.md, "Noise augmentation", and proposed decision 0015.
+# Noise and reverb augmentation. The values below are examples of the fields,
+# not a recommendation: noise_prob 0.4 is the ~40 % dose of decision 0004,
+# tested alone and with reverb_prob 0.2 — the results are in screening.md,
+# "Noise augmentation", and proposed decision 0015.
 noise_prob: 0.4                           # chance a clip is mixed with noise; 0 disables
 noise_bank: musan-noise                   # a prepared dataset; only its train half
 noise_min_snr_db: 0.0                     # signal over noise after the mix, in dB
@@ -83,6 +83,12 @@ noise_max_snr_db: 20.0                    # above noise_min_snr_db
 reverb_prob: 0.2                          # chance a clip is convolved with an RIR; 0 disables
 reverb_bank: rirs-noises                  # a prepared dataset of RIRs; only its train half
 ```
+
+The example's augmentation values are examples of the shape of the fields, not
+a recommendation: the measurement a dose is judged against is in
+[screening.md, "Noise augmentation"](screening.md#noise-augmentation), and the
+open question of what the baseline recipe keeps is
+[proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
 
 `base_model`, `updates`, `batch_size`, `lr_encoder` and `lr_heads` are required
 in every config, and a config must name its data as either `dataset` + `clips`
@@ -233,7 +239,7 @@ noise perturbation (the `noise` entry of the `augmentor`,
 drawn SNR and adds it to the clip without looping it: a noise window shorter
 than the clip covers a random part of the clip, and the rest of it stays
 clean. The SNR is computed on whole-clip power: the signal side is the RMS of
-the whole training clip, silence at the ends included, while the noisy panels
+the whole training clip, silences included, while the noisy panels
 of the suite set the SNR on the power of the active part of the speech (the
 20 ms frames within 35 dB of the loudest frame,
 [`src/audiolab/data/noisy.py`](../../src/audiolab/data/noisy.py)) and loop the
