@@ -24,19 +24,23 @@ The licence is public domain: a work of the US government is not protected by
 copyright in the United States, and D-019 allows public domain. The evidence and
 the rules that follow from it are on the source's card in `docs/stt/datasets.md`.
 
-``nasa-en-test`` is the evaluation set of this source: 60 episodes reserved
-from the same listing by a constant rule (:func:`reserved_test_episodes`),
-at most 15 of a show, the episodes of the prepared training sets and of
-NASA's Curious Universe left out. Its labels are the same human text, placed
-in time the same way; the edge check is the segmentation model's instead of
-the base model's, because this set is scored on the base model and it may not
-screen its own labels. Every preparation of the training set leaves the
-reserved episodes out of what it reads (decision 0002).
+``nasa-en-test`` is the evaluation set of this source: the 60 episodes of the
+committed list :data:`RESERVED_TEST_EPISODES`, at most 15 of a show, which the
+reservation rule chose from the listing of 2026-11-13, the episodes of the
+training sets prepared at the time and of NASA's Curious Universe left out.
+The list is committed, so the set is the same on every machine and on every
+run: a preparation re-reads it rather than recomputing it from the machine's
+training sets. Its labels are the same human text, placed in time the same
+way; the edge check is the segmentation model's instead of the base model's,
+because this set is scored on the base model and it may not screen its own
+labels. Every preparation of the training set leaves the reserved episodes
+out of what it reads (decision 0002).
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -542,6 +546,17 @@ TEST_CLIPS_PER_EPISODE = 30
 # listing's filters leave out concentrate in that show, so the source excludes
 # it entirely rather than episode by episode.
 EXCLUDED_SHOWS = frozenset({"curious-universe"})
+# The 60 episodes of the evaluation set, fixed. On 2026-11-13 the reservation
+# rule chose them from the listing: an episode is reserved when it is in the
+# listing, its show is not in EXCLUDED_SHOWS, and its
+# sha256("nasa-test-" + id) is among the first 60, at most 15 of a show, the
+# episodes of the training sets prepared at the time left out. They are
+# committed here, so a preparation re-reads this list instead of recomputing
+# it from the machine's training sets: the set is the same on every machine
+# and on every run.
+RESERVED_TEST_EPISODES = tuple(
+    json.loads((Path(__file__).parent / "nasa_test_episodes.json").read_text(encoding="utf-8"))
+)
 # The prepared training sets: their episodes are out of the reservation, and
 # the training set in turn leaves the reserved episodes out of every
 # preparation it makes after the evaluation set exists (decision 0002).
