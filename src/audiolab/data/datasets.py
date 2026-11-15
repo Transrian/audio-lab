@@ -330,8 +330,9 @@ DATASETS: dict[str, DatasetInfo] = {
     ),
     "nasa-en-test": DatasetInfo(
         name="nasa-en-test",
-        source="https://www.nasa.gov/podcasts/ (the same listing as nasa-en-train, "
-        "60 episodes reserved by a constant rule, at most 15 per show)",
+        source="https://www.nasa.gov/podcasts/ (the same listing as nasa-en-train; the 60 "
+        "episodes are the committed list src/audiolab/data/nasa_test_episodes.json, "
+        "at most 15 per show)",
         license="public domain (US government work)",
         split="listing (reserved episodes)",
         reference_style="NASA's own transcript of each episode, cased and punctuated, "

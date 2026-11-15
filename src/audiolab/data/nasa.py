@@ -39,7 +39,6 @@ out of what it reads (decision 0002).
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -83,7 +82,7 @@ from audiolab.data.talks import (
     prefetched,
     served,
 )
-from audiolab.data.train import TRAIN_CLIP_CAP, Take, evaluation_groups
+from audiolab.data.train import TRAIN_CLIP_CAP, Take
 from audiolab.eval.client import TranscriptionError
 
 NAME = "nasa-en-train"
@@ -557,41 +556,10 @@ EXCLUDED_SHOWS = frozenset({"curious-universe"})
 RESERVED_TEST_EPISODES = tuple(
     json.loads((Path(__file__).parent / "nasa_test_episodes.json").read_text(encoding="utf-8"))
 )
-# The prepared training sets: their episodes are out of the reservation, and
-# the training set in turn leaves the reserved episodes out of every
-# preparation it makes after the evaluation set exists (decision 0002).
-TRAIN_VARIANTS = (NAME, "nasa-en-train.curly-2026-11-09")
 # The count of the edge check of the evaluation set, beside EDGES_UNHEARD,
 # which the training set's base-model check counts.
 EDGES_UNHEARD_TEST = "labelled clips whose first or last word the segmentation model does not hear"
 EDGES_FAILED_TEST = "labelled clips the segmentation model failed on"
-
-
-def reserved_test_episodes(episodes: list[Talk], used: frozenset[str]) -> list[Talk]:
-    """The episodes of the evaluation set, by a constant rule.
-
-    An episode is reserved when it is in the listing, its group is in none of
-    ``used`` (the groups of the prepared training sets), its show is not
-    excluded, and its ``sha256("nasa-test-" + id)`` is among the first
-    :data:`TEST_EPISODES`, at most :data:`TEST_EPISODES_PER_SHOW` of a show.
-    The rule is a constant, so the same episodes are reserved on every machine
-    and on every run, and whether or not the set is prepared yet: the
-    reservation is made from the listing, not from what a preparation wrote.
-    """
-    free = sorted(
-        (e for e in episodes if e.id not in used and e.channel not in EXCLUDED_SHOWS),
-        key=lambda e: hashlib.sha256(f"nasa-test-{e.id}".encode()).hexdigest(),
-    )
-    reserved: list[Talk] = []
-    per_show: Counter[str] = Counter()
-    for episode in free:
-        if len(reserved) >= TEST_EPISODES:
-            break
-        if per_show[episode.channel] >= TEST_EPISODES_PER_SHOW:
-            continue
-        reserved.append(episode)
-        per_show[episode.channel] += 1
-    return reserved
 
 
 # The preparation.
@@ -625,14 +593,14 @@ def fetch_nasa_en_train(
         if verbose:
             say(f"  listing of {listed_on}: {len(episodes)} episodes")
         order = reading_order(episodes, SEED, SOURCE.spread_by)
-        # Episodes the evaluation set holds are not downloaded (decision 0002):
-        # the set's manifest is the source of the reservation, read before any
-        # download. A set not prepared on this machine reserves nothing here.
-        reserved = evaluation_groups(NAME_TEST, root=dataset_dir.parent)
-        if reserved:
-            order = [episode for episode in order if episode.id not in reserved]
-            if verbose:
-                say(f"  {len(reserved)} episodes reserved for {NAME_TEST} are left out")
+        # The episodes the evaluation set holds are not downloaded (decision
+        # 0002): the reserved list is committed, so a set not prepared on this
+        # machine leaves them out just the same.
+        reserved = frozenset(RESERVED_TEST_EPISODES)
+        kept = [episode for episode in order if episode.id not in reserved]
+        if verbose and len(order) - len(kept):
+            say(f"  {len(order) - len(kept)} reserved episodes for {NAME_TEST} are left out")
+        order = kept
         with (
             http_client() as http,
             client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper_client,
@@ -660,6 +628,10 @@ def fetch_nasa_en_train(
 def fetch_nasa_en_test(name: str, cache: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare ``nasa-en-test``: the reserved episodes, labelled from the transcripts.
 
+    The set holds the 60 episodes of the committed list
+    :data:`RESERVED_TEST_EPISODES`; a listing that no longer holds one of them
+    is refused before any page is read or audio is downloaded.
+
     The labels are the same human text the training set uses, placed in time
     the same way; what differs is the edge check. This set is scored on the
     base model, so the base model does not screen its own labels:
@@ -668,8 +640,14 @@ def fetch_nasa_en_test(name: str, cache: Path, dataset_dir: Path, *, verbose: bo
     """
     listed_on, episodes = read_listing(SOURCE)
     cache = cache / NAME_TEST
-    used = evaluation_groups(*TRAIN_VARIANTS, root=dataset_dir.parent)
-    reserved = reserved_test_episodes(episodes, used)
+    by_id = {episode.id: episode for episode in episodes}
+    missing = [slug for slug in RESERVED_TEST_EPISODES if slug not in by_id]
+    if missing:
+        raise DownloadError(
+            f"{NAME_TEST}: {len(missing)} reserved episodes are not in the listing of {listed_on}: "
+            f"{missing[:3]}"
+        )
+    reserved = [by_id[slug] for slug in RESERVED_TEST_EPISODES]
     cap = TEST_EPISODES * TEST_CLIPS_PER_EPISODE
     with ManifestBuilder(dataset_dir, verbose=verbose, total=cap) as builder:
         take = Take(

@@ -8,7 +8,6 @@ clips with that text, after every Whisper request of the batch (D-020).
 
 from __future__ import annotations
 
-import hashlib
 import io
 import sys
 from collections import Counter
@@ -23,7 +22,7 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import make_clip, write_tone  # noqa: E402
+from helpers import write_tone  # noqa: E402
 
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import nasa, talks  # noqa: E402
@@ -442,56 +441,47 @@ def test_the_room_under_the_cap_is_shared_over_the_episodes_in_turn():
     assert nasa.shares([], room=5, cap=2) == []
 
 
-# The reservation of the evaluation set.
+# The committed list of the evaluation set.
 
 
-def test_the_reservation_reserves_60_episodes_by_a_constant_rule():
-    # Four shows of a hundred episodes; two of them are in the training sets.
-    episodes = [episode(f"{show}-{i:03d}", channel=show) for show in "abcd" for i in range(100)]
-    used = frozenset({episodes[3].id, episodes[150].id})
-    reserved = nasa.reserved_test_episodes(episodes, used)
+def test_the_reserved_episodes_are_60_sorted_unique_slugs_of_the_committed_listing():
+    slugs = nasa.RESERVED_TEST_EPISODES
 
-    assert len(reserved) == nasa.TEST_EPISODES
-    per_show = Counter(e.channel for e in reserved)
+    assert len(slugs) == nasa.TEST_EPISODES
+    assert list(slugs) == sorted(slugs)
+    assert len(set(slugs)) == len(slugs)
+    _, episodes = nasa.read_listing(nasa.SOURCE)
+    by_id = {episode.id: episode for episode in episodes}
+    for slug in slugs:
+        assert slug in by_id
+    # The rule they were chosen by: at most 15 of a show, from an included show.
+    for slug in slugs:
+        assert by_id[slug].channel in nasa.SHOWS
+    per_show = Counter(by_id[slug].channel for slug in slugs)
     assert all(count <= nasa.TEST_EPISODES_PER_SHOW for count in per_show.values())
-    assert all(e.id not in used for e in reserved)
-    # The rule is a constant: the same episodes, whatever the listing's order.
-    again = nasa.reserved_test_episodes(list(reversed(episodes)), used)
-    assert [e.id for e in again] == [e.id for e in reserved]
-    # And it is the first 60 of the constant hash, at most 15 per show.
-    free = [e for e in episodes if e.id not in used]
-    expected, per = [], Counter()
-    for one in sorted(free, key=lambda e: hashlib.sha256(f"nasa-test-{e.id}".encode()).hexdigest()):
-        if per[one.channel] >= 15:
-            continue
-        expected.append(one.id)
-        per[one.channel] += 1
-        if len(expected) == 60:
-            break
-    assert [e.id for e in reserved] == expected
 
 
-def test_the_reservation_never_reads_an_excluded_show():
-    episodes = [episode(f"cu-{i:03d}", channel="curious-universe") for i in range(100)]
-    assert nasa.reserved_test_episodes(episodes, frozenset()) == []
+def test_the_included_and_excluded_shows_are_disjoint():
+    assert not (set(nasa.SHOWS) & nasa.EXCLUDED_SHOWS)
 
 
-# The exclusion of the evaluation set from the training set.
+def test_the_committed_listing_holds_only_the_included_shows():
+    _, episodes = nasa.read_listing(nasa.SOURCE)
+    channels = {episode.channel for episode in episodes}
+
+    assert channels <= set(nasa.SHOWS)
+    assert not channels & nasa.EXCLUDED_SHOWS
 
 
-def test_a_preparation_of_the_training_set_skips_the_episodes_of_the_evaluation_set(
+# The exclusion of the reserved episodes from the training set.
+
+
+def test_a_preparation_of_the_training_set_skips_the_reserved_episodes(
     tmp_path, monkeypatch, capsys
 ):
-    # The evaluation set is prepared and holds the episode "one".
-    test_dir = tmp_path / nasa.NAME_TEST
-    test_dir.mkdir()
-    (test_dir / "manifest.jsonl").write_text(
-        make_clip(
-            f"{nasa.NAME_TEST}:one", language="en", group=f"{nasa.NAME_TEST}:one"
-        ).manifest_line()
-        + "\n",
-        encoding="utf-8",
-    )
+    # The evaluation set is not prepared on this machine: the skip comes from
+    # the committed reserved list, not from a local manifest.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one",))
     episodes = [episode("one"), episode("two")]
     source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
     write_listing(source, "2026-11-08", episodes)
@@ -539,7 +529,7 @@ def test_a_preparation_of_the_training_set_skips_the_episodes_of_the_evaluation_
     assert {clip.source_url for clip in clips} == {f"{PAGES}/two/"}
     # The reserved episode is never downloaded, and its page is never read.
     assert all("/one/" not in path for path in asked)
-    assert "1 episodes reserved for nasa-en-test are left out" in capsys.readouterr().out
+    assert "1 reserved episodes for nasa-en-test are left out" in capsys.readouterr().out
 
 
 # The preparation of the evaluation set.
@@ -571,6 +561,9 @@ class FakeTestModels(FakeModels):
 def test_a_preparation_of_the_evaluation_set_checks_the_edges_with_whisper(
     tmp_path, monkeypatch, capsys
 ):
+    # The committed reserved list holds two of the listed episodes; the show
+    # of the third is excluded, and no episode of it is in the list.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one", "two"))
     episodes = [episode("one"), episode("two"), episode("curious", channel="curious-universe")]
     source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
     write_listing(source, "2026-11-08", episodes)
@@ -640,3 +633,31 @@ def test_a_preparation_of_the_evaluation_set_checks_the_edges_with_whisper(
     assert "3 episodes; 2 reserved for nasa-en-test" in out
     assert "4 of 4 candidate clips (100.0%) labelled" in out
     assert f"2 {nasa.EDGES_UNHEARD_TEST}" in out
+
+
+def test_a_preparation_of_the_evaluation_set_refuses_a_reserved_episode_absent_from_the_listing(
+    tmp_path, monkeypatch
+):
+    # "two" is reserved but the listing no longer holds it: the preparation
+    # refuses before any page is read or audio is downloaded.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one", "two"))
+    episodes = [episode("one")]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, text=page("<strong>Transcript</strong>"))
+
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
+
+    with pytest.raises(DownloadError, match="reserved episodes are not in the listing"):
+        nasa.fetch_nasa_en_test(
+            nasa.NAME_TEST, tmp_path / "cache", tmp_path / "dataset", verbose=False
+        )
+
+    assert asked == []
