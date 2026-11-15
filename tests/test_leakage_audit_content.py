@@ -197,3 +197,30 @@ def test_the_cli_reports_the_tables(tmp_path, capsys):
 def test_main_refuses_without_prepared_data(tmp_path, capsys):
     assert content.main(["--data-dir", str(tmp_path / "missing")]) == 2
     assert "no prepared data" in capsys.readouterr().err
+
+
+def test_best_match_samples_surface_a_replay_at_another_time(tmp_path):
+    # A compilation replays a segment at a different absolute time: the
+    # time-overlapping samples cannot see it, the timing-independent best
+    # matches must.
+    panels = tmp_path / "panels"
+    data = tmp_path / "data"
+    panels.mkdir()
+    (panels / "re-eval-fast.txt").write_text("")
+    talk = "recording"
+    write_dataset(data, "re-eval", [row("re-eval", "epA", talk, 1, 0, TEXT_A)])
+    write_dataset(
+        data,
+        "re-train",
+        [
+            row("re-train", "epB", talk, 1, 100000, TEXT_B),  # at 1000 s, unrelated
+            row("re-train", "epB", talk, 2, 200000, TEXT_A),  # replays epA at 2000 s
+        ],
+    )
+    result = content.audit(["re-eval"], ["re-train"], data)
+    finding = [f for f in result.findings if f.pair.left[1] == "epA"][0]
+    assert finding.samples == []  # no time overlap: the replay is at 2000 s
+    e_text, t_text, shared = finding.best_matches[0]
+    assert e_text == TEXT_A[:160]
+    assert t_text == TEXT_A[:120]
+    assert shared == 60

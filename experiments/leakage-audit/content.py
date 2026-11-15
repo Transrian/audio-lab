@@ -164,6 +164,44 @@ def word_recall(
     return sum(sims) / len(sims), len(sims), sum(1 for s in sims if s >= 0.7)
 
 
+def _match_samples(
+    eval_clips: list[tuple[float | None, float, str, str]],
+    train_clips: list[tuple[float | None, float, str, str]],
+    count: int = 3,
+) -> list[tuple[str, str, int]]:
+    """The `count` evaluation/training text pairs with the largest word overlap.
+
+    Timing-independent: unlike the time-overlapping samples, these surface
+    the shared speech even when it was replayed at a different absolute time
+    (a compilation replaying an episode), which is the case an advisor must
+    judge. Returns ``(eval text, train text, shared words)`` tuples.
+    """
+    train_words = [(i, set(words(c[2]))) for i, c in enumerate(train_clips)]
+    scored: list[tuple[int, int, int, str, str]] = []
+    for e_idx, (_start, _end, text, _sha) in enumerate(eval_clips):
+        cw = set(words(text))
+        if len(cw) < N_WORDS:
+            continue
+        best_t, best_ov = -1, 0
+        for t_idx, tw in train_words:
+            ov = len(cw & tw)
+            if ov > best_ov:
+                best_t, best_ov = t_idx, ov
+        if best_t >= 0 and best_ov >= N_WORDS:
+            scored.append((-best_ov, e_idx, best_t, text, train_clips[best_t][2]))
+    scored.sort()
+    out: list[tuple[str, str, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for neg_ov, e_idx, t_idx, e_text, t_text in scored:
+        if (e_idx, t_idx) in seen:
+            continue
+        seen.add((e_idx, t_idx))
+        out.append((e_text[:160], t_text[:120], -neg_ov))
+        if len(out) >= count:
+            break
+    return out
+
+
 @dataclasses.dataclass
 class Pair:
     """One reported pair of groups, with its overlap numbers."""
@@ -191,6 +229,9 @@ class Finding:
     recall_clips: int = 0
     recall_ge07: int = 0
     samples: list[tuple[str, str]] = dataclasses.field(default_factory=list)
+    # (eval text, train text, shared words) pairs with the largest word
+    # overlap, timing-independent (see _match_samples).
+    best_matches: list[tuple[str, str, int]] = dataclasses.field(default_factory=list)
 
     @property
     def verdict(self) -> str:
@@ -248,6 +289,7 @@ def _evidence(finding: Finding, groups: dict[str, dict[str, Group]]) -> None:
         finding.samples.append(
             (text[:160], " || ".join(c[2][:120] for c in overlap[:2]) or "(no text)")
         )
+    finding.best_matches = _match_samples(eg.clips, tg.clips)
 
 
 @dataclasses.dataclass
@@ -541,9 +583,16 @@ def triage(result: Audit) -> None:
             f"word recall {recall} over {f.recall_clips} time-overlapping eval clips "
             f"({f.recall_ge07} with recall >= 0.7)"
         )
-        for i, (ev_text, tr_text) in enumerate(f.samples, 1):
-            print(f"    {i}. EVAL: {ev_text}")
-            print(f"       TRAIN: {tr_text}")
+        if f.samples:
+            print("    time-overlapping text pairs:")
+            for i, (ev_text, tr_text) in enumerate(f.samples, 1):
+                print(f"    {i}. EVAL: {ev_text}")
+                print(f"       TRAIN: {tr_text}")
+        if f.best_matches:
+            print("    best text matches (timing-independent):")
+            for i, (ev_text, tr_text, ov) in enumerate(f.best_matches, 1):
+                print(f"    {i}. EVAL: {ev_text}")
+                print(f"       TRAIN: {tr_text}  ({ov} shared words)")
 
 
 def main(argv: list[str] | None = None) -> int:
