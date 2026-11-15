@@ -67,3 +67,49 @@ Full-duplex speech may follow as a problem family
 - Why watch it: turn-taking and barge-in decisions are the part of a
   full-duplex system closest to speech recognition, and the 4B models fit
   smaller GPUs.
+
+### Haru-4B (higurashi)
+
+- Links: [repository](https://github.com/higurashi-ai/Haru),
+  [model card](https://huggingface.co/higurashi-ai/Haru-4B),
+  [technical blog](https://blog.higurashi.ai/melte/haru4b/).
+- Checked: 2026-11-15 (repository and weights published 2026-11-12; packages
+  `haru-speech` and `haru-speech-vllm` 0.1.1 on 2026-11-13; model revision
+  `8d6e83bc`).
+- License: Apache-2.0 for code and weights, per the repository and model card;
+  `THIRD_PARTY_NOTICES.md` lists the included third-party work.
+- What it is: a native full-duplex speech-to-speech model, released as a
+  pretrained base model for research, not an assistant. A Qwen3.5-4B text
+  backbone (about 5B parameters in total, bfloat16) runs at 7.5 Hz: every
+  133 ms, the user's audio latent, the model's previous audio latent and its
+  previous text token are summed into one position, and the model predicts its
+  next text token and next audio latent. Audio is a continuous 64-dimensional
+  latent of the causal VibeVoice acoustic tokenizer (24 kHz), produced in one
+  sampling step by a small MeanFlow MLP head; there are no discrete audio
+  tokens.
+- Training, per the blog: over 40 million hours of real speech in more than
+  160 languages, explicitly without LLM-generated dialogues or TTS speech.
+  Stage 1 mixes ASR, speech and text continuation and text-only rehearsal;
+  stage 2 uses over 13 million hours of dialogues split into two speaker
+  streams by the authors' separation model, in samples up to 60 minutes. The
+  data sources themselves are not named.
+- Features: backchannels and overlapping speech, a character card as text
+  prompt, zero-shot voice from a 3 s to 3 min reference clip, PyTorch, MLX
+  (macOS app) and vLLM-Omni implementations.
+- Languages: English, Spanish, Portuguese, German, French, Chinese, Japanese,
+  Russian and Korean as primary languages.
+- Hardware: about 12 GB of GPU memory for the PyTorch demo, per the README; a
+  fix in 0.1.1 targets GPUs with less shared memory such as the RTX 4090. The
+  authors report about 65 ms end-to-end latency on an M1 Max (int8) plus up to
+  133 ms of framing.
+- Why watch it: an open, permissively licensed full-duplex model small enough
+  for a 24 GB card, with French among its primary languages. Two companion
+  tools may matter for data preparation:
+  [Sidon-Triton](https://github.com/higurashi-ai/Sidon-Triton) (speech
+  restoration, MIT) and
+  [FastDialogueSidon](https://github.com/higurashi-ai/FastDialogueSidon)
+  (two-speaker dialogue separation, Apache-2.0).
+- Caveats: no quantitative benchmark is published yet, only demos; a technical
+  report and training code are announced. The text stream carries the model's
+  own words; no API for transcribing the user is documented. Base model:
+  facts and instruction following are unreliable, per the authors.
