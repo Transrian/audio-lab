@@ -745,6 +745,14 @@ and the bootstrap intervals cover test-set sampling only — not training
 variance, as the run-to-run table above shows — so this count is a benchmark,
 not a p-value.
 
+**Pre-registration, a timing note.** The original control's noisy numbers were
+recorded on 2026-11-14 at 11:24 (its `noisy-only` evaluation,
+`$AUDIOLAB_RUNS/eval/screen-peertube-fr/noisy-only/`), five minutes before the
+commit that fixed the original rule (`91dfec6`, 11:29 the same day). The rule
+is relative — a candidate is judged against the control, not against absolute
+numbers — so the ordering has no effect on the verdicts; it is noted here for
+strict pre-registration.
+
 **The noise did not help where it was aimed**, at this scale: against the
 matched control the largest noisy-panel difference is 0.31 points (n40 on
 `noisy-fleurs-en`, a gain), and the candidates' formatted WER on the noisy
