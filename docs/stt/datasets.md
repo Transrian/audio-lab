@@ -493,14 +493,15 @@ Three kinds of clip that must stay silent, 300 in total:
 
 - **Source**: the same pinned listing as
   [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
-  (768 episodes, four shows, 2026-11-13), of which 60 are reserved for this set
-  by a constant rule: the episodes whose groups a prepared `nasa-en-train`
-  (including the `.curly-2026-11-09` re-screening) holds are out, NASA's
-  Curious Universe is out, and of the rest the first 60 by
-  `sha256("nasa-test-" + episode id)`, at most 15 of a show. The rule is a
-  constant, so the reservation is the same on every machine and run. It comes
-  out 15 of each of the four remaining shows — 30.2 h of episodes (median
-  episode 26 minutes).
+  (768 episodes, four shows, 2026-11-13), of which 60 are the set's episodes:
+  on 2026-11-13 the reservation rule chose them from the listing (the episodes
+  whose groups the `nasa-en-train` preparations of the time hold are out,
+  NASA's Curious Universe is out, and of the rest the first 60 by
+  `sha256("nasa-test-" + episode id)`, at most 15 of a show) and they are
+  committed in
+  [`nasa_test_episodes.json`](../../src/audiolab/data/nasa_test_episodes.json),
+  so the set is the same on every machine and run. It comes out 15 of each of
+  the four shows — 30.2 h of episodes (median episode 26 minutes).
 - **License**: public domain (US government work), on the same evidence as the
   training set's card.
 - **Audio**: 1505 clips, 4.3 h; 3 to 30 clips per episode (median 26, two
@@ -530,16 +531,16 @@ Three kinds of clip that must stay silent, 300 in total:
   `base_wer` is 0.038.
 - **Group**: the episode page slug (`group_kind: recording`): the clips of one
   episode share its guests and its jargon.
-- **No overlap with the training sets** (decision 0002): the reservation
-  leaves the 265 episodes of the two prepared training sets out before it
-  picks, and the training fetcher in turn reads this set's manifest
-  (`evaluation_groups`) and skips the reserved episodes of every preparation
-  it makes after the set exists — checked in `tests/test_data_nasa.py`. The
-  set was prepared 2026-11-13, after both training preparations, so their 11956
-  and 12000 clips hold none of its episodes. The listing of 2026-11-13
-  holds no episode of NASA's Curious Universe: the source no longer reads the
-  show, and the reservation leaves it out too
-  (`EXCLUDED_SHOWS` in `src/audiolab/data/nasa.py`).
+- **No overlap with the training sets** (decision 0002): the reservation left
+  the 265 episodes of the two prepared training sets out before it picked, and
+  every preparation of `nasa-en-train` in turn skips the committed reserved
+  list (`RESERVED_TEST_EPISODES` in `src/audiolab/data/nasa.py`), whether or
+  not the set is prepared on the machine — checked in
+  `tests/test_data_nasa.py`. The set was prepared 2026-11-13, after both
+  training preparations, so their 11956 and 12000 clips hold none of its
+  episodes. The listing of 2026-11-13 holds no episode of NASA's Curious
+  Universe: the source no longer reads the show, and the reserved list holds
+  none of it either (`EXCLUDED_SHOWS` in `src/audiolab/data/nasa.py`).
 - **Why it is here**: conversational technical English with **human**
   transcripts, the closest evaluation side to the target use the campaign had:
   FLEURS and LibriSpeech are read speech, VoxPopuli a different register, and
@@ -2377,7 +2378,7 @@ fetch`) before the training source is, because the check reads its manifest.
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
-| `nasa-en-train` | `nasa-en-test` (60 episodes reserved from the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved episodes of every preparation made after the set exists, checked in `tests/test_data_nasa.py` |
+| `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py` |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
