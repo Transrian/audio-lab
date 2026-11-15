@@ -490,31 +490,85 @@ trained with it.
 The baseline recipe (decision 0004) always mixed noise into about 40 % of the
 training samples; it was never implemented. This test measures what the noise
 brings, using the PeerTube FR screen as the control, because its 2 000 updates
-on 10 000 clips are short enough to repeat with the augmentation.
+on 10 000 clips are short enough to repeat with the augmentation. **Scope:**
+these are 2 000-update screens on one source at 1e-5 / 3e-5; they do not
+measure decision 0004's ~30 000-update recipe (Granary + VoxPopuli at
+5e-6 / 1.5e-5), so a difference found here is evidence about the dose at this
+scale, and the recipe's own question needs a test at the recipe's scale.
 
 ### What was run
 
-- **Control**: the existing run [screen-peertube-fr](#the-runs). Its
-  full-suite evaluation predates the noisy panels, so it was re-evaluated on
-  the three noisy panels alone (a `noisy-only` suite, 1 286 items): that is the
-  control's number on the noisy panels, and its existing full evaluation is the
-  clean baseline.
-- **`noise-peertube-fr-n40`**: a copy of the control's config with noise mixed
-  into 40 % of the clips, drawn from the train half of `musan-noise` at a
-  random signal-to-noise ratio of 0–20 dB.
-- **`noise-peertube-fr-n40-r20`**: the same, plus a reverb (a room impulse
+Four runs, all on the same 10 000-clip draw of `peertube-fr-train` (same seed,
+same `sampled_ids_sha256`), 2 000 updates at the same rates and optimizer,
+from the same base weights:
+
+- **`screen-peertube-fr`** ([the runs](#the-runs)) — the original control: no
+  augmentation.
+- **`noise-peertube-fr-n40`** — noise on 40 % of the clips, drawn from the
+  train half of `musan-noise` at a random signal-to-noise ratio of 0–20 dB.
+- **`noise-peertube-fr-n40-r20`** — the same, plus a reverb (a room impulse
   response from the train half of `rirs-noises`) convolved into 20 % of the
   clips.
+- **`noise-peertube-fr-control-1x16`** (config:
+  [noise-peertube-fr-control-1x16.yaml](../../configs/train/noise-peertube-fr-control-1x16.yaml))
+  — the matched control: the original control's recipe retrained with the
+  candidates' micro-batch, card class and code, and no augmentation.
 
-Same base model, same 10 000 clips (same seed), same 2 000 updates, same
-optimizer. One machine-level difference: the control ran its 16 clips per
-update as two micro-batches of 8 on a 32 GB card (peak 22.42 GB), which does
-not fit the 24 GB cards this test ran on, so the candidates accumulate sixteen
-one-clip micro-batches per update. The effective batch (16 clips per update),
-the clip order, the seed and the optimizer are unchanged; only the order of
-the floating-point sums differs, the same class of difference the candidate
-cards (3090 against the control's 5090) already bring. Each candidate was then
-evaluated on the full suite and on the noisy panels.
+| Run | Commit | Card | Wall time | Peak memory |
+|---|---|---|---|---|
+| `screen-peertube-fr` (original control) | `77ceaa2` | RTX 5090 | 43 min | 22.4 GiB |
+| `noise-peertube-fr-n40` | `91dfec6` | RTX 3090 | 81 min | 16.5 GiB |
+| `noise-peertube-fr-n40-r20` | `91dfec6` | RTX 3090 | 81 min | 16.5 GiB |
+| `noise-peertube-fr-control-1x16` (matched control) | `9398ab2` | RTX 3090 | 81 min | 16.5 GiB |
+| `noise-peertube-fr-n80` | — | — | not run: the rule's n80 clause did not fire | — |
+| `screen-peertube-fr`, evaluation `full-17-2026-11-15` | `9398ab2` | not recorded | 8 min (2 310 of 7 712 items transcribed) | not recorded |
+| `noise-peertube-fr-control-1x16`, evaluation `full-17-2026-11-15` | `9398ab2` | not recorded | 24 min (all 7 712 items transcribed) | not recorded |
+
+The training rows come from each run's `train.json`; the wall times of the two
+new evaluations come from their logs (start to last record) and report "24 min"
+and "8 min" to the minute, and an evaluation's card and peak memory are not
+recorded. The matched control's
+`train.json` records `base_model_identity` as the Hub repo id
+`nvidia/parakeet-tdt-0.6b-v3` rather than a sha256: the environment variable
+its `base_model_env` field names (`AUDIOLAB_PARAKEET_NEMO`, the local copy)
+was unset when it ran, and the config falls back to `base_model`
+([`src/audiolab/train/config.py`](../../src/audiolab/train/config.py)); the
+run restored the same local Parakeet weights the other three runs record as
+`sha256=3cbdc858…` — the sha256 of that local file is the recorded identity.
+
+The original control was trained in a different state of the repository, so it
+differs from the candidates in more than the augmentation:
+
+- **Clip order.** It predates the clip-order code
+  (`src/audiolab/train/order.py` did not exist at its commit): its clips were
+  presented by NeMo's stock random sampler, the candidates' by the seeded
+  clip order. Same draw, different presentation order.
+- **Micro-batch under `mean_volume`.** The model's loss reduction is
+  `mean_volume` (total loss over total target length): the original control's
+  two micro-batches of 8 weight the tokens within each pair, the candidates'
+  sixteen one-clip micro-batches weight each clip equally — not the same
+  weighting, so the switch is not loss-neutral. The 1 × 16 micro-batch was
+  taken because the 2 × 8 batch peaks at 22.4 GiB and does not fit the 24 GB
+  card the candidates ran on.
+- **Code version and card.** Sixteen training-code commits sit between the
+  original control's and the candidates' commits (including the clip order and
+  a change to the resume random state), and the cards differ (RTX 5090
+  against RTX 3090).
+
+Each "candidate − original control" difference therefore mixes the
+augmentation with run-to-run variance: the original control and a candidate
+are effectively two independent training runs of nearly the same recipe. The
+matched control carries everything the candidates carry except the
+augmentation, and its difference from the original control is a first, crude
+estimate of run-to-run variance.
+
+The original control's old evaluations — a nine-panel `full` (2026-11-09) and
+a `noisy-only` suite of the three noisy panels (1 286 items, 2026-11-14) —
+predated the five panels added to the suite since, so it was re-evaluated on
+the full 17-panel suite (`full-17-2026-11-15`, 2026-11-15): 2 310 items
+newly transcribed (the five never-paired panels), the other 5 402 served from
+its model-keyed transcript cache. Its noisy numbers there are the same
+1 286 clips the `noisy-only` evaluation scored.
 
 ### The decision rule, before the numbers
 
@@ -571,10 +625,145 @@ estimate of run-to-run variance.
 
 ### Results
 
-Normalized WER, paired against the control (a negative difference is better for
-the candidate; bold when the 95 % interval excludes zero). The noisy panels
-come from the control's `noisy-only` evaluation, the clean panels from its full
-evaluation; every clip was answered by both sides of every pair.
+Normalized WER (the two `nonspeech*` panels by hallucination rate), paired
+against the matched control. A negative difference is better for the
+candidate, and **bold** marks a 95 % interval excluding zero. Every clip was
+answered by both sides of every pair (7 712 items per candidate); the
+comparison marks the intervals of `mls-fr`, `african-accented-fr-test` and
+`notsofar-en-eval` approximate (fewer than 20 speaker groups).
+
+Noisy panels:
+
+| panel | matched control | n40 | n40r20 |
+|---|---|---|---|
+| noisy-fleurs-en | 9.55 % | **−0.31** [−0.61, −0.03] | −0.24 [−0.54, 0.03] |
+| noisy-fleurs-fr | 16.34 % | +0.01 [−0.46, 0.49] | −0.02 [−0.49, 0.44] |
+| noisy-servicenow en-fr | 16.70 % | −0.21 [−1.18, 0.78] | −0.18 [−1.13, 0.76] |
+
+Clean panels:
+
+| panel | matched control | n40 | n40r20 |
+|---|---|---|---|
+| african-accented-fr-test * | 4.51 % | +0.04 [−0.36, 0.38] | +0.04 [−0.31, 0.39] |
+| cs-fleurs-fr-en | 14.18 % | **−0.17** [−0.33, −0.02] | **−0.41** [−0.58, −0.23] |
+| fleurs-en | 5.00 % | +0.04 [−0.08, 0.16] | +0.04 [−0.08, 0.17] |
+| fleurs-fr | 4.88 % | −0.10 [−0.23, 0.02] | −0.13 [−0.29, 0.03] |
+| librispeech-en | 1.99 % | −0.01 [−0.07, 0.05] | +0.01 [−0.05, 0.07] |
+| mls-fr * | 5.05 % | −0.03 [−0.09, 0.02] | **+0.07** [0.01, 0.13] |
+| nasa-en-test | 4.60 % | −0.06 [−0.17, 0.04] | −0.03 [−0.13, 0.07] |
+| nonspeech (hallucination rate) | 0.71 % | +1.07 [0.00, 2.50] | **+1.43** [0.36, 2.86] |
+| nonspeech-music (hallucination rate) | 0.88 % | −0.88 [−3.09, 0.00] | +1.75 [0.00, 5.77] |
+| notsofar-en-eval * | 6.82 % | +0.15 [−0.10, 0.38] | +0.09 [−0.18, 0.31] |
+| peertube-edu-captions-fr | 7.73 % | −0.07 [−0.22, 0.07] | −0.03 [−0.16, 0.12] |
+| servicenow en-fr-ca | 11.40 % | **+0.75** [0.03, 1.63] | +0.42 [−0.15, 1.13] |
+| servicenow en-fr | 11.24 % | +0.09 [−0.51, 0.64] | −0.18 [−0.82, 0.44] |
+| voxpopuli-en-nonnative | 14.04 % | −0.01 [−0.17, 0.20] | +0.03 [−0.24, 0.28] |
+
+\* Fewer than 20 speaker groups; the intervals are approximate.
+
+The five panels the original control's old evaluations never covered, now
+paired against the original control (transcription only — no retraining):
+
+| panel | original control | n40 | n40r20 |
+|---|---|---|---|
+| notsofar-en-eval * | 6.78 % | +0.20 [−0.07, 0.53] | +0.14 [−0.13, 0.43] |
+| african-accented-fr-test * | 4.64 % | −0.08 [−0.55, 0.39] | −0.08 [−0.64, 0.53] |
+| nasa-en-test | 4.56 % | −0.02 [−0.10, 0.07] | +0.01 [−0.08, 0.10] |
+| peertube-edu-captions-fr | 7.63 % | +0.03 [−0.12, 0.18] | +0.07 [−0.10, 0.25] |
+| nonspeech-music (hallucination rate) | 0.88 % | −0.88 [−3.09, 0.00] | +1.75 [0.00, 5.77] |
+
+None is separable.
+
+**Run-to-run, matched control against original control.** The same recipe
+trained twice, with the candidates' micro-batch, card class and code: the
+first, crude estimate of run-to-run variance.
+
+| panel | original control | matched − original |
+|---|---|---|
+| african-accented-fr-test * | 4.64 % | −0.13 [−0.46, 0.21] |
+| cs-fleurs-fr-en | 14.17 % | +0.01 [−0.20, 0.20] |
+| fleurs-en | 4.93 % | +0.07 [−0.08, 0.23] |
+| fleurs-fr | 4.78 % | +0.10 [−0.09, 0.29] |
+| librispeech-en | 1.95 % | +0.04 [−0.02, 0.11] |
+| mls-fr * | 5.04 % | +0.01 [−0.09, 0.11] |
+| nasa-en-test | 4.56 % | +0.04 [−0.08, 0.17] |
+| noisy-fleurs-en | 9.39 % | +0.15 [−0.10, 0.42] |
+| noisy-fleurs-fr | 16.31 % | +0.03 [−0.37, 0.43] |
+| noisy-servicenow en-fr | 16.38 % | +0.32 [−0.58, 1.16] |
+| nonspeech (hallucination rate) | 1.43 % | −0.71 [−2.14, 0.71] |
+| nonspeech-music (hallucination rate) | 0.88 % | 0.00 [0.00, 0.00] |
+| notsofar-en-eval * | 6.78 % | +0.05 [−0.32, 0.50] |
+| peertube-edu-captions-fr | 7.63 % | +0.10 [−0.05, 0.26] |
+| servicenow en-fr-ca | 11.52 % | −0.12 [−0.81, 0.50] |
+| servicenow en-fr | 10.82 % | +0.43 [−0.16, 1.09] |
+| voxpopuli-en-nonnative | 13.81 % | **+0.23** [0.04, 0.50] |
+
+Across the 17 panels the two runs of the same recipe agree within about
+0.1–0.4 points; the only separable difference is `voxpopuli-en-nonnative` at
++0.23 [0.04, 0.50] (they also differ by two clips on the `nonspeech`
+hallucination panel: 4 of 280 for the original control, 2 of 280 for the
+matched control). Run-to-run noise is on the same scale as the candidate
+effects above.
+
+### What the decision rule says
+
+The rule of
+[Matched control: the rule, before the numbers](#matched-control-the-rule-before-the-numbers)
+applied to the tables above, as written:
+
+- **n40 — reject.** Its only separable clean loss is
+  `servicenow-codeswitched-en-fr-ca` at +0.75 [0.03, 1.63] (its other
+  separable clean effect is an improvement, `cs-fleurs-fr-en`, at
+  −0.17). Its largest noisy gain is 0.31 (`noisy-fleurs-en`, which does
+  improve with an interval excluding zero) — smaller than that loss, so the
+  reject branch fires. The adopt branch does not: a clean panel is
+  measurably worse.
+- **n40r20 — reject.** Its separable clean losses are the `nonspeech`
+  hallucination rate at +1.43 [0.36, 2.86] and `mls-fr` at +0.07 [0.01, 0.13];
+  its largest noisy gain (0.24, `noisy-fleurs-en`) is smaller than the larger
+  of the two.
+
+  Stated plainly: this reject rests entirely on the `nonspeech-full`
+  hallucination-rate difference. The panel holds 280 clips; 2 of them
+  hallucinate for the matched control and 6 for n40r20 — a four-clip gap —
+  and the two control runs of the same recipe differ by two clips on that
+  very panel (4 of 280 for the original control, 2 of 280 for the matched
+  control). Count WER only — leaving the two hallucination-rate panels out —
+  and n40r20's only separable clean effect is the 0.07-point `mls-fr` loss,
+  which its 0.24 noisy gain exceeds: the arm would then be **inconclusive**,
+  and the rule's n80 clause would have run an 80 % copy of n40r20. The rule
+  pre-committed this case, so the verdict stands — but it is not robust to
+  whether the hallucination-rate panel counts.
+
+- **No n80.** Both arms are reject, so the rule's n80 clause does not fire;
+  the n80 run was not started.
+
+**Multiplicity**, reported as the rule commits to: of the 61 comparisons it
+pre-registers, **7 are separable, against the 3.05 expected from test-set
+sampling alone**. The comparisons share baselines and are not independent,
+and the bootstrap intervals cover test-set sampling only — not training
+variance, as the run-to-run table above shows — so this count is a benchmark,
+not a p-value.
+
+**The noise did not help where it was aimed**, at this scale: against the
+matched control the largest noisy-panel difference is 0.31 points (n40 on
+`noisy-fleurs-en`, a gain), and the candidates' formatted WER on the noisy
+panels (14.69 / 19.36 / 20.73 % for n40, 14.70 / 19.41 / 20.37 % for n40r20)
+stays within 0.3 points of the matched control's (14.78 / 19.39 / 20.63 %).
+At screening scale, this amount of MUSAN noise at 0–20 dB does not buy the
+model a measurable gain on the noisy panels; what a different noise, a
+different SNR range, or a test at the recipe's scale would show is left to
+[proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
+
+### Against the original control (not matched)
+
+Kept as history: the candidates paired against the original control, which was
+not trained with the candidates' clip order, micro-batch, code or card (see
+[What was run](#what-was-run)) — each difference there mixes the augmentation
+with run-to-run variance, and is read against the noise floor of the
+run-to-run table. The noisy panels come from the control's `noisy-only`
+evaluation, the clean panels from its full evaluation; every clip was
+answered by both sides of every pair.
 
 Noisy panels:
 
@@ -600,31 +789,11 @@ Clean panels:
 
 \* mls-fr has few speaker groups (n < 20); its intervals are approximate.
 
-### What the decision rule says
-
-- **n40 — reject.** No noisy panel improves with an interval excluding zero,
-  so the adopt branch cannot fire. One clean panel does get measurably worse:
-  non-native English, voxpopuli-en-nonnative, at +0.22 [0.02, 0.45] — and the
-  best noisy gain (0.15, not separable) is smaller than that loss. That is the
-  reject branch, exactly as written before the numbers.
-- **n40r20 — inconclusive.** No noisy panel improves with an interval
-  excluding zero (no adopt), and no clean panel gets measurably worse (no
-  reject); the only significant clean effect is an improvement, on the
-  code-switched panel (−0.40). The rule's inconclusive branch applies: report
-  the numbers and propose a stronger dose — 80 % of the clips,
-  `noise_prob: 0.8` — or a different SNR range, before deciding. That
-  follow-up run is proposed here and **not started**: it needs the owner's go.
-  The 40 % dose of decision 0004 is now measured and, as is, not supported;
-  see the [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
-
-The noise did not help where it was aimed: on the noisy panels the candidates
-land within 0.15 points of the control, with no interval separating them
-(formatted WER 14.69 / 19.36 /
-20.73 % for n40 and 14.70 / 19.41 / 20.37 % for n40r20, against 14.64 / 19.17 /
-20.40 %), and the small negative drift on the non-native English panel shows up
-in both, significant for n40. If 80 % of the clips still shows nothing on the
-noisy panels, the honest conclusion is that this amount of MUSAN noise, at
-0–20 dB, does not buy the model the robustness the recipe hoped for.
+Under the rule's original application to these unmatched comparisons, n40 was
+classified **reject** (the non-native-English loss above) and n40r20
+**inconclusive**, and the inconclusive branch named the n80 follow-up; the
+matched-control rule above supersedes that reading, and its n80 clause did
+not fire.
 
 ## What these numbers do not say
 
