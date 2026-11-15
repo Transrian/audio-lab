@@ -8,9 +8,9 @@ dataset: peertube-fr-train
 clips: 10000
 updates: 2000
 # 16 clips per update, one at a time: 1 × 16 is what fits the 24 GB cards this
-# test runs on (the control's two-at-a-time batch peaks at 22.4 GB on a 32 GB
-# card). 1 × 16 is not loss-neutral against 2 × 8 under the model's mean_volume
-# reduction, which is why this control exists.
+# test runs on (2 × 8 peaks at 22.4 GiB on a 32 GB card and does not fit in
+# 24 GB). 1 × 16 is not loss-neutral against 2 × 8 under the model's
+# mean_volume reduction, which is why this control exists.
 batch_size: 1
 grad_accumulation: 16
 max_clip_seconds: 20.0
