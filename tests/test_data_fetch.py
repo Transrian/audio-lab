@@ -88,6 +88,39 @@ def test_the_usual_preparation_keeps_its_directory_and_its_name(tmp_path, monkey
     assert seen == {"name": "granary-fr-train", "clips": None}
 
 
+@pytest.mark.parametrize(
+    ("name", "clips"),
+    [
+        ("granary-fr-train-40k", 40_000),
+        ("granary-fr-train-55k", 55_000),
+        ("nasa-en-train-30k", 30_000),
+    ],
+)
+def test_a_sized_name_without_clips_prepares_with_the_caps_of_its_suffix(
+    tmp_path, monkeypatch, name, clips
+):
+    monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path))
+    monkeypatch.setitem(FETCHERS, base_dataset(name), fake_fetcher(seen := {}))
+
+    destination = fetch_dataset(name, verbose=False)
+
+    assert destination == tmp_path / name
+    assert seen == {"name": name, "clips": clips}, "the cap comes from the suffix"
+
+
+def test_a_forced_repreparation_of_a_sized_name_uses_the_caps_of_its_suffix(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path))
+    monkeypatch.setitem(FETCHERS, "granary-fr-train", fake_fetcher(seen := {}))
+    fetch_dataset("granary-fr-train", clips=40_000, verbose=False)
+
+    destination = fetch_dataset("granary-fr-train-40k", force=True, verbose=False)
+
+    assert destination == tmp_path / "granary-fr-train-40k"
+    assert seen == {"name": "granary-fr-train-40k", "clips": 40_000}, (
+        "the re-preparation takes the cap from the suffix, not the source's default"
+    )
+
+
 def test_a_sized_name_routed_without_clips_verifies_the_prepared_directory(tmp_path, monkeypatch):
     monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path))
     monkeypatch.setitem(FETCHERS, "granary-fr-train", fake_fetcher(seen := {}))

@@ -125,8 +125,9 @@ def fetch_dataset(
     """Make ``name`` ready under the data directory and return that directory.
 
     ``clips`` is the cap of a larger preparation of a training source (see
-    :func:`sized_dataset_name`); without it the preparation is the source's
-    usual one, into its usual directory.
+    :func:`sized_dataset_name`); without it a source's name prepares the
+    source's usual one, while a name that already carries its cap
+    (``granary-fr-train-40k``) prepares with that cap, taken from the suffix.
     """
     base = base_dataset(name)
     if clips is not None and base != name:
@@ -134,7 +135,12 @@ def fetch_dataset(
             f"{name}: the name of a sized preparation already names its cap; "
             f"pass the source's name ({base}) with --clips"
         )
-    if clips is not None:
+    if clips is None and base != name:
+        # The suffix is the cap, in thousands (granary-fr-train-40k -> 40 000),
+        # so the preparation takes it from the name instead of falling back to
+        # the source's default.
+        clips = int(name[len(base) + 1 : -1]) * 1000
+    elif clips is not None:
         name = sized_dataset_name(name, clips)
     if base not in FETCHERS:
         known = ", ".join(sorted(DATASETS))
