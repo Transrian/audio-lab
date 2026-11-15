@@ -532,6 +532,12 @@ Applied separately to each candidate, against the control:
 
 ### Matched control: the rule, before the numbers
 
+The matched control is `noise-peertube-fr-control-1x16` (config:
+[noise-peertube-fr-control-1x16.yaml](../../configs/train/noise-peertube-fr-control-1x16.yaml)):
+the original control's recipe with the candidates' 1 × 16 micro-batch, card
+class (RTX 3090) and code, without augmentation. The original control is
+`screen-peertube-fr`. The new evaluations cover all 17 panels of `full`.
+
 The committed decision rule (adopt / reject / inconclusive, the lines under
 [The decision rule, before the numbers](#the-decision-rule-before-the-numbers))
 is applied unchanged, with the matched control in place of the original
@@ -544,7 +550,9 @@ control, to n40 and n40r20, with these definitions:
   [`table.py`](../../experiments/source-screening/table.py) (a bound exactly
   at 0.00 is whatever that flag says);
 - *that loss* = the largest separable clean loss; *the noisy gain* = the
-  largest improvement among the noisy panels, separable or not.
+  largest improvement among the noisy panels, separable or not (*largest*
+  and *smaller* compare the B − A differences in percentage points as
+  table.py prints them, whatever the metric; a tie is not smaller).
 
 **n80 follows this rule.** If any arm is *adopt*: no n80; the result goes to
 the owner. Else if any arm is *inconclusive*: run n80 as a copy of the
@@ -552,14 +560,14 @@ inconclusive arm's config with `noise_prob: 0.8` (if both are inconclusive,
 copy n40r20). Else (both *reject*): no n80.
 
 Reported alongside, without changing the verdicts: the number of separable
-intervals among all comparisons of the step — n40 and n40r20 against the
-matched control (17 panels each), the matched control against the original
-control (17 panels), and the original control against n40 and against n40r20
-on the five panels never paired (notsofar-en-eval, african-accented-fr-test,
-nasa-en-test, peertube-edu-captions-fr, nonspeech-music) — against the number
-expected by chance (5 % of the comparisons: 3.05 for the 61 comparisons
-above), and the matched − original control differences as an estimate of
-run-to-run variance.
+intervals among these comparisons — n40 and n40r20 against the matched
+control (17 panels each), the matched control against the original control
+(17 panels), and the original control against n40 and against n40r20 on the
+five panels never paired (notsofar-en-eval-full, african-accented-fr-test-full,
+nasa-en-test-full, peertube-edu-captions-fr-full, nonspeech-music-full) —
+against the number expected by chance (5 % of the comparisons: 3.05 for the
+61 comparisons above), and the matched − original control differences as an
+estimate of run-to-run variance.
 
 ### Results
 
