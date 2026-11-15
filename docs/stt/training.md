@@ -72,6 +72,10 @@ gpu: "0"                                  # an index or a UUID prefix
 seed: 20261107
 resume_every: 500                         # updates between resume-slot rewrites
 log_every: 50                             # updates between log lines
+# Noise and reverb augmentation. The values below show the shape of the
+# fields; they are examples, not a recommendation - the 0.4 / 0.2 doses of
+# decision 0004 were tested and, as is, are not supported: the result is in
+# screening.md, "Noise augmentation", and proposed decision 0015.
 noise_prob: 0.4                           # chance a clip is mixed with noise; 0 disables
 noise_bank: musan-noise                   # a prepared dataset; only its train half
 noise_min_snr_db: 0.0                     # signal over noise after the mix, in dB
