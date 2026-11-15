@@ -1,20 +1,21 @@
-# Noise test against the peertube-fr screen (plan 02): the control run
-# screen-peertube-fr with noise mixed into 40 % of the clips, at a random
-# signal-to-noise ratio of 0-20 dB. Same base, clips, updates and recipe as
-# the control - the only difference is the augmentation, so the difference in
-# the scores comes from it. Why these numbers: docs/stt/screening.md,
-# "Noise augmentation".
+# Noise test against the peertube-fr screen: the control run screen-peertube-fr
+# with noise mixed into 40 % of the clips, at a random signal-to-noise ratio
+# of 0-20 dB. The original control was not trained with this config's clip
+# order, micro-batch, code or card, so that comparison is not matched; the
+# test's matched control is noise-peertube-fr-control-1x16 (the same recipe,
+# no augmentation). The verdicts are in docs/stt/screening.md, "Noise
+# augmentation", and proposed decision 0015.
 base_model: nvidia/parakeet-tdt-0.6b-v3
 base_model_env: AUDIOLAB_PARAKEET_NEMO
 dataset: peertube-fr-train
 
 clips: 10000
 updates: 2000
-# 16 clips per update, one at a time: the control's two-at-a-time batch peaks
-# at 22.4 GB on a 32 GB card, which does not fit the 24 GB cards this test runs
-# on. The effective batch (16 clips per update), the seed, the clip order and
-# the optimizer are unchanged, so only the order of the floating-point sums
-# differs, as it does between any two cards.
+# 16 clips per update, one at a time: 1 x 16 is what fits the 24 GB cards this
+# test runs on (the original control's 2 x 8 peaks at 22.4 GiB on a 32 GB card
+# and does not fit). 1 x 16 is not loss-neutral against 2 x 8 under the
+# model's mean_volume reduction - that, with the clip order and the code
+# version, is why the test carries its own matched control.
 batch_size: 1
 grad_accumulation: 16
 max_clip_seconds: 20.0
