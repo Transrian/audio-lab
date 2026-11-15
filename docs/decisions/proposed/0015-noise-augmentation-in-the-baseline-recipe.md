@@ -27,9 +27,9 @@ Result (paired, normalized WER; full tables in
 
 - **one of the six noisy-panel comparisons against the matched control is
   separable — n40 on `noisy-fleurs-en`, −0.31 [−0.61, −0.03] — and the other
-  five are not** (deltas from −0.31 to +0.01); the single gain is of the size
-  of the run-to-run difference between the two controls on the same panel
-  (+0.15 [−0.10, 0.42]), so it is not a consistent gain from the noise;
+  five are not** (deltas from −0.31 to +0.01); the single gain is within the
+  run-to-run interval on that panel (up to 0.42), so it is not a consistent
+  gain from the noise;
 - **n40 = reject** under the rule committed before the numbers: its only
   separable clean loss is `servicenow-codeswitched-en-fr-ca` at +0.75
   [0.03, 1.63]; its largest noisy gain (0.31, `noisy-fleurs-en`) is smaller
@@ -88,9 +88,14 @@ Does the baseline recipe keep or drop noise augmentation?
    one training run plus a full-suite evaluation — about 81 min of one RTX
    3090 (the arms' training wall times) and about 24 min of transcription (a
    full suite from a cold cache) — judged against the existing matched
-   control, which stays valid while the training code does not change; a new
-   matched control is needed only if the code changes, at the cost of another
-   such cycle. The recipe-scale test is a run of the recipe itself — about
+   control, which stays valid while the path a run without augmentation takes
+   is unchanged — true at the time of writing: the two later training commits,
+   `dadd610` and `b57587b`, act only on runs that augment (bank hashes in the
+   resume payload, short noise windows dropped); a new matched control is
+   needed only if that path changes, at the cost of another such cycle. A new
+   arm also already differs from n40's augmentation: the short tail windows of
+   the bank manifests are now dropped, so its noise bank is not n40's. The
+   recipe-scale test is a run of the recipe itself — about
    20 h of one RTX 3090 at the screening's measured 0.41 updates/s, measured
    with the screen's 16 clips/update on peertube-length clips, plus
    evaluation — and only it answers the recipe's question.

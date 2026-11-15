@@ -773,10 +773,11 @@ control, one of the six noisy-panel comparisons is separable — n40 on
 `noisy-fleurs-en` at −0.31 [−0.61, −0.03] — and the other five are not
 (candidates' formatted WER 14.69 / 19.36 / 20.73 % for n40 and 14.70 / 19.41
 / 20.37 % for n40r20, within 0.3 points of the matched control's 14.78 /
-19.39 / 20.63 %). The single gain is of the size of the run-to-run difference
-between the two controls on the same panel (+0.15 [−0.10, 0.42]), and it is
-smaller than the separable clean loss of the candidate that made it (0.75),
-so it is not a consistent gain from the noise. What a different noise, a
+19.39 / 20.63 %). The single gain is within the run-to-run
+interval on that panel (up to 0.42); against the original control, the same
+candidate's gain on the same panel is only −0.15 [−0.43, 0.11], not
+separable; and it is smaller than the separable clean loss of the candidate
+that made it (0.75) — it is not a consistent gain from the noise. What a different noise, a
 different SNR range, or a test at the recipe's scale would show is left to
 [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
 
