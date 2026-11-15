@@ -204,10 +204,13 @@ these fields existed: no `augmentor` reaches NeMo, and the run directory and
 `train.json` are what they were.
 
 Before choosing a dose, note what has been measured: noise on 40 % of the
-clips (the dose of decision 0004) was tested against its own control in
-[screening.md, "Noise augmentation"](screening.md#noise-augmentation) and, as
-is, is not supported; a stronger dose is proposed but not started
-([proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md)).
+clips (the dose of decision 0004) was tested at screening scale, with and
+without reverb, against a matched control in
+[screening.md, "Noise augmentation"](screening.md#noise-augmentation) — both
+doses were rejected by the rule pre-committed before the numbers, and the
+rule's stronger-dose run was not selected. The open question of what the
+baseline recipe keeps is
+[proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
 
 **Only the train half of a bank.** A bank is a prepared dataset like any other
 (its cards live in [datasets.md](datasets.md)); the run writes a NeMo manifest
@@ -257,8 +260,10 @@ run on a resume.
 **Determinism, and where it stops.** The run seeds itself
 (`pl.seed_everything(seed, workers=True)`) and each data worker's Python
 `random` is seeded at worker init, which is what the perturbations draw from.
-So the same config, seed and worker count give the same augmentations in an
-**uninterrupted** run. After a resume the clip order is restored (the order is
+So the same config, seed and worker count are *expected* to give the same
+augmentations in an **uninterrupted** run — an expectation from the seeding,
+not a tested one: no test or measurement shows two such runs drawing the same
+perturbations. After a resume the clip order is restored (the order is
 drawn from `seed` and the epoch, not from the workers' state), but the
 workers' random state is not part of the resume slot: the augmentations a
 resumed run applies from the slot on are not the ones the uninterrupted run
