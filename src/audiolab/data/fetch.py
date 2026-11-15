@@ -127,7 +127,8 @@ def fetch_dataset(
     ``clips`` is the cap of a larger preparation of a training source (see
     :func:`sized_dataset_name`); without it a source's name prepares the
     source's usual one, while a name that already carries its cap
-    (``granary-fr-train-40k``) prepares with that cap, taken from the suffix.
+    (``granary-fr-train-40k``) prepares with that cap, taken from the suffix;
+    a suffix that does not name the canonical preparation is refused.
     """
     base = base_dataset(name)
     if clips is not None and base != name:
@@ -138,8 +139,17 @@ def fetch_dataset(
     if clips is None and base != name:
         # The suffix is the cap, in thousands (granary-fr-train-40k -> 40 000),
         # so the preparation takes it from the name instead of falling back to
-        # the source's default.
+        # the source's default. The name must be the canonical sized name:
+        # sized_dataset_name validates the cap as --clips does (and the
+        # source's shape), and the equality refuses misnames such as -12k
+        # or -040k.
         clips = int(name[len(base) + 1 : -1]) * 1000
+        canonical = sized_dataset_name(base, clips)
+        if canonical != name:
+            raise ValueError(
+                f"{name}: the sized preparation of {base} at {clips} clips is "
+                f"named {canonical}; pass {base} with --clips {clips}"
+            )
     elif clips is not None:
         name = sized_dataset_name(name, clips)
     if base not in FETCHERS:
@@ -164,7 +174,7 @@ def fetch_dataset(
     if clips is not None and not accepts_clips:
         raise ValueError(
             f"{base}: the clip cap is fixed for this source ({TRAIN_CLIP_CAP} clips); "
-            f"--clips is not supported for it"
+            f"a larger preparation (--clips or a -<k>k name) is not supported for it"
         )
     if force and destination.exists():
         shutil.rmtree(destination)

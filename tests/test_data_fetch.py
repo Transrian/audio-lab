@@ -121,6 +121,28 @@ def test_a_forced_repreparation_of_a_sized_name_uses_the_caps_of_its_suffix(tmp_
     )
 
 
+@pytest.mark.parametrize(
+    ("name", "error"),
+    [
+        ("granary-fr-train-12k", "12 000 is the default"),
+        ("granary-fr-train-5k", "12 000 is the default"),
+        ("granary-fr-train-0k", "12 000 is the default"),
+        ("granary-fr-train-040k", "granary-fr-train-40k"),
+    ],
+)
+def test_a_sized_name_that_the_cap_does_not_name_is_refused_before_the_fetcher(
+    tmp_path, monkeypatch, name, error
+):
+    monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path))
+
+    def refuse(*args, **kwargs) -> int:
+        raise AssertionError(f"{name}: a misnamed sized name must not reach the fetcher")
+
+    monkeypatch.setitem(FETCHERS, base_dataset(name), refuse)
+    with pytest.raises(ValueError, match=error):
+        fetch_dataset(name, verbose=False)
+
+
 def test_a_sized_name_routed_without_clips_verifies_the_prepared_directory(tmp_path, monkeypatch):
     monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path))
     monkeypatch.setitem(FETCHERS, "granary-fr-train", fake_fetcher(seen := {}))
