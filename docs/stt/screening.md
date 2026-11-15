@@ -530,6 +530,37 @@ Applied separately to each candidate, against the control:
   dose (80 % of the clips, `noise_prob: 0.8`) or a different SNR range before
   deciding.
 
+### Matched control: the rule, before the numbers
+
+The committed decision rule (adopt / reject / inconclusive, the lines under
+[The decision rule, before the numbers](#the-decision-rule-before-the-numbers))
+is applied unchanged, with the matched control in place of the original
+control, to n40 and n40r20, with these definitions:
+
+- *noisy panels* = the three `noisy-*-full` panels; *clean panels* = the 14
+  other panels of `full`, the two `nonspeech*` panels compared by
+  hallucination rate;
+- *an interval excluding zero* = the *separable* flag of
+  [`table.py`](../../experiments/source-screening/table.py) (a bound exactly
+  at 0.00 is whatever that flag says);
+- *that loss* = the largest separable clean loss; *the noisy gain* = the
+  largest improvement among the noisy panels, separable or not.
+
+**n80 follows this rule.** If any arm is *adopt*: no n80; the result goes to
+the owner. Else if any arm is *inconclusive*: run n80 as a copy of the
+inconclusive arm's config with `noise_prob: 0.8` (if both are inconclusive,
+copy n40r20). Else (both *reject*): no n80.
+
+Reported alongside, without changing the verdicts: the number of separable
+intervals among all comparisons of the step — n40 and n40r20 against the
+matched control (17 panels each), the matched control against the original
+control (17 panels), and the original control against n40 and against n40r20
+on the five panels never paired (notsofar-en-eval, african-accented-fr-test,
+nasa-en-test, peertube-edu-captions-fr, nonspeech-music) — against the number
+expected by chance (5 % of the comparisons: 3.05 for the 61 comparisons
+above), and the matched − original control differences as an estimate of
+run-to-run variance.
+
 ### Results
 
 Normalized WER, paired against the control (a negative difference is better for
