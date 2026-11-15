@@ -29,7 +29,14 @@ from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data.store import write_manifest  # noqa: E402
 from audiolab.train import runner  # noqa: E402
 from audiolab.train.config import DatasetShare, TrainConfig, TrainConfigError  # noqa: E402
-from audiolab.train.data import TrainDataError, dataset_dir, select_clips  # noqa: E402
+from audiolab.train.data import (  # noqa: E402
+    MixClips,
+    TrainDataError,
+    dataset_dir,
+    load_training_clips,
+    select_clips,
+    select_mix,
+)
 from audiolab.train.run import (  # noqa: E402
     MANIFEST_NAME,
     MODEL_CONFIG,
@@ -645,6 +652,88 @@ def test_what_a_run_was_started_as_is_on_disk_before_it_trains(tmp_path, monkeyp
     assert train_json(directory)["resumed"] is False
 
 
+def old_start_payload(config: TrainConfig, base, base_identity: str, drawn) -> dict:
+    """What ``_start_payload`` returned before a run recorded its banks.
+
+    Rebuilt field by field from the old code, so a payload equal to this one is
+    the payload an older audiolab recorded for the same run. The writer of
+    ``config.json`` serializes with ``sort_keys``, so equal payloads are equal
+    bytes on disk.
+    """
+    payload = {
+        "config": config.to_dict(),
+        "base_model": str(base),
+        "base_model_identity": base_identity,
+        "sampled_ids_sha256": drawn.ids_sha256,
+        "clips": len(drawn.clips),
+    }
+    if isinstance(drawn, MixClips):
+        payload["datasets"] = [
+            {"name": per.name, "sampled_ids_sha256": per.drawn.ids_sha256} for per in drawn.datasets
+        ]
+    return payload
+
+
+def test_a_run_without_augmentation_keeps_the_start_payload_it_wrote(tmp_path):
+    """A plain run's start payload is what it was before the bank hashes
+    existed: the resume of an older, plain run stays a resume."""
+    data_root = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    loaded = run_config(tmp_path, clips=4, updates=2)
+    base = loaded.weights()
+    drawn = load_training_clips(
+        dataset_dir(loaded.dataset, data_root),
+        count=loaded.clips,
+        seed=loaded.seed,
+        max_seconds=loaded.max_clip_seconds,
+    )
+    started = runner._start_payload(loaded, base, base.identity(), drawn, {})
+    assert started == old_start_payload(loaded, base, base.identity(), drawn)
+
+
+def test_a_mix_run_without_augmentation_keeps_the_start_payload_it_wrote(tmp_path):
+    """Same for a mix: its payload is the per-dataset hashes, and a plain mix
+    records nothing new."""
+    base = tmp_path / "base.nemo"
+    base.write_bytes(b"base weights")
+    data_root = write_dataset(tmp_path / "data", "ds-a", 10)
+    data_root = write_dataset(data_root, "ds-b", 10)
+    loaded = mix_config(
+        base_model=str(base),
+        datasets=[{"name": "ds-a", "clips": 4}, {"name": "ds-b", "clips": 4}],
+    )
+    drawn = select_mix(
+        loaded.datasets,
+        seed=loaded.seed,
+        max_seconds=loaded.max_clip_seconds,
+        data_dir=data_root,
+    )
+    base_ckpt = loaded.weights()
+    started = runner._start_payload(loaded, base_ckpt, base_ckpt.identity(), drawn, {})
+    assert started == old_start_payload(loaded, base_ckpt, base_ckpt.identity(), drawn)
+
+
+def test_a_plain_run_writes_the_config_json_the_old_code_wrote(tmp_path, monkeypatch):
+    """The bytes on disk, not just the dict: ``write_run_config`` is the same
+    writer as before, the payload is the old one, so the file a plain run
+    writes is the file it wrote before the bank hashes existed."""
+    monkeypatch.setattr(runner, "train_checkpoint", FakeStep())
+    data_root = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    loaded = run_config(tmp_path, clips=4, updates=2)
+    directory = runner.run_training(
+        loaded, data_dir=data_root, runs_root=tmp_path / "runs", print_line=lambda _: None
+    )
+    base = loaded.weights()
+    drawn = load_training_clips(
+        dataset_dir(loaded.dataset, data_root),
+        count=loaded.clips,
+        seed=loaded.seed,
+        max_seconds=loaded.max_clip_seconds,
+    )
+    old = old_start_payload(loaded, base, base.identity(), drawn)
+    expected = json.dumps(old, indent=2, sort_keys=True) + "\n"
+    assert (directory / "config.json").read_text(encoding="utf-8") == expected
+
+
 def test_a_resume_with_another_config_is_refused(tmp_path, monkeypatch):
     """A slot belongs to one run; continuing it with another recipe is a third run."""
     dataset = write_dataset(tmp_path / "data", "fleurs-fr", 20)
@@ -672,6 +761,57 @@ def test_a_resume_with_another_config_is_refused(tmp_path, monkeypatch):
         print_line=lambda _: None,
     )
     assert train_json(run_dir("example", tmp_path / "runs"))["config"]["updates"] == 3
+
+
+def write_bank_rows(root: Path, name: str, rows: list) -> Path:
+    """A prepared bank under the data root, built from ready-made rows."""
+    write_manifest(root / name, rows)
+    return root
+
+
+def bank_row(clip_id: str, duration_s: float):
+    """One row of a noise bank: the train half of a prepared dataset."""
+    return make_clip(
+        clip_id, language="none", group=clip_id, source_split="train", duration_s=duration_s
+    )
+
+
+def test_a_resume_with_a_changed_bank_is_refused(tmp_path, monkeypatch):
+    """The sha256 of a bank's manifest is what a resume is checked against.
+
+    A bank re-prepared between a stop and a resume changes what the run mixes,
+    exactly like a re-prepared training dataset, so the resume is refused and
+    names the changed hash; the bank back the way it was resumes.
+    """
+    data_root = write_dataset(tmp_path / "data", "fleurs-fr", 20)
+    original_rows = [bank_row("musan-noise:one", 25.0)]
+    data_root = write_bank_rows(data_root, "musan-noise", original_rows)
+    stopped_run(
+        tmp_path, data_root, monkeypatch=monkeypatch, noise_prob=0.4, noise_bank="musan-noise"
+    )
+
+    data_root = write_bank_rows(
+        data_root,
+        "musan-noise",
+        [bank_row("musan-noise:one", 25.0), bank_row("musan-noise:two", 10.0)],
+    )
+    monkeypatch.setattr(runner, "train_checkpoint", FakeStep())
+    with pytest.raises(TrainRunError, match="noise_bank_sha256 changed"):
+        runner.run_training(
+            run_config(tmp_path, clips=4, updates=2, noise_prob=0.4, noise_bank="musan-noise"),
+            data_dir=data_root,
+            runs_root=tmp_path / "runs",
+            print_line=lambda _: None,
+        )
+
+    data_root = write_bank_rows(data_root, "musan-noise", original_rows)
+    runner.run_training(
+        run_config(tmp_path, clips=4, updates=2, noise_prob=0.4, noise_bank="musan-noise"),
+        data_dir=data_root,
+        runs_root=tmp_path / "runs",
+        print_line=lambda _: None,
+    )
+    assert train_json(run_dir("example", tmp_path / "runs"))["resumed"] is True
 
 
 def test_a_slot_that_says_nothing_about_its_run_is_refused(tmp_path, monkeypatch):

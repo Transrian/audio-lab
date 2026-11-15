@@ -24,10 +24,10 @@ from audiolab.train.config import TrainConfig
 from audiolab.train.data import (
     MixClips,
     TrainingClips,
+    build_bank_manifest,
     dataset_dir,
     load_training_clips,
     select_mix,
-    write_bank_manifest,
     write_nemo_manifest,
 )
 from audiolab.train.guard import GuardResult, check_leakage
@@ -141,7 +141,12 @@ def run_training(
     # would train on what the suite scores is refused, and a refusal costs no
     # directory and no GPU time.
     guard = check_leakage(drawn.clips, data_dir=data_dir, print_line=print_line)
-    started = _start_payload(config, base, base_identity, drawn)
+    # Built before the resume check: the hash of each bank manifest is part of
+    # what a resume is checked against, so a bank re-prepared between a stop
+    # and a resume is refused, and a bank that is missing is reported before
+    # anything is written.
+    banks = _bank_manifests(config, data_dir)
+    started = _start_payload(config, base, base_identity, drawn, banks)
     if not fresh and resume_checkpoint(directory) is not None:
         _refuse_a_different_run(directory, started)
     prepare_run_dir(directory, fresh=fresh)
@@ -151,7 +156,7 @@ def run_training(
     write_nemo_manifest(directory / MANIFEST_NAME, _manifest_entries(config, drawn, data_dir))
     # A run that augments writes its banks' NeMo manifests into the run
     # directory, so the record can hash what the perturbations actually read.
-    augmentation = _write_bank_manifests(config, directory, data_dir)
+    augmentation = _write_bank_manifests(config, directory, banks)
 
     # The GPU is chosen before the heavy step imports torch, because
     # CUDA_VISIBLE_DEVICES has to be set before CUDA is initialised (D-008).
@@ -195,53 +200,81 @@ def _clips_line(name: str, drawn: TrainingClips) -> str:
     )
 
 
-def _write_bank_manifests(
-    config: TrainConfig, directory: Path, data_dir: Path | None
-) -> dict | None:
+def _bank_manifests(config: TrainConfig, data_dir: Path | None) -> dict:
+    """The bank manifests a run will write, built before the run writes anything.
+
+    One entry per enabled perturbation: the bank it reads, the manifest lines,
+    and the sha256 of the content that goes into the run directory. Empty when
+    the run does not augment, and nothing is read then.
+    """
+    banks: dict = {}
+    if config.noise_prob > 0.0:
+        lines, digest = build_bank_manifest(dataset_dir(config.noise_bank, data_dir))
+        banks["noise"] = {"bank": config.noise_bank, "lines": lines, "digest": digest}
+    if config.reverb_prob > 0.0:
+        lines, digest = build_bank_manifest(dataset_dir(config.reverb_bank, data_dir))
+        banks["reverb"] = {"bank": config.reverb_bank, "lines": lines, "digest": digest}
+    return banks
+
+
+def _write_bank_manifests(config: TrainConfig, directory: Path, banks: dict) -> dict | None:
     """The NeMo manifests of a run's banks, written into its run directory.
 
-    One file per enabled perturbation, built from the train half of its bank,
-    and the block the run record keeps: what it did to the audio, from which
-    bank, and the hash of the file the perturbations read. ``None`` when the
-    run does not augment, and no file is written then: the run directory of a
-    run that augmented nothing is the run directory of today.
+    One file per enabled perturbation, from the lines built before the resume
+    check, and the block the run record keeps: what it did to the audio, from
+    which bank, and the hash of the file the perturbations read. ``None`` when
+    the run does not augment, and no file is written then: the run directory of
+    a run that augmented nothing is the run directory of today.
     """
-    if config.noise_prob <= 0.0 and config.reverb_prob <= 0.0:
+    if not banks:
         return None
     blocks: dict = {}
-    if config.noise_prob > 0.0:
-        lines, digest = write_bank_manifest(
-            directory / NOISE_MANIFEST_NAME, dataset_dir(config.noise_bank, data_dir)
+    if "noise" in banks:
+        noise = banks["noise"]
+        (directory / NOISE_MANIFEST_NAME).write_text(
+            "\n".join(noise["lines"]) + "\n", encoding="utf-8"
         )
         blocks["noise"] = {
             "prob": config.noise_prob,
             "min_snr_db": config.noise_min_snr_db,
             "max_snr_db": config.noise_max_snr_db,
-            "bank": config.noise_bank,
-            "bank_lines": lines,
-            "manifest_sha256": digest,
+            "bank": noise["bank"],
+            "bank_lines": len(noise["lines"]),
+            "manifest_sha256": noise["digest"],
         }
-    if config.reverb_prob > 0.0:
-        lines, digest = write_bank_manifest(
-            directory / REVERB_MANIFEST_NAME, dataset_dir(config.reverb_bank, data_dir)
+    if "reverb" in banks:
+        reverb = banks["reverb"]
+        (directory / REVERB_MANIFEST_NAME).write_text(
+            "\n".join(reverb["lines"]) + "\n", encoding="utf-8"
         )
         blocks["reverb"] = {
             "prob": config.reverb_prob,
-            "bank": config.reverb_bank,
-            "bank_lines": lines,
-            "manifest_sha256": digest,
+            "bank": reverb["bank"],
+            "bank_lines": len(reverb["lines"]),
+            "manifest_sha256": reverb["digest"],
         }
     return blocks
 
 
 def _start_payload(
-    config: TrainConfig, base: Checkpoint, base_identity: str, drawn: TrainingClips | MixClips
+    config: TrainConfig,
+    base: Checkpoint,
+    base_identity: str,
+    drawn: TrainingClips | MixClips,
+    banks: dict,
 ) -> dict:
     """What a run is, for ``config.json``: its config, its base model, its clips.
 
     The clips are in it because a dataset can be prepared again under the same
     name: the same seed over other clips is another run, and this is what tells
     the two apart. A mix run records the hash per dataset as well as the whole.
+
+    An augmenting run also records the sha256 of each bank manifest it writes
+    (``noise.jsonl``, ``reverb.jsonl``): a bank can be re-prepared between a
+    stop and a resume under the same name, exactly as a training dataset can,
+    and the resume is refused when the recomputed manifest differs. A run
+    without augmentation records nothing new, so the run directories it wrote
+    before the banks existed stay resumable.
     """
     payload = {
         "config": config.to_dict(),
@@ -250,6 +283,9 @@ def _start_payload(
         "sampled_ids_sha256": drawn.ids_sha256,
         "clips": len(drawn.clips),
     }
+    for name in ("noise", "reverb"):
+        if name in banks:
+            payload[f"{name}_bank_sha256"] = banks[name]["digest"]
     if isinstance(drawn, MixClips):
         payload["datasets"] = [
             {"name": per.name, "sampled_ids_sha256": per.drawn.ids_sha256} for per in drawn.datasets

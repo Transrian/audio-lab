@@ -206,20 +206,22 @@ def write_nemo_manifest(path: Path, entries: list[tuple[Clip, Path]]) -> int:
 BANK_WINDOW_SECONDS = 20.0
 
 
-def write_bank_manifest(path: Path, bank_dir: Path) -> tuple[int, str]:
+def build_bank_manifest(bank_dir: Path) -> tuple[list[str], str]:
     """The NeMo noise manifest of a prepared bank, for its train half.
 
     NeMo's perturbations pick a random manifest line per augmented clip and
     read it from disk, one JSON line per row: ``audio_filepath``, ``duration``,
     ``offset``, ``text``. Only rows with ``source_split == "train"`` are
-    written, sorted by id, with the bank's audio as absolute paths: the eval
+    kept, sorted by id, with the bank's audio as absolute paths: the eval
     half of a bank is what the noisy panels of the suite are scored against,
     and a run that augmented with it would have trained on its test set. A
     long file becomes one row per ``BANK_WINDOW_SECONDS`` window (its
     ``offset`` and ``duration``), so no line ever covers more than a window.
 
-    Returns the number of lines written and the sha256 of the file's content,
-    both of which the run record keeps.
+    Returns the lines and the sha256 of the content they make: a run records
+    the hash in ``config.json`` before it writes the file, and a resume is
+    checked against it, so a bank re-prepared between a stop and a resume is
+    refused rather than mixed in silently.
     """
     train = [clip for clip in read_manifest(bank_dir) if clip.source_split == "train"]
     if not train:
@@ -247,8 +249,19 @@ def write_bank_manifest(path: Path, bank_dir: Path) -> tuple[int, str]:
             )
             offset = end
     content = "\n".join(lines) + "\n"
-    path.write_text(content, encoding="utf-8")
-    return len(lines), hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return lines, hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def write_bank_manifest(path: Path, bank_dir: Path) -> tuple[int, str]:
+    """Write the bank's manifest to ``path``: the lines of
+    :func:`build_bank_manifest`, one per row.
+
+    Returns the number of lines written and the sha256 of the file's content,
+    both of which the run record keeps.
+    """
+    lines, digest = build_bank_manifest(bank_dir)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(lines), digest
 
 
 def dataset_dir(name: str, data_dir: Path | None = None) -> Path:
