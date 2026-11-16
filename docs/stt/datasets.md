@@ -1276,21 +1276,28 @@ measures, trained on the same clips.
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   voxpopuli-fr-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/voxpopuli-fr-train-40k`; the 12 000-clip set above was
-  re-prepared 2026-11-16 (the bullet above), and its 224 speakers are all in
-  the larger set, which still holds 4 815 clips of the shared sessions (219 of
-  the 307). It reads all
-  thirteen shards (64 760 rows; three already cached, ten downloaded) and the
-  split runs out below the cap: **26 973 clips, 65.9 h, 230 speakers**,
-  median 8.2 s, data CC0-1.0. What runs it out: 29 482 rows beyond the
-  200-clip share of a speaker (82 speakers hold the full 200), 8 801 rows
-  without a named speaker, 3 784 rows of the 27 speakers of
-  `voxpopuli-en-nonnative` — the evaluation subset, whose speakers this split
-  also records — 2 352 rows without text, 2 065 longer than 20 s, and 104
-  with a character the base model cannot write, which the prepared set holds
-  none of. The scale-up plan expected the cap at 40 000 clips; with only
-  about 230 named speakers at a 200-clip share, the valid rows of the split
-  top out near 27 000, so this is the source running out, not the cap
-  stopping it. The prepared set is 7.2 GiB.
+  re-prepared 2026-11-16 (the bullet above), and all of its 12 000 clips are
+  in the larger set. The preparation of 2026-11-14 — 26 973 clips, 65.9 h,
+  230 speakers — held 4 815 of the clips of the 219 shared sessions (11.6 h)
+  and is kept as `voxpopuli-fr-train-40k.pre-leakfix-2026-11-15`. Re-prepared
+  2026-11-16 with the shared-session rule of the bullet above: those 4 815
+  clips left, and 2 101 rows came in that the 200-clip share of a speaker had
+  left out while the shared-session clips still occupied the share — 78 of
+  the 180 readers that lost clips take theirs back, none above the 200-clip
+  share. The split still runs out below the cap: **24 259 clips, 59.4 h,
+  227 speakers** (the 230 of 2026-11-14, minus the readers 188254, 96776 and
+  96864, whose clips all sat in the shared sessions), median 8.2 s, data
+  CC0-1.0. It reads all thirteen shards (73 561 rows, all in the cache) and
+  the re-preparation leaves out 10 590 rows of the 307 sessions of the
+  evaluation set, 8 801 rows without a named speaker, 3 222 rows of the 27
+  speakers of `voxpopuli-en-nonnative` — the evaluation subset, whose
+  speakers this split also records — 22 788 rows beyond the 200-clip share
+  of a speaker (70 speakers hold the full 200), 1 895 rows without text,
+  1 925 longer than 20 s, and 81 with a character the base model cannot
+  write, which the prepared set holds none of. With only about 227 named
+  speakers at a 200-clip share, the valid rows of the split top out at
+  24 259, so this is the source running out, not the cap stopping it. The
+  prepared set is 6.5 GiB.
 
 ### `mls-fr-train` — read audiobook French
 
