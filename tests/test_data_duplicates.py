@@ -88,6 +88,38 @@ def test_a_class_is_closed_transitively_over_pairs():
     }
 
 
+def test_a_title_link_and_a_confirmed_pair_are_one_chain():
+    # c~b by title and length, b~a by confirmed pair: one class, id "a".
+    talks = [
+        record("a", "First title", 1000),
+        record("b", "Second title", 1000),
+        record("c", "Second title", 1001),
+    ]
+
+    classes = duplicates.duplicate_classes(talks, domain="none", pairs=[("a", "b")])
+
+    assert classes == {"a": "a", "b": "a", "c": "a"}, (
+        "the title link and the pair close into one class"
+    )
+
+
+def test_the_domain_filter_keeps_the_pairs_of_another_corpus_out(monkeypatch):
+    # The default pairs are filtered by domain: a confirmed pair of the nasa
+    # corpus must not merge two talks of the peertube corpus, even if the ids
+    # of one corpus were the slugs of the other.
+    monkeypatch.setattr(duplicates, "CONFIRMED_PAIRS", (("nasa", "one", "two"),))
+    talks = [record("one", "First talk", 1000), record("two", "Second talk", 1000)]
+
+    assert duplicates.duplicate_classes(talks, domain="peertube") == {
+        "one": "one",
+        "two": "two",
+    }, "a pair of the nasa domain does not merge two talks of the peertube corpus"
+    assert duplicates.duplicate_classes(talks, domain="nasa") == {
+        "one": "one",
+        "two": "one",
+    }, "the pair applies in its own domain"
+
+
 def test_a_title_chain_merges_over_more_than_the_tolerance():
     # 1000, 1001.5 and 1003 s: each within 2 s of its neighbour, the ends 3 s apart.
     talks = [
