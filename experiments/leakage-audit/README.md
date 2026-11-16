@@ -96,7 +96,8 @@ corpus-provided speaker id.
 panel files in `configs/panels/` (the two non-speech sets excluded) and the
 25 prepared training directories (names containing `-train`, with the
 `.pre-*` and `.curly-*` renames excluded). The audit reads manifests only —
-no audio, no server, no network; it is CPU-only and streams the manifests.
+no audio, no server, no network; it is CPU-only and reads one manifest at a
+time, keeping the groups in memory (about 3.5 GB peak on this data).
 
 **Exact command.**
 

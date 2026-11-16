@@ -27,8 +27,9 @@ The evaluation sets are the datasets that have panel files in
 contains ``-train``, including ``-Nk`` and ``-qwen`` suffixes, excluding every
 name containing ``.pre-`` or ``.curly-`` (renamed or superseded preparations).
 
-Read-only: the script streams the ``manifest.jsonl`` files one dataset at a
-time through :func:`audiolab.data.store.read_manifest` and writes nothing.
+Read-only: the script reads one ``manifest.jsonl`` at a time through
+:func:`audiolab.data.store.read_manifest` and keeps the groups of every set
+in memory (about 3.5 GB peak on this data); it writes nothing.
 """
 
 from __future__ import annotations
