@@ -658,9 +658,11 @@ Three kinds of clip that must stay silent, 300 in total:
   each (re-uploads with the same title and duration), and in both cases one
   id is in the sealed panel and its re-upload is in the full panel (and fast)
   — every one of those full clips starts at the same time as a sealed clip of
-  its twin, so 13 clips of sealed content (7 of one talk, 6 of the other)
-  have been scored in full and fast by the full-panel reference runs. The
-  panels are frozen, so this is recorded, not repaired; the owner question is
+  its twin: 13 clips of sealed content (7 of one talk, 6 of the other) are
+  in the full panel, 3 of them also in fast, and every run scored on the
+  full panel — the reference runs and the screening and noise runs among
+  them — has scored them. The panels are frozen, so this is recorded, not
+  repaired; the owner question is
   [O-12 in the backlog](../backlog.md#owner-review-needed).
 
 ## `peertube-edu-captions-fr-v2` — the same talks, with the caption text decoded
