@@ -72,6 +72,14 @@ def listing(published: dict[str, dict[str, str]]):
     return fake
 
 
+# Session-shaped ids of the VoxPopuli fixtures (the audio name is the id plus
+# ``.wav``, as in the corpus). The sittings are from 2001, before the
+# evaluation set's 2009-2020 pin, so none of them is excluded on the session.
+VP_A = "20010101-0900-PLENARY-9-fr_20010101-09:10:00_0"
+VP_B = "20010101-0900-PLENARY-9-fr_20010101-09:10:00_1"
+VP_C = "20010101-1330-PLENARY-10-fr_20010101-14:00:00_0"
+
+
 def fake_voxpopuli_cache(
     cache: Path,
     rows: int = 3,
@@ -87,12 +95,17 @@ def fake_voxpopuli_cache(
     the French shard, so nothing is excluded unless a test asks for it.
     """
     accents = accents if accents is not None else {"999": "en_fr"}
+    # The fixture ids are session-shaped; their 2001 sittings predate every
+    # session of the evaluation set (the pin spans 2009-2020), so the tests
+    # below cover the other rules and never exclude on the session.
+    for name in (VP_A, VP_B, VP_C):
+        assert voxpopuli_train.session_of(name) not in voxpopuli_train.EVALUATION_SESSIONS
     directory = cache / "voxpopuli-fr-train"
     tone = write_tone(directory / "tone.wav", seconds=3.0)
     write_parquet(
         directory / f"train-00000-of-{shards:05d}.parquet",
         {
-            "audio": [audio_cell(tone, f"rec_{index}.wav") for index in range(rows)],
+            "audio": [audio_cell(tone, f"{name}.wav") for name in (VP_A, VP_B, VP_C)[:rows]],
             "raw_text": [f"Bonjour, numéro {index}." for index in range(rows)],
             "speaker_id": (speakers or ["10", "10", "20"])[:rows],
             "is_gold_transcript": [True] * rows,
@@ -136,7 +149,7 @@ def test_voxpopuli_fr_train_keeps_the_cased_text_and_groups_by_speaker(dirs, mon
 
     clips = read_manifest(data / "voxpopuli-fr-train")
     first = clips[0]
-    assert first.id == "voxpopuli-fr-train:rec_0"
+    assert first.id == f"voxpopuli-fr-train:{VP_A}"
     assert first.text == "Bonjour, numéro 0."
     # raw_text, not normalized_text: the corpus publishes both and only raw_text
     # has casing and punctuation, which the base model already writes.
@@ -163,7 +176,7 @@ def test_voxpopuli_fr_train_leaves_out_a_speaker_the_accented_set_scores(dirs, m
     )
     assert count == 1
     assert [clip.id for clip in read_manifest(data / "voxpopuli-fr-train")] == [
-        "voxpopuli-fr-train:rec_2"
+        f"voxpopuli-fr-train:{VP_C}"
     ]
 
 
@@ -187,7 +200,7 @@ def test_voxpopuli_fr_train_leaves_out_a_row_without_a_gold_transcript(dirs, mon
     write_parquet(
         path,
         {
-            "audio": [audio_cell(tone, "a.wav"), audio_cell(tone, "b.wav")],
+            "audio": [audio_cell(tone, f"{VP_A}.wav"), audio_cell(tone, f"{VP_B}.wav")],
             "raw_text": ["Bonjour.", "Bonjour."],
             "speaker_id": ["10", "10"],
             "is_gold_transcript": [False, True],
@@ -198,7 +211,7 @@ def test_voxpopuli_fr_train_leaves_out_a_row_without_a_gold_transcript(dirs, mon
     )
     assert count == 1
     assert [clip.id for clip in read_manifest(data / "voxpopuli-fr-train")] == [
-        "voxpopuli-fr-train:b"
+        f"voxpopuli-fr-train:{VP_B}"
     ]
 
 
@@ -255,6 +268,131 @@ def test_voxpopuli_fr_train_refuses_a_shard_the_hub_lists_no_checksum_for(dirs, 
     with pytest.raises(DownloadError, match="no checksum for 1 shards"):
         voxpopuli_train.fetch_voxpopuli_fr_train(
             "voxpopuli-fr-train", cache, cache / "out", verbose=False
+        )
+
+
+def test_voxpopuli_fr_train_leaves_out_a_clip_of_a_shared_session(dirs, monkeypatch):
+    """A clip of one of the evaluation set's plenary sittings is left out (decision 0014)."""
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    patch_listing(monkeypatch)
+    tone = write_tone(cache / "voxpopuli-fr-train" / "other.wav", seconds=3.0)
+    shared = "20090310-0900-PLENARY-7-fr_20090310-11:10:07_2"
+    assert voxpopuli_train.session_of(shared) in voxpopuli_train.EVALUATION_SESSIONS
+    write_parquet(
+        cache / "voxpopuli-fr-train" / "train-00000-of-00001.parquet",
+        {
+            "audio": [audio_cell(tone, f"{VP_A}.wav"), audio_cell(tone, shared)],
+            "raw_text": ["Bonjour, numéro 0.", "Bonjour, numéro 1."],
+            "speaker_id": ["10", "11"],
+            "is_gold_transcript": [True, True],
+        },
+    )
+    count = voxpopuli_train.fetch_voxpopuli_fr_train(
+        "voxpopuli-fr-train", cache, data / "voxpopuli-fr-train", verbose=False
+    )
+    assert count == 1
+    assert [clip.id for clip in read_manifest(data / "voxpopuli-fr-train")] == [
+        f"voxpopuli-fr-train:{VP_A}"
+    ]
+
+
+def test_voxpopuli_fr_train_keeps_a_clip_of_another_session(dirs, monkeypatch):
+    """A sitting the evaluation set does not hold is kept."""
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    patch_listing(monkeypatch)
+    tone = write_tone(cache / "voxpopuli-fr-train" / "other.wav", seconds=3.0)
+    other = "19990101-0900-PLENARY-1-fr_19990101-11:10:07_2"
+    session = voxpopuli_train.session_of(other)
+    assert session not in voxpopuli_train.EVALUATION_SESSIONS
+    write_parquet(
+        cache / "voxpopuli-fr-train" / "train-00000-of-00001.parquet",
+        {
+            "audio": [audio_cell(tone, f"{VP_A}.wav"), audio_cell(tone, other)],
+            "raw_text": ["Bonjour, numéro 0.", "Bonjour, numéro 1."],
+            "speaker_id": ["10", "11"],
+            "is_gold_transcript": [True, True],
+        },
+    )
+    count = voxpopuli_train.fetch_voxpopuli_fr_train(
+        "voxpopuli-fr-train", cache, data / "voxpopuli-fr-train", verbose=False
+    )
+    assert count == 2
+    assert {clip.id for clip in read_manifest(data / "voxpopuli-fr-train")} == {
+        f"voxpopuli-fr-train:{VP_A}",
+        f"voxpopuli-fr-train:{other}",
+    }
+
+
+def test_voxpopuli_eval_sessions_pin_is_a_sorted_unique_list_of_307():
+    """The committed pin is the sessions of the evaluation set, fixed."""
+    pin = json.loads(voxpopuli_train.EVAL_SESSIONS_FILE.read_text(encoding="utf-8"))
+    assert pin == sorted(set(pin))
+    assert len(pin) == 307
+    assert all(voxpopuli_train.SESSION_SHAPE.match(session) for session in pin)
+    assert voxpopuli_train.EVALUATION_SESSIONS == frozenset(pin)
+
+
+def test_voxpopuli_eval_sessions_refuses_a_broken_pin(tmp_path):
+    """An emptied or broken pin is refused, so the exclusion cannot be silently disabled."""
+    pin = tmp_path / "voxpopuli_eval_sessions.json"
+    for bad in (
+        "[]",
+        json.dumps(["20090310-0900-PLENARY-7", "20090310-0900-PLENARY-6"]),
+        json.dumps(["20090310-0900-PLENARY-7", "20090310-0900-PLENARY-7"]),
+        json.dumps(["not-a-session"]),
+        json.dumps([307]),
+    ):
+        pin.write_text(bad)
+        with pytest.raises(ValueError):
+            voxpopuli_train.evaluation_sessions(pin)
+
+
+def test_voxpopuli_session_of_reads_a_prefixed_manifest_id_like_the_audit():
+    """The exclusion rule is reused on prepared manifest ids: the prefix is stripped.
+
+    A manifest id carries the ``<dataset>:`` prefix the audit strips, so the
+    session of a shared clip must come out of a manifest id as well, or the
+    rule would silently exclude nothing on the data it was written for.
+    """
+    manifest_id = "voxpopuli-fr-train:20090310-0900-PLENARY-7-fr_20090310-11:10:07_2"
+    assert voxpopuli_train.session_of(manifest_id) == "20090310-0900-PLENARY-7"
+    assert voxpopuli_train.session_of(manifest_id) in voxpopuli_train.EVALUATION_SESSIONS
+    # The same clip as the fetcher sees it, without the prefix:
+    assert voxpopuli_train.session_of(
+        "20090310-0900-PLENARY-7-fr_20090310-11:10:07_2"
+    ) == voxpopuli_train.session_of(manifest_id)
+    # A manifest id of a sitting outside the pin stays outside the pin:
+    kept = f"voxpopuli-fr-train:{VP_A}"
+    assert voxpopuli_train.session_of(kept) not in voxpopuli_train.EVALUATION_SESSIONS
+
+
+def test_voxpopuli_session_of_refuses_an_id_without_a_session():
+    """A non-session id is a data error, not a silent "nothing to exclude"."""
+    for bad in ("rec_0", "voxpopuli-fr-train:rec_0", "not-a-voxpopuli-id"):
+        with pytest.raises(ValueError, match="session"):
+            voxpopuli_train.session_of(bad)
+
+
+def test_voxpopuli_fr_train_refuses_a_row_without_a_session(dirs, monkeypatch):
+    """A source row whose id holds no session fails the preparation, not skips it."""
+    data, cache = dirs
+    fake_voxpopuli_cache(cache)
+    patch_listing(monkeypatch)
+    tone = write_tone(cache / "voxpopuli-fr-train" / "other.wav", seconds=3.0)
+    write_parquet(
+        cache / "voxpopuli-fr-train" / "train-00000-of-00001.parquet",
+        {
+            "audio": [audio_cell(tone, "rec_0.wav")],
+            "raw_text": ["Bonjour, numéro 0."],
+            "speaker_id": ["10"],
+            "is_gold_transcript": [True],
+        },
+    )
+    with pytest.raises(ValueError, match="session"):
+        voxpopuli_train.fetch_voxpopuli_fr_train(
+            "voxpopuli-fr-train", cache, data / "voxpopuli-fr-train", verbose=False
         )
 
 

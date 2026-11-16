@@ -16,10 +16,20 @@ set, so any speaker id found there is left out here (decision 0002). Knowing
 those ids means reading two Parquet shards' metadata, and those are the shards
 the evaluation preparation downloads, in its own cache directory: the two share
 one download instead of fetching 4.7 GiB twice.
+
+The plenary sessions of the evaluation set are shared rooms and microphones,
+not only voices: a train clip of one of those sittings would teach a model the
+acoustics the evaluation set measures (decision 0014, option 2), so every clip
+whose session is one of the set's is left out here. The sessions are a
+committed pin, :data:`EVALUATION_SESSIONS`, not a re-read of the evaluation
+manifest: the exclusion is the same on every machine, and an emptied or
+broken pin is refused, so it cannot silently stop excluding.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from functools import partial
 from pathlib import Path
 
@@ -54,6 +64,67 @@ ACCENTED_ACCENT = "en_fr"
 UNNAMED_SPEAKERS = frozenset({"", "none", "nan", "null"})
 ACCENTED_COLUMNS = ["speaker_id", "accent"]
 
+# A session is the prefix of a VoxPopuli clip id before the language tag (for
+# example 20090310-0900-PLENARY-7 in 20090310-0900-PLENARY-7-fr_20090310-11:10:07_2):
+# the clips of one sitting share the room, the microphones and the background.
+# The pattern is the one of experiments/leakage-audit/sessions.py, which
+# defined the session for the overlap audit of the two sets.
+SESSION_RE = re.compile(r"^([0-9]{8}-[0-9]{4}-.+?)-(en|fr|de|es|fi|it|nl)_")
+# The shape of a session itself, once the language tag is off: the sitting
+# name after its date and time.
+SESSION_SHAPE = re.compile(r"^[0-9]{8}-[0-9]{4}-\S+$")
+EVAL_SESSIONS_FILE = Path(__file__).parent / "voxpopuli_eval_sessions.json"
+
+
+def session_of(clip_id: str) -> str:
+    """The session of one VoxPopuli id: its prefix before the language tag.
+
+    Accepts a raw source stem (``20090310-0900-PLENARY-7-fr_20090310-11:10:07_2``)
+    and a prepared manifest id alike: a ``<dataset>:`` prefix is stripped before
+    matching, as in experiments/leakage-audit/sessions.py, and the strip is
+    attempted only when the id does not already start with a session. An id
+    that holds no session before a language tag is a data error and is refused,
+    not skipped: silently treating it as "no session" would exclude nothing,
+    and a silent empty exclusion is the bug this check exists to prevent.
+    """
+    match = SESSION_RE.match(clip_id)
+    if match is None and ":" in clip_id:
+        match = SESSION_RE.match(clip_id.split(":", 1)[1])
+    if match is None:
+        raise ValueError(f"{clip_id!r} does not hold a session before a language tag")
+    return match.group(1)
+
+
+def evaluation_sessions(path: Path | None = None) -> frozenset[str]:
+    """The plenary sessions of the evaluation set, from the committed pin.
+
+    ``voxpopuli_eval_sessions.json`` holds the 307 sessions of the prepared
+    ``voxpopuli-en-nonnative`` manifest, sorted. They were read from that
+    manifest on 2026-11-15 with :func:`session_of`, and the evaluation set and
+    its panels are frozen, so the list is fixed. A preparation reads the pin,
+    not the evaluation manifest, so the exclusion does not depend on the
+    machine's data. The pin is validated on load: an empty, unsorted,
+    duplicated or malformed list is refused, so an emptied pin cannot silently
+    disable the exclusion.
+    """
+    pin = path if path is not None else EVAL_SESSIONS_FILE
+    sessions = json.loads(pin.read_text(encoding="utf-8"))
+    if not sessions:
+        raise ValueError(f"{pin.name} is empty: the evaluation sessions cannot be an empty pin")
+    for session in sessions:
+        if not isinstance(session, str) or SESSION_SHAPE.match(session) is None:
+            raise ValueError(f"{pin.name} holds a malformed session: {session!r}")
+    if sessions != sorted(sessions):
+        raise ValueError(f"{pin.name} is not sorted")
+    if len(set(sessions)) != len(sessions):
+        raise ValueError(f"{pin.name} holds a session twice")
+    return frozenset(sessions)
+
+
+#: The pin, loaded once: a preparation made with another pin would exclude
+#: other clips, so the constant is part of the recipe, not a machine state.
+EVALUATION_SESSIONS = evaluation_sessions()
+
 
 def fetch_voxpopuli_fr_train(
     name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool, clips: int | None = None
@@ -63,7 +134,9 @@ def fetch_voxpopuli_fr_train(
     ``clips`` is the cap of a larger preparation (``voxpopuli-fr-train-40k``):
     the clips are recorded under ``name``, the directory they land in, and the
     shards are read from the source's own cache, so the larger preparation
-    downloads nothing the usual one already read.
+    downloads nothing the usual one already read. Every preparation of this
+    source, 12 000 and ``-Nk`` alike, leaves out the evaluation set's sessions
+    (:data:`EVALUATION_SESSIONS`) as well as its speakers.
     """
     cap = clips if clips is not None else TRAIN_CLIP_CAP
     cache = cache_dir / base_dataset(name)
@@ -83,6 +156,7 @@ def fetch_voxpopuli_fr_train(
 
         not_gold = 0
         unnamed = 0
+        shared = 0
         for shard, sha256 in shards.items():
             if take.full():
                 break
@@ -98,10 +172,17 @@ def fetch_voxpopuli_fr_train(
                 if str(row["speaker_id"]).strip().lower() in UNNAMED_SPEAKERS:
                     unnamed += 1
                     continue
+                clip_id = Path(row["audio"]["path"]).stem
+                # The sitting of a clip is a room and a microphone, not only a
+                # voice: the evaluation set was recorded in its 307 sessions,
+                # and a train set must not hear their acoustics (decision 0014).
+                if session_of(clip_id) in EVALUATION_SESSIONS:
+                    shared += 1
+                    continue
                 # The recording is the clip; the speaker is the group, because the
                 # segments of one speaker share a voice, an accent and a room.
                 take.offer(
-                    Path(row["audio"]["path"]).stem,
+                    clip_id,
                     partial(audio_of, row["audio"]),
                     text=row["raw_text"] or "",
                     group=row["speaker_id"],
@@ -109,7 +190,8 @@ def fetch_voxpopuli_fr_train(
         if verbose:
             print(
                 f"  {take.report()}; without a gold transcript: {not_gold}; "
-                f"without a named speaker: {unnamed}"
+                f"without a named speaker: {unnamed}; "
+                f"in the evaluation set's sessions: {shared}"
             )
         builder.write()
     return take.kept
