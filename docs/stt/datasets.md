@@ -31,6 +31,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
 | `nonspeech-music` | none | PD or CC-BY per file, see below | 10 s excerpts of instrumental files | 261 | 39 | 0.7 | 80 MiB |
 | `peertube-edu-captions-fr` | fr | CC-BY or CC0-1.0, per video | listing (the 140 talks with a human caption track) | 4 367 | 113 | 9.9 | 1.1 GiB |
+| `peertube-edu-captions-fr-v2` | fr | CC-BY or CC0-1.0, per video | listing (the same talks, caption text decoded) | to be measured | 126 | to be measured | to be measured |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -65,6 +66,7 @@ part of how precise its numbers can be:
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 | `nonspeech-music` | 30 / 21 | 114 / 38 | 147 / 1 |
 | `peertube-edu-captions-fr` | 100 / 90 | 600 / 90 | 920 / 23 |
+| `peertube-edu-captions-fr-v2` | to be measured | to be measured | to be measured |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -533,8 +535,11 @@ Three kinds of clip that must stay silent, 300 in total:
   cuts words differently is not the one this gate favours. The gate was given
   1 705 of the 4 352 the transcripts labelled — at most 30 per episode, the
   share the fetcher allows an episode to take — and it left out 195 of those;
-  the 5 clips with a character the base model cannot write fell after the
-  gate, leaving the 1 505.
+  the 5 clips whose transcript holds a character outside the base model's
+  vocabulary — the training-vocabulary filter, which the
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  card discloses as selecting references by a property of the model under test
+  — fell after the gate, leaving the 1 505.
 - **`base_wer`**: Parakeet (the base model of the fine-tune) transcribes every
   kept clip once, and its WER against the label is recorded, so a training mix
   can find the clips it gets wrong. It does not vote: the gate is Whisper's.
@@ -558,8 +563,9 @@ Three kinds of clip that must stay silent, 300 in total:
   the meetings sets a different task.
 - **Known limits**: the 43.5 % of candidate clips the transcripts label is the
   alignment's yield, not a defect of the episodes (the training set's was
-  41.3 %); five clips were left out because their transcript holds a character
-  the base model cannot write; the sets are 60 episodes of four shows, so a
+  41.3 %); five clips were left out by the training-vocabulary filter because
+  their transcript holds a character outside the base model's vocabulary; the
+  sets are 60 episodes of four shows, so a
   show's recording conditions are sampled by 15 of its episodes.
 
 ## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
@@ -578,10 +584,13 @@ Three kinds of clip that must stay silent, 300 in total:
   out.
 - **License**: the video's license from the listing, CC-BY or CC0-1.0; the
   captions are assumed to share it. Every kept clip here is CC-BY.
-- **Audio**: 4 367 clips, 9.9 h, from 113 of the 139 usable talks (one is in
-  the training set and left out; twelve hold captions that yield no clip; the
-  rest had every candidate clip rejected by the gates below). 107 talks hit
-  the cap of 40 clips; the clip length is 3.0 to 15.0 s (median 7.6 s).
+- **Audio**: 4 367 clips, 9.9 h, from 113 of the 140 usable talks (one is in
+  the training set and left out; twelve hold captions that yield no clip —
+  eleven of them because every timestamp line of their file carries cue
+  settings, such as `line:91% align:left`, which the parser does not read, one
+  because it is too short to cut; the other fourteen had every candidate clip
+  rejected by the gates below). 107 talks hit the cap of 40 clips; the clip
+  length is 3.0 to 15.0 s (median 7.6 s).
 - **Text**: the human caption track, cut into 3–15 s clips that end at a cue
   whose text ends in `.`, `?`, `!` or `…` when possible, and never cross a gap
   longer than 1 s; cased and punctuated (`text_has_casing_punct: true`). The
@@ -594,9 +603,26 @@ Three kinds of clip that must stay silent, 300 in total:
   so a score here is not independent of Whisper. The 20 490 candidate clips
   had WER deciles 0.00, 0.00, 0.00, 0.00, 0.05, 0.08, 0.12, 0.17, 0.25, 0.41;
   17 967 (87.7 %) met the threshold and 2 523 did not. Of the 17 967 that
-  met it, 4 367 became clips; 2 077 hold a character the base model cannot
-  write (after the plain-punctuation rule, almost all of them an `&`, a `+`,
-  an `=` or a `_`) and 11 523 went beyond the 40-clip share of their talk.
+  met it, 4 367 became clips and 11 523 went beyond the 40-clip share of
+  their talk; the 2 077 in between hold a character the base model cannot
+  write, and the cause is the caption text itself: the ministry's WebVTT
+  files write their spaces as `&nbsp;`, and the parser read the entity as six
+  literal characters — 10 973 `&nbsp;` in the 17 affected talks, plus 23
+  `&amp;`, 7 `&lt;` and 3 `&gt;` — all unwritable, while the decoded text is
+  plain spaces. Once decoded, 1 792 of the 2 077 (86 %) pass the filter, and
+  13 of the 17 talks lost every one of their clips to the bug, including
+  technical talks; the second preparation,
+  [`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded),
+  decodes the text and is built for them. The 285 that stay unwritten do so
+  for a real character outside the model's vocabulary (`_`, `+`, `=`, `^`,
+  `*`, `×`, `°`, `²` or `#`, e.g. "C++98"). The filter is the training
+  vocabulary filter the fetcher applies to every set, and it is disclosed as
+  what it is: it selects references by a property of the model under test
+  (its tokenizer), and in a set of classroom talks it removes exactly the
+  technical content. The same filter drops the decoded set's equivalent
+  clips; the set's card says so too. Separately, 408 of the 2 269
+  entity-bearing candidate clips failed the WER gate itself, where the
+  literal `&nbsp;` tokens inflate the distance between caption and hearing.
 - **Group**: the video's uuid (`group_kind: recording`): the clips of one talk
   share its teacher, its room and its jargon. `category` is `tech` when the
   talk's title matches the keyword list in the fetcher — 240 clips of 6 talks
@@ -616,10 +642,92 @@ Three kinds of clip that must stay silent, 300 in total:
   speech, not synthetic, not parliamentary, and not pseudo-labelled.
 - **Known limits**: 113 talks of the ministry's instances — the digital-education
   catalog, including the five-part "Puissance 4" game-programming course and a
-  web-radio series — the 26 talks that yielded no clip (12 with captions too
-  short to cut, 14 whose candidate clips all failed a gate) are left out, so a
-  talk's absence is not a random sample; the captions are of the teachers' own
+  web-radio series — the 26 talks that yielded no clip are left out, so a
+  talk's absence is not a random sample: 12 of the 26 yield no clip
+  (11 because their timestamp lines carry cue settings the parser does
+  not read, 1 because it is too short to cut) and 14 had every candidate clip
+  rejected by the gates; the captions are of the teachers' own
   making, with their own timing errors the WER gate only partly removes.
+
+## `peertube-edu-captions-fr-v2` — the same talks, with the caption text decoded
+
+- **Source**: the same 140 talks of
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  — the same pinned listing, the same human French caption tracks, the same
+  audio — with one difference: the WebVTT entities the ministry's files hold
+  (their spaces are written `&nbsp;`, occasionally `&amp;`, `&lt;` and
+  `&gt;`) are decoded into the characters they name before the clip is cut or
+  gated, so a reference holds the word with its space, not six literal
+  characters.
+- **Why a second set instead of a re-cut of the first**: the first set's
+  panels and references are frozen (decision 0002) and are the evidence of the
+  scores already taken against it; re-cutting would move the panels and void
+  those scores. This set is a dataset of its own — its own manifest, its own
+  gate file, its own panels — so the first set stays exactly what it was
+  scored against. It reads the first set's cache (the caption scan, the
+  caption files, the audio, the Whisper answers) and writes its gate to its
+  own file, `alignment-wers-v2.json`, beside the first set's
+  `alignment-wers.json`, which it never touches.
+- **License**: the video's license from the listing, CC-BY or CC0-1.0, as in
+  the first set; every kept clip here is CC-BY, as there.
+- **What it recovers**: the first set's gate let 17 967 clips through and the
+  training-vocabulary filter then dropped 2 077 of them as unwritable — 1 792
+  of the 2 077 (86 %) only because of the undecoded `&nbsp;`, and 13 of the
+  17 talks the entities touch lost every one of their clips there, including
+  technical talks. This set decodes the text, so those clips pass and the 13
+  talks are back.
+- **Audio**: to be measured when the set is prepared. 139 eligible talks (the
+  140 usable minus the one the training set holds); the 12 that yielded no
+  clip in the first set — 11 whose timestamp lines carry cue settings the
+  parser does not read, 1 too short to cut — yield none again; of the 127
+  that have candidates, 126 hold clips, at most 40 per talk as in the first
+  set, and they are all 113 talks of the first set plus the 13 the entity bug
+  removed from it; in the last talk every one of its 360 answered candidates
+  fails the gate (its 361st is among the 702 the dry run counts), so the
+  prepared set holds 126 talks, or 127 if that last candidate passes.
+- **Text**: the decoded caption text, otherwise the first set's rule: 3–15 s
+  clips ending at a sentence where the cues allow, never crossing a gap
+  longer than 1 s, cased and punctuated (`text_has_casing_punct: true`). The
+  references are written by people, as there. The clip boundaries move for
+  the affected talks — a decoded space is one character, `&nbsp;` is six — so
+  the set is not a superset of the first set's clips and its scores are not
+  comparable to the first set's clip for clip.
+- **The gate is the first set's, kept without the separate review its design
+  had asked for**: the same 0.35 normalized WER of Whisper large-v3,
+  recomputed against the decoded caption. The first set's design had asked
+  that this set's threshold be reviewed on its own before use; that review
+  was not held, so the first set's value stands here on the first set's
+  evidence — stated, not hidden. The recomputation is real: 408 of the
+  entity-bearing candidate clips failed the first set's gate with the literal
+  `&nbsp;` tokens in the distance, and the decoded comparison re-asks them. A
+  dry run over the prepared cache (`dry_run_unescaped` in the fetcher, no
+  request and no write) counts what a preparation would have to ask before it
+  asks: on the prepared cache, 20 616 clips over the 139 talks, of which 702
+  have no cached answer.
+- **The training-vocabulary filter applies to this set too, and is disclosed
+  as what it is**: the fetcher drops every clip holding a character the base
+  model cannot write, after the decoding as well as before. Of the first
+  set's gate-passing candidates, 285 are unwritable even decoded — `_`, `+`,
+  `=`, `^`, `*`, `×`, `°`, `²` or `#`, e.g. "C++98" — and their counterparts
+  in this set are dropped for the same reason. The filter selects references
+  by a property of the model under test (its tokenizer), and in a set of
+  classroom talks it removes exactly the technical content; that is what this
+  set's references are, with that character left out.
+- **Group**: the video's uuid (`group_kind: recording`), as in the first set;
+  `category` is `tech` by the same title keywords, and the share grows with
+  the 13 recovered talks — to be measured.
+- **No overlap with the training set** (decision 0002): the one talk the
+  training set holds is left out, as in the first set, and the talk training
+  preparations leave both sets' talks out of every preparation they make.
+- **Why it is here**: the thirteen talks the entity bug removed from the
+  first set — technical talks among them — are real French speech with human
+  references, and the first set's frozen panels are the reason they cannot
+  simply be re-cut back into it.
+- **Known limits**: the 12 talks that yield no clip (11 settings, 1 too
+  short) are left out as in the first set; the references keep whatever the
+  teachers wrote outside the entities; the 0.35 gate stands without its own
+  review; and the vocabulary filter still removes the technical characters,
+  as disclosed above.
 
 ## Noise banks — material for augmentation, not evaluation sets
 
