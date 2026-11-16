@@ -13,12 +13,15 @@ asks for what the audit already asked.
 
 An answer is one JSON file per clip and model, under
 ``$AUDIOLAB_CACHE/label-audit/<model id>/<clip id>.json``. The file holds
-everything that can change the answer — the model id, the language sent, the
-extras of the request, and the ``sha256`` of the clip's audio — and a reuse is
-trusted only when every one of them matches what the current caller would send
-(D-017): another model id, a clip prepared again with other audio, or a caller
-sending another language are all asked again. The raw text is kept, not what
-was read from it, so a changed reading never reuses an old one.
+everything that can change the answer — the model id, the language, the
+effective request (the model config's ``request`` as sent with every request),
+whether the language is sent, and the ``sha256`` of the clip's audio — and a
+reuse is trusted only when every one of them matches what the current caller
+would send (D-017): another model id, a clip prepared again with other audio, or a
+caller sending another language or another request is asked again, and so is
+one that sends the language where the answer was asked without it. The raw
+text is kept, not what was read from it, so a changed reading never reuses an
+old one.
 
 The audit's clip sample is fixed the same way: ``random.Random(seed).sample``
 over the manifest's ids sorted, written to ``<dataset>-sample.json`` next to
@@ -58,13 +61,24 @@ def answer_path(cache: Path, model: str, clip_id: str) -> Path:
 
 
 def read_answer(
-    path: Path, *, model: str, language: str, audio_sha256: str, request: dict
+    path: Path,
+    *,
+    model: str,
+    language: str,
+    audio_sha256: str,
+    request: dict,
+    send_language: bool,
 ) -> str | None:
     """The cached text, or None when the file is absent or not for this request.
 
-    The check is on the file's own words — model, language, request, audio
-    hash — not on the path, so a moved or renamed file cannot be reused for
-    something it does not describe.
+    The check is on the file's own words — model, language, request, whether
+    the language is sent, audio hash — not on the path, so a moved or renamed
+    file cannot be reused for something it does not describe. ``request`` is
+    the effective request the caller would send (the model config's
+    ``request``), and a file that does not hold it is not for it. A file
+    without a ``send_language`` field was written before the field existed, by
+    a config that sent the language: it is the default's answer, and only the
+    default (an empty request, the language sent) reads it.
     """
     if not path.is_file():
         return None
@@ -76,6 +90,8 @@ def read_answer(
         return None
     if row.get("language") != language or row.get("request") != request:
         return None
+    if row.get("send_language", True) != send_language:
+        return None
     if row.get("audio_sha256") != audio_sha256:
         return None
     text = row.get("text")
@@ -83,9 +99,23 @@ def read_answer(
 
 
 def write_answer(
-    path: Path, *, model: str, language: str, audio_sha256: str, request: dict, text: str
+    path: Path,
+    *,
+    model: str,
+    language: str,
+    audio_sha256: str,
+    request: dict,
+    send_language: bool,
+    text: str,
 ) -> None:
-    """One answer, written whole: a torn file is read as absent, not as an answer."""
+    """One answer, written whole: a torn file is read as absent, not as an answer.
+
+    The row holds the effective request and, off the default (an empty
+    request, the language sent), the ``send_language`` flag too, so a reuse
+    matches only what the caller would send. The default writes exactly the
+    fields written before the flag existed — no ``send_language`` — so a row
+    written then is read back by the default key.
+    """
     row = {
         "model": model,
         "language": language,
@@ -93,6 +123,8 @@ def write_answer(
         "audio_sha256": audio_sha256,
         "text": text,
     }
+    if request or not send_language:
+        row["send_language"] = send_language
     _write_json(path, row)
 
 

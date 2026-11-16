@@ -58,7 +58,7 @@ from audiolab.data.download import DownloadError
 from audiolab.data.label_audit import answer_path, read_answer, write_answer
 from audiolab.data.store import Clip, read_manifest, write_manifest
 from audiolab.data.talk_clips import wav_bytes
-from audiolab.data.talks import LABEL_MODEL, client, served
+from audiolab.data.talks import LABEL_MODEL, client, model_config, served
 from audiolab.data.train import plain_label
 
 # The source this set relabels: the clips, the audio and every field but the
@@ -170,7 +170,14 @@ def _qwen_answers(
     name: str,
     verbose: bool,
 ) -> dict[str, str]:
-    """The Qwen answer of every clip, from the label audit's cache or asked once."""
+    """The Qwen answer of every clip, from the label audit's cache or asked once.
+
+    The cache is read and written with the model config's key — its effective
+    request and whether the language is sent — so an answer asked another way
+    is asked again, and one asked this way is read back.
+    """
+    config = model_config(LABEL_MODEL)
+    request, send_language = config.request, config.send_language
     answers: dict[str, str] = {}
     missing: list[Clip] = []
     for clip in source_clips:
@@ -179,7 +186,8 @@ def _qwen_answers(
             model=LABEL_MODEL,
             language=language,
             audio_sha256=clip.sha256,
-            request={},
+            request=request,
+            send_language=send_language,
         )
         if text is None:
             missing.append(clip)
@@ -196,7 +204,16 @@ def _qwen_answers(
         try:
             one_pass = served(transcribe_, language).one_pass()
             map_requests(
-                partial(_ask, cache, source_dir, language, one_pass.transcribe, failing),
+                partial(
+                    _ask,
+                    cache,
+                    source_dir,
+                    language,
+                    one_pass.transcribe,
+                    failing,
+                    request,
+                    send_language,
+                ),
                 missing,
                 one_pass.concurrency,
                 should_stop=lambda f=failing: stop_requested() or f.is_set(),
@@ -211,7 +228,8 @@ def _qwen_answers(
                 model=LABEL_MODEL,
                 language=language,
                 audio_sha256=clip.sha256,
-                request={},
+                request=request,
+                send_language=send_language,
             )
             if text is None:
                 raise DownloadError(f"{clip.id}: the Qwen answer is missing after the pass")
@@ -225,6 +243,8 @@ def _ask(
     language: str,
     transcribe_: Callable[[bytes], dict],
     failing: threading.Event,
+    request: dict,
+    send_language: bool,
     clip: Clip,
 ) -> None:
     """One clip's Qwen answer from the server, cached on the way."""
@@ -237,6 +257,7 @@ def _ask(
         model=LABEL_MODEL,
         language=language,
         audio_sha256=clip.sha256,
-        request={},
+        request=request,
+        send_language=send_language,
         text=text,
     )

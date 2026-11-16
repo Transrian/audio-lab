@@ -161,6 +161,7 @@ def test_fetch_relabels_the_source_with_the_qwen_answers(tmp_path, fake_qwen):
         language="en",
         audio_sha256=cached.sha256,
         request={},
+        send_language=True,
         text="the answer is 0",
     )
     count = fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)

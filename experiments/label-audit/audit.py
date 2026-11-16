@@ -14,10 +14,11 @@ and this script measures the pipeline on a fixed sample of each:
   every request of one model before the other's (D-020), as many at once as the
   model takes (D-022). Every answer is cached per clip under
   ``$AUDIOLAB_CACHE/label-audit/<model>/<clip id>.json`` (D-017), keyed on the
-  model id, the language, the request and the audio's sha256 — a wrong reuse is
-  a bug, and ``tests/test_data_label_audit.py`` proves a changed key is asked
-  again. ``audiolab.data.relabel`` (the ``nasa-en-train-qwen`` fetcher) reads
-  the same Qwen answers, so a relabel never asks for what the audit already
+  model id, the language, the model config's effective request, whether the
+  language is sent, and the audio's sha256 — a wrong reuse is a bug, and
+  ``tests/test_data_label_audit.py`` proves a changed key is asked again.
+  ``audiolab.data.relabel`` (the ``nasa-en-train-qwen`` fetcher) reads the
+  same Qwen answers, so a relabel never asks for what the audit already
   asked.
 - ``score`` applies the pipeline's agreement rule — imported from
   ``audiolab.data.talks``, not reimplemented — to decide which clips it would
@@ -73,6 +74,7 @@ from audiolab.data.talks import (
     SEGMENT_MODEL,
     client,
     disagreement,
+    model_config,
     served,
 )
 from audiolab.data.train import plain_label
@@ -172,6 +174,9 @@ def transcribe(dataset: str, root: Path, verbose: bool) -> None:
     if verbose:
         say(f"{dataset}: {len(clips)} clips, {language}, against {spec['human']}")
     for model, label in ((SEGMENT_MODEL, "Whisper"), (LABEL_MODEL, "Qwen")):
+        # The cache is keyed on the model's effective request and whether the
+        # language is sent: an answer asked another way is asked again.
+        config = model_config(model)
         missing = [
             clip
             for clip in clips
@@ -180,7 +185,8 @@ def transcribe(dataset: str, root: Path, verbose: bool) -> None:
                 model=model,
                 language=language,
                 audio_sha256=clip.sha256,
-                request={},
+                request=config.request,
+                send_language=config.send_language,
             )
             is None
         ]
@@ -195,7 +201,17 @@ def transcribe(dataset: str, root: Path, verbose: bool) -> None:
         try:
             one_pass = served(transcribe_, language).one_pass()
             map_requests(
-                partial(ask, dataset_dir, cache, one_pass.transcribe, language, model, failing),
+                partial(
+                    ask,
+                    dataset_dir,
+                    cache,
+                    one_pass.transcribe,
+                    language,
+                    model,
+                    config.request,
+                    config.send_language,
+                    failing,
+                ),
                 missing,
                 one_pass.concurrency,
                 should_stop=lambda f=failing: stop_requested() or f.is_set(),
@@ -214,6 +230,8 @@ def ask(
     transcribe_: Callable[[bytes], dict],
     language: str,
     model: str,
+    request: dict,
+    send_language: bool,
     failing: threading.Event,
     clip: Clip,
 ) -> None:
@@ -231,7 +249,8 @@ def ask(
         model=model,
         language=language,
         audio_sha256=clip.sha256,
-        request={},
+        request=request,
+        send_language=send_language,
         text=text,
     )
 
@@ -244,12 +263,14 @@ def load_answers(dataset: str, spec: dict, root: Path) -> list[dict]:
     for clip in sampled_clips(dataset, spec, root):
         row = {"id": clip.id, "human": clip.text, "base_wer": clip.base_wer, "language": language}
         for model, key in ((SEGMENT_MODEL, "whisper"), (LABEL_MODEL, "qwen")):
+            config = model_config(model)
             text = read_answer(
                 answer_path(cache, model, clip.id),
                 model=model,
                 language=language,
                 audio_sha256=clip.sha256,
-                request={},
+                request=config.request,
+                send_language=config.send_language,
             )
             if text is None:
                 raise SystemExit(

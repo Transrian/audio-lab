@@ -27,7 +27,13 @@ audit = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = audit
 spec.loader.exec_module(audit)
 
-KEY = dict(model="stt-v-qwen3-asr-1.7B", language="en", request={}, audio_sha256="a" * 64)
+KEY = dict(
+    model="stt-v-qwen3-asr-1.7B",
+    language="en",
+    request={},
+    send_language=True,
+    audio_sha256="a" * 64,
+)
 
 
 def write(tmp_path: Path, **overrides) -> Path:

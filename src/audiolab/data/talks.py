@@ -723,6 +723,20 @@ def audio_file(http: httpx.Client, cache: Path, source: TalkSource, talk: Talk) 
         return None
 
 
+def model_config(model: str, request: dict | None = None) -> ModelConfig:
+    """The config of one model, with a caller's request merged over its own.
+
+    The merge is the effective request that every request of the model
+    carries: the config's ``request`` first, the caller's fields on top. With
+    the config's ``send_language`` — whether the language is sent with the
+    request — it is what the label-audit answer cache keys on beside the model
+    id and the clip, so a caller reads and writes that cache with the config
+    it asks with.
+    """
+    config = ModelConfig.from_file(MODEL_CONFIGS / CONFIG_FILES[model])
+    return replace(config, request={**config.request, **(request or {})})
+
+
 def client(model: str, request: dict | None = None) -> TranscriptionClient:
     """A client for one model, from its config in ``configs/models``.
 
@@ -731,8 +745,7 @@ def client(model: str, request: dict | None = None) -> TranscriptionClient:
     language with every request, so an English talk is heard in English. One
     client serves the parallel requests of a pass.
     """
-    config = ModelConfig.from_file(MODEL_CONFIGS / CONFIG_FILES[model])
-    config = replace(config, request={**config.request, **(request or {})})
+    config = model_config(model, request)
     return TranscriptionClient(
         config, base_url_from_env(config), api_key_from_env(config), timeout_s=REQUEST_TIMEOUT_S
     )
