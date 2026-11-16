@@ -21,12 +21,18 @@ from audiolab.data.panels import (  # noqa: E402
     NONSPEECH_FAST,
     NONSPEECH_SEALED,
     PANEL_NAMES,
+    PRESERVED_SEALING,
+    _fast_subset,
+    _sealed_group_count,
+    _take,
+    _take_balanced,
     build_panels,
     check_panel,
     load_dataset_clips,
     panel_path,
     read_panel,
     select_panels,
+    select_panels_preserved_sealing,
 )
 from audiolab.data.store import Clip  # noqa: E402
 
@@ -237,3 +243,95 @@ def test_load_dataset_clips_reads_from_the_data_directory(tmp_path, monkeypatch)
 
     write_manifest(tmp_path / "data" / "fake", [make_clip("fake:001")])
     assert [clip.id for clip in load_dataset_clips("fake")] == ["fake:001"]
+
+
+def talk_of(clip_id: str) -> str:
+    """The talk of one clip of a talk-source panel: the id without the cut's start."""
+    return clip_id.partition(":")[2].rsplit("-", 1)[0]
+
+
+def preserved_sealing_fixture(tmp_path, monkeypatch):
+    """A source set and a second set of it, drawn over other clips of the same talks.
+
+    The source set is built with the usual rule first, so its committed sealed
+    and full panels name its talks; the second set holds, talk by talk, other
+    clips, plus two talks the source set has not.
+    """
+    panels_dir = tmp_path / "configs" / "panels"
+    source = speech_clips("src", speakers=10, per_speaker=10)
+    build_panels("src", source, panels_dir, built="2026-11-07")
+    talks = [f"spk{i:03d}" for i in range(10)]
+    second = [
+        make_clip(f"src-v2:{talk}-{index:03d}", group=f"src-v2:{talk}")
+        for talk in talks + ["spk010", "spk011"]
+        for index in range(10)
+    ]
+    # The second set's own draw is what the rule must match: the source's sealed
+    # talks stay sealed, the new talks take the sealed share, the rest take the
+    # full and fast panels of the usual rule.
+    monkeypatch.setitem(PRESERVED_SEALING, "src-v2", "src")
+    return panels_dir, source, second
+
+
+def test_preserved_sealing_keeps_the_source_talks_sealed(tmp_path, monkeypatch):
+    panels_dir, source, second = preserved_sealing_fixture(tmp_path, monkeypatch)
+
+    selected = select_panels_preserved_sealing("src-v2", "src", second, DEFAULT_SEED, panels_dir)
+    sealed, full, fast = (set(selected[name]) for name in ("sealed", "full", "fast"))
+    read_back = {
+        name: {clip_id for clip_id in read_panel(panel_path(f"src-{name}", panels_dir)).ids}
+        for name in ("sealed", "full")
+    }
+    source_sealed_talks = {talk_of(clip_id) for clip_id in read_back["sealed"]}
+    source_talks = {talk_of(clip_id) for clip_id in read_back["full"] | read_back["sealed"]}
+    new_talks = {talk_of(clip.id) for clip in second} - source_talks
+    # The sealed share, drawn over the new talks alone, with the usual rule.
+    sealed_new = set(_take(sorted(new_talks), _sealed_group_count(len(new_talks)), DEFAULT_SEED))
+
+    # A clip of a talk the source sealed is sealed here; and so is every clip of
+    # a new talk the draw sealed. Nothing else is sealed.
+    expected_sealed = {
+        clip.id for clip in second if talk_of(clip.id) in source_sealed_talks | sealed_new
+    }
+    assert sealed == expected_sealed
+
+    # A talk unsealed in the source is never sealed here; a sealed talk, of the
+    # source or of the draw, is scored nowhere else.
+    for clip_id in full | fast:
+        assert talk_of(clip_id) not in source_sealed_talks
+        assert talk_of(clip_id) not in sealed_new
+    assert not (sealed & full) and not (sealed & fast) and fast <= full
+    # The full and fast panels are the usual draw over the remaining talks.
+    remaining = {talk_of(clip.id) for clip in second} - source_sealed_talks - sealed_new
+    remaining = sorted(remaining)
+    members: dict[str, list[str]] = {}
+    for clip in sorted(second, key=lambda clip: clip.id):
+        members.setdefault(talk_of(clip.id), []).append(clip.id)
+    assert selected["full"] == _take_balanced(remaining, members, FULL_CLIPS, DEFAULT_SEED)
+    assert selected["fast"] == _fast_subset(remaining, members, DEFAULT_SEED)
+
+
+def test_preserved_sealing_panels_round_trip_through_build_and_check(tmp_path, monkeypatch):
+    panels_dir, source, second = preserved_sealing_fixture(tmp_path, monkeypatch)
+
+    built = build_panels("src-v2", second, panels_dir, built="2026-11-08")
+    assert [panel.name for panel in built] == list(PANEL_NAMES)
+    for name in PANEL_NAMES:
+        path = panel_path(f"src-v2-{name}", panels_dir)
+        assert check_panel(path, second) == [], name
+    # The source's panels are untouched by the second set's build and its check.
+    for name in PANEL_NAMES:
+        assert check_panel(panel_path(f"src-{name}", panels_dir), source) == [], name
+
+
+def test_preserved_sealing_refuses_a_source_without_panels(tmp_path, monkeypatch):
+    monkeypatch.setitem(PRESERVED_SEALING, "src-v2", "src")
+    empty = tmp_path / "empty"
+    with pytest.raises(ValueError, match="src sealed panel must be built"):
+        select_panels_preserved_sealing(
+            "src-v2",
+            "src",
+            [make_clip("src-v2:spk000-000", group="src-v2:spk000")],
+            DEFAULT_SEED,
+            empty,
+        )

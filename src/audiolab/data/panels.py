@@ -128,6 +128,19 @@ def _derived_source(dataset: str) -> str | None:
     return dataset.removeprefix("noisy-") if dataset.startswith("noisy-") else None
 
 
+# The datasets whose panels preserve the sealing of a source dataset: every
+# talk the source sealed stays sealed, the talks that are new in the dataset
+# get the sealed share drawn over them alone, and the remaining talks hold the
+# full and fast panels. Unlike a ``noisy-`` derivation (which re-prefixes the
+# source's own panel ids), these panels are drawn over the dataset's own
+# clips; what is read of the source is which of its talks each of its panels
+# holds. The source's panels must be built first, so a check of one of these
+# reads the source's panel files from the same directory.
+PRESERVED_SEALING: dict[str, str] = {
+    "peertube-edu-captions-fr-v2": "peertube-edu-captions-fr",
+}
+
+
 def build_panels(
     dataset: str,
     clips: list[Clip],
@@ -148,6 +161,10 @@ def build_panels(
     source = _derived_source(dataset)
     if source is not None:
         return _build_derived_panels(dataset, source, clips, panels_dir, built)
+    if dataset in PRESERVED_SEALING:
+        return _build_preserved_sealing_panels(
+            dataset, PRESERVED_SEALING[dataset], clips, panels_dir, built
+        )
     chosen = select_panels(clips, DEFAULT_SEED)
     by_id = {clip.id: clip for clip in clips}
     panels = [
@@ -222,6 +239,43 @@ def _build_derived_panels(
     return panels
 
 
+def _build_preserved_sealing_panels(
+    dataset: str,
+    source: str,
+    clips: list[Clip],
+    panels_dir: Path,
+    built: str | None,
+) -> list[Panel]:
+    """The panels of a dataset that keeps its source's talks sealed.
+
+    The draw itself is :func:`select_panels_preserved_sealing`; this is the
+    frozen-file side of it, the way :func:`_build_derived_panels` is for the
+    ``noisy-`` sets.
+    """
+    by_id = {clip.id: clip for clip in clips}
+    selected = select_panels_preserved_sealing(dataset, source, clips, DEFAULT_SEED, panels_dir)
+    panels = []
+    for name in PANEL_NAMES:
+        ids = selected[name]
+        panels.append(
+            Panel(
+                name=name,
+                dataset=dataset,
+                ids=ids,
+                items=len(ids),
+                seed=DEFAULT_SEED,
+                manifest_sha256=manifest_id_sha256(clips),
+                clips_sha256=pcm_sha256_of([by_id[clip_id] for clip_id in ids]),
+                dataset_line=dataset_line(dataset, clips),
+                built=built or date.today().isoformat(),
+            )
+        )
+    panels_dir.mkdir(parents=True, exist_ok=True)
+    for panel in panels:
+        panel_path(panel.title, panels_dir).write_text(panel.text(), encoding="utf-8")
+    return panels
+
+
 def dataset_line(dataset: str, clips: list[Clip]) -> str:
     """The dataset's real size, per split, as the panel header records it.
 
@@ -256,6 +310,64 @@ def _select_speech(clips: list[Clip], seed: int) -> dict[str, list[str]]:
         "sealed": _flatten(sealed, members),
         "full": _take_balanced(remaining, members, FULL_CLIPS, seed),
         "fast": _fast_subset(remaining, members, seed),
+    }
+
+
+def _talk_of_panel_id(clip_id: str) -> str:
+    """The talk of one clip of a talk-source panel.
+
+    A talk-source clip id is ``<dataset>:<talk id>-<start centiseconds>`` and
+    its group is ``<dataset>:<talk id>``: the talk is the id's talk id, which is
+    what the id holds before the cut's start.
+    """
+    return clip_id.partition(":")[2].rsplit("-", 1)[0]
+
+
+def select_panels_preserved_sealing(
+    dataset: str, source: str, clips: list[Clip], seed: int, panels_dir: Path
+) -> dict[str, list[str]]:
+    """The panels of a dataset that keeps the talks its source sealed sealed.
+
+    A clip of a talk sealed in the source may not be scored anywhere here, so
+    the sealed panel holds all of this dataset's clips of those talks. The
+    talks that are new in the dataset get the sealed share, drawn with the
+    usual rule over the new talks alone, so sealing a new talk unseals nothing
+    of the source. The remaining talks, the source's unsealed ones and the new
+    ones the draw leaves unsealed, hold the full and fast panels, drawn with
+    the usual rule. The draw is a pure function of this dataset's clips, the
+    source's committed sealed and full panels and the seed, so a check can
+    recompute it without the source's data.
+
+    The source's talks are read from its sealed and full panels, whose union
+    names every source talk when the source's unsealed talks number at most
+    the full panel's size: the full panel serves every remaining group in its
+    first round. The source set holds under that condition, so its talks are
+    all named; a source set that did not would name fewer talks, and the
+    difference would over-seal, never unseal.
+    """
+    source_paths = {name: panel_path(f"{source}-{name}", panels_dir) for name in ("sealed", "full")}
+    for name, path in source_paths.items():
+        if not path.is_file():
+            raise ValueError(
+                f"{path} is missing: the {source} {name} panel must be built "
+                f"before the {dataset} panels"
+            )
+    sealed_ids = read_panel(source_paths["sealed"]).ids
+    source_sealed = {_talk_of_panel_id(clip_id) for clip_id in sealed_ids}
+    source_talks = {_talk_of_panel_id(clip_id) for clip_id in read_panel(source_paths["full"]).ids}
+    source_talks |= source_sealed
+    talks = {clip.group.partition(":")[2] for clip in clips}
+    new = [talk for talk in sorted(talks) if talk not in source_talks]
+    sealed_new = _take(new, _sealed_group_count(len(new)), seed) if new else []
+    sealed = {talk for talk in (source_sealed | set(sealed_new)) if talk in talks}
+    remaining = [talk for talk in sorted(talks) if talk not in sealed]
+    members_by_talk: dict[str, list[str]] = {}
+    for clip in sorted(clips, key=lambda clip: clip.id):
+        members_by_talk.setdefault(clip.group.partition(":")[2], []).append(clip.id)
+    return {
+        "sealed": _flatten(sorted(sealed), members_by_talk),
+        "full": _take_balanced(remaining, members_by_talk, FULL_CLIPS, seed),
+        "fast": _fast_subset(remaining, members_by_talk, seed),
     }
 
 
@@ -459,6 +571,10 @@ def check_panel(path: Path, clips: list[Clip], dataset_dir: Path | None = None) 
     source = _derived_source(panel.dataset)
     if source is not None:
         expected = _derived_expected_ids(path, source, panel)
+    elif panel.dataset in PRESERVED_SEALING:
+        expected = select_panels_preserved_sealing(
+            panel.dataset, PRESERVED_SEALING[panel.dataset], clips, panel.seed, path.parent
+        )[panel.name]
     else:
         expected = select_panels(clips, panel.seed)[panel.name]
     if panel.ids != expected:
