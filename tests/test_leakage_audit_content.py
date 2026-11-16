@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parent.parent / "experiments/leakage-audit/content.py"
 spec = importlib.util.spec_from_file_location("leakage_content", SCRIPT)
 content = importlib.util.module_from_spec(spec)
@@ -229,3 +231,94 @@ def test_best_match_samples_surface_a_replay_at_another_time(tmp_path):
     assert e_text == TEXT_A[:160]
     assert t_text == TEXT_A[:120]
     assert shared == 60
+
+
+@pytest.mark.parametrize(
+    ("kind", "same_group", "shared_sha", "ratio", "recall", "expected"),
+    [
+        ("speaker", True, 0, 1.0, None, "shared corpus speaker (SAME GROUP)"),
+        (
+            "recording",
+            True,
+            0,
+            1.0,
+            None,
+            "same recording (evaluation group in training, SAME GROUP)",
+        ),
+        ("speaker", False, 1, 0.5, None, "same recording (shared audio sha256)"),
+        (
+            "speaker",
+            False,
+            0,
+            0.5,
+            None,
+            "same text, other reader (different speaker, no shared audio)",
+        ),
+        (
+            "sentence",
+            False,
+            0,
+            0.5,
+            None,
+            "ADVISOR (not a talk, not a corpus speaker id)",
+        ),
+        ("recording", False, 0, 0.3, None, "same recording (ratio >= 30 %)"),
+        (
+            "recording",
+            False,
+            0,
+            0.29,
+            0.7,
+            "same recording (word recall >= 0.7)",
+        ),
+        (
+            "recording",
+            False,
+            0,
+            0.29,
+            None,
+            "ADVISOR (5-30 %, no word recall >= 0.7)",
+        ),
+        (
+            "recording",
+            False,
+            0,
+            0.29,
+            0.69,
+            "ADVISOR (5-30 %, no word recall >= 0.7)",
+        ),
+    ],
+)
+def test_the_verdict_categories(kind, same_group, shared_sha, ratio, recall, expected):
+    # One Finding per verdict branch: the group kind of the evaluation side
+    # (audited sets fill content._KINDS under the audit, the test sets it here)
+    # and the triage evidence decide the category.
+    eval_name = "grpA"
+    train_name = "grpA" if same_group else "grpB"
+    content._KINDS[("vd-eval", eval_name)] = kind
+    pair = content.Pair(("vd-eval", eval_name), ("vd-train", train_name), 30, 100, 400)
+    finding = content.Finding(pair=pair, ratio=ratio, shared_sha=shared_sha, recall=recall)
+    assert finding.verdict == expected
+
+
+def test_a_within_set_reupload_is_reported(tmp_path):
+    # Two talk groups of one training set hold the same speech: the pair is
+    # reported inside the set and in the re-upload shortlist (the mix needs
+    # it too, not only the cross-set pairs).
+    data = tmp_path / "data"
+    write_dataset(
+        data,
+        "ws-train",
+        [
+            row("ws-train", "g1", "recording", 1, 0, TEXT_C),
+            row("ws-train", "g2", "recording", 2, 0, TEXT_C),
+        ],
+    )
+    result = content.audit([], ["ws-train"], data)
+    assert result.findings == []
+    assert {(p.left, p.right) for p in result.within_pairs} == {
+        (("ws-train", "g1"), ("ws-train", "g2"))
+    }
+    assert {(p.left, p.right) for p in result.reuploads} == {
+        (("ws-train", "g1"), ("ws-train", "g2"))
+    }
