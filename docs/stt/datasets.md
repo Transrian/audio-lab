@@ -726,8 +726,13 @@ Three kinds of clip that must stay silent, 300 in total:
   in the full panel, 3 of them also in fast, and every run scored on the
   full panel — the reference runs and the screening and noise runs among
   them — has scored them. The panels are frozen, so this is recorded, not
-  repaired; the owner question is
-  [O-12 in the backlog](../backlog.md#owner-review-needed).
+  repaired. The owner's answer (2026-11-16,
+  [O-12 in the backlog](../backlog.md#owner-review-needed)): the full-panel
+  scores stand as written, and if the sealed panel is ever the final test of
+  a campaign, the primary number is pre-registered on the 840 clips of the 21
+  sealed talks outside the two classes, the 920 clips reported alongside; the
+  two classes stay out of the panels of the decoded set, as recorded on
+  [its card](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded).
 
 ## `peertube-edu-captions-fr-v2` — the same talks, with the caption text decoded
 
