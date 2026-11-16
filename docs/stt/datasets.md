@@ -2016,6 +2016,54 @@ published.
   The scale-up plan expected the source to run out near 26 000–30 000 clips;
   the cap was reached instead, with 2 062 listed talks still unread. The
   prepared set is 12 GiB.
+- **Re-prepared** (2026-11-16): the exclusions of this listing now cover both
+  prepared evaluation sets — the 113 talks of
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  and the 126 of
+  [`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded),
+  the latter prepared after the scale-up above — plus the duplicate-class rule
+  that leaves a class holding an evaluation group out whole and reads each
+  other class once. Against the set of 2026-11-13, kept as
+  `peertube-edu-fr-train-40k.pre-leakfix-2026-11-15`, the re-preparation leaves
+  out **239 of the 2 595 listed talks before reading** (126 evaluation talks,
+  56 of their duplicates, 57 re-uploads of talks the seeded order had already
+  read) and reads **416 of the 2 356 that remain (241.8 h)** — a first batch of
+  286, then 129, then 1 — to the cap: **40 000 clips, 107.1 h, 393 talks**
+  (23 of the talks read yielded none), median 8.4 s; 38 108 CC-BY and 1 892
+  CC0-1.0; 76 talks give their full 200-clip share, the smallest gives 2. Qwen
+  labelled 56 457 candidate clips and **16 392 of them (29.0 %) were
+  rejected** because the two models disagree; on the way, 1 908 candidates
+  fell outside 0.5–20 s, 7 296 segments had no words, 793 no duration, 3 185
+  lost the words they repeated from the one before, and 30 were decoding
+  loops. Parakeet's text differs from the label on 25 131 of the 40 000 clips
+  (62.8 %), the mean `base_wer` is 12.6 %, and 37.2 % of the clips have a
+  `base_wer` of 0. 65 candidates were left out for a character the base model
+  cannot write, and the prepared set keeps none of them and no clip of the two
+  evaluation sets' 126 talks. Against the set of 2026-11-13:
+  39 549 clips are in both, identical in every field and byte; 451 of it left
+  — the 434 of the five talks the new exclusions leave out (d8fdaf19 172,
+  145c9f60 134, dc288dd9 52, f6a5715d 45, 73b9957a 31 — 248 in the classes of
+  the evaluation sets, 186 re-uploads of talks the order had already read;
+  f6a5715d is one of the 13 talks only the v2 set holds, and it leaves because
+  the v2 exclusion is the committed rule today and was not applied on
+  2026-11-13) and 17 of talk 731d3668, whose turn came with no room left under
+  the cap — the same share-0 tail that left 24 of the 2026-11-13 run's talks
+  unlabelled; and 451 came in — 437 of the six tail talks the 2026-11-13 run
+  read as the room ran out, five never labelled (200 of 829bb6c6, 120 of
+  acdcf211, 56 of e9ec3adb, 33 of 2153b28b, 5 of 9706a9ee) and one partly
+  labelled (23 more of 8e478505, on the 84 it already kept), now labelled
+  where the new order reaches them with room, and 14 of a talk the old run
+  never read: 822f1a1f, "CPS - L'Or c'est l'Or!" (26 min,
+  tube-sciences-technologies, CC-BY). The run read two talks the 2026-11-13
+  run never read: 85461068, "Live EMI 2" (22 min, tube-cycle-3, CC-BY — read
+  and heard, kept no clip: its turn came with no room left), and 822f1a1f
+  (the 14 clips above). Speech requests: 11 Whisper chunks (the two new
+  talks), 635 Qwen clips and 451 Parakeet clips (the six tail talks, five
+  never labelled and one partly, plus 822f1a1f); 1 video downloaded
+  (822f1a1f), plus one more prefetched
+  (97f41201, the talk after the last one read, never used). The listing is not
+  exhausted: 1 940 talks are still unread. Wall 50 min 42 s; the prepared set
+  is 12 GiB.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 1 000 French clips with human captions the agreement rule keeps
   80.6 % and the kept labels score 6.5 % WER against them ([label error of the
