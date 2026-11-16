@@ -1,4 +1,11 @@
-# Leakage audit — the VoxPopuli session overlap
+# Leakage audit
+
+Two read-only audits over prepared manifests, in this directory:
+
+- the [VoxPopuli session overlap](#the-voxpopuli-session-overlap) (2026-11-13);
+- the [content-level leakage over 6-word text shingles](#content-level-leakage-6-word-text-shingles) (2026-11-15).
+
+## The VoxPopuli session overlap
 
 **Status:** the audit behind the 2026-11-13 figures in the
 [leakage table](../../docs/stt/datasets.md#training-sources), in the
@@ -8,7 +15,7 @@ The open question those figures feed is whether the shared
 sessions disqualify the train clips; this directory only reproduces the
 figures.
 
-## Definition and population
+### Definition and population
 
 A *session* is the **prefix of the VoxPopuli clip id before the language
 tag** — the part that names the plenary sitting:
@@ -19,7 +26,7 @@ population is **the prepared data, not the corpora**: the 737-clip
 `voxpopuli-fr-train` sample — the same population the docs' denominators
 ("of the source's 12 000") refer to.
 
-## Environment and inputs
+### Environment and inputs
 
 From the repository root, use the default Python 3.12 environment
 (`uv sync`). No additional dependencies, model stack or GPU are needed.
@@ -30,7 +37,7 @@ Inputs are read-only: the two prepared manifests
 is started and no network request is sent; help needs neither data nor
 environment variables.
 
-## Exact command and output
+### Exact command and output
 
 ```bash
 uv run python experiments/leakage-audit/sessions.py --help
@@ -48,10 +55,95 @@ shared sessions: 206 of 307
   train clips in shared sessions: 1956 of 12000 (4.67 h)
 ```
 
-## Limits
+### Limits
 
 The audit is over prepared manifests: re-preparing either set changes the
 figures, and the corpora hold far more sittings than the prepared sample. The
 script asserts that every clip id holds a session before its language tag and
 fails loudly otherwise; it does not re-derive the sessions from the corpora's
 own metadata.
+
+## Content-level leakage (6-word text shingles)
+
+**Status:** 2026-11-15. The confirmed duplicate pairs are committed in
+[`src/audiolab/data/duplicates.json`](../../src/audiolab/data/duplicates.json).
+Every reported pair below is classified under owner decisions OD-1 (leak
+policy) and OD-11 (what "shares a speaker" means), 2026-11-15.
+
+**Question.** Which training groups hold the same speech as an evaluation
+group — a re-upload, a republication or a replay (OD-1) — and which text
+overlap is only "the same text, another reader" or a shared corpus speaker
+(not a leak, OD-11)?
+
+**Method.** Words are NFKD-lowercased `[a-z0-9]+` tokens; the 6-word shingles
+of every group are compared. An evaluation group and a training group are
+reported when they share at least 15 shingles and the shared shingles are at
+least 5 % of the evaluation group's. Pairs of *talk groups* (`group_kind =
+"recording"`) inside two different training sets, and inside one set, are
+reported at the same k ≥ 15 floor with a ratio of at least 30 % of the
+smaller group; the re-upload shortlist keeps the pairs at 75 % or more with
+different group ids. "Same speech" is confirmed by (a) a ratio of at least
+30 %, or (b) for talk groups, the mean word recall of the evaluation clips'
+words in the time-overlapping training clips of at least 0.7 (clip starts
+from the trailing centiseconds of the clip id). A pair between 5 % and 30 %
+without that recall is triaged on the shared text itself: a recurring jingle
+or stock intro is not a re-upload, a compilation that replays an episode is.
+Shared audio is checked by clip sha256; shared speakers by the
+corpus-provided speaker id (OD-11).
+
+**Population.** Prepared sets only: the 15 prepared evaluation sets with
+panel files in `configs/panels/` (the two non-speech sets excluded) and the
+25 prepared training directories (names containing `-train`, with the
+`.pre-*` and `.curly-*` renames excluded). The audit reads manifests only —
+no audio, no server, no network; it is CPU-only and streams the manifests.
+
+**Exact command.**
+
+```bash
+uv run python experiments/leakage-audit/content.py --help
+uv run python experiments/leakage-audit/content.py --triage   # full per-pair evidence
+```
+
+(`--data-dir` / `--panels-dir` override `$AUDIOLAB_DATA` / `configs/panels`.)
+
+**Results, 2026-11-15.** 518 evaluation-vs-training pairs were reported:
+
+| Triage category | Pairs | Leak? |
+|---|---|---|
+| Same recording, ratio ≥ 30 %: the three `peertube-edu-captions-fr` talks re-uploaded in the training sets (word recall 0.93 / 0.84 / 0.81 over the time-overlapping clips) | 3 | Yes — re-upload (OD-1) |
+| Same recording, ratio ≥ 30 %: the re-released Terry Fong interview, in all three NASA training sets (40.5 / 40.5 / 33.0 %) | 3 | Yes — republication (OD-1) |
+| Replay below the 30 % / 0.7 gates: the 2017 end-of-year test compilation replays two training episodes in segments (20.6 % and 9.0 % of its 6-word shingles); classified as replay by inspecting the shared text, not by threshold | 2 id-pairs (6 set-pairs) | Yes — replay (OD-1) |
+| Same text, another reader: SLR57 short read-task sentences read or spoken by different speakers (0 shared audio sha256, 0 matching corpus speaker numbers) | 374 | No (OD-11) |
+| Same text, another reader: one LibriSpeech chapter pair (8463-294828 ↔ 2764-36617) under different corpus speaker ids, 0 shared audio sha256 | 3 | No (OD-11) |
+| Recurring show intro: the shared text is the show's stock opening (host line / "On this podcast, we bring in the experts…" / "Our solar system is a wondrous place…" / "Welcome to Small Steps, Giant Leaps…"), repeated in every episode of the show (5.1–8.4 %, k≈23–46); no conversation text shared, 0 shared audio; not a leak (OD-11; recurring intro rule) — per family: ascension-looking-back-at-the-space-shuttle 88; gravity-assist-the-kuiper-belt-with-alan-stern 25; pathways 5; dna-sequencing 5; apollo-legend-to-shuttle-trailblazer 5; small-steps-giant-leaps-episode-104-workplace-safety-culture 1 | 129 | No (OD-11) |
+
+Training-vs-training: 2 196 talk-group pairs across two sets at ratio ≥ 30 %
+(mostly by design: the 12k ⊂ 40k/30k supersets, the same episodes under the
+12k / 30k / qwen label sets, talks shared across the three PeerTube
+listings), 42 pairs inside one set, and a re-upload shortlist of 58 rows at
+ratio ≥ 75 % with different group ids — 21 distinct PeerTube id-pairs and
+the NASA `introducing-nasas-curious-universe-season-two` episode that
+replays `crew-1-the-astronauts` (both in
+[`duplicates.json`](../../src/audiolab/data/duplicates.json)), plus 15
+granary id-pairs kept in this table only, since `duplicates.json` covers the
+PeerTube and NASA listings: J6MMI5tsnJk↔McLkUdBrlXg, KWQcxTPKZMU↔RfZPaQ4D3F0,
+zB-T6Urw3zy↔XojSl5HZR64, sBvYAg3ADK8↔FEQqqOKYrvy,
+3zwOPq3HJD8↔hsoj91JTjJU, M2Z2S7rstIQ↔aMuBAqtMmfA,
+06LOOzSIAcc↔GZZxF4ID89A, wf5_2_uUiP8↔EdogqOHuB-A,
+JvZRK0c8hE0↔{M2Z2S7rstIQ, aMuBAqtMmfA, gpTL6tbUhhc},
+{3zwOPq3HJD8, ZMfbCNYzBb4, hsoj91JTjJU},
+{M2Z2S7rstIQ, aMuBAqtMmfA}↔gpTL6tbUhhc, kgdA3-q9ZTA↔o95HCvmGPKc.
+
+**Limits.** The audit covers prepared sets only: `nasa-en-train-30k` holds
+575 episodes while about 130 non-test episodes of the listing were never
+prepared, and the 2017 end-of-year compilation is only about 30 % explained
+by the two replayed episodes; a re-run of this script on the rebuilt NASA
+training sets will confirm that no `nasa-en-test` group has a ≥ 5 % pair
+other than the stock-intro pattern. The two replayed-episode pairs sit below
+the 30 % / 0.7 gates because the compilation cuts and re-edits the segments
+(clip boundaries do not line up: 0 shared sha256, time-overlap word recall
+0.16–0.26); they were classified as replays by inspecting the shared text,
+not by threshold. Disclosure, not a removal: about one clip of each affected
+test episode (3–4 for Gravity Assist) is the show's stock intro, which the
+training sets also contain. The `-qwen` ratios differ from the 12k ratios
+because the qwen set carries different labels on the same audio.

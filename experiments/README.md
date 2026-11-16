@@ -11,6 +11,7 @@ feature of the maintained `audiolab` core
 | [Label-text check](label-text/README.md) | Report how many training clips hold a character the base model cannot write, after each preparation | [check_text.py](label-text/check_text.py) |
 | [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (plan 09, P-07) | [inventory.py](storage-inventory/inventory.py) |
 | [Leakage audit](leakage-audit/README.md) | Reproduce the VoxPopuli session-overlap table from the two prepared manifests (plan 01, T8) | [sessions.py](leakage-audit/sessions.py) |
+| [Leakage audit — content level](leakage-audit/README.md) | 6-word text-shingle overlap between evaluation and training sets: re-uploads, replays, shared speakers and readers (owner decisions OD-1, OD-11); feeds `src/audiolab/data/duplicates.json` | [content.py](leakage-audit/content.py) |
 
 The [research index](../docs/research/README.md) links questions and findings.
 The [backlog](../docs/backlog.md) tracks open work and pauses; creating an
