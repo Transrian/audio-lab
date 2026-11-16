@@ -1120,7 +1120,7 @@ screening is a difference between corpora and not between recipes:
 | `granary-fr-train` | fr | audio CC-BY-3.0, labels CC-BY-4.0 | asr_only | 12 000 | 2 725 | 8.3 | 0.9 GiB | 1.8 GiB |
 | `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 229 | 29.0 | 3.1 GiB | 8.6 GiB |
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
-| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 427 | 190 | 13.5 | 1.5 GiB | 1.7 GiB |
+| `african-accented-fr-train` | fr | Apache-2.0 | train | 11 424 | 189 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
 | `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
@@ -1660,8 +1660,9 @@ measures, trained on the same clips.
   apostrophe spacing, and most of its damage was that spacing. The source was
   re-prepared afterwards, so its screen config trains on the cleaned text and its
   old numbers no longer describe it.
-- **Group**: the speaker (`group_kind: speaker`), 190 of them in the set
-  prepared 2026-11-08, read from the
+- **Group**: the speaker (`group_kind: speaker`), 189 of them in the set
+  prepared 2026-11-16 (the 190 of the set of 2026-11-08, the shared speaker
+  `012` out), read from the
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
@@ -1670,14 +1671,16 @@ measures, trained on the same clips.
   test part's `cameroon_m_012`'s — the two parts name the CA16 speakers in two
   formats over one shared numbering, and the test part's card records the
   evidence and the rule in words. The set prepared 2026-11-08 predates the
-  rule and still holds those 3 clips.
+  rule: it is kept as `african-accented-fr-train.pre-leakfix-2026-11-15`, and
+  the source re-prepared on 2026-11-16 holds those 3 clips out.
 - **What a cap covers**: the whole train part is smaller than the cap. Its 14 394
   recordings hold 11 460 with a transcript, of which 8 are prompting lines and 25
   are longer than 20 s, so the source is 11 427 clips: **the screening's arms do
   not all have the same number of clips**, and this one is 4.8 % short of the
   cap. Nothing was padded or repeated to close the gap. The set prepared
-  2026-11-08 holds all 11 427; the next preparation holds 11 424, the 3 clips
-  of the shared speaker out.
+  2026-11-08 held all 11 427; the set prepared 2026-11-16 holds 11 424 — the
+  3 clips of the shared speaker out — and no replacement clips fill the gap,
+  the source being smaller than the cap.
 - **Why it is here**: African accents are otherwise absent from open French ASR
   data. Its transcripts are also the least punctuated of the screening, which is
   the confound below.
@@ -2692,7 +2695,7 @@ training preparation is this rule, above.
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
-| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 3 clips: the two parts name the CA16 speakers in two formats (`012` and `cameroon_m_012`) over one shared numbering, and 11 of the 12 test numbers are absent from the train part's speakers, so a preparation leaves out one speaker, `012` (3 clips); the test preparation's first check compared the two id formats as strings and matched nothing, and the set prepared 2026-11-08 predates the rule and still holds those clips; `devtest` is not a speaker-disjoint reserve — 14 of its 16 speakers are train speakers |
+| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 3 clips: the two parts name the CA16 speakers in two formats (`012` and `cameroon_m_012`) over one shared numbering, and 11 of the 12 test numbers are absent from the train part's speakers, so a preparation leaves out one speaker, `012` (3 clips); the test preparation's first check compared the two id formats as strings and matched nothing, and the set prepared 2026-11-08 predates the rule — it is kept as `african-accented-fr-train.pre-leakfix-2026-11-15`, the re-preparation of 2026-11-16 holding those 3 clips out; `devtest` is not a speaker-disjoint reserve — 14 of its 16 speakers are train speakers |
 | `peertube-fr-train` | none: no evaluation set comes from this instance | — |
 | `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks and the duplicates in their classes in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` (the evaluation talks) and `tests/test_data_talks.py` (the duplicates in their classes and the re-uploads of a talk already read, `test_a_preparation_leaves_out_the_reuploads_of_its_evaluation_talks`) |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
