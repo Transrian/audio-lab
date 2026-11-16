@@ -3,7 +3,7 @@
 
 Reproduces the figures reported in the leakage table of
 ``docs/stt/datasets.md``, in the card of ``voxpopuli-en-nonnative`` and in
-proposed decision 0014. A *session* is the prefix of the VoxPopuli clip id
+decision 0014. A *session* is the prefix of the VoxPopuli clip id
 before the language tag, for example ``20090310-0900-PLENARY-7`` from
 ``20090310-0900-PLENARY-7-en_20090310-11:10:07_2``: clips of one plenary
 sitting share the room, the microphones and the background. The population is

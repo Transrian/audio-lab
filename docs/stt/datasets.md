@@ -325,8 +325,9 @@ Three kinds of clip that must stay silent, 300 in total:
   [`experiments/leakage-audit/sessions.py`](../../experiments/leakage-audit/README.md).
   That is not a text leak — different languages, different
   utterances — but it is the one overlap that shares acoustics with an
-  evaluation set; whether it disqualifies those train clips is
-  [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md).
+  evaluation set; whether it disqualifies those train clips is answered by
+  [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md),
+  which drops them (option 2).
 - **Corpus label in doubt** (2026-11-08): matched to the Parliament's own list
   of members, only about 26 of the 737 clips come from French, Luxembourgish or
   French-speaking Belgian members; the largest speakers are from Latvia
@@ -2416,7 +2417,7 @@ training preparation is this rule, above.
 
 | training source | evaluation set checked | left out |
 | --- | --- | --- |
-| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 956 train clips (4.67 h) share the rooms and microphones of 480 evaluation clips (1.6 h); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)), [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md) |
+| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 956 train clips (4.67 h) share the rooms and microphones of 480 evaluation clips (1.6 h); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)), [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md) |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
@@ -2448,8 +2449,9 @@ microphones. A session is the clip id's prefix before the language tag, the
 population the prepared manifests
 ([`experiments/leakage-audit`](../../experiments/leakage-audit/README.md)).
 That shares acoustics, not text — the languages and the utterances
-are different — and whether it disqualifies those train clips is
-[proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md).
+are different — and whether it disqualifies those train clips is answered
+by [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md),
+which drops them (option 2).
 
 ## Known overlap with what models were trained on
 

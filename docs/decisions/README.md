@@ -60,5 +60,5 @@ Never invent alternatives after the fact.
 | [0011](accepted/0011-unlicensed-datasets-for-private-evaluation.md) | stt | accepted | A dataset with no license may be used for evaluation only |
 | [0012](proposed/0012-heavy-model-stack-as-a-locked-extra.md) | global | proposed | The heavy model stack becomes a locked, optional extra |
 | [0013](proposed/0013-normalizer-v2-contractions.md) | stt | proposed | Normalizer v2: contractions and elision spacing, for the next campaign |
-| [0014](proposed/0014-voxpopuli-shared-sessions.md) | stt | proposed | VoxPopuli: train clips from the evaluation set's plenary sessions |
+| [0014](accepted/0014-voxpopuli-shared-sessions.md) | stt | accepted | VoxPopuli: train clips from the evaluation set's plenary sessions |
 | [0015](proposed/0015-noise-augmentation-in-the-baseline-recipe.md) | stt/parakeet-fr | proposed | Noise augmentation in the baseline recipe |

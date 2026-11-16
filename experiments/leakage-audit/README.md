@@ -10,9 +10,10 @@ Two read-only audits over prepared manifests, in this directory:
 **Status:** the audit behind the 2026-11-13 figures in the
 [leakage table](../../docs/stt/datasets.md#training-sources), in the
 [`voxpopuli-en-nonnative` card](../../docs/stt/datasets.md#voxpopuli-en-nonnative--accented-english-from-the-european-parliament)
-and in [proposed decision 0014](../../docs/decisions/proposed/0014-voxpopuli-shared-sessions.md).
-The open question those figures feed is whether the shared
-sessions disqualify the train clips; this directory only reproduces the
+and in [decision 0014](../../docs/decisions/accepted/0014-voxpopuli-shared-sessions.md).
+The question those figures fed — whether the shared
+sessions disqualify the train clips — is answered by that decision (option 2:
+drop them); this directory only reproduces the
 figures.
 
 ### Definition and population
