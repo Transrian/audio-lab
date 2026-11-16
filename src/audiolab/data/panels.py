@@ -123,9 +123,50 @@ def load_suite(path: str | Path) -> SuiteSpec:
     return SuiteSpec(name=name, panels=[str(panel) for panel in raw["panels"]])
 
 
+# Derived evaluation sets that drop clips of the source: the set's manifest
+# holds the source's clips minus the clips of the listed groups, and the set's
+# panels hold the source's panel ids (re-prefixed) minus the ids of those
+# groups. The groups are named by the source's manifest groups, so a reader
+# checks the table against the source's manifest. Any other source id the set
+# holds no clip of is refused, at the build and by the check: the derivation
+# removes exactly the listed groups, nothing else.
+# (A ``noisy-`` set derives the same way without dropping any group.)
+DERIVED_SETS: dict[str, tuple[str, frozenset[str]]] = {
+    "nasa-en-test-v2": (
+        "nasa-en-test",
+        frozenset(
+            {
+                # The re-release of this episode, under another slug, is in
+                # every preparation of nasa-en-train: a clip a model is scored
+                # on may not be trained on, so the episode leaves the sealed
+                # panel in the v2 set.
+                "nasa-en-test:terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics",
+            }
+        ),
+    ),
+}
+
+
 def _derived_source(dataset: str) -> str | None:
-    """The source of a ``noisy-`` dataset: its panels are the source's, re-prefixed."""
+    """The source of a derived dataset: its panels are the source's, re-prefixed."""
+    if dataset in DERIVED_SETS:
+        return DERIVED_SETS[dataset][0]
     return dataset.removeprefix("noisy-") if dataset.startswith("noisy-") else None
+
+
+def _derived_drops(dataset: str) -> frozenset[str]:
+    """The source groups a derived set's panels do not name; the rest must all be present."""
+    return DERIVED_SETS[dataset][1] if dataset in DERIVED_SETS else frozenset()
+
+
+def _group_of(clip_id: str, dataset: str) -> str:
+    """The group a clip id names: its talk, under the dataset's prefix.
+
+    The id of a talk source is the group's name plus the clip's start in
+    centiseconds, so the group is the id without its last ``-<digits>`` part;
+    an id without such a part is its own group.
+    """
+    return f"{dataset}:{_talk_of_panel_id(clip_id)}"
 
 
 # The datasets whose panels preserve the sealing of a source dataset: every
@@ -194,13 +235,18 @@ def _build_derived_panels(
     panels_dir: Path,
     built: str | None,
 ) -> list[Panel]:
-    """The panels of a ``noisy-`` dataset: the source's, with the new prefix.
+    """The panels of a derived dataset: its source's, with the new prefix.
 
-    A derived set is mixed from the source's panel clips, so its panels are not
+    A derived set is made from the source's panel clips, so its panels are not
     drawn again: the same ids, re-prefixed. A clip sealed in the source stays
-    sealed. The source's three panel files must exist, or the build is refused.
+    sealed, and a set listed in :data:`DERIVED_SETS` drops exactly the clips
+    of the groups it names — the source panel ids of those groups are the only
+    ones a panel of it may not hold. Any other source panel id the set holds
+    no clip of is a wrong derivation, refused here, not dropped. The
+    source's three panel files must exist, or the build is refused.
     """
     by_id = {clip.id: clip for clip in clips}
+    dropped = _derived_drops(dataset)
     panels = []
     for name in PANEL_NAMES:
         source_path = panel_path(f"{source}-{name}", panels_dir)
@@ -213,6 +259,8 @@ def _build_derived_panels(
         for clip_id in source_panel.ids:
             if not clip_id.startswith(f"{source}:"):
                 raise ValueError(f"{source_path} holds {clip_id!r}, not a {source} id")
+            if dropped and _group_of(clip_id, source) in dropped:
+                continue
             derived_id = f"{dataset}:{clip_id.partition(':')[2]}"
             if derived_id not in by_id:
                 raise ValueError(
@@ -619,10 +667,18 @@ def load_dataset_clips(dataset: str) -> list[Clip]:
 
 
 def _derived_expected_ids(path: Path, source: str, panel: Panel) -> list[str]:
-    """What a ``noisy-`` panel must hold: its source panel's ids, re-prefixed."""
+    """What a derived panel must hold: its source panel's ids, re-prefixed.
+
+    A set listed in :data:`DERIVED_SETS` holds exactly the source panel's ids
+    of the groups it does not drop: the ids of its listed groups are the only
+    ones it may not name.
+    """
     source_path = path.parent / f"{source}-{panel.name}.txt"
     if not source_path.is_file():
         raise ValueError(f"{source_path} is missing: the {source} panels must be built")
+    dropped = _derived_drops(panel.dataset)
     return sorted(
-        f"{panel.dataset}:{clip_id.partition(':')[2]}" for clip_id in read_panel(source_path).ids
+        f"{panel.dataset}:{clip_id.partition(':')[2]}"
+        for clip_id in read_panel(source_path).ids
+        if not dropped or _group_of(clip_id, source) not in dropped
     )
