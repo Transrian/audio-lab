@@ -597,8 +597,10 @@ Three kinds of clip that must stay silent, 300 in total:
   was re-released by NASA under another slug, and the re-release was in every
   preparation of `nasa-en-train` made before the duplicate-class rule — the
   conversation behind its 26 sealed clips is training data (the re-release's
-  own clips: 41 in `nasa-en-train` and `nasa-en-train-qwen`, 46 in
-  `nasa-en-train-30k`). A clip a model is scored on may not be trained on, so
+  own clips: 41 in the kept copy of `nasa-en-train`, 41 in the kept copy of
+  `nasa-en-train-qwen`, 46 in the kept copy of `nasa-en-train-30k`; the three
+  sets re-prepared after the duplicate-class rule hold none of them). A clip a
+  model is scored on may not be trained on, so
   a re-released test episode whose duplicate is in a training set leaves the
   sealed panel. The other duplicate class of the source's episodes does not:
   the compilation `2017-end-of-year-podcast` replays training episodes, and
@@ -2652,14 +2654,20 @@ this preparation leaves them out (decision 0002).
   nasa-en-train --clips 30000`, prepared into
   `$AUDIOLAB_DATA/nasa-en-train-30k`. The set re-prepared above reads the same
   re-pinned listing in the same seeded order, so its 234 episodes are all among
-  the 576 read below, and every one of its 12 000 clips is one of this set's
-  30 000. The set of 2026-11-09, prepared from the listing of 774 episodes,
-  is **not** a subset of this one: the listing was re-pinned on 2026-11-13
-  (768 episodes; NASA's Curious Universe no longer in it, matching the source's
-  `EXCLUDED_SHOWS`), and of the 265 episodes the set of 2026-11-09 holds, 18 are
-  not in the larger set: its 7 Curious Universe episodes (248 clips), left out
-  on purpose, and 11 of Houston We Have a Podcast, still in the listing but
-  past the 576-episode cut below in the seeded order. The preparation read
+  the episodes read below, and every one of its 12 000 clips is one of this
+  set's 30 000 — still true of the re-prepared set at the end of this bullet,
+  checked clip by clip. The set of 2026-11-09, prepared from the listing of
+  774 episodes, is **not** a subset of this one: the listing was re-pinned on
+  2026-11-13 (768 episodes; NASA's Curious Universe no longer in it, matching
+  the source's `EXCLUDED_SHOWS`), and of the 265 episodes the set of 2026-11-09
+  holds, 18 are not in the larger set: its 7 Curious Universe episodes (248
+  clips), left out on purpose, and 11 of Houston We Have a Podcast, still in
+  the listing but past the 576-episode cut below in the seeded order. The
+  re-preparation at the end of this bullet keeps those same 18 out — the
+  Houston ones past its 571-episode cut — and adds the 3 episodes of the
+  evaluation sets' classes (113 clips of them), left out on purpose: 10 224 of
+  the 11 956 clips of the set of 2026-11-09, 29.7 h of them, are in it. The
+  preparation read
   **576 episodes** (575 keep clips) in seven batches — 215, 300, 51, 7, then 1,
   1 and 1 as the cap neared — and reached it: **30 000 clips, 86.8 h**, median
   9.3 s, all public domain (US government work), no episode past its
@@ -2701,6 +2709,28 @@ this preparation leaves them out (decision 0002).
   [`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set)
   were left out of what it read, and none of the set's clips is one of them.
   The prepared set is 9.5 GiB.
+
+  Re-prepared 2026-11-16 from the re-pinned listing at the same cap, with the
+  duplicate-class rule: the 3 episodes in the class of one of the 60 reserved
+  (124 clips of them) are left out, and the room the 3 leave free goes to the
+  episodes read after them. The preparation read **571 episodes** (570 keep
+  clips) in seven batches — 215, 296, 50, 7, then 1, 1 and 1 as the cap neared
+  — and reached it: **30 000 clips, 86.8 h**, median 9.3 s, all public domain
+  (US government work), no episode past its 200-clip share (the largest gives
+  173, seven give under 10). Its 571 episodes are all among the 576 read above,
+  so no segment and no download is new: the transcripts labelled 43.2 % of the
+  119 563 candidate clips, and 225 new per-clip requests to the base model
+  (the homelab) for the 128 episodes that read with a larger share kept 210.
+  Against the 2026-11-14 preparation the set is 29 790 clips in common —
+  identical on every field, audio included — 210 out (the 124 of the 3
+  excluded episodes and 86 of 9 episodes past the 571-episode cut or read with
+  a smaller share) and 210 in (crew-6 alone goes from 51 to 133 clips).
+  Parakeet's text differs from the label on 18 065 of the 30 000 clips
+  (60.2 %), the mean `base_wer` is 5.2 %, and 39.8 % of the clips have a
+  `base_wer` of 0. The 60 reserved episodes and the 3 in the class of one of
+  them are left out of what it read, and none of the set's clips is one of the
+  63. The 2026-11-14 preparation is kept as
+  `nasa-en-train-30k.pre-leakfix-2026-11-15`.
 - **Known limits**: **the label error of the kept clips is measured on a sample
   of the set** — had the agreement rule labelled the same 3 000 clips, it keeps
   95.1 % of them, and the kept labels — Qwen's, not NASA's — score 3.7 % WER
