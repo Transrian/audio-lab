@@ -121,8 +121,13 @@ def test_the_planted_reupload_is_found_and_unrelated_text_is_not(tmp_path):
     assert ("talkA", "syn-train-40k", "talkA-copy2") in pairs
     assert ("talkC", "syn-train", "talkC") in pairs
     assert ("talkC", "syn-train-40k", "talkC") in pairs
-    # The unrelated texts never appear.
-    assert not any(name in pairs for name in ("talkB", "talkD"))
+    # The unrelated texts never appear on either side of any finding: not in
+    # the evaluation-vs-training findings and not in the training-vs-training
+    # pairs.
+    finding_names = {name for f in result.findings for name in (f.pair.left[1], f.pair.right[1])}
+    finding_names |= {name for p in result.train_pairs for name in (p.left[1], p.right[1])}
+    assert "talkB" not in finding_names
+    assert "talkD" not in finding_names
 
     by_key = {(f.pair.left, f.pair.right): f for f in result.findings}
     reupload = by_key[(("syn-eval", "talkA"), ("syn-train", "talkA-copy"))]
