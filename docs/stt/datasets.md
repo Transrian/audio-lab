@@ -32,7 +32,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
 | `nonspeech-music` | none | PD or CC-BY per file, see below | 10 s excerpts of instrumental files | 261 | 39 | 0.7 | 80 MiB |
 | `peertube-edu-captions-fr` | fr | CC-BY or CC0-1.0, per video | listing (the 140 talks with a human caption track) | 4 367 | 113 | 9.9 | 1.1 GiB |
-| `peertube-edu-captions-fr-v2` | fr | CC-BY or CC0-1.0, per video | listing (the same talks, caption text decoded) | to be measured | 126–127 | to be measured | to be measured |
+| `peertube-edu-captions-fr-v2` | fr | CC-BY or CC0-1.0, per video | listing (the same talks, caption text decoded) | 4 891 | 126 | 11.5 | 1.2 GiB |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -68,7 +68,7 @@ part of how precise its numbers can be:
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
 | `nonspeech-music` | 30 / 21 | 114 / 38 | 147 / 1 |
 | `peertube-edu-captions-fr` | 100 / 90 | 600 / 90 | 920 / 23 |
-| `peertube-edu-captions-fr-v2` | to be measured | to be measured | to be measured |
+| `peertube-edu-captions-fr-v2` | 100 / 98 | 600 / 98 | 934 / 24 |
 
 Group counts are the ones the panels depend on, so they are checked against the
 prepared data by ``audiolab data panels --check``; the clip counts are checked by
@@ -761,15 +761,19 @@ Three kinds of clip that must stay silent, 300 in total:
   undecoded `&nbsp;` — and 13 of the 17 talks whose caption files hold
   `&nbsp;` lost every one of their clips there, including technical talks.
   This set decodes the text, so those clips pass and the 13 talks are back.
-- **Audio**: to be measured when the set is prepared. 139 eligible talks (the
-  140 usable minus the one the training set holds); the 12 that yielded no
-  clip in the first set — 11 whose timestamp lines carry cue settings the
-  parser does not read, 1 too short to cut — yield none again; of the 127
-  that have candidates, 126 hold clips, at most 40 per talk as in the first
-  set, and they are all 113 talks of the first set plus the 13 the entity bug
-  removed from it; in the last talk every one of its 360 answered candidates
-  fails the gate (its 361st is among the 702 the dry run counts), so the
-  prepared set holds 126 talks, or 127 if that last candidate passes.
+- **Audio**: 4 891 clips, 11.5 h, from 126 of the 139 eligible talks (the
+  140 usable minus the one the training set holds): all 113 talks of the
+  first set plus the 13 the entity bug removed from it, at most 40 clips per
+  talk as in the first set — 119 of the 126 at the cap — with a clip length of
+  3.0 to 15.0 s (median 8.1 s). Per instance: 2 480 clips of 62 talks on
+  numerique-educatif, 1 180 of 33 on sciences-technologies, 711 of 18 on
+  arts-lettres-sciences-humaines, and 520 of the 13 talks on the six other
+  instances. The 12 talks that yielded no clip in the first set — 11 whose
+  timestamp lines carry cue settings the parser does not read, 1 too short to
+  cut — yield none again; and of the 127 talks that have candidates, the last
+  one yields none either: every one of its 360 answered candidates fails the
+  gate, and its 361st is the one clip Whisper failed on. So the prepared set
+  holds 126 talks.
 - **Text**: the decoded caption text, otherwise the first set's rule: 3–15 s
   clips ending at a sentence where the cues allow, never crossing a gap
   longer than 1 s, cased and punctuated (`text_has_casing_punct: true`). The
@@ -792,7 +796,15 @@ Three kinds of clip that must stay silent, 300 in total:
   moved are asked. A dry run over the prepared cache (`dry_run_unescaped` in
   the fetcher, no request and no write) counts what a preparation would have
   to ask before it asks: on the prepared cache, 20 616 clips over the 139
-  talks, of which 702 have no cached answer.
+  talks, of which 702 have no cached answer. The preparation asked 704 of
+  them — the dry run had counted 702 without a cached answer — and read
+  every other answer from the first set's cache. One of the 704, the last
+  talk's 361st candidate above, failed (the one clip Whisper failed on), so
+  its gate file (`alignment-wers-v2.json`) holds the other 20 615: 18 262
+  (88.6 %) at or under the 0.35 threshold, WER deciles 0.00, 0.00, 0.00,
+  0.00, 0.04, 0.06, 0.09, 0.13, 0.21, 0.40; of the 18 262 that met it, 312
+  hold a character the base model cannot write, 13 059 go beyond the
+  40-clip share of their talk, and 4 891 became clips.
 - **The training-vocabulary filter applies to this set too, and is disclosed
   as what it is**: the fetcher drops every clip holding a character the base
   model cannot write, after the decoding as well as before. Of the first
@@ -806,7 +818,8 @@ Three kinds of clip that must stay silent, 300 in total:
   set's references are, with that character left out.
 - **Group**: the video's uuid (`group_kind: recording`), as in the first set;
   `category` is `tech` by the same title keywords, and the share grows with
-  the 13 recovered talks — to be measured.
+  the 13 recovered talks: 294 clips of 8 talks, against 240 of 6 in the
+  first set.
 - **Panels**: built after the preparation, from the first set's committed
   panels (decision 0002 keeps the first set's talks sealed): every clip of a
   talk the first set sealed goes to this set's sealed panel, and the talks
@@ -821,8 +834,12 @@ Three kinds of clip that must stay silent, 300 in total:
   refused, at the panel build and the check, naming both talks; the four
   talks are pinned in a committed constant the panels are checked against, so
   the rule does not drift as the committed duplicate list grows. The panels
-  are built from, and checked against, the first set's; their sizes are to be
-  measured.
+  are built from, and checked against, the first set's: the sealed panel
+  holds 934 clips of the 24 talks the rule seals — the 21 the first set
+  sealed outside the two split classes, plus 3 of the 13 talks new here —
+  and the full and fast panels draw on the 98 talks left (600 and 100
+  clips, the usual sizes); the four unpanelled talks' 160 clips stay in the
+  manifest, just not scored.
 - **No overlap with the training set** (decision 0002): the one talk the
   training set holds is left out, as in the first set, and the talk training
   preparations leave both sets' talks out of every preparation they make.
