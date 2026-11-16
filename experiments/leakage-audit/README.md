@@ -67,13 +67,14 @@ own metadata.
 
 **Status:** 2026-11-15. The confirmed duplicate pairs are committed in
 [`src/audiolab/data/duplicates.json`](../../src/audiolab/data/duplicates.json).
-Every reported pair below is classified under owner decisions OD-1 (leak
-policy) and OD-11 (what "shares a speaker" means), 2026-11-15.
+Every reported pair below is classified by the leak policy: a leak is the
+same speech as an evaluation group — a re-upload, a republication or a
+replay; a shared talk or podcast host, or the same text read by another
+corpus speaker, is not a leak.
 
 **Question.** Which training groups hold the same speech as an evaluation
-group — a re-upload, a republication or a replay (OD-1) — and which text
-overlap is only "the same text, another reader" or a shared corpus speaker
-(not a leak, OD-11)?
+group — a re-upload, a republication or a replay — and which text overlap is
+only "the same text, another reader" or a shared corpus speaker (not a leak)?
 
 **Method.** Words are NFKD-lowercased `[a-z0-9]+` tokens; the 6-word shingles
 of every group are compared. An evaluation group and a training group are
@@ -89,7 +90,7 @@ from the trailing centiseconds of the clip id). A pair between 5 % and 30 %
 without that recall is triaged on the shared text itself: a recurring jingle
 or stock intro is not a re-upload, a compilation that replays an episode is.
 Shared audio is checked by clip sha256; shared speakers by the
-corpus-provided speaker id (OD-11).
+corpus-provided speaker id.
 
 **Population.** Prepared sets only: the 15 prepared evaluation sets with
 panel files in `configs/panels/` (the two non-speech sets excluded) and the
@@ -110,12 +111,12 @@ uv run python experiments/leakage-audit/content.py --triage   # full per-pair ev
 
 | Triage category | Pairs | Leak? |
 |---|---|---|
-| Same recording, ratio ≥ 30 %: the three `peertube-edu-captions-fr` talks re-uploaded in the training sets (word recall 0.93 / 0.84 / 0.81 over the time-overlapping clips) | 3 | Yes — re-upload (OD-1) |
-| Same recording, ratio ≥ 30 %: the re-released Terry Fong interview, in all three NASA training sets (40.5 / 40.5 / 33.0 %) | 3 | Yes — republication (OD-1) |
-| Replay below the 30 % / 0.7 gates: the 2017 end-of-year test compilation replays two training episodes in segments (20.6 % and 9.0 % of its 6-word shingles); classified as replay by inspecting the shared text, not by threshold | 2 id-pairs (6 set-pairs) | Yes — replay (OD-1) |
-| Same text, another reader: SLR57 short read-task sentences read or spoken by different speakers (0 shared audio sha256, 0 matching corpus speaker numbers) | 374 | No (OD-11) |
-| Same text, another reader: one LibriSpeech chapter pair (8463-294828 ↔ 2764-36617) under different corpus speaker ids, 0 shared audio sha256 | 3 | No (OD-11) |
-| Recurring show intro: the shared text is the show's stock opening (host line / "On this podcast, we bring in the experts…" / "Our solar system is a wondrous place…" / "Welcome to Small Steps, Giant Leaps…"), repeated in every episode of the show (5.1–8.4 %, k≈23–46); no conversation text shared, 0 shared audio; not a leak (OD-11; recurring intro rule) — per family: ascension-looking-back-at-the-space-shuttle 88; gravity-assist-the-kuiper-belt-with-alan-stern 25; pathways 5; dna-sequencing 5; apollo-legend-to-shuttle-trailblazer 5; small-steps-giant-leaps-episode-104-workplace-safety-culture 1 | 129 | No (OD-11) |
+| Same recording, ratio ≥ 30 %: the three `peertube-edu-captions-fr` talks re-uploaded in the training sets (word recall 0.93 / 0.84 / 0.81 over the time-overlapping clips) | 3 | Yes — the same speech (re-upload) |
+| Same recording, ratio ≥ 30 %: the re-released Terry Fong interview, in all three NASA training sets (40.5 / 40.5 / 33.0 %) | 3 | Yes — the same speech (republication) |
+| Replay below the 30 % / 0.7 gates: the 2017 end-of-year test compilation replays two training episodes in segments (20.6 % and 9.0 % of its 6-word shingles); classified as replay by inspecting the shared text, not by threshold | 2 id-pairs (6 set-pairs) | Yes — the same speech (replay) |
+| Same text, another reader: SLR57 short read-task sentences read or spoken by different speakers (0 shared audio sha256, 0 matching corpus speaker numbers) | 374 | No — the same text read by another corpus speaker |
+| Same text, another reader: one LibriSpeech chapter pair (8463-294828 ↔ 2764-36617) under different corpus speaker ids, 0 shared audio sha256 | 3 | No — the same text read by another corpus speaker |
+| Recurring show intro: the shared text is the show's stock opening (host line / "On this podcast, we bring in the experts…" / "Our solar system is a wondrous place…" / "Welcome to Small Steps, Giant Leaps…"), repeated in every episode of the show (5.1–8.4 %, k≈23–46); no conversation text shared, 0 shared audio; not a leak (a shared host and a stock intro, no conversation text) — per family: ascension-looking-back-at-the-space-shuttle 88; gravity-assist-the-kuiper-belt-with-alan-stern 25; pathways 5; dna-sequencing 5; apollo-legend-to-shuttle-trailblazer 5; small-steps-giant-leaps-episode-104-workplace-safety-culture 1 | 129 | No — a shared host and a stock intro, no conversation text |
 
 Training-vs-training: 2 196 talk-group pairs across two sets at ratio ≥ 30 %
 (mostly by design: the 12k ⊂ 40k/30k supersets, the same episodes under the

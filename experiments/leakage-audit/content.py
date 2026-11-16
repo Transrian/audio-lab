@@ -16,11 +16,10 @@ under the data directory):
    ``REUPLOAD_RATIO`` and different group ids — the same speech under two
    different ids, inside or across training sets.
 
-Method: the same 6-word text shingles as the 2026-11-15 leak audits
-(lowercase, NFKD, ``[a-z0-9]+`` words), and for the triage of a pair the
-word-recall method of those audits' ``twins`` script: for each evaluation clip,
-the fraction of its words that also occur in the text of the time-overlapping
-training clips of the paired group.
+Method: 6-word text shingles per group (lowercase, NFKD, ``[a-z0-9]+``
+words), and for the triage of a pair a word-recall check: for each evaluation
+clip, the fraction of its words that also occur in the text of the
+time-overlapping training clips of the paired group.
 
 The evaluation sets are the datasets that have panel files in
 ``configs/panels/`` (the registry has no "kind" field), minus ``nonspeech`` and
@@ -137,9 +136,8 @@ def word_recall(
 ) -> tuple[float | None, int, int]:
     """Mean word recall of the evaluation clips' words in the overlapping train clips.
 
-    Method of the 2026-11-15 leak audits' ``twins`` script: an evaluation clip
-    is counted when its time span overlaps a training clip of the paired group;
-    its recall is the fraction of its words (``[a-z0-9]+`` words) that also
+    An evaluation clip is counted when its time span overlaps a training clip
+    of the paired group; its recall is the fraction of its words (``[a-z0-9]+`` words) that also
     occur in the text of the time-overlapping training clips. Returns
     ``(mean, clips counted, clips with recall >= 0.7)``, or ``(None, 0, 0)``
     when no clip carries a start time on both sides (no talk).
@@ -173,8 +171,8 @@ def _match_samples(
 
     Timing-independent: unlike the time-overlapping samples, these surface
     the shared speech even when it was replayed at a different absolute time
-    (a compilation replaying an episode), which is the case an advisor must
-    judge. Returns ``(eval text, train text, shared words)`` tuples.
+    (a compilation replaying an episode), the case to judge on the shared
+    text itself. Returns ``(eval text, train text, shared words)`` tuples.
     """
     train_words = [(i, set(words(c[2]))) for i, c in enumerate(train_clips)]
     scored: list[tuple[int, int, int, str, str]] = []
@@ -235,7 +233,9 @@ class Finding:
 
     @property
     def verdict(self) -> str:
-        """The category of the pair under OD-1 / OD-11 (see the README)."""
+        """The category of the pair: the same speech (a re-upload, a
+        republication or a replay) is a leak; a shared talk host, or the same
+        text read by another corpus speaker, is not (see the README)."""
         eval_kind = _KINDS.get(self.pair.left, "")
         if self.pair.same_group:
             if eval_kind == "speaker":
@@ -246,8 +246,8 @@ class Finding:
                 return "same recording (shared audio sha256)"
             return "same text, other reader (different speaker, no shared audio)"
         if eval_kind != "recording":
-            # Not a talk group and not a corpus speaker id: outside the four
-            # OD-1 categories, no automatic verdict.
+            # Not a talk group and not a corpus speaker id: the same-speech
+            # and other-reader rules do not apply, no automatic verdict.
             return "ADVISOR (not a talk, not a corpus speaker id)"
         if self.ratio >= TRAIN_MIN_RATIO:
             return "same recording (ratio >= 30 %)"
