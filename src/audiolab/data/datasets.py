@@ -197,8 +197,8 @@ DATASETS: dict[str, DatasetInfo] = {
         "prompted sentences of 12 speakers, a single transcript per part. The two "
         "parts name their CA16 speakers in two id formats over one shared "
         "numbering, and the train fetcher leaves out the train speaker whose "
-        "number is a test speaker's (decision 0002). See the African-accented "
-        "cards in docs/stt/datasets.md.",
+        "number is a test speaker's. See the African-accented cards in "
+        "docs/stt/datasets.md.",
         cache_name="african-accented-fr-train",
     ),
     "pxcorpus-fr-train": DatasetInfo(

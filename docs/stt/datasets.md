@@ -1409,7 +1409,7 @@ measures, trained on the same clips.
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
-- **The shared speaker** (decision 0002): the preparation leaves the 3 clips
+- **The shared speaker**: the preparation leaves the 3 clips
   of the CA16 speaker `012` out of the train part, because its number is the
   test part's `cameroon_m_012`'s — the two parts name the CA16 speakers in two
   formats over one shared numbering, and the test part's card records the
