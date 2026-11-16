@@ -31,7 +31,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
 | `nonspeech-music` | none | PD or CC-BY per file, see below | 10 s excerpts of instrumental files | 261 | 39 | 0.7 | 80 MiB |
 | `peertube-edu-captions-fr` | fr | CC-BY or CC0-1.0, per video | listing (the 140 talks with a human caption track) | 4 367 | 113 | 9.9 | 1.1 GiB |
-| `peertube-edu-captions-fr-v2` | fr | CC-BY or CC0-1.0, per video | listing (the same talks, caption text decoded) | to be measured | 126 | to be measured | to be measured |
+| `peertube-edu-captions-fr-v2` | fr | CC-BY or CC0-1.0, per video | listing (the same talks, caption text decoded) | to be measured | 126–127 | to be measured | to be measured |
 
 `fr (en)` means French is the language the model is told and that the normalizer
 applies, while every clip of the set also holds English words: those are the two
@@ -607,15 +607,19 @@ Three kinds of clip that must stay silent, 300 in total:
   their talk; the 2 077 in between hold a character the base model cannot
   write, and the cause is the caption text itself: the ministry's WebVTT
   files write their spaces as `&nbsp;`, and the parser read the entity as six
-  literal characters — 10 973 `&nbsp;` in the 17 affected talks, plus 23
-  `&amp;`, 7 `&lt;` and 3 `&gt;` — all unwritable, while the decoded text is
-  plain spaces. Once decoded, 1 792 of the 2 077 (86 %) pass the filter, and
-  13 of the 17 talks lost every one of their clips to the bug, including
-  technical talks; the second preparation,
+  literal characters — 10 973 `&nbsp;` in the text of the gate-passing
+  candidates (12 776 in the files), in the 17 talks whose files hold it; the
+  other entities touch 23 of the prepared talks in all (23 `&amp;`, 7
+  `&lt;` and 3 `&gt;` in the same candidates) — all unwritable, while the
+  decoded text is plain spaces. Once decoded, 1 792 of the 2 077 (86 %) pass
+  the filter (1 867 of the 2 077 hold a `&`), and 13 of the 17 `&nbsp;`
+  talks lost every one of their clips to the bug, including technical talks; the second preparation,
   [`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded),
   decodes the text and is built for them. The 285 that stay unwritten do so
-  for a real character outside the model's vocabulary (`_`, `+`, `=`, `^`,
-  `*`, `×`, `°`, `²` or `#`, e.g. "C++98"). The filter is the training
+  for a real character outside the model's vocabulary — the main ones `_`,
+  `+`, `=`, `^`, `*`, `×`, `°`, `²` and `#` (e.g. "C++98"), plus the `&`,
+  `<` and `>` the entities name, `ﬀ` and a few sub- or superscripts. The
+  filter is the training
   vocabulary filter the fetcher applies to every set, and it is disclosed as
   what it is: it selects references by a property of the model under test
   (its tokenizer), and in a set of classroom talks it removes exactly the
@@ -623,6 +627,8 @@ Three kinds of clip that must stay silent, 300 in total:
   clips; the set's card says so too. Separately, 408 of the 2 269
   entity-bearing candidate clips failed the WER gate itself, where the
   literal `&nbsp;` tokens inflate the distance between caption and hearing.
+  The 0.35 was set for this set without the separate threshold review its
+  design had asked for; the decoded set inherits it unreviewed.
 - **Group**: the video's uuid (`group_kind: recording`): the clips of one talk
   share its teacher, its room and its jargon. `category` is `tech` when the
   talk's title matches the keyword list in the fetcher — 240 clips of 6 talks
@@ -671,11 +677,11 @@ Three kinds of clip that must stay silent, 300 in total:
 - **License**: the video's license from the listing, CC-BY or CC0-1.0, as in
   the first set; every kept clip here is CC-BY, as there.
 - **What it recovers**: the first set's gate let 17 967 clips through and the
-  training-vocabulary filter then dropped 2 077 of them as unwritable — 1 792
-  of the 2 077 (86 %) only because of the undecoded `&nbsp;`, and 13 of the
-  17 talks the entities touch lost every one of their clips there, including
-  technical talks. This set decodes the text, so those clips pass and the 13
-  talks are back.
+  training-vocabulary filter then dropped 2 077 of them as unwritable —
+  1 867 of the 2 077 hold a `&`, and 1 792 (86 %) only because of the
+  undecoded `&nbsp;` — and 13 of the 17 talks whose caption files hold
+  `&nbsp;` lost every one of their clips there, including technical talks.
+  This set decodes the text, so those clips pass and the 13 talks are back.
 - **Audio**: to be measured when the set is prepared. 139 eligible talks (the
   140 usable minus the one the training set holds); the 12 that yielded no
   clip in the first set — 11 whose timestamp lines carry cue settings the
@@ -689,33 +695,46 @@ Three kinds of clip that must stay silent, 300 in total:
   clips ending at a sentence where the cues allow, never crossing a gap
   longer than 1 s, cased and punctuated (`text_has_casing_punct: true`). The
   references are written by people, as there. The clip boundaries move for
-  the affected talks — a decoded space is one character, `&nbsp;` is six — so
-  the set is not a superset of the first set's clips and its scores are not
-  comparable to the first set's clip for clip.
-- **The gate is the first set's, kept without the separate review its design
-  had asked for**: the same 0.35 normalized WER of Whisper large-v3,
-  recomputed against the decoded caption. The first set's design had asked
-  that this set's threshold be reviewed on its own before use; that review
-  was not held, so the first set's value stands here on the first set's
-  evidence — stated, not hidden. The recomputation is real: 408 of the
-  entity-bearing candidate clips failed the first set's gate with the literal
-  `&nbsp;` tokens in the distance, and the decoded comparison re-asks them. A
-  dry run over the prepared cache (`dry_run_unescaped` in the fetcher, no
-  request and no write) counts what a preparation would have to ask before it
-  asks: on the prepared cache, 20 616 clips over the 139 talks, of which 702
-  have no cached answer.
+  the affected talks, because a trailing `&nbsp;` after the last punctuation
+  hid the sentence end: a clip ends at a sentence once it is long enough, and
+  a cue ending in "….&nbsp;" does not end a sentence in the raw text, until
+  decoded and stripped — in one talk the cues that end a sentence go from 2
+  to 741, the cue count unchanged (1 955) — so the set is not a superset of
+  the first set's clips and its scores are not comparable to the first set's
+  clip for clip.
+- **The gate is the first set's, inherited unreviewed**: the same 0.35
+  normalized WER of Whisper large-v3, recomputed against the decoded caption.
+  The first set set that value without the separate threshold review its
+  design asked for, and this set inherits it unreviewed — the design's review
+  never happened, for either set; stated, not hidden. The recomputation is
+  real: 408 of the entity-bearing candidate clips failed the first set's gate
+  with the literal `&nbsp;` tokens in the distance; the decoded comparison
+  re-scores them from the cached answers, and only clips whose boundaries
+  moved are asked. A dry run over the prepared cache (`dry_run_unescaped` in
+  the fetcher, no request and no write) counts what a preparation would have
+  to ask before it asks: on the prepared cache, 20 616 clips over the 139
+  talks, of which 702 have no cached answer.
 - **The training-vocabulary filter applies to this set too, and is disclosed
   as what it is**: the fetcher drops every clip holding a character the base
   model cannot write, after the decoding as well as before. Of the first
-  set's gate-passing candidates, 285 are unwritable even decoded — `_`, `+`,
-  `=`, `^`, `*`, `×`, `°`, `²` or `#`, e.g. "C++98" — and their counterparts
-  in this set are dropped for the same reason. The filter selects references
+  set's gate-passing candidates, 285 are unwritable even decoded — the main
+  characters `_`, `+`, `=`, `^`, `*`, `×`, `°`, `²` and `#` (e.g. "C++98"),
+  plus the `&`, `<` and `>` the entities name, `ﬀ` and a few sub- or
+  superscripts — and their counterparts in this set are dropped for the same
+  reason. The filter selects references
   by a property of the model under test (its tokenizer), and in a set of
   classroom talks it removes exactly the technical content; that is what this
   set's references are, with that character left out.
 - **Group**: the video's uuid (`group_kind: recording`), as in the first set;
   `category` is `tech` by the same title keywords, and the share grows with
   the 13 recovered talks — to be measured.
+- **Panels**: built after the preparation, from the first set's committed
+  panels (decision 0002 keeps the first set's talks sealed): every clip of a
+  talk the first set sealed goes to this set's sealed panel, and the talks
+  new here take the usual sealed share, drawn over the new talks alone; the
+  remaining talks hold the full and fast panels of the usual rule. The panels
+  are built from, and checked against, the first set's; their sizes are to be
+  measured.
 - **No overlap with the training set** (decision 0002): the one talk the
   training set holds is left out, as in the first set, and the talk training
   preparations leave both sets' talks out of every preparation they make.
