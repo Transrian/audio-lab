@@ -194,11 +194,11 @@ DATASETS: dict[str, DatasetInfo] = {
         "the corpus's apostrophe spacing removed",
         grouping="speaker (group = directory of the recordings)",
         notes="The test part of the corpus african-accented-fr-train trains on: 515 "
-        "prompted sentences of 12 speakers, a single transcript per part. Its speakers "
-        "do not overlap the train part's (checked against the prepared train manifest "
-        "at preparation, a speaker in both is dropped, more than 10 % overlapping "
-        "stops). dev and devtest stay untouched as a reserve for a later campaign. "
-        "The train fetcher leaves its groups out (decision 0002).",
+        "prompted sentences of 12 speakers, a single transcript per part. The two "
+        "parts name their CA16 speakers in two id formats over one shared "
+        "numbering, and the train fetcher leaves out the train speaker whose "
+        "number is a test speaker's (decision 0002). See the African-accented "
+        "cards in docs/stt/datasets.md.",
         cache_name="african-accented-fr-train",
     ),
     "pxcorpus-fr-train": DatasetInfo(
