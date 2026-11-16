@@ -5,8 +5,8 @@ French speakers of African accents: prompted sentences, answers and short
 conversations. The corpus is one 1.7 GiB tar archive holding the four parts it
 publishes (``train``, ``dev``, ``devtest``, ``test``) with their transcripts;
 the train part and the test part are prepared here, and ``dev`` and ``devtest``
-stay untouched as a reserve for a later campaign. The whole archive has to be
-downloaded either way, because the corpus publishes no smaller unit.
+are not read. The whole archive has to be downloaded either way, because the
+corpus publishes no smaller unit.
 
 Three transcript files describe the train part, one per recording style, and
 they name their files in three ways: a bare name, a name with ``.tdf`` and an
@@ -32,6 +32,7 @@ it writes, and putting them back would take another model. The card in
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
@@ -60,8 +61,12 @@ TRANSCRIPTS = (
 )
 # The evaluation part. The corpus publishes one transcript file for it, the
 # prompted sentences of its CA16 speakers, and one recording directory per
-# speaker. Its speakers are disjoint from the train part's, and the preparation
-# checks that against the prepared train manifest before writing a clip.
+# speaker. The two parts name the CA16 speakers in two formats over one shared
+# numbering: the train part's directory is the bare number (``012``) and the
+# test part's is ``<country>_<m|f>_<number>`` (``cameroon_m_012``). The test
+# preparation checks its speakers, compared as the ids are written, against
+# the prepared train manifest before writing a clip; the train preparation is
+# the one that acts on the mapped match.
 TEST_SPLIT = "test"
 TEST_SPEECH = f"{ROOT}/speech/{TEST_SPLIT}"
 TEST_TRANSCRIPTS = (f"{ROOT}/transcripts/{TEST_SPLIT}/ca16/prompts.txt",)
@@ -76,12 +81,73 @@ SUFFIXES = (".wav", ".tdf")
 # between two letters, which is what an elision looks like; an apostrophe that
 # quotes something is left alone. All 5 697 apostrophes of the train transcripts
 # join under this rule, so nothing of the corpus's own text is left untouched.
+# The CA16 speaker formats of the two parts, one shared numbering: the train
+# part's directory is the bare number, the test part's directory is
+# ``<country>_<m|f>_<number>``. Every other id — the Yaoundé part's
+# ``ctell1-01`` and its recording numbers, a two-digit ``12`` — has no CA16
+# number: a trailing number of such an id is not one.
+CA16_TRAIN_SPEAKER = re.compile(r"\d{3}\Z")
+CA16_TEST_SPEAKER = re.compile(r"[a-z]+_[mf]_(\d{3})\Z")
 APOSTROPHE_SPACING = re.compile(r"(?<=[^\W\d_]) *' *(?=[^\W\d_])")
 # A line holding this offers the speaker two answers ("c' est lui / elle", "un
 # / une"): the recording is one of them, the transcript does not say which, so
 # the line is not a label that matches its audio.
 PROMPT_MARKER = " / "
 WHITESPACE_RUN = re.compile(r"\s+")
+
+
+def ca16_speaker_number(speaker_id: str) -> str | None:
+    """The shared CA16 number of an SLR57 speaker id in either part's format.
+
+    The two parts name the same CA16 speaker in two formats, ``ca16_speaker_number("012")``
+    and ``ca16_speaker_number("cameroon_m_012")`` are both ``"012"``. An id
+    outside the two formats returns ``None`` and is compared as it is: the
+    Yaoundé part's ``ctell1-01`` carries no CA16 number (a trailing number of
+    such an id is not one), nor do a two-digit ``12``, a four-digit ``0123``,
+    an uppercase country or a gender letter other than ``m`` and ``f``.
+    """
+    test = CA16_TEST_SPEAKER.fullmatch(speaker_id)
+    if test is not None:
+        return test.group(1)
+    if CA16_TRAIN_SPEAKER.fullmatch(speaker_id):
+        return speaker_id
+    return None
+
+
+def same_ca16_speaker(train_id: str, test_id: str) -> bool:
+    """Whether a train speaker and a test speaker are the same CA16 speaker.
+
+    The ids agree when they are equal as strings, or when both carry a CA16
+    number and the numbers are equal: ``same_ca16_speaker("012",
+    "cameroon_m_012")`` is True. An id without a number agrees only with
+    itself, so ``same_ca16_speaker("ctell1-01", "chad_m_001")`` is False,
+    although the first id ends in a number.
+    """
+    if train_id == test_id:
+        return True
+    number = ca16_speaker_number(train_id)
+    return number is not None and number == ca16_speaker_number(test_id)
+
+
+def excluded_train_speakers(test_speakers: Iterable[str]) -> dict[str, str]:
+    """The train-side speaker ids a train preparation leaves out, and why.
+
+    ``test_speakers`` are the groups of the prepared test part, in that part's
+    own format. Every test id is left out as it is — the comparison the id
+    check has always made — and a test id that carries a CA16 number also
+    leaves out the train speaker of that bare number, because the two parts
+    name the same CA16 speaker in the two formats (``cameroon_m_012`` and
+    ``012``). The function reads nothing but its arguments, so the fetcher
+    that applies the rule and the measurement of what a prepared train set
+    would hold use the same one.
+    """
+    left_out: dict[str, str] = {}
+    for speaker in test_speakers:
+        left_out[speaker] = "a test speaker"
+        number = ca16_speaker_number(speaker)
+        if number is not None and number != speaker:
+            left_out[number] = f"the CA16 speaker of test speaker {speaker}"
+    return left_out
 
 
 def fetch_african_accented_fr_test(
@@ -94,7 +160,10 @@ def fetch_african_accented_fr_test(
     against the prepared train manifest, because the two parts of one corpus
     must not share a voice; a speaker the train set already holds is dropped
     from the test set, and more than a tenth of the test speakers overlapping is
-    a stop, not a cleanup. The reference text is the corpus's own: casing and
+    a stop, not a cleanup. The check compares the ids as they are written: the
+    two parts name a shared CA16 speaker in two formats, and it is the train
+    preparation — the other way round — that acts on that match. The reference
+    text is the corpus's own: casing and
     punctuation are kept, and only the apostrophe spacing and the whitespace
     runs are cleaned, exactly as the train text is.
     """
@@ -201,9 +270,14 @@ def fetch_african_accented_fr_train(
             license=LICENSE,
             text_has_casing_punct=False,
             # The test part of the same corpus is an evaluation set (decision
-            # 0002): its speakers are never trained on, so the train fetcher
-            # leaves out every group it holds.
-            excluded=evaluation_groups("african-accented-fr-test"),
+            # 0002): its speakers are never trained on. The two parts name the
+            # CA16 speakers in two formats (``012`` and ``cameroon_m_012``), so
+            # the exclusion holds every train-side id the test speakers map to:
+            # a train speaker whose id — or whose CA16 number — is a test
+            # speaker's is left out.
+            excluded=frozenset(
+                excluded_train_speakers(evaluation_groups("african-accented-fr-test"))
+            ),
             cap=TRAIN_CLIP_CAP,
             cap_per_group=CLIP_CAP_PER_GROUP,
         )
