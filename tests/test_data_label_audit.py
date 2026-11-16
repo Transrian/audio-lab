@@ -165,6 +165,17 @@ def test_a_non_default_row_carries_its_request_and_the_flag(tmp_path):
     assert read_answer(path, **no_language) == "asked without the language"
 
 
+def test_a_request_that_sends_differently_is_asked_again(tmp_path):
+    """The request is compared as the client sends it, field by field:
+    ``{t: 0}`` sends ``"0"`` and ``{t: false}`` sends ``"False"`` — different
+    requests, so the second is asked again, though Python calls the dicts equal."""
+    path = tmp_path / "answer.json"
+    zero = dict(KEY, request={"t": 0})
+    write_answer(path, text="asked with zero", **zero)
+    assert read_answer(path, **zero) == "asked with zero"
+    assert read_answer(path, **dict(KEY, request={"t": False})) is None
+
+
 def test_a_text_field_that_is_not_text_is_no_answer(tmp_path):
     path = tmp_path / "answer.json"
     row = {**KEY, "text": 42}
@@ -348,6 +359,35 @@ def test_transcribe_asks_again_when_the_model_config_changes_the_key(
             )
     asked = _run_transcribe(tmp_path, monkeypatch, cache, changed=changed)
     assert len(asked) == 4  # two models, two clips: nothing from the old key was read
+    # The fresh answers were written under the changed key, not the default's:
+    # the default read (the relabel fetcher's key) does not get them back.
+    base = {model: model_config(model) for model in (SEGMENT_MODEL, LABEL_MODEL)}
+    for clip in _small_source(tmp_path / "data"):
+        for model in (SEGMENT_MODEL, LABEL_MODEL):
+            path = answer_path(cache, model, clip.id)
+            row = json.loads(path.read_text(encoding="utf-8"))
+            assert row["request"] == changed.get("request", base[model].request)
+            assert row.get("send_language", True) == changed.get(
+                "send_language", base[model].send_language
+            )
+            assert (
+                read_answer(
+                    path,
+                    model=model,
+                    language="en",
+                    audio_sha256=clip.sha256,
+                    request={},
+                    send_language=True,
+                )
+                is None
+            )
+    # And the score side reads the fresh answers back under the changed key:
+    # a load that read the default key would find nothing and refuse.
+    rows = audit.load_answers("nasa-en-train", audit.AUDITS["nasa-en-train"], tmp_path / "data")
+    assert [(row["whisper"], row["qwen"]) for row in rows] == [
+        ("a fresh transcript", "a fresh transcript"),
+        ("a fresh transcript", "a fresh transcript"),
+    ]
 
 
 # --- the scoring: the agreement rule on synthetic rows ----------------------

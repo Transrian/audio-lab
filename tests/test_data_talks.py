@@ -1286,3 +1286,38 @@ def test_a_peertube_preparation_takes_its_classes_over_the_three_listings(
     )
     out = capsys.readouterr().out
     assert "1 talks of this listing are left out: 1 duplicate of an evaluation talk" in out
+
+
+def test_model_config_merges_the_caller_request_over_the_config(tmp_path, monkeypatch):
+    """model_config is the effective request every request carries — the config's
+    ``request`` with the caller's fields on top, and its ``send_language`` —
+    and the client is built from it, so what a caller asks is what the
+    answer cache keys on."""
+    configs = tmp_path / "configs"
+    configs.mkdir()
+    (configs / "qwen3-asr-1.7b-vllm.yaml").write_text(
+        "name: qwen3-asr-1.7b-vllm\n"
+        "api: transcriptions\n"
+        "base_url_env: TALKS_TEST_BASE_URL\n"
+        "model: stt-v-qwen3-asr-1.7B\n"
+        "send_language: false\n"
+        "request:\n"
+        "  temperature: 0\n"
+        "  response_format: json\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(talks, "MODEL_CONFIGS", configs)
+    config = talks.model_config(QWEN)
+    assert config.request == {"temperature": 0, "response_format": "json"}
+    assert config.send_language is False
+    extra = {"response_format": "verbose_json"}
+    merged = talks.model_config(QWEN, extra)
+    assert merged.request == {"temperature": 0, "response_format": "verbose_json"}
+    # The client carries the same merged config: the cache's key and the
+    # request the client sends come from the same words.
+    monkeypatch.setenv("TALKS_TEST_BASE_URL", "https://stt.test")
+    client_ = talks.client(QWEN, extra)
+    try:
+        assert client_.config == merged
+    finally:
+        client_.close()
