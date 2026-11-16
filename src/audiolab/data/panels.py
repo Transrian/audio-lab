@@ -21,6 +21,7 @@ import hashlib
 import random
 import re
 from collections import Counter, defaultdict
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -28,6 +29,7 @@ from pathlib import Path
 import yaml
 
 from audiolab.core.paths import data_dir
+from audiolab.data.duplicates import duplicate_classes, peertube_talks
 from audiolab.data.store import (
     Clip,
     manifest_id_sha256,
@@ -188,6 +190,36 @@ def _group_of(clip_id: str, dataset: str) -> str:
 # reads the source's panel files from the same directory.
 PRESERVED_SEALING: dict[str, str] = {
     "peertube-edu-captions-fr-v2": "peertube-edu-captions-fr",
+}
+
+# The source's talks that are in no panel of a preserved-sealing dataset.
+# Each pinned talk sits in a duplicate class the source's frozen panels
+# split — one re-upload in the source's sealed panel, its twin scored in the
+# source's full panel (and fast) — so a panel of the second set holding a
+# member of such a class would score a copy of the content the source sealed.
+# The class is left unpanelled instead: its clips stay in the set's manifest,
+# just not scored. The ids are the source's panel ids. They are pinned, not
+# recomputed at panel time: the committed duplicate list can grow, and a
+# frozen panel must not move — the test that recomputes the pin from the
+# source's committed panels and the list catches a growth that would change
+# it, before it reaches a check mid-campaign.
+UNPANELLED_TALKS: dict[str, frozenset[str]] = {
+    "peertube-edu-captions-fr-v2": frozenset(
+        {
+            "peertube-edu-captions-fr:356e6226-8533-4dcc-a5b7-283bd9977b9e",
+            "peertube-edu-captions-fr:8f7ea0f1-6409-4d91-baf3-37e3e765754c",
+            "peertube-edu-captions-fr:eb320545-c0b9-488a-a22e-14529aa261e1",
+            "peertube-edu-captions-fr:93f73849-da48-4619-94fa-3d59f75af988",
+        }
+    ),
+}
+
+# The corpus a preserved-sealing dataset's talks are classed over, for the
+# refusal of a talk new in the dataset that shares a duplicate class with a
+# source talk. The corpus is the source's pinned listings, read from the
+# committed files, so the refusal is expressible from the repository alone.
+PRESERVED_SEALING_CORPUS: dict[str, Callable[[], list[dict]]] = {
+    "peertube-edu-captions-fr-v2": peertube_talks,
 }
 
 
@@ -391,7 +423,12 @@ def _talk_of_panel_id(clip_id: str) -> str:
 
 
 def select_panels_preserved_sealing(
-    dataset: str, source: str, clips: list[Clip], seed: int, panels_dir: Path
+    dataset: str,
+    source: str,
+    clips: list[Clip],
+    seed: int,
+    panels_dir: Path,
+    corpus: Iterable[Mapping | object] | None = None,
 ) -> dict[str, list[str]]:
     """The panels of a dataset that keeps the talks its source sealed sealed.
 
@@ -416,6 +453,23 @@ def select_panels_preserved_sealing(
     silent "every talk is new" would unseal the whole source: a clip whose id
     names a different talk than its group, and a dataset whose talks share
     none with the source's panels, are refused rather than drawn over.
+
+    The talks pinned in :data:`UNPANELLED_TALKS` are in no panel of the
+    dataset: the source's frozen panels split their duplicate classes — one
+    member sealed, the other scored — so a panel of the dataset holding a
+    member of one of those classes would score a copy of the source's sealed
+    content. The class is left unpanelled, its clips staying in the dataset's
+    manifest, and the draw proceeds exactly as above over the remaining
+    talks.
+
+    A talk new in the dataset may not share a duplicate class with a source
+    talk, or the draw would place the source's sealed content — or a scored
+    copy of it — in a panel here. The build and the check refuse it, naming
+    both talks. The classes are the corpus the dataset is classed over, the
+    ``corpus`` given or :data:`PRESERVED_SEALING_CORPUS`'s for the dataset:
+    the source's pinned listings, read from the committed files. A new talk
+    the corpus does not name holds no class and is drawn like any other new
+    talk.
     """
     talks: set[str] = set()
     for clip in clips:
@@ -444,10 +498,40 @@ def select_panels_preserved_sealing(
             f"{len(source_talks)}; the two sets share no talk, and the rule would "
             "treat every talk as new and unseal the source, so it refuses"
         )
-    new = [talk for talk in sorted(talks) if talk not in source_talks]
+    # The pinned unpanelled talks are source talks by construction; a pin the
+    # source's panels no longer name is a changed source, refused rather than
+    # drawn over.
+    unpanelled = {clip_id.partition(":")[2] for clip_id in UNPANELLED_TALKS.get(dataset, ())}
+    stale = unpanelled - source_talks
+    if stale:
+        raise ValueError(
+            f"{dataset} pins {min(stale)!r} as unpanelled, but the {source} panels name "
+            "no talk with that id: the pin is stale"
+        )
+    panelled = talks - unpanelled
+    new = [talk for talk in sorted(panelled) if talk not in source_talks]
+    if corpus is None:
+        corpus_loader = PRESERVED_SEALING_CORPUS.get(dataset)
+        corpus = corpus_loader() if corpus_loader is not None else None
+    if corpus is not None:
+        classes = duplicate_classes(corpus)
+        by_class: dict[str, set[str]] = {}
+        for talk_id, class_id in classes.items():
+            by_class.setdefault(class_id, set()).add(talk_id)
+        for talk in new:
+            class_id = classes.get(talk)
+            if class_id is None:
+                continue  # a new talk the corpus does not name holds no class
+            mates = sorted(by_class[class_id] & source_talks)
+            if mates:
+                raise ValueError(
+                    f"{dataset} talk {talk!r} shares its duplicate class with the {source} "
+                    f"talk {mates[0]!r}: a talk new in the dataset may not share a "
+                    "duplicate class with a source talk, so it is refused"
+                )
     sealed_new = _take(new, _sealed_group_count(len(new)), seed) if new else []
-    sealed = {talk for talk in (source_sealed | set(sealed_new)) if talk in talks}
-    remaining = [talk for talk in sorted(talks) if talk not in sealed]
+    sealed = {talk for talk in (source_sealed | set(sealed_new)) if talk in panelled}
+    remaining = [talk for talk in sorted(panelled) if talk not in sealed]
     members_by_talk: dict[str, list[str]] = {}
     for clip in sorted(clips, key=lambda clip: clip.id):
         members_by_talk.setdefault(clip.group.partition(":")[2], []).append(clip.id)
