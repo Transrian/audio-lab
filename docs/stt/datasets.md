@@ -806,7 +806,16 @@ Three kinds of clip that must stay silent, 300 in total:
   panels (decision 0002 keeps the first set's talks sealed): every clip of a
   talk the first set sealed goes to this set's sealed panel, and the talks
   new here take the usual sealed share, drawn over the new talks alone; the
-  remaining talks hold the full and fast panels of the usual rule. The panels
+  remaining talks hold the full and fast panels of the usual rule. The two
+  duplicate classes the first set's frozen panels split — one re-upload
+  sealed there, its twin scored in full and fast, recorded on
+  [the first set's card](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  — are in no panel of this set: their four talks stay in the manifest, just
+  not scored, and the panels are drawn over the talks left. A talk new in
+  this set that shares a duplicate class with a talk of the first set is
+  refused, at the panel build and the check, naming both talks; the four
+  talks are pinned in a committed constant the panels are checked against, so
+  the rule does not drift as the committed duplicate list grows. The panels
   are built from, and checked against, the first set's; their sizes are to be
   measured.
 - **No overlap with the training set** (decision 0002): the one talk the
