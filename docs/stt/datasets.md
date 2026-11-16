@@ -1069,7 +1069,8 @@ measures, trained on the same clips.
   — 524 of the 1 012. The pool is never rebuilt: a rebuild would change the
   babble of the frozen panels and make the noisy sets impossible to prepare
   again byte-identically. The rule is on the training side instead: a new
-  training run containing a babble utterance is refused.
+  training run containing a babble utterance is refused (the training-time
+  refusal is tracked as [C-01](../backlog.md)).
 - **Why it is here**: the register closest to the target use, read audiobook
   French, with enough volume for a cap — and the source the earlier project
   measured as harmful in a mix ([sources.md](sources.md#used--trained-on-here)),
@@ -1116,8 +1117,8 @@ measures, trained on the same clips.
   and this source relabels the very audio — so every preparation leaves out
   the babble utterances committed in `src/audiolab/data/babble_utterances.json`
   beside `src/audiolab/data/noisy.py`: a training set must not train on what a
-  frozen panel mixes under it. Of the prepared sets below, 447 clips are such
-  babble: the sets on disk were prepared before the rule and still hold them,
+  frozen panel mixes under it. Each of the prepared sets below holds 447 such
+  clips: the sets on disk were prepared before the rule and still hold them,
   a preparation from this code leaves none of them in.
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   librispeech-pc-en-train --clips 40000`, prepared into
@@ -1467,7 +1468,8 @@ measures, trained on the same clips.
   — 488 of the 1 012. The pool is never rebuilt: a rebuild would change the
   babble of the frozen panels and make the noisy sets impossible to prepare
   again byte-identically. The rule is on the training side instead: a new
-  training run containing a babble utterance is refused, and every
+  training run containing a babble utterance is refused (the training-time
+  refusal is tracked as [C-01](../backlog.md)), and every
   `librispeech-pc-en-train*` preparation leaves the 488 out of its clips.
 - **Why it is here**: the English arm of the screening — the same register as
   `mls-fr-train` in the other language, and the corpus the English evaluation
