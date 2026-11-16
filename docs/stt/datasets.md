@@ -1118,7 +1118,7 @@ screening is a difference between corpora and not between recipes:
 | dataset | language | license | split | clips | groups | hours | prepared | downloaded |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `granary-fr-train` | fr | audio CC-BY-3.0, labels CC-BY-4.0 | asr_only | 12 000 | 2 725 | 8.3 | 0.9 GiB | 1.8 GiB |
-| `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 229 | 29.0 | 3.1 GiB | 8.6 GiB |
+| `voxpopuli-fr-train` | fr | CC0-1.0 (data only) | train | 12 000 | 224 | 29.0 | 3.1 GiB | 11.5 GiB |
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
 | `african-accented-fr-train` | fr | Apache-2.0 | train | 11 424 | 189 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
@@ -1234,11 +1234,16 @@ measures, trained on the same clips.
 - **Source**: `facebook/voxpopuli`, config `fr`, `train-*.parquet`.
 - **License**: CC0-1.0 for the data (the corpus's code and models are not used).
 - **Text**: the `raw_text` field, which is the human-edited transcript with casing
-  and punctuation (the corpus also publishes an unpunctuated `text`, not used).
-  The corpus marks its rows as gold or not; all 15 646 rows read were gold, and 562
-  of them had no text, so they were passed over.
-- **Group**: the speaker (`group_kind: speaker`), 229 of them. VoxPopuli does
-  not name the reader of 2 130 rows of this split (13 % of the rows read): its
+  and punctuation (the corpus also publishes an unpunctuated `text`, not used);
+  a prepared label is what the rule of `plain_label` in
+  `src/audiolab/data/train.py` writes of that text. The corpus marks its rows as
+  gold or not; all rows read were gold, and 548 of them had no text, so
+  they were passed over.
+- **Group**: the speaker (`group_kind: speaker`), 224 of them in the set
+  re-prepared 2026-11-16 — the 229 of the set of 2026-11-08, minus the readers
+  188254, 194391, 202352, 96776 and 96864, whose clips all sat in the shared
+  sessions. VoxPopuli does
+  not name the reader of 2 588 of the 21 611 rows read (12 %): its
   `speaker_id` column holds the string `None` for them. A clip whose reader is
   unknown can neither be resampled by reader nor checked against an evaluation
   set, so those rows are left out and counted rather than kept under one made-up
@@ -1247,11 +1252,33 @@ measures, trained on the same clips.
   register from the audiobooks and the read Wikipedia sentences, and a source the
   earlier project trained on.
 - **What it costs**: 29.0 h for 12 000 clips; the shards are large (about 3.0 GiB
-  each), so a cap of 12 000 clips reads three of the thirteen — 8.6 GiB of Parquet.
+  each), so a cap of 12 000 clips reads four of the thirteen (the fourth
+  partway) — 11.5 GiB of Parquet.
+- **Shared sessions** (decision 0014, option 2): the `voxpopuli-en-nonnative`
+  evaluation set was recorded in 307 plenary sessions, and the prepared sets of
+  this split record many of the same sittings — same rooms, same microphones.
+  A train clip of one of those sittings would teach the acoustics the
+  evaluation measures, so every preparation leaves out the clips of the
+  evaluation set's sessions; the sessions are the committed pin
+  `src/audiolab/data/voxpopuli_eval_sessions.json`, not a re-read of the
+  evaluation manifest. The set of 2026-11-08 held 1 956 of them (4.7 h, in 206
+  of the 307 sessions, and every clip of the five readers its group lost) and
+  is kept as
+  `voxpopuli-fr-train.pre-leakfix-2026-11-15`. The re-preparation of 2026-11-16
+  holds none: the 1 956 left the set and 1 973 replacement clips fill the cap —
+  1 706 read further into the split, 267 earlier rows of 12 readers whose
+  200-clip share the left-out clips freed. Beyond the session rule, 17 more
+  rows the set of 2026-11-08 held are left out — 21 of its clips carry a
+  character the base model cannot write (°, ´, ğ, ş, ⁰, ǎ), the other 4 of
+  them in the shared sessions, and a preparation from this code refuses them
+  all — and 18 of its kept clips stay in both sets with their label rewritten
+  by the same rule (an em dash).
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   voxpopuli-fr-train --clips 40000`, prepared into
-  `$AUDIOLAB_DATA/voxpopuli-fr-train-40k`; the 12 000-clip set above is
-  unchanged, and its 229 speakers are all in the larger set. It reads all
+  `$AUDIOLAB_DATA/voxpopuli-fr-train-40k`; the 12 000-clip set above was
+  re-prepared 2026-11-16 (the bullet above), and its 224 speakers are all in
+  the larger set, which still holds 4 815 clips of the shared sessions (219 of
+  the 307). It reads all
   thirteen shards (64 760 rows; three already cached, ten downloaded) and the
   split runs out below the cap: **26 973 clips, 65.9 h, 230 speakers**,
   median 8.2 s, data CC0-1.0. What runs it out: 29 482 rows beyond the
