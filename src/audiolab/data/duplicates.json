@@ -1,0 +1,127 @@
+[
+  {
+    "domain": "peertube",
+    "ids": ["a2c7bd63-5409-45e9-9bea-c35e9bad296f", "cf513c6d-1402-408b-a15c-d247a0d7369b"],
+    "reason": "evaluation talk (peertube-edu-captions-fr) re-uploaded in peertube-tech-fr-train-40k; 457 of 701 six-word shingles shared (65.2 %), word recall 0.93 over 39 time-overlapping clips (36 >= 0.7), 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["20f11958-7303-4a08-b7fe-1e048b9953f2", "73b9957a-0d0a-4fd7-abd5-b4f55c10eab4"],
+    "reason": "evaluation talk (peertube-edu-captions-fr) re-uploaded in peertube-edu-fr-train-40k; 236 of 666 six-word shingles shared (35.4 %), word recall 0.81 over 29 time-overlapping clips (23 >= 0.7), 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["bc3ba643-8fc7-40a5-acb8-c4cc2ea4ea7e", "d8fdaf19-821c-4c70-b015-1b3a337644bf"],
+    "reason": "evaluation talk (peertube-edu-captions-fr) re-uploaded in peertube-edu-fr-train-40k; 222 of 415 six-word shingles shared (53.5 %), word recall 0.84 over 28 time-overlapping clips (22 >= 0.7), 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["44325ad5-0d50-4972-a43c-549905099051", "66095949-c54c-493b-bd63-81e6bd0d7078"],
+    "reason": "same talk re-uploaded under two ids; 3486 six-word shingles shared (79.6 % of the smaller group) in peertube-fr-train and peertube-fr-train-40k, 3452 (78.8 %) in peertube-tech-fr-train-40k; 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["34f516bd-a9da-4fa0-9f97-90328b53dba8", "bf9efe74-eb35-4a4f-aba5-ab107e27b502"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2718 six-word shingles shared (99.8 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["34f516bd-a9da-4fa0-9f97-90328b53dba8", "84ab639d-d42f-4e73-8c50-6eb839cdb7f0"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2713 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["84ab639d-d42f-4e73-8c50-6eb839cdb7f0", "bf9efe74-eb35-4a4f-aba5-ab107e27b502"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2713 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["2ec2b543-4e0d-4874-9bba-86ca396b5ece", "34f516bd-a9da-4fa0-9f97-90328b53dba8"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2710 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["34f516bd-a9da-4fa0-9f97-90328b53dba8", "93e66cac-71e3-4f66-8117-ef41f51c8118"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2714 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["93e66cac-71e3-4f66-8117-ef41f51c8118", "bf9efe74-eb35-4a4f-aba5-ab107e27b502"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2714 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["2ec2b543-4e0d-4874-9bba-86ca396b5ece", "bf9efe74-eb35-4a4f-aba5-ab107e27b502"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2708 six-word shingles shared (99.7 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["84ab639d-d42f-4e73-8c50-6eb839cdb7f0", "93e66cac-71e3-4f66-8117-ef41f51c8118"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2709 six-word shingles shared (99.6 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["2ec2b543-4e0d-4874-9bba-86ca396b5ece", "93e66cac-71e3-4f66-8117-ef41f51c8118"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2704 six-word shingles shared (99.5 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["2ec2b543-4e0d-4874-9bba-86ca396b5ece", "84ab639d-d42f-4e73-8c50-6eb839cdb7f0"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2703 six-word shingles shared (99.5 %), 80 of 80 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["b01320a7-171b-4b80-83ff-b27f31441fac", "c18d134b-339e-4c8a-9f03-b6d0453eba1f"],
+    "reason": "same talk re-uploaded under two ids; 6300 six-word shingles shared (99.3 %) in peertube-tech-fr-train-40k, 6313 (99.5 %) across peertube-edu-fr-train/-40k and peertube-tech-fr-train-40k; 199 of 200 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["63de5bbe-bb5e-4ba7-9aba-d4d5156b1205", "a7505a5a-c688-4314-bb62-7c89d03b8d22"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 5524 six-word shingles shared (98.9 %), 193 of 198 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["387fd740-325d-43f8-acee-c69c2c444dc7", "a82408f0-c4ba-4cb1-925b-fdf3eb8a4320"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 5498 six-word shingles shared (98.1 %), 197 of 200 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["5a253074-efd8-4419-8fad-849b50dbfd54", "8c6a5663-c280-42eb-ad1b-6cdda59785db"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 2487 six-word shingles shared (98.5 % of the smaller group, 200 vs 63 clips), 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["32ad669f-8a2c-4e23-b115-ea0e96afa4d3", "a7ab93ec-7e91-45f1-9840-d921752bff9f"],
+    "reason": "same talk re-uploaded under two ids in peertube-tech-fr-train-40k; 1348 six-word shingles shared (88.7 %), 63 clips each, 0 shared audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["3c7d05f8-3d53-42c5-94b9-eb1963ca56c1", "dc288dd9-394e-4c91-895c-fdf7fdbab3a9"],
+    "reason": "same talk re-uploaded under two ids in peertube-edu-fr-train-40k; 1374 six-word shingles shared (99.6 %), 51 of 51 clips with identical audio sha256"
+  },
+  {
+    "domain": "peertube",
+    "ids": ["74e20e3e-f291-4608-bd1a-4f7d153d7e32", "145c9f60-1b9e-4ce8-ad25-db6105d1d407"],
+    "reason": "same talk re-uploaded under two ids; 3177 six-word shingles shared (99.7 %), 134 of 134 clips with identical audio sha256; ids in peertube-edu-fr-train and peertube-edu-fr-train-40k"
+  },
+  {
+    "domain": "nasa",
+    "ids": ["terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics", "terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics-2"],
+    "reason": "same interview, re-released episode; 284 of 702 six-word shingles shared (40.5 %) in nasa-en-train and nasa-en-train-30k, 232 (33.0 %) in nasa-en-train-qwen; 0 shared audio sha256"
+  },
+  {
+    "domain": "nasa",
+    "ids": ["introducing-nasas-curious-universe-season-two", "crew-1-the-astronauts"],
+    "reason": "the 'introducing' episode replays 'crew-1-the-astronauts'; 75 of 94 six-word shingles shared (79.8 %) in nasa-en-train-qwen, 66 of 93 (71.0 %) in nasa-en-train; 0 shared audio sha256"
+  },
+  {
+    "domain": "nasa",
+    "ids": ["2017-end-of-year-podcast", "natalie-batalha-talks-about-hunting-exoplanets-with-the-kepler-space-telescope"],
+    "reason": "the 2017 end-of-year compilation (nasa-en-test) replays segments of this conversation verbatim; content audit: 137 of 666 six-word shingles shared (20.6 %)"
+  },
+  {
+    "domain": "nasa",
+    "ids": ["2017-end-of-year-podcast", "three-cassini-scientists-give-a-fond-farewell-to-the-mission"],
+    "reason": "the 2017 end-of-year compilation (nasa-en-test) replays segments of this conversation verbatim; content audit: 60 of 666 six-word shingles shared (9.0 %)"
+  }
+]
