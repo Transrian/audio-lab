@@ -1122,7 +1122,7 @@ screening is a difference between corpora and not between recipes:
 | `mls-fr-train` | fr | CC-BY-4.0 | train | 12 000 | 138 | 49.8 | 5.3 GiB | 8.6 GiB |
 | `african-accented-fr-train` | fr | Apache-2.0 | train | 11 424 | 189 | 13.5 | 1.5 GiB | 1.7 GiB |
 | `librispeech-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 108 | 42.9 | 4.6 GiB | 6.0 GiB |
-| `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 119 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
+| `librispeech-pc-en-train` | en | CC-BY-4.0 | train-clean-100 | 12 000 | 123 | 42.8 | 4.6 GiB | 25 MiB, plus the 6.0 GiB archive of `librispeech-en-train` on a machine that does not have it yet |
 | `pxcorpus-fr-train` | fr | CC-BY-4.0 | recordings | 1 912 | 54 | 3.7 | 0.4 GiB | 0.4 GiB |
 | `ami-fr-speakers-en-train` | en | CC-BY-4.0 | manual | 3 971 | 20 | 4.3 | 0.5 GiB | 2.5 GiB |
 | `icsi-en-train` | en | CC-BY-4.0 | mrt | 8 746 | 52 | 7.7 | 0.8 GiB | 4.0 GiB of signals, and 13 GiB of decoded WAV stays in the cache |
@@ -1325,13 +1325,15 @@ measures, trained on the same clips.
   of the split's 26 041 rows (0.55 %); the preparation leaves those utterances
   out of the first rows too, because a dictation model should not learn to write
   a heading in capitals. The text is what the restorer wrote, not what the reader
-  read: 6 160 of the 12 000 prepared clips begin with a lowercase word, in the
+  read: 6 157 of the 12 000 prepared clips begin with a lowercase word, in the
   middle of a sentence. None of them holds a double quote — the raw transcription
   quotes speech in 29 % of the split's rows and the restoration dropped the marks
-  — so 4.6 % of the prepared clips carry a quotation mark as a lone apostrophe
-  (`'tis`, `'We sound every chord ...`), and 5.1 % of the split's rows do.
-- **Group**: the speaker (`group_kind: speaker`), 119 of them in the prepared
-  clips.
+  — so 4.4 % of the prepared clips hold an apostrophe that is not between two
+  letters — mostly a quotation mark written as a lone apostrophe (`'tis`,
+  `'We sound every chord ...`) — and 5.1 % of the split's rows do.
+- **Group**: the speaker (`group_kind: speaker`), 123 of them in the set
+  prepared 2026-11-16 (the 119 of the set of 2026-11-08, plus the readers
+  1841, 1963, 254 and 3526 that only the replacement clips below reach).
 - **Why it is here**: it is the English arm of the screening with the text the
   other sources lack — and the reason not to expect gains from it. The base
   model very likely trained on this audio with this text: NeMo's ASR Set 3.0
@@ -1340,21 +1342,29 @@ measures, trained on the same clips.
   its value in the screening is to test whether mixing in English this way costs
   French, unlike `librispeech-en-train`, whose uppercase text moved every French
   panel by 7 to 52 points.
-- **What a cap covers**: the cap was reached after 13 315 rows: 1 243 without
-  restored text and 72 with a heading were dropped on the way. Same per-group
-  share as `librispeech-en-train`.
+- **What a cap covers**: the cap was reached after 13 810 rows of the
+  preparation of 2026-11-16: 1 288 without restored text, 72 with a heading and
+  450 babble utterances were dropped on the way — the 447 babble clips of the
+  2026-11-08 set plus 3 heading rows that preparation had already left out. The
+  preparation of 2026-11-08 read 13 315 rows and dropped 1 243 and 72; it held
+  the 447 babble clips it reached, so the re-preparation reads 495 rows further
+  to fill the cap. Same per-group share as `librispeech-en-train`.
 - **Babble exclusion**: this audio is the babble of the noisy evaluation sets —
   `noisy-fleurs-en` mixes four speakers at a time from `librispeech-en-train`,
   and this source relabels the very audio — so every preparation leaves out
   the babble utterances committed in `src/audiolab/data/babble_utterances.json`
   beside `src/audiolab/data/noisy.py`: a training set must not train on what a
-  frozen panel mixes under it. Each of the prepared sets below holds 447 such
-  clips: the sets on disk were prepared before the rule and still hold them,
-  a preparation from this code leaves none of them in.
+  frozen panel mixes under it. All 447 of the split's babble clips fall in its
+  first rows: the set of 2026-11-08 held them and is kept as
+  `librispeech-pc-en-train.pre-leakfix-2026-11-15`; the preparation of
+  2026-11-16 holds none of them — the 447 left the set and 447 clips read
+  further into the split fill the cap — and the larger set prepared 2026-11-13
+  still holds the same 447. A preparation from this code leaves none of them
+  in.
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   librispeech-pc-en-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/librispeech-pc-en-train-40k`; the 12 000-clip set above is
-  unchanged, and its 119 speakers are all in the larger set. Nothing was
+  unchanged, and its 123 speakers are all in the larger set. Nothing was
   downloaded (the shared SLR12 audio archive and the 25 MiB of manifests were
   already in the cache) and no model was called. The split runs out below the
   cap: it holds 28 539 utterances, of which 2 498 have no restored text and
