@@ -97,12 +97,12 @@
   {
     "domain": "peertube",
     "ids": ["3c7d05f8-3d53-42c5-94b9-eb1963ca56c1", "dc288dd9-394e-4c91-895c-fdf7fdbab3a9"],
-    "reason": "same talk re-uploaded under two ids in peertube-edu-fr-train-40k; 1374 six-word shingles shared (99.6 %), 51 of 51 clips with identical audio sha256"
+    "reason": "same talk re-uploaded under two ids in peertube-edu-fr-train-40k; 1374 six-word shingles shared (99.6 %), all 51 clips of 3c7d05f8 (51 of 52 of dc288dd9) with identical audio sha256"
   },
   {
     "domain": "peertube",
     "ids": ["74e20e3e-f291-4608-bd1a-4f7d153d7e32", "145c9f60-1b9e-4ce8-ad25-db6105d1d407"],
-    "reason": "same talk re-uploaded under two ids; 3177 six-word shingles shared (99.7 %), 134 of 134 clips with identical audio sha256; ids in peertube-edu-fr-train and peertube-edu-fr-train-40k"
+    "reason": "same talk re-uploaded under two ids; 3177 six-word shingles shared (99.7 %), all 134 clips of 145c9f60 (134 of 136 of 74e20e3e) with identical audio sha256; ids in peertube-edu-fr-train and peertube-edu-fr-train-40k"
   },
   {
     "domain": "nasa",
