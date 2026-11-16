@@ -440,8 +440,11 @@ def fake_african_french_cache(
             "/mnt/corpora/Yaounde/read/wavs/16000/ctell1-01/ctell1-01-0003.wav"
             " etes-vous sûr que c' est lui / elle \n",
         ),
-        f"{root}/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav": tone,
-        f"{root}/speech/train/ca16/113/afc-gabon_16.06.11_002_conv_0023.wav": tone,
+        # The train part names the CA16 speaker the test part calls
+        # ``cameroon_m_012`` simply ``012``: one of the two is enough to make
+        # the overlap check bite on real-shaped ids.
+        f"{root}/speech/train/ca16/012/afc-gabon_16.06.15_048_read_0344.wav": tone,
+        f"{root}/speech/train/ca16/012/afc-gabon_16.06.11_002_conv_0023.wav": tone,
         f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0002.wav": tone,
         f"{root}/speech/train/yaounde/read/ctell1-01/ctell1-01-0003.wav": tone,
         f"{root}/speech/train/yaounde/answers/ctell1-01/ctell1-01-0004.wav": tone,
@@ -460,7 +463,7 @@ def test_african_french_removes_only_a_known_extension_from_a_recording_name():
     """``afc-gabon_16.06.15_048_read_0344`` has dots a generic stem would cut."""
     assert (
         african_french._key(
-            "African_Accented_French/speech/train/ca16/113/afc-gabon_16.06.15_048_read_0344.wav"
+            "African_Accented_French/speech/train/ca16/012/afc-gabon_16.06.15_048_read_0344.wav"
         )
         == "afc-gabon_16.06.15_048_read_0344"
     )
@@ -493,7 +496,7 @@ def test_african_french_reads_the_three_transcript_forms_and_the_train_part(dirs
     # The corpus writes a space after the apostrophe; the model learns it and
     # the scorer counts two words, so the training text is cleaned.
     assert ca16.text == "d'accord mais je ne connais pas"
-    assert ca16.group == "african-accented-fr-train:113"
+    assert ca16.group == "african-accented-fr-train:012"
     assert ca16.group_kind == "speaker"
     assert ca16.source_split == "train"
     assert ca16.license == "Apache-2.0"
@@ -557,6 +560,63 @@ def test_african_french_joins_an_apostrophe_only_after_a_letter():
     assert african_french.training_text("d'accord, aujourd'hui") == "d'accord, aujourd'hui"
 
 
+def test_african_french_ca16_speaker_number_maps_only_the_two_part_formats():
+    """The shared numbering is read from the two CA16 formats and nowhere else."""
+    assert african_french.ca16_speaker_number("012") == "012"
+    assert african_french.ca16_speaker_number("cameroon_m_012") == "012"
+    assert african_french.ca16_speaker_number("gabon_f_024") == "024"
+    assert african_french.ca16_speaker_number("chad_m_001") == "001"
+    # A trailing number of another id is not a speaker number.
+    assert african_french.ca16_speaker_number("ctell1-01") is None
+    assert african_french.ca16_speaker_number("12") is None
+    assert african_french.ca16_speaker_number("0123") is None
+    # The formats are exact: lowercase country, gender m or f, three digits.
+    assert african_french.ca16_speaker_number("Cameroon_m_012") is None
+    assert african_french.ca16_speaker_number("cameroon_x_012") is None
+    assert african_french.ca16_speaker_number("") is None
+
+
+def test_african_french_same_ca16_speaker_detects_the_shared_speaker():
+    """A train id and a test id are one speaker when the CA16 numbers agree."""
+    assert african_french.same_ca16_speaker("012", "cameroon_m_012")
+    assert african_french.same_ca16_speaker("cameroon_m_012", "012")
+    # The formats agree with themselves, the way the id check always worked.
+    assert african_french.same_ca16_speaker("004", "004")
+    assert african_french.same_ca16_speaker("gabon_f_026", "gabon_f_026")
+    assert not african_french.same_ca16_speaker("012", "gabon_f_024")
+    assert not african_french.same_ca16_speaker("113", "cameroon_m_006")
+    # The trap: a trailing number of a non-CA16 id matches nothing.
+    assert not african_french.same_ca16_speaker("ctell1-01", "chad_m_001")
+    assert not african_french.same_ca16_speaker("12", "chad_m_001")
+
+
+def test_african_french_excluded_train_speakers_holds_both_formats():
+    """The train-side exclusion: every test id as it is, plus the CA16 number it carries."""
+    test_speakers = (
+        "cameroon_m_006",
+        "cameroon_m_012",
+        "cameroon_m_099",
+        "chad_m_001",
+        "congo_m_013",
+        "gabon_f_024",
+        "gabon_f_026",
+        "gabon_m_003",
+        "gabon_m_058",
+        "gabon_m_060",
+        "gabon_m_072",
+        "gabon_m_074",
+    )
+    left_out = african_french.excluded_train_speakers(test_speakers)
+    # The shared speaker's train id is in, with its reason; an unrelated
+    # train speaker is not.
+    assert left_out["012"] == "the CA16 speaker of test speaker cameroon_m_012"
+    assert left_out["cameroon_m_012"] == "a test speaker"
+    assert "113" not in left_out
+    assert "ctell1-01" not in left_out
+    # An id without a CA16 number contributes only itself.
+    assert african_french.excluded_train_speakers(["ctell1-01"]) == {"ctell1-01": "a test speaker"}
+
+
 def test_african_french_stops_at_the_cap(dirs, monkeypatch):
     data, cache = dirs
     fake_african_french_cache(cache)
@@ -581,11 +641,11 @@ def test_african_french_refuses_a_transcript_line_without_text(dirs):
 def fake_african_french_test_cache(cache: Path) -> None:
     """The test part of SLR57: one transcript, one directory per speaker.
 
-    Eleven speakers with a transcript between them and ``cameroon_m_006`` as the
-    one a test may put in the prepared train manifest: a single overlap of
-    eleven is under the tenth that makes the preparation stop. ``gabon_f_024``
-    holds a recording with no transcript line and a ``devtest`` member is in the
-    archive to prove it is not read.
+    Eleven recordings of ten speakers in the part's own id format
+    (``<country>_<m|f>_<number>``), ``cameroon_m_012`` among them: the same
+    CA16 speaker the train part names ``012``, in the format the test part
+    writes. ``gabon_f_024`` holds a recording with no transcript line and a
+    ``devtest`` member is in the archive to prove it is not read.
     """
     directory = cache / "african-accented-fr-train"
     tone = write_tone(directory / "tone.wav", seconds=2.0)
@@ -594,7 +654,7 @@ def fake_african_french_test_cache(cache: Path) -> None:
         "gabon_f_026",
         "gabon_f_026",
         "gabon_m_060",
-        "cameroon_m_006",
+        "cameroon_m_012",
         "gabon_m_003",
         "gabon_m_058",
         "gabon_f_024",
@@ -624,30 +684,34 @@ def fake_african_french_test_cache(cache: Path) -> None:
     make_archive(directory / "African_Accented_French.tar.gz", members)
 
 
-def test_african_french_test_reads_only_the_test_part_and_drops_an_overlap(dirs, monkeypatch):
-    """The test part is prepared in full; a train speaker in it is dropped."""
+def test_african_french_test_part_is_unchanged_by_the_train_speaker(dirs, monkeypatch):
+    """The test part keeps every clip when the train set holds the same speaker in the train format.
+
+    The two parts name the same CA16 speaker in two formats, ``012`` in the
+    train part and ``cameroon_m_012`` in this one. The test fetcher compares
+    the ids as they are written, so it keeps ``cameroon_m_012``: the match acts
+    on the train side, and a re-preparation of the test part holds all of it —
+    its frozen panels reproduce.
+    """
     data, cache = dirs
     fake_african_french_test_cache(cache)
     monkeypatch.setattr(african_french, "TEST_EXPECTED_CLIPS", 11, raising=True)
     write_manifest(
         data / "african-accented-fr-train",
-        [
-            make_clip("african-accented-fr-train:113", group="african-accented-fr-train:113"),
-            make_clip(
-                "african-accented-fr-train:cameroon_m_006",
-                group="african-accented-fr-train:cameroon_m_006",
-            ),
-        ],
+        [make_clip("african-accented-fr-train:012", group="african-accented-fr-train:012")],
     )
 
     count = african_french.fetch_african_accented_fr_test(
         "african-accented-fr-test", cache, data / "african-accented-fr-test", verbose=False
     )
     clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-test")}
-    assert count == 10
-    # The overlapping speaker is out; the recording without a transcript is out;
-    # the devtest member of the archive is not read.
-    assert "african-accented-fr-test:cameroon_m_006_004" not in clips
+    # The shared speaker is detected, and kept on the test side.
+    assert african_french.same_ca16_speaker("012", "cameroon_m_012")
+    assert count == 11
+    shared = clips["african-accented-fr-test:cameroon_m_012_004"]
+    assert shared.group == "african-accented-fr-test:cameroon_m_012"
+    # The recording without a transcript is out; the devtest member of the
+    # archive is not read.
     assert "african-accented-fr-test:gabon_f_024_999" not in clips
     assert "african-accented-fr-test:004_001" not in clips
     first = clips["african-accented-fr-test:gabon_f_026_001"]
@@ -659,6 +723,36 @@ def test_african_french_test_reads_only_the_test_part_and_drops_an_overlap(dirs,
     assert first.source_split == "test"
     assert first.license == "Apache-2.0"
     assert first.category == "read"
+
+
+def test_african_french_test_drops_a_speaker_it_finds_verbatim_in_the_train_manifest(
+    dirs, monkeypatch
+):
+    """The test fetcher compares ids as they are: a verbatim train group is dropped.
+
+    A single such speaker of ten is under the tenth that stops the preparation,
+    so the part is prepared with that speaker's one recording missing.
+    """
+    data, cache = dirs
+    fake_african_french_test_cache(cache)
+    monkeypatch.setattr(african_french, "TEST_EXPECTED_CLIPS", 11, raising=True)
+    write_manifest(
+        data / "african-accented-fr-train",
+        [
+            make_clip(
+                "african-accented-fr-train:cameroon_m_012",
+                group="african-accented-fr-train:cameroon_m_012",
+            ),
+        ],
+    )
+
+    count = african_french.fetch_african_accented_fr_test(
+        "african-accented-fr-test", cache, data / "african-accented-fr-test", verbose=False
+    )
+    clips = {clip.id: clip for clip in read_manifest(data / "african-accented-fr-test")}
+    # Only the verbatim speaker's recording is missing.
+    assert count == 10
+    assert "african-accented-fr-test:cameroon_m_012_004" not in clips
 
 
 def test_african_french_test_stops_when_most_speakers_overlap(dirs, monkeypatch):
@@ -676,7 +770,7 @@ def test_african_french_test_stops_when_most_speakers_overlap(dirs, monkeypatch)
             for speaker in (
                 "gabon_f_026",
                 "gabon_m_060",
-                "cameroon_m_006",
+                "cameroon_m_012",
                 "gabon_m_003",
                 "gabon_m_058",
                 "gabon_f_024",
@@ -693,19 +787,44 @@ def test_african_french_test_stops_when_most_speakers_overlap(dirs, monkeypatch)
         )
 
 
-def test_african_french_train_leaves_out_the_test_speakers(dirs):
-    """The train fetcher takes its exclusions from the prepared test manifest."""
+def test_african_french_train_leaves_out_the_ca16_speaker_the_test_part_holds(dirs):
+    """The train fetcher leaves out a train speaker whose number is a test speaker's.
+
+    The prepared test part names the shared speaker ``cameroon_m_012`` and the
+    train part names it ``012``: the exclusion maps the two formats, so a
+    preparation leaves ``012``'s clips out and keeps the Yaoundé part, whose
+    ids carry no CA16 number. The 11 other test numbers have no train speaker.
+    """
     data, cache = dirs
     fake_african_french_cache(cache)
     write_manifest(
         data / "african-accented-fr-test",
-        [make_clip("african-accented-fr-test:113", group="african-accented-fr-test:113")],
+        [
+            make_clip(
+                f"african-accented-fr-test:{speaker}",
+                group=f"african-accented-fr-test:{speaker}",
+            )
+            for speaker in (
+                "cameroon_m_006",
+                "cameroon_m_012",
+                "cameroon_m_099",
+                "chad_m_001",
+                "congo_m_013",
+                "gabon_f_024",
+                "gabon_f_026",
+                "gabon_m_003",
+                "gabon_m_058",
+                "gabon_m_060",
+                "gabon_m_072",
+                "gabon_m_074",
+            )
+        ],
     )
 
     count = african_french.fetch_african_accented_fr_train(
         "african-accented-fr-train", cache, data / "african-accented-fr-train", verbose=False
     )
-    # Both ca16 rows of speaker 113 are out; the yaoundé rows stand.
+    # Both ca16 rows of the shared speaker 012 are out; the yaoundé rows stand.
     assert count == 1
     assert {clip.id for clip in read_manifest(data / "african-accented-fr-train")} == {
         "african-accented-fr-train:ctell1-01-0002",
