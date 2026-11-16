@@ -16,8 +16,8 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fleurs-fr` | fr | CC-BY-4.0 | test | 676 | 332 | 2.0 | 217 MiB |
 | `fleurs-en` | en | CC-BY-4.0 | test | 647 | 350 | 1.8 | 197 MiB |
-| `mls-fr` | fr | CC-BY-4.0 | test | 2426 | 18 | 10.1 | 1.1 GiB |
-| `librispeech-en` | en | CC-BY-4.0 | test-clean | 2620 | 40 | 5.4 | 601 MiB |
+| `mls-fr` | fr | CC-BY-4.0 | test | 2 426 | 18 | 10.1 | 1.1 GiB |
+| `librispeech-en` | en | CC-BY-4.0 | test-clean | 2 620 | 40 | 5.4 | 601 MiB |
 | `nonspeech` | none | see below | esc50 + generated | 300 | 300 | 0.6 | 63 MiB |
 | `voxpopuli-en-nonnative` | en | CC0-1.0 | `en_accented` test, accent `en_fr` | 737 | 27 | 2.4 | 259 MiB |
 | `servicenow-codeswitched-en-fr` | fr (en) | no license: evaluation only | test | 298 | 298 | 0.6 | 70 MiB |
@@ -25,8 +25,8 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `cs-fleurs-fr-en` | fr (en) | CC-BY-NC-4.0 | read/test + xtts/test1 | 983 | 332 | 2.9 | 319 MiB |
 | `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
 | `notsofar-en-eval` | en | CC-BY-4.0 | 240825.1_eval_full_with_GT | 20 454 | 12 | 16.7 | 1.9 GiB |
-| `nasa-en-test` | en | public domain (US government work) | listing (60 reserved episodes) | 1505 | 60 | 4.3 | 479 MiB |
-| `nasa-en-test-v2` | en | public domain (US government work) | listing (reserved episodes, one re-released episode out) | 1 479 | 59 | 4.2 | < 1 MiB (the audio is hard links to `nasa-en-test`'s files) |
+| `nasa-en-test` | en | public domain (US government work) | listing (60 reserved episodes) | 1 505 | 60 | 4.3 | 479 MiB |
+| `nasa-en-test-v2` | en | public domain (US government work) | listing (reserved episodes, one re-released episode out) | 1 479 | 59 | 4.2 | 1.4 MiB (the manifest; the audio is hard links to `nasa-en-test`'s files) |
 | `noisy-fleurs-fr` | fr | CC-BY-4.0 + material, per clip | derived: the source's panels | 676 | 332 | 2.0 | 214 MiB |
 | `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
@@ -571,8 +571,9 @@ Three kinds of clip that must stay silent, 300 in total:
   show's recording conditions are sampled by 15 of its episodes.
 - **The re-released episode**: its sealed panel scores 26 clips of
   `terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics`,
-  whose re-release under another slug is in every `nasa-en-train` preparation —
-  clips a model is scored on that are trained on. The set without that episode
+  whose re-release under another slug was in every `nasa-en-train` preparation
+  made before the duplicate-class rule — speech a model is scored on that it
+  was trained on. The set without that episode
   is [`nasa-en-test-v2`](#nasa-en-test-v2--the-same-set-without-the-re-released-episode):
   future sealed scoring uses `nasa-en-test-v2-sealed`, and this set's panels
   and the suites that name them stay as they are.
@@ -584,21 +585,24 @@ Three kinds of clip that must stay silent, 300 in total:
   nothing is downloaded. The preparation reads the prepared `nasa-en-test`
   manifest and links its WAV files into the set
   (`fetch_nasa_en_test_v2` in `src/audiolab/data/nasa.py`): a clip's audio is
-  the source's file itself, a hard link, so it is never re-encoded and the
+  a hard link to the source's file (only a filesystem that refuses the link
+  gets a byte copy, counted and reported), never a re-encode, and the
   source's files are never opened for writing. The set will be prepared with
   `audiolab data fetch nasa-en-test-v2`, and its panels built and checked with
   `audiolab data panels` at that preparation; the numbers below are by
   construction over the frozen `nasa-en-test` manifest and panels.
 - **Why it exists**: one of the set's episodes,
   `terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics`,
-  was re-released by NASA under another slug, and the re-release is in every
-  preparation of `nasa-en-train` — 26 of its clips are training data while the
-  set scores them in its sealed panel. A clip a model is scored on may not be
-  trained on, so a re-released test episode whose duplicate is in a training
-  set leaves the sealed panel. The other duplicate class of the source's
-  episodes does not: the compilation `2017-end-of-year-podcast` replays
-  training episodes, and those episodes were left out of the training sets
-  instead (the duplicate-class rule of
+  was re-released by NASA under another slug, and the re-release was in every
+  preparation of `nasa-en-train` made before the duplicate-class rule — the
+  conversation behind its 26 sealed clips is training data (the re-release's
+  own clips: 41 in `nasa-en-train` and `nasa-en-train-qwen`, 46 in
+  `nasa-en-train-30k`). A clip a model is scored on may not be trained on, so
+  a re-released test episode whose duplicate is in a training set leaves the
+  sealed panel. The other duplicate class of the source's episodes does not:
+  the compilation `2017-end-of-year-podcast` replays training episodes, and
+  those episodes leave the training preparations instead (the duplicate-class
+  rule of
   [No overlap with the evaluation sets](#no-overlap-with-the-evaluation-sets)),
   so the compilation stays in the test set.
 - **License**: public domain (US government work), as the source's.
@@ -619,9 +623,13 @@ Three kinds of clip that must stay silent, 300 in total:
 - **Known limits**: the set is a subtraction from a frozen set, not a re-draw —
   the fast and full panels are the source's and the sealed one is the source's
   minus 26 clips, so a number scored on it differs from `nasa-en-test` only in
-  that; and the re-release's speech is still in the prepared `nasa-en-train`
-  sets until their rebuild excludes it, so the exclusion is complete only once
-  the training side is rebuilt with the duplicate-class rule.
+  that. The set still shares speech with the prepared training sets on one
+  side: the episodes the compilation `2017-end-of-year-podcast` replays (13 of
+  the full panel's clips and 2 of the fast panel's are the compilation's) are
+  still in the `nasa-en-train` sets prepared before the duplicate-class rule,
+  so the full and fast numbers of a model trained on those preparations still
+  score speech it was trained on; the sealed panel holds no clip of either
+  duplicate class.
 
 ## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
 
