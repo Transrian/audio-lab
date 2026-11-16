@@ -40,6 +40,7 @@ from audiolab.data import (  # noqa: E402
     librispeech,
     librispeech_pc,
     mls,
+    noisy,
     notsofar,
     pxcorpus,
     voxpopuli_train,
@@ -1087,11 +1088,13 @@ def test_librispeech_pc_takes_the_cased_text_and_leaves_out_a_heading(dirs, monk
     fake_librispeech_pc_cache(cache)
     monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
     monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+    # This test is about the text rules; the babble exclusion has its own.
+    monkeypatch.setattr(noisy, "load_babble_utterances", lambda path=None: {})
 
     count = librispeech_pc.fetch_librispeech_pc_en_train(
         "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
     )
-    # The third utterance of the archive (103-1240-0001, 108-1254-0001,
+    # The second utterance of the archive (103-1240-0001, 108-1254-0001,
     # 108-1254-0002) is the one whose text is a heading.
     assert count == 2
 
@@ -1108,6 +1111,105 @@ def test_librispeech_pc_takes_the_cased_text_and_leaves_out_a_heading(dirs, monk
     assert first.source_split == "train-clean-100"
     assert first.license == "CC-BY-4.0"
     assert clips["librispeech-pc-en-train:108-1254-0002"].text == "The MR JONES report is ready."
+
+
+def test_librispeech_pc_excludes_a_babble_utterance(dirs, monkeypatch):
+    """The babble of a noisy set is this audio relabelled: a preparation leaves it out."""
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+    monkeypatch.setattr(
+        noisy, "load_babble_utterances", lambda path=None: {"noisy-fleurs-en": ["103-1240-0001"]}
+    )
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+
+    # The babble utterance and the heading utterance are left out.
+    assert count == 1
+    assert {clip.id for clip in read_manifest(data / "librispeech-pc-en-train")} == {
+        "librispeech-pc-en-train:108-1254-0002"
+    }
+
+
+def test_librispeech_pc_excludes_the_committed_babble_by_default(dirs, monkeypatch):
+    """Without any override the fetcher reads the committed list: its babble is excluded."""
+    data, cache = dirs
+    # A real utterance of the committed list, in the id's own archive path.
+    babble_id = next(u for u in noisy.babble_union(noisy.load_babble_utterances()) if "_" not in u)
+    speaker, chapter, _number = babble_id.split("-")
+    assert babble_id == "-".join((speaker, chapter, _number))
+    path = f"{speaker}/{chapter}/{babble_id}"
+    rows = [
+        _manifest_row(path, "Hello, world. It is a test."),
+        # A chapter title in capitals: three all-caps words in a row.
+        _manifest_row("108/1254/108-1254-0001", "THE LONG ROAD She walked home."),
+        # Two in a row are not a heading.
+        _manifest_row("108/1254/108-1254-0002", "The MR JONES report is ready."),
+    ]
+    # The audio is the archive librispeech-en-train downloads: the same members,
+    # the babble utterance in the place of the first one.
+    tone = write_tone(cache / "librispeech-en-train" / "tone.flac", seconds=4.0)
+    members = {}
+    for member_path in (path, "108/1254/108-1254-0001", "108/1254/108-1254-0002"):
+        utterance = member_path.rsplit("/", 1)[-1]
+        members[f"LibriSpeech/train-clean-100/{member_path}.flac"] = tone
+        members[f"LibriSpeech/train-clean-100/{member_path}.trans.txt"] = _text_file(
+            cache / "librispeech-en-train", f"{utterance}.trans.txt", f"{utterance} A TEXT\n"
+        )
+    make_archive(cache / "librispeech-en-train" / "train-clean-100.tar.gz", members)
+    texts = cache / "librispeech-pc-en-train" / "train-clean-100.json"
+    texts.parent.mkdir(parents=True, exist_ok=True)
+    texts.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    make_archive(
+        cache / "librispeech-pc-en-train" / "manifests.tar.gz",
+        {"train-clean-100.json": texts},
+    )
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+
+    count = librispeech_pc.fetch_librispeech_pc_en_train(
+        "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+    )
+
+    # The committed list excludes the babble utterance, the heading leaves out
+    # the second: one clip stands.
+    assert count == 1
+    assert {clip.id for clip in read_manifest(data / "librispeech-pc-en-train")} == {
+        "librispeech-pc-en-train:108-1254-0002"
+    }
+
+
+def test_librispeech_pc_refuses_to_prepare_without_the_babble_pin(dirs, monkeypatch):
+    """A missing pin is refused, not read as an empty exclusion."""
+    data, cache = dirs
+    fake_librispeech_pc_cache(cache)
+    monkeypatch.setattr(librispeech_pc, "PINNED_SHA256", {}, raising=True)
+    monkeypatch.setattr(librispeech_pc, "PINNED_AUDIO_SHA256", "", raising=True)
+    monkeypatch.setattr(noisy, "BABBLE_FILE", data / "not-here.json")
+
+    with pytest.raises(ValueError, match="unreadable babble list"):
+        librispeech_pc.fetch_librispeech_pc_en_train(
+            "librispeech-pc-en-train", cache, data / "librispeech-pc-en-train", verbose=False
+        )
+
+
+def test_babble_exclusions_is_the_pure_babble_rule():
+    babble = {
+        "noisy-fleurs-en": ["103-1240-0001"],
+        "noisy-fleurs-fr": ["9121_8878_000347"],
+    }
+    excluded = librispeech_pc.babble_exclusions(
+        ["103-1240-0001", "103-1240-0002", "9121_8878_000347", "108-1254-0001"], babble
+    )
+    # The French pool's ids are in the list too: one rule, both pools.
+    assert excluded == {
+        "103-1240-0001": librispeech_pc.BABBLE_REASON,
+        "9121_8878_000347": librispeech_pc.BABBLE_REASON,
+    }
+    assert librispeech_pc.babble_exclusions(["103-1240-0002", "108-1254-0001"], {}) == {}
 
 
 def test_librispeech_pc_stops_at_the_cap(dirs, monkeypatch):

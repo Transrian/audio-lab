@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -247,3 +248,216 @@ def test_derived_panels_refuse_a_missing_source_and_an_overwrite(tmp_path):
     build_panels(derived, derived_clips, panels_dir=tmp_path)
     with pytest.raises(FileExistsError):
         build_panels(derived, derived_clips, panels_dir=tmp_path)
+
+
+# --- the committed babble list -------------------------------------------------
+
+
+def _pin_file(tmp_path, data):
+    """A pin file in the shape of the committed babble list."""
+    path = tmp_path / "babble_utterances.json"
+    path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    return path
+
+
+def _pin(**lists):
+    return {"note": "a test pin", **lists}
+
+
+def test_the_committed_babble_list_is_the_babble_of_the_noisy_sets():
+    """The committed file reads back, and holds the babble of the prepared noisy sets."""
+    babble = noisy.load_babble_utterances()
+    assert set(babble) == set(noisy.NOISY_EXPECTED)
+    assert {name: len(ids) for name, ids in babble.items()} == {
+        "noisy-fleurs-fr": 431,
+        "noisy-fleurs-en": 394,
+        "noisy-servicenow-codeswitched-en-fr": 199,
+    }
+    # The flat list a training exclusion checks against: sorted, one id once.
+    union = noisy.babble_union(babble)
+    assert len(union) == 1012
+    assert union == sorted(set(union))
+
+
+def test_babble_union_is_the_sorted_union_without_repeats():
+    assert noisy.babble_union({"noisy-fleurs-en": ["2", "1"], "noisy-fleurs-fr": ["1", "3"]}) == [
+        "1",
+        "2",
+        "3",
+    ]
+    assert noisy.babble_union({}) == []
+
+
+def test_the_loader_reads_a_well_formed_pin(tmp_path):
+    path = _pin_file(tmp_path, _pin(**{"noisy-fleurs-en": ["103-1240-0001", "103-1240-0002"]}))
+    assert noisy.load_babble_utterances(path) == {
+        "noisy-fleurs-en": ["103-1240-0001", "103-1240-0002"]
+    }
+
+
+def test_the_loader_refuses_a_list_that_is_not_sorted(tmp_path):
+    path = _pin_file(tmp_path, _pin(**{"noisy-fleurs-en": ["103-1240-0002", "103-1240-0001"]}))
+    with pytest.raises(ValueError, match="not sorted"):
+        noisy.load_babble_utterances(path)
+
+
+def test_the_loader_refuses_a_list_that_holds_an_id_twice(tmp_path):
+    path = _pin_file(tmp_path, _pin(**{"noisy-fleurs-en": ["103-1240-0001", "103-1240-0001"]}))
+    with pytest.raises(ValueError, match="twice"):
+        noisy.load_babble_utterances(path)
+
+
+@pytest.mark.parametrize(
+    ("data", "match"),
+    [
+        (["noisy-fleurs-en"], "must be an object"),
+        ({}, "holds no note"),
+        ({"note": "  "}, "holds no note"),
+        ({"note": "a test pin"}, "holds no noisy clip set"),
+        ({"note": "a test pin", "noisy-fake": ["1"]}, "is not a noisy clip set"),
+        ({"note": "a test pin", "noisy-fleurs-en": []}, "holds no babble"),
+        ({"note": "a test pin", "noisy-fleurs-en": [1]}, "list of utterance ids"),
+        ({"note": "a test pin", "noisy-fleurs-en": {"a": "b"}}, "list of utterance ids"),
+    ],
+)
+def test_the_loader_refuses_a_malformed_pin(tmp_path, data, match):
+    path = _pin_file(tmp_path, data)
+    with pytest.raises(ValueError, match=match):
+        noisy.load_babble_utterances(path)
+
+
+def test_the_loader_refuses_a_missing_or_broken_file(tmp_path):
+    with pytest.raises(ValueError, match="unreadable"):
+        noisy.load_babble_utterances(tmp_path / "absent.json")
+    path = _pin_file(tmp_path, _pin(**{"noisy-fleurs-en": ["1"]}))
+    path.write_text("{ not json", encoding="utf-8")
+    with pytest.raises(ValueError, match="unreadable"):
+        noisy.load_babble_utterances(path)
+
+
+# --- the babble a preparation would mix ----------------------------------------
+
+
+def _synthetic_pool():
+    """Eight speakers, four utterances each, sorted the way a manifest read is."""
+    pool = [
+        (f"u{utterance:02d}-sp{speaker:02d}", f"sp{speaker:02d}")
+        for speaker in range(8)
+        for utterance in range(4)
+    ]
+    return sorted(pool)
+
+
+def _clips_in_condition(condition: str, count: int) -> list[str]:
+    """Clip ids whose condition is the one asked for: found by the hash itself."""
+    found = []
+    for index in range(10_000):
+        clip_id = f"src:clip-{index:05d}"
+        if noisy._condition(clip_id) == condition:
+            found.append(clip_id)
+            if len(found) == count:
+                return found
+    raise AssertionError(f"no clip found with condition {condition}")
+
+
+def test_chosen_babble_utterances_is_the_mixed_utterances():
+    """The pure form picks what the mix itself loads, and nothing else."""
+    babble_clips = _clips_in_condition("babble-snr5", 3)
+    other_clips = _clips_in_condition("noise-snr10", 2)
+    pool = _synthetic_pool()
+
+    expected = noisy.chosen_babble_utterances(babble_clips + other_clips, [pool])
+
+    loaded: list[Path] = []
+
+    def load(source, sample_rate=SAMPLE_RATE):
+        loaded.append(Path(source))
+        return Audio(samples=_speech(seconds=0.5), sample_rate=sample_rate)
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr(noisy, "load_audio", load)
+        for clip_id in babble_clips:
+            noisy._babble_segment(
+                clip_id,
+                int(0.5 * SAMPLE_RATE),
+                [
+                    (
+                        [(Path(f"audio/{utterance}.wav"), group) for utterance, group in pool],
+                        "CC-BY-4.0",
+                    )
+                ],
+            )
+
+    assert {path.stem for path in loaded} == expected
+
+
+def test_chosen_babble_utterances_ignores_the_other_conditions():
+    babble_clips = _clips_in_condition("babble-snr5", 2)
+    other_clips = _clips_in_condition("noise-snr0", 3)
+    pool = _synthetic_pool()
+    assert noisy.chosen_babble_utterances(
+        babble_clips + other_clips, [pool]
+    ) == noisy.chosen_babble_utterances(babble_clips, [pool])
+    assert noisy.chosen_babble_utterances(other_clips, [pool]) == set()
+
+
+def test_a_babble_clip_takes_two_speakers_from_each_of_two_pools():
+    clip = _clips_in_condition("babble-snr5", 1)[0]
+    fr = sorted(
+        (f"u{utterance:02d}-sp{speaker:02d}", f"sp{speaker:02d}")
+        for speaker in range(4)
+        for utterance in range(6)
+    )
+    en = sorted(
+        (f"103-{1240 + speaker:04d}-000{utterance + 1}", f"103-{1240 + speaker}")
+        for speaker in range(4)
+        for utterance in range(3)
+    )
+
+    expected = noisy.chosen_babble_utterances([clip], [fr, en])
+
+    # The speakers alternate pools, and no group is taken twice.
+    assert len(expected) == 4
+    fr_groups = {group for utterance, group in fr if utterance in expected}
+    en_groups = {group for utterance, group in en if utterance in expected}
+    assert len(fr_groups) == 2 and len(en_groups) == 2
+
+
+# --- the check that refuses a changed pool --------------------------------------
+
+
+def test_check_babble_passes_when_the_pools_mix_the_committed_list(monkeypatch):
+    babble_clips = _clips_in_condition("babble-snr5", 2)
+    pool = _synthetic_pool()
+    committed = {"noisy-fleurs-en": sorted(noisy.chosen_babble_utterances(babble_clips, [pool]))}
+    monkeypatch.setattr(noisy, "load_babble_utterances", lambda path=None: committed)
+
+    noisy.check_babble("noisy-fleurs-en", babble_clips, [pool])
+
+
+def test_check_babble_refuses_a_pool_that_changed(monkeypatch):
+    babble_clips = _clips_in_condition("babble-snr5", 2)
+    pool = _synthetic_pool()
+    committed = {"noisy-fleurs-en": sorted(noisy.chosen_babble_utterances(babble_clips, [pool]))}
+    monkeypatch.setattr(noisy, "load_babble_utterances", lambda path=None: committed)
+    # One utterance is gone from the pool: the choice changes with it.
+    changed = pool[1:]
+    assert noisy.chosen_babble_utterances(babble_clips, [changed]) != set(
+        committed["noisy-fleurs-en"]
+    )
+
+    with pytest.raises(DownloadError, match="no longer equals"):
+        noisy.check_babble("noisy-fleurs-en", babble_clips, [changed])
+
+
+def test_check_babble_refuses_a_set_with_no_committed_list(monkeypatch):
+    monkeypatch.setattr(
+        noisy,
+        "load_babble_utterances",
+        lambda path=None: {"noisy-fleurs-fr": ["9121_8878_000347"]},
+    )
+
+    with pytest.raises(DownloadError, match="no committed babble list"):
+        noisy.check_babble(
+            "noisy-fleurs-en", _clips_in_condition("babble-snr5", 1), [_synthetic_pool()]
+        )
