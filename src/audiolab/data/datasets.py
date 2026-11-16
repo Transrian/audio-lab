@@ -271,6 +271,23 @@ DATASETS: dict[str, DatasetInfo] = {
         "the set exists. The category is tech or general by the talk's title. "
         "Panels: as described in docs/stt/datasets.md.",
     ),
+    "peertube-edu-captions-fr-v2": DatasetInfo(
+        name="peertube-edu-captions-fr-v2",
+        source="the French education ministry's PeerTube instances on apps.education.fr "
+        "(the human French caption tracks of the same listing as peertube-edu-fr-train)",
+        license="CC-BY / CC0-1.0",
+        split="listing (human captions)",
+        reference_style="the captions decoded, cased and punctuated, cut at the cues' time codes",
+        grouping="recording (group = PeerTube video uuid), at most 40 clips per talk",
+        notes="The second preparation of peertube-edu-captions-fr's talks: the cue "
+        "text's HTML entities are decoded before the clip is cut or gated, so the "
+        "gate is recomputed on the decoded text. It reads that set's cache (the "
+        "caption files, the audio, the Whisper answers) and writes its own gate "
+        "file beside it. Its panels keep that set's sealed talks sealed, so "
+        "scoring it unseals nothing of that set; its talks are left out of the "
+        "talk training preparations like that set's.",
+        cache_name="peertube-edu-captions-fr",
+    ),
     "debconf-en-train": DatasetInfo(
         name="debconf-en-train",
         source="https://peertube.debian.social (PeerTube API; the pinned list of videos "

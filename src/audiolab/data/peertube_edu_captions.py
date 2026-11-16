@@ -24,10 +24,19 @@ The set reads the same pinned listing as
 one recording, and a clip of it cannot measure a model that was trained on it.
 The train fetcher keeps the check the other way: it reads this set's manifest
 through ``evaluation_groups`` and skips the talks it holds.
+
+A second preparation of the same talks, ``peertube-edu-captions-fr-v2``, decodes
+the cue text's HTML entities before anything else is done with the text: the
+``&nbsp;`` of the ministry's files is the space it names — a no-break space
+turned into a plain one — and not six literal characters the base model cannot
+write. It reads this preparation's cache (the caption scan, the caption files,
+the audio, the Whisper answers) and writes its own gate file beside it, so this
+one's ``alignment-wers.json`` stays the evidence of this one's gate.
 """
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import time
@@ -196,18 +205,19 @@ def caption_url(caption: dict, instance: str) -> str:
 
 
 def fetch_captions(
-    http: httpx.Client, talk: Talk, caption: dict, cache: Path
+    http: httpx.Client, talk: Talk, caption: dict, cache: Path, *, unescape: bool = False
 ) -> tuple[Path, list[Segment]]:
     """The cues of one talk's human French captions, the file cached by the talk.
 
     The file is small, so a request that the instance refuses is retried the way
     the API is (a 429, a busy 5xx), one request a second. Cues keep their text
-    with the markup removed; a blank cue is no cue.
+    with the markup removed; a blank cue is no cue. With ``unescape`` the text
+    of the cached file is decoded before the markup is removed.
     """
     path = cache / "vtt" / f"{talk.id}.fr.vtt"
     if not path.is_file():
         _get_vtt(http, caption_url(caption, talk.instance), path)
-    cues = parse_cues(path.read_text(encoding="utf-8"))
+    cues = parse_cues(path.read_text(encoding="utf-8"), unescape=unescape)
     return path, cues
 
 
@@ -234,13 +244,16 @@ def _cue_seconds(hours: str | None, minutes: str, seconds: str, tenths: str) -> 
     return int(hours or 0) * 3600 + int(minutes) * 60 + int(seconds) + int(tenths) / 1000
 
 
-def parse_cues(vtt: str) -> list[Segment]:
+def parse_cues(vtt: str, *, unescape: bool = False) -> list[Segment]:
     """The cues of a WebVTT file: both timestamp forms, tags dropped.
 
     A cue is a ``start --> end`` line and the non-blank lines that follow it,
     joined with a space. Everything else in the file — the header, identifiers,
     NOTE and STYLE blocks — is skipped, because a note is not a cue and its
-    lines hold no arrow.
+    lines hold no arrow. With ``unescape`` the cue text is decoded first, so
+    the entities of the file — ``&nbsp;`` above all — are the characters they
+    name, the no-break space among them a plain space, before the tags are
+    dropped; without it the text is held exactly as written.
     """
     cues: list[Segment] = []
     lines = vtt.splitlines()
@@ -261,7 +274,10 @@ def parse_cues(vtt: str) -> list[Segment]:
         while i < len(lines) and lines[i].strip():
             text_lines.append(lines[i].strip())
             i += 1
-        text = CUE_TAG.sub("", " ".join(text_lines)).strip()
+        text = " ".join(text_lines)
+        if unescape:
+            text = html.unescape(text).replace("\u00a0", " ")
+        text = CUE_TAG.sub("", text).strip()
         if text:
             cues.append(
                 Segment(
@@ -367,7 +383,7 @@ def wer_deciles(wers: list[float]) -> str:
 
 
 def fetch_peertube_edu_captions_fr(
-    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool = True
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool = True, unescape: bool = False
 ) -> int:
     """Prepare the set: the human-captioned talks of the listing, cut and checked.
 
@@ -375,6 +391,13 @@ def fetch_peertube_edu_captions_fr(
     stopped after it and resumed; the talks already read from the cache are not
     asked again. The set is a selection of the train set's listing, so it
     leaves the train set's talks out before it asks anything else for them.
+
+    ``unescape`` is the second preparation of the same talks,
+    ``peertube-edu-captions-fr-v2``: the caption text is decoded before it is
+    cut or gated, so the gate is recomputed on the decoded text. The caption
+    files, the audio and the Whisper answers are this set's cache, read, and
+    the gate is written beside it under its own name, so this set's
+    ``alignment-wers.json`` is never touched.
     """
     listed_on, talks = read_listing(SOURCE)
     cache = cache_dir / NAME
@@ -443,7 +466,7 @@ def fetch_peertube_edu_captions_fr(
                 tally["talks whose audio could not be read"] += 1
                 continue
             audio = load_audio(audio_path)
-            _, cues = fetch_captions(http, talk, caption_of[talk.id], cache)
+            _, cues = fetch_captions(http, talk, caption_of[talk.id], cache, unescape=unescape)
             segments, left_out = clips_from_cues(cues)
             for reason, count in left_out.items():
                 tally[f"cues left out: {reason}"] += count
@@ -494,7 +517,10 @@ def fetch_peertube_edu_captions_fr(
                 say(f"  also {', '.join(others)}")
             say(f"  {take.report()}")
         builder.write()
-        (cache / "alignment-wers.json").write_text(
+        # The gate of this preparation, in its own file: the decoded
+        # preparation writes beside it, never over it, so each preparation's
+        # gate stays the evidence of its own run.
+        (cache / ("alignment-wers-v2.json" if unescape else "alignment-wers.json")).write_text(
             json.dumps(
                 {"threshold": MAX_CLIP_WER, "wers": sorted(wers, key=lambda row: row[1])},
                 ensure_ascii=False,
@@ -503,3 +529,59 @@ def fetch_peertube_edu_captions_fr(
             encoding="utf-8",
         )
     return take.kept
+
+
+def fetch_peertube_edu_captions_fr_v2(
+    name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool = True
+) -> int:
+    """The second preparation, ``peertube-edu-captions-fr-v2``: the caption text decoded first."""
+    return fetch_peertube_edu_captions_fr(
+        name, cache_dir, dataset_dir, verbose=verbose, unescape=True
+    )
+
+
+def dry_run_unescaped(cache_dir: Path, data_root: Path) -> dict:
+    """What the second preparation would ask, read from the cache alone.
+
+    No request and no write: the caption scan, the caption files and the
+    Whisper answers are read from the cache of the first preparation, so the
+    cache of a completed preparation is all this needs. It builds the clips
+    the decoded text would cut, the same way the preparation does — the usable
+    talks of the pinned listing with the train set's talks left out — and
+    counts the clips whose times the answers cache does not hold: those are
+    the clips a preparation of the decoded set would have to ask.
+    """
+    cache = cache_dir / NAME
+    scan = cache / "captions"
+    if not scan.is_dir():
+        raise FileNotFoundError(f"{scan} is missing: the caption scan is not cached")
+    found: dict[str, list[dict]] = {}
+    for path in scan.glob("*.json"):
+        found[path.stem] = json.loads(path.read_text(encoding="utf-8")).get("data", [])
+    _, talks = read_listing(SOURCE)
+    unlisted = [talk.id for talk in talks if talk.id not in found]
+    if unlisted:
+        raise FileNotFoundError(
+            f"{len(unlisted)} caption lists of the pinned listing are not cached, "
+            f"e.g. {unlisted[0]}"
+        )
+    usable, _, _ = scan_report(talks, found)
+    left_out = evaluation_groups(TRAIN_NAME, root=data_root)
+    per_talk: dict[str, dict] = {}
+    for talk, _ in usable:
+        if talk.id in left_out:
+            continue
+        vtt = cache / "vtt" / f"{talk.id}.fr.vtt"
+        if not vtt.is_file():
+            raise FileNotFoundError(f"{vtt} is missing: the caption file is not cached")
+        cues = parse_cues(vtt.read_text(encoding="utf-8"), unescape=True)
+        segments, _ = clips_from_cues(cues)
+        answers = Answers(cache / clips_file(talk, SEGMENT_MODEL))
+        missing = sum(1 for segment in segments if segment.key not in answers.answers)
+        per_talk[talk.id] = {"segments": len(segments), "missing": missing}
+    return {
+        "talks": len(per_talk),
+        "segments": sum(row["segments"] for row in per_talk.values()),
+        "missing": sum(row["missing"] for row in per_talk.values()),
+        "per_talk": per_talk,
+    }

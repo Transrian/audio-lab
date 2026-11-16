@@ -137,6 +137,21 @@ an hour, a minute, a second and a millisecond
     ]
 
 
+def test_parse_cues_decodes_the_cue_entities_only_when_asked():
+    # The ministry's files write their spaces as &nbsp;: the default reading keeps
+    # the text as written, the decoded reading gives back the character named.
+    vtt = "WEBVTT\n\n00:00.000 --> 00:01.000\n5&nbsp;x 2 &amp; 3&lt;4.\n"
+
+    assert captions.parse_cues(vtt)[0].text == "5&nbsp;x 2 &amp; 3&lt;4."
+    assert captions.parse_cues(vtt, unescape=True)[0].text == "5 x 2 & 3<4."
+
+    # Decoding happens before the markup is dropped, so an entity and a tag in
+    # the same cue both give back what they name or mark.
+    vtt = "WEBVTT\n\n00:00.000 --> 00:01.000\nmot&nbsp;du <b>test</b>\n"
+
+    assert captions.parse_cues(vtt, unescape=True)[0].text == "mot du test"
+
+
 def test_clips_merge_cues_at_sentence_ends_and_gaps():
     cues = [
         cue(0.0, 2.0, "Bonjour."),
@@ -324,7 +339,10 @@ def test_the_fetcher_skips_the_train_talks_and_gates_the_clips_with_whisper(
     monkeypatch.setattr(
         captions,
         "fetch_captions",
-        lambda http, one, caption, cache: (cache / "vtt" / f"{one.id}.fr.vtt", cues_of[one.id]),
+        lambda http, one, caption, cache, unescape=False: (
+            cache / "vtt" / f"{one.id}.fr.vtt",
+            cues_of[one.id],
+        ),
     )
 
     def audio_file(http, cache, source_, one):
@@ -421,3 +439,166 @@ def serve_fakes(monkeypatch) -> None:
     monkeypatch.setattr(
         talks, "client", lambda model, request=None: FakeClient(answers[model], log)
     )
+
+
+def test_the_decoded_set_is_registered_and_kept_out_of_the_talks():
+    from audiolab.data.datasets import DATASETS
+    from audiolab.data.fetch import FETCHERS
+    from audiolab.data.talk_sources import SOURCES
+
+    # The decoded set is a dataset of its own, sharing the source set's cache.
+    info = DATASETS["peertube-edu-captions-fr-v2"]
+    assert info.cache_name == captions.NAME
+    assert FETCHERS["peertube-edu-captions-fr-v2"] is captions.fetch_peertube_edu_captions_fr_v2
+    # Every talk source that leaves the source set's talks out leaves these out
+    # as well: a clip of a talk may not measure a model trained on it.
+    for name in ("peertube-edu-fr-train", "peertube-tech-fr-train"):
+        assert captions.NAME in SOURCES[name].evaluation_datasets
+        assert "peertube-edu-captions-fr-v2" in SOURCES[name].evaluation_datasets
+
+
+def test_the_decoded_preparation_writes_its_own_gate_and_keeps_the_source_gate(
+    tmp_path, monkeypatch
+):
+    # The decoded preparation reads the source's cache: the caption files and
+    # the Whisper answers. Its gate goes into its own file, beside the
+    # source's, which it never touches.
+    train_dir = tmp_path / "peertube-edu-fr-train"
+    train_dir.mkdir()
+    (train_dir / "manifest.jsonl").write_text(
+        make_clip(
+            "peertube-edu-fr-train:t-two", language="fr", group="peertube-edu-fr-train:t-two"
+        ).manifest_line()
+        + "\n",
+        encoding="utf-8",
+    )
+    source = make_source(tmp_path, [talk("t-one"), talk("t-two")])
+    monkeypatch.setattr(captions, "SOURCE", source)
+    monkeypatch.setattr(captions, "MIN_TALKS", 2)
+    captions_of = {
+        "t-one": {"language": {"id": "fr"}, "automaticallyGenerated": False},
+        "t-two": {"language": {"id": "fr"}, "automaticallyGenerated": False},
+    }
+    monkeypatch.setattr(
+        captions,
+        "scan_captions",
+        lambda http, talks_list, cache, verbose=False: {
+            t.id: [captions_of[t.id]] for t in talks_list
+        },
+    )
+    # The cached caption files hold the entities as the instance served them;
+    # the preparation decodes them, it does not rewrite the files.
+    vtt_dir = tmp_path / "cache" / captions.NAME / "vtt"
+    vtt_dir.mkdir(parents=True)
+    (vtt_dir / "t-one.fr.vtt").write_text(
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:05.000\n"
+        "5&nbsp;x 2.\n\n"
+        "00:00:07.000 --> 00:00:10.000\n"
+        "Le code est tout faux.\n",
+        encoding="utf-8",
+    )
+    (vtt_dir / "t-two.fr.vtt").write_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nBonjour.\n", encoding="utf-8"
+    )
+
+    def audio_file(http, cache, source_, one):
+        return write_tone(cache / f"{one.id}.wav", seconds=60.0)
+
+    monkeypatch.setattr(captions, "audio_file", audio_file)
+
+    heard = whisper_by_length({5.0: "5 x 2.", 3.0: "bonjour"})
+    monkeypatch.setattr(captions, "client", lambda model, request=None: FakeClient(heard[0], []))
+    monkeypatch.delenv("AUDIOLAB_CONCURRENCY", raising=False)
+
+    # The source set's gate, as an earlier run wrote it: bytes the decoded
+    # preparation must not change.
+    source_gate = tmp_path / "cache" / captions.NAME / "alignment-wers.json"
+    source_gate.write_text('{"threshold": 0.35, "wers": [["old", 0.0]]}\n', encoding="utf-8")
+
+    count = captions.fetch_peertube_edu_captions_fr_v2(
+        "peertube-edu-captions-fr-v2", tmp_path / "cache", tmp_path / "dataset", verbose=False
+    )
+
+    assert count == 1, "the decoded clip passes; the unheard one does not"
+    clips = read_manifest(tmp_path / "dataset")
+    assert [c.text for c in clips] == ["5 x 2."], "the label is the decoded text"
+    # The source's gate is byte for byte the earlier run's; the decoded
+    # preparation's gate is its own file with its own clips.
+    assert (
+        source_gate.read_text(encoding="utf-8") == '{"threshold": 0.35, "wers": [["old", 0.0]]}\n'
+    )
+    gate = json.loads(
+        (tmp_path / "cache" / captions.NAME / "alignment-wers-v2.json").read_text(encoding="utf-8")
+    )
+    assert gate["threshold"] == captions.MAX_CLIP_WER
+    assert gate["wers"] == [["t-one-0000000", 0.0], ["t-one-0000700", 1.0]]
+
+
+def test_the_dry_run_counts_the_clips_a_decoded_preparation_would_ask(tmp_path, monkeypatch):
+    # The dry run reads the source's cache only: the caption scan, the caption
+    # files, the Whisper answers. Its count is the number of clips a decoded
+    # preparation would have to ask.
+    data_root = tmp_path / "data"
+    train_dir = data_root / "peertube-edu-fr-train"
+    train_dir.mkdir(parents=True)
+    (train_dir / "manifest.jsonl").write_text(
+        make_clip(
+            "peertube-edu-fr-train:t-two", language="fr", group="peertube-edu-fr-train:t-two"
+        ).manifest_line()
+        + "\n",
+        encoding="utf-8",
+    )
+    source = make_source(tmp_path, [talk("t-one"), talk("t-two"), talk("t-three")])
+    monkeypatch.setattr(captions, "SOURCE", source)
+    cache_dir = tmp_path / "cache"
+    scan_dir = cache_dir / captions.NAME / "captions"
+    scan_dir.mkdir(parents=True)
+    human = {"language": {"id": "fr"}, "automaticallyGenerated": False}
+    for talk_id in ("t-one", "t-two", "t-three"):
+        (scan_dir / f"{talk_id}.json").write_text(json.dumps({"data": [human]}), encoding="utf-8")
+    vtt_dir = cache_dir / captions.NAME / "vtt"
+    vtt_dir.mkdir()
+    (vtt_dir / "t-one.fr.vtt").write_text(
+        "WEBVTT\n\n"
+        "00:00:00.000 --> 00:00:05.000\n"
+        "5&nbsp;x 2.\n\n"
+        "00:00:07.000 --> 00:00:10.000\n"
+        "Le code est tout faux.\n",
+        encoding="utf-8",
+    )
+    (vtt_dir / "t-three.fr.vtt").write_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:05.000\nBonjour.\n", encoding="utf-8"
+    )
+    answers_of = {
+        "t-one": [{"key": "0.00-5.00", "answer": {"text": "5 x 2."}}],
+        "t-three": [{"key": "0.00-5.00", "answer": {"text": "bonjour"}}],
+    }
+    for talk_id, rows in answers_of.items():
+        (cache_dir / captions.NAME / f"{talk_id}.{captions.SEGMENT_MODEL}.clips.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
+
+    result = captions.dry_run_unescaped(cache_dir, data_root)
+
+    # The train set's talk is out; of the other two, one of the three decoded
+    # clips has no cached answer and is the one a preparation would ask.
+    assert result["talks"] == 2
+    assert result["segments"] == 3
+    assert result["missing"] == 1
+    assert result["per_talk"]["t-one"] == {"segments": 2, "missing": 1}
+    assert result["per_talk"]["t-three"] == {"segments": 1, "missing": 0}
+
+
+def test_the_dry_run_refuses_a_cache_it_cannot_read(tmp_path, monkeypatch):
+    source = make_source(tmp_path, [talk("t-one"), talk("t-two")])
+    monkeypatch.setattr(captions, "SOURCE", source)
+    scan_dir = tmp_path / "cache" / captions.NAME / "captions"
+    scan_dir.mkdir(parents=True)
+    (scan_dir / "t-one.json").write_text(
+        json.dumps({"data": [{"language": {"id": "fr"}, "automaticallyGenerated": False}]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FileNotFoundError, match="not cached"):
+        captions.dry_run_unescaped(tmp_path / "cache", tmp_path / "data")

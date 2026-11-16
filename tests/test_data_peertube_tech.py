@@ -83,7 +83,10 @@ def test_the_union_keeps_the_tech_titles_of_both_parents_the_first_seat_winning(
 def test_the_source_is_registered_on_the_parents_pinned_listings():
     source = SOURCES["peertube-tech-fr-train"]
     assert source.listing_path.name == "peertube_tech_listing.json"
-    assert source.evaluation_datasets == ("peertube-edu-captions-fr",)
+    assert source.evaluation_datasets == (
+        "peertube-edu-captions-fr",
+        "peertube-edu-captions-fr-v2",
+    )
     assert source.spread_by(talk("a")) == talk("a").instance
 
     listed_on, union = read_listing(source)
