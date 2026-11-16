@@ -13,7 +13,12 @@ repeatedly. It reports which evaluation sets it found prepared, so an
 evaluation set that is missing at run time is visible, not silent.
 
 The rules are never reimplemented here: every rule is the committed function
-the fetcher uses, applied to the set's clips. The one-to-one mapping:
+the fetcher uses, applied to the set's clips. The one exception is the
+evaluation-class column on the NASA sets: ``fetch_nasa_en_train`` itself reads
+only the reserved list, not the prepared test sets' groups, which this column
+reads; those groups are the reserved episodes (60, the v2's a subset of them),
+so the column can never add a clip the reserved-episode column does not already
+remove. The one-to-one mapping:
 
 - **evaluation group or duplicate class of an evaluation group** —
   :func:`audiolab.data.duplicates.duplicate_classes` and
@@ -72,8 +77,9 @@ are never rebuilt: their manifests are the committed babble of the noisy
 evaluation sets (:mod:`audiolab.data.noisy`), and a re-preparation of the noisy
 sets is refused when the pools no longer give the committed utterances.
 
-Exit codes: 0 a table is printed; 1 a manifest is malformed (the set is named
-on stderr); 2 the data root holds no prepared training sets.
+Exit codes: 0 a table is printed; 1 a prepared set cannot be audited — a
+malformed manifest, or a clip id that holds no session before its language tag
+(the set is named on stderr); 2 the data root holds no prepared training sets.
 """
 
 from __future__ import annotations
@@ -266,20 +272,23 @@ def _in_set_reuploads(
     classes: Mapping[str, str],
     left_out: set[str],
 ) -> set[str]:
-    """The talks a preparation does not read of this set's own clips.
+    """The set's talks the fetchers' loop does not read.
 
-    The fetchers' loop restricted to the set: the talks in the preparation's
-    reading order, the ones the evaluation exclusion already left out skipped,
-    and each other class read once — the first talk of it standing for it.
+    The fetchers' loop (talks.py, nasa.py) restricted to the set's clips: a
+    class is read by the first talk of the WHOLE reading order that is not
+    already left out — whether or not that talk is in the set — and every
+    later talk of the class the set holds is a re-upload of a talk already
+    read.
     """
     removed: set[str] = set()
     seen: set[str] = set()
     for talk_id in order:
-        if talk_id not in present or talk_id in left_out:
+        if talk_id in left_out:
             continue
         class_id = classes[talk_id]
         if class_id in seen:
-            removed.add(talk_id)
+            if talk_id in present:
+                removed.add(talk_id)
         else:
             seen.add(class_id)
     return removed
@@ -287,13 +296,14 @@ def _in_set_reuploads(
 
 @dataclass(frozen=True)
 class SetImpact:
-    """One training set: its clips, what each rule removes of them, and the talks that are
-    no longer in the source's pinned listing (the set was prepared from an earlier one)."""
+    """One training set: its clips, what each rule removes of them, and the clips
+    of each talk that is no longer in the source's pinned listing (the set was
+    prepared from an earlier one)."""
 
     name: str
     clips: int
     removed: Mapping[str, frozenset[str]] = field(compare=False)
-    stale: frozenset[str] = frozenset()
+    stale: Mapping[str, int] = field(compare=False, default_factory=dict)
 
     def count(self, rule: str) -> int:
         return len(self.removed[rule])
@@ -320,12 +330,13 @@ def impact_on_set(name: str, clips: list[Clip], inputs: RuleInputs) -> SetImpact
     for clip in clips:
         by_group.setdefault(clip.group.partition(":")[2], []).append(clip)
     removed: dict[str, set[str]] = {rule: set() for rule in RULES}
-    stale: frozenset[str] = frozenset()
+    stale: dict[str, int] = {}
 
     if kind in ("talk", "nasa"):
         key = nasa.NAME if kind == "nasa" else base
         classes = inputs.talk_classes[key]
-        stale = frozenset(set(by_group) - set(classes))
+        for talk_id in set(by_group) - set(classes):
+            stale[talk_id] = len(by_group[talk_id])
         excluded = dup.excluded_talks(classes, inputs.eval_groups[key])
         for talk_id in excluded:
             if talk_id in by_group:
@@ -347,7 +358,11 @@ def impact_on_set(name: str, clips: list[Clip], inputs: RuleInputs) -> SetImpact
 
     if kind == "voxpopuli":
         for clip in clips:
-            if voxpopuli_train.session_of(clip.id) in inputs.vox_sessions:
+            try:
+                session = voxpopuli_train.session_of(clip.id)
+            except ValueError as error:
+                raise ImpactError(f"{name}: {error}") from error
+            if session in inputs.vox_sessions:
                 removed[RULE_VOX].add(clip.id)
 
     blocked = librispeech_pc.babble_exclusions(
@@ -437,10 +452,12 @@ def render(
             lines.append(
                 f"  - {dataset} (evaluation set of {source}): prepared, {group_count} groups"
             )
-    babble_ids = sum(len(ids) for ids in inputs.babble.values())
+    babble_entries = sum(len(ids) for ids in inputs.babble.values())
+    babble_unique = len({uid for ids in inputs.babble.values() for uid in ids})
     lines.append(
         f"committed pins: {len(inputs.vox_sessions)} voxpopuli evaluation sessions; "
-        f"{babble_ids} babble utterance ids over {len(inputs.babble)} noisy sets; "
+        f"{babble_entries} babble utterance entries ({babble_unique} unique) "
+        f"over {len(inputs.babble)} noisy sets; "
         f"{len(inputs.nasa_reserved)} nasa reserved test episodes"
     )
     lines.append("")
@@ -470,11 +487,15 @@ def render(
         lines.append("")
         lines.append(
             "clips of talks that are no longer in the source's pinned listing "
-            "(prepared from an earlier listing): they carry no rule count; the "
-            "re-preparation reads the current listing, so they leave the set on its own:"
+            "(the set was prepared from an earlier listing): they carry no rule "
+            "count; when the set is re-prepared, the preparation reads the current "
+            "listing, so these clips stay out of it on their own:"
         )
         for name, stale in stale_rows:
-            lines.append(f"  - {name}: {len(stale)} talks — " + ", ".join(sorted(stale)))
+            lines.append(
+                f"  - {name}: {len(stale)} talk{'s' if len(stale) != 1 else ''} "
+                f"({_clips(sum(stale.values()))}) — " + ", ".join(sorted(stale))
+            )
     lines.append("")
     rebuild, not_rebuilt = rebuild_list(rows)
     lines.append(

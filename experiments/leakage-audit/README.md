@@ -179,8 +179,12 @@ it?
 
 **Method.** The rules are never re-implemented here: every table column is the
 committed function the fetcher itself uses, applied to the set's current
-`manifest.jsonl`. The one-to-one mapping (a reviewer can check every number
-against the fetcher's code):
+`manifest.jsonl` — the one exception being the `eval class` column on the NASA
+sets, which reads the prepared test sets' groups while `fetch_nasa_en_train`
+itself reads only the reserved list; those groups are the reserved episodes
+(60, the v2's a subset of them), so the column can never add a clip. The
+one-to-one mapping (a reviewer can check every number against the fetcher's
+code):
 
 | Table column | The committed function |
 |---|---|
@@ -216,9 +220,10 @@ rule column, the clips that rule removes; `total`, the union — a clip several
 rules remove counts once (the two NASA rules cover the same clips on a machine
 where both `nasa-en-test` and `nasa-en-test-v2` are prepared). Clips of talks
 that are no longer in the source's current pinned listing (the set was
-prepared from an earlier one) carry no rule count; the report lists them under
-the table, and the re-preparation reads the current listing, so they leave the
-set on their own.
+prepared from an earlier one) carry no rule count; the report lists them, with
+their clip counts, under the table, and when the set is re-prepared the
+preparation reads the current listing, so those clips stay out of it on their
+own.
 
 The **rebuild list** is the sets a re-preparation with the corrected fetchers
 must re-run: every set where one of the evaluation rules removes a clip; every
