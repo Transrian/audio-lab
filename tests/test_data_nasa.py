@@ -9,6 +9,7 @@ clips with that text, after every Whisper request of the batch (D-020).
 from __future__ import annotations
 
 import io
+import os
 import sys
 from collections import Counter
 from contextlib import nullcontext
@@ -17,18 +18,21 @@ from functools import partial
 from pathlib import Path
 
 import httpx
+import numpy as np
 import pytest
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import write_tone  # noqa: E402
+from helpers import make_clip, write_tone  # noqa: E402
 
+from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
 from audiolab.data import duplicates, nasa, talks  # noqa: E402
 from audiolab.data.aligned_clips import Line, labelled_clips  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
-from audiolab.data.store import read_manifest  # noqa: E402
+from audiolab.data.fetch import fetch_dataset  # noqa: E402
+from audiolab.data.store import read_manifest, write_manifest  # noqa: E402
 from audiolab.data.talk_clips import Segment  # noqa: E402
 from audiolab.data.talk_listing import Talk, write_listing  # noqa: E402
 
@@ -845,3 +849,168 @@ def test_a_preparation_of_the_evaluation_set_refuses_a_reserved_episode_absent_f
         )
 
     assert asked == []
+
+
+# --- The derived set nasa-en-test-v2 ------------------------------------------
+
+# The two episodes of the fake source: the one the derived set's table drops
+# (its re-release is in every nasa-en-train preparation), and the one it keeps.
+DROPPED_SLUG = "terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics"
+KEPT_SLUG = "apollo-legend-to-shuttle-trailblazer"
+
+
+def make_nasa_test_source(root: Path, slugs: tuple[str, ...]) -> Path:
+    """A prepared ``nasa-en-test`` of two clips per slug, each a tone of its own length."""
+    source_dir = root / nasa.NAME_TEST
+    clips = []
+    for slug in slugs:
+        for index in range(2):
+            clip_id = f"{nasa.NAME_TEST}:{slug}-000000{index}"
+            seconds = 1.0 + 0.25 * (index + 1)
+            wav_path = source_dir / f"audio/{clip_id.replace(':', '_')}.wav"
+            write_tone(wav_path, seconds=seconds)
+            clips.append(
+                make_clip(
+                    clip_id,
+                    language="en",
+                    group=f"{nasa.NAME_TEST}:{slug}",
+                    group_kind="recording",
+                    source_split="listing",
+                    license="public domain (US government work)",
+                    duration_s=seconds,
+                    sha256=pcm_sha256(wav_path),
+                    base_wer=0.0,
+                    source_url=f"https://www.nasa.gov/podcasts/{slug}/",
+                    source_title=slug,
+                    source_author="NASA",
+                )
+            )
+    write_manifest(source_dir, clips)
+    return source_dir
+
+
+def test_the_v2_preparation_drops_the_listed_group_and_reprefixes_the_rest(tmp_path):
+    root = tmp_path / "data"
+    make_nasa_test_source(root, (KEPT_SLUG, DROPPED_SLUG))
+
+    count = nasa.fetch_nasa_en_test_v2(
+        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+    )
+
+    assert count == 2
+    clips = read_manifest(root / nasa.NAME_TEST_V2)
+    assert [clip.id for clip in clips] == [
+        f"{nasa.NAME_TEST_V2}:{KEPT_SLUG}-0000000",
+        f"{nasa.NAME_TEST_V2}:{KEPT_SLUG}-0000001",
+    ]
+    assert all(clip.group == f"{nasa.NAME_TEST_V2}:{KEPT_SLUG}" for clip in clips)
+    # Every other field is the source clip's, and the WAV is the source's file.
+    source = {clip.id: clip for clip in read_manifest(root / nasa.NAME_TEST)}
+    for clip in clips:
+        original = source[f"{nasa.NAME_TEST}:{clip.id.split(':', 1)[1]}"]
+        assert (
+            clip.sha256,
+            clip.duration_s,
+            clip.text,
+            clip.base_wer,
+            clip.source_url,
+            clip.source_title,
+            clip.source_author,
+        ) == (
+            original.sha256,
+            original.duration_s,
+            original.text,
+            original.base_wer,
+            original.source_url,
+            original.source_title,
+            original.source_author,
+        )
+        assert (
+            os.stat(root / nasa.NAME_TEST_V2 / clip.audio).st_ino
+            == os.stat(root / nasa.NAME_TEST / original.audio).st_ino
+        )
+
+
+def test_fetch_nasa_en_test_v2_never_writes_through_the_link(tmp_path):
+    """A write to a hard link lands on the source's file; the fetcher never opens one.
+
+    The source WAV holds samples at the edge of the int16 range: a re-encode would
+    move them, so any write through the link would change the source's bytes.
+    """
+    root = tmp_path / "data"
+    make_nasa_test_source(root, (KEPT_SLUG, DROPPED_SLUG))
+    source_dir = root / nasa.NAME_TEST
+    wav_path = source_dir / read_manifest(source_dir)[0].audio
+    samples = np.array([32767, -32768, 30000, -30000, 16384, -16385], dtype=np.int16)
+    sf.write(str(wav_path), samples, 16000, subtype="PCM_16")
+    clips = read_manifest(source_dir)
+    write_manifest(
+        source_dir,
+        [
+            replace(clip, sha256=pcm_sha256(wav_path))
+            if clip.audio == f"audio/{wav_path.name}"
+            else clip
+            for clip in clips
+        ],
+    )
+    before = wav_path.read_bytes()
+    before_mtime = os.stat(wav_path).st_mtime_ns
+
+    nasa.fetch_nasa_en_test_v2(
+        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+    )
+
+    assert wav_path.read_bytes() == before
+    assert os.stat(wav_path).st_mtime_ns == before_mtime
+    derived = read_manifest(root / nasa.NAME_TEST_V2)
+    assert os.stat(root / nasa.NAME_TEST_V2 / derived[0].audio).st_ino == os.stat(wav_path).st_ino
+
+    # A second preparation keeps the links; it writes nothing through them either.
+    (root / nasa.NAME_TEST_V2 / "manifest.jsonl").unlink()
+    nasa.fetch_nasa_en_test_v2(
+        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+    )
+    assert wav_path.read_bytes() == before
+    assert os.stat(wav_path).st_mtime_ns == before_mtime
+
+
+def test_the_v2_preparation_is_refused_when_the_source_is_missing(tmp_path):
+    root = tmp_path / "data"
+    root.mkdir()
+    with pytest.raises(DownloadError, match="prepare nasa-en-test first"):
+        nasa.fetch_nasa_en_test_v2(
+            nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+        )
+
+
+def test_the_v2_preparation_refuses_a_listed_group_the_source_no_longer_holds(tmp_path):
+    """A table entry that matches no clip of the source would prepare a copy, not a subtraction."""
+    root = tmp_path / "data"
+    make_nasa_test_source(root, (KEPT_SLUG,))
+    with pytest.raises(DownloadError, match="holds no clip of nasa-en-test:terry-fong"):
+        nasa.fetch_nasa_en_test_v2(
+            nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+        )
+
+
+def test_the_v2_fetcher_refuses_a_name_its_table_does_not_name(tmp_path):
+    with pytest.raises(DownloadError, match="derived set table does not name it so"):
+        nasa.fetch_nasa_en_test_v2(
+            "nasa-en-test-v3",
+            tmp_path / "cache",
+            tmp_path / "data" / "nasa-en-test-v3",
+            verbose=False,
+        )
+
+
+def test_fetch_dataset_registers_the_v2_set(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    cache = tmp_path / "cache"
+    monkeypatch.setenv("AUDIOLAB_DATA", str(data))
+    monkeypatch.setenv("AUDIOLAB_CACHE", str(cache))
+    make_nasa_test_source(data, (KEPT_SLUG, DROPPED_SLUG))
+
+    destination = fetch_dataset("nasa-en-test-v2", verbose=False)
+
+    assert destination == data / nasa.NAME_TEST_V2
+    assert len(read_manifest(destination)) == 2

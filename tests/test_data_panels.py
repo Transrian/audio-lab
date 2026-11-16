@@ -16,13 +16,17 @@ from helpers import (  # noqa: E402
 from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_SEED,
+    DERIVED_SETS,
     FAST_CLIPS,
     FULL_CLIPS,
     NONSPEECH_FAST,
     NONSPEECH_SEALED,
     PANEL_NAMES,
     PRESERVED_SEALING,
+    _derived_drops,
+    _derived_source,
     _fast_subset,
+    _group_of,
     _sealed_group_count,
     _take,
     _take_balanced,
@@ -380,3 +384,143 @@ def test_preserved_sealing_refuses_talks_the_source_panels_never_name(tmp_path, 
     ]
     with pytest.raises(ValueError, match="share no talk"):
         select_panels_preserved_sealing("src-v2", "src", unrelated, DEFAULT_SEED, panels_dir)
+
+
+# --- Derived sets that drop listed groups (nasa-en-test-v2) --------------------
+
+
+def _talk_clips(prefix: str, talks: int, per_talk: int) -> list:
+    """Talk-shaped clips: the id is the group's name plus the clip's start, so
+    the id's talk is the group's."""
+    return [
+        make_clip(f"{prefix}:talk{talk:02d}-{index:03d}", group=f"{prefix}:talk{talk:02d}")
+        for talk in range(talks)
+        for index in range(per_talk)
+    ]
+
+
+def test_the_derived_sets_table_names_its_source_and_its_dropped_groups():
+    """The committed table: nasa-en-test-v2 derives from nasa-en-test and drops one group."""
+    assert DERIVED_SETS["nasa-en-test-v2"] == (
+        "nasa-en-test",
+        frozenset(
+            {
+                "nasa-en-test:terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics"
+            }
+        ),
+    )
+    assert _derived_source("nasa-en-test-v2") == "nasa-en-test"
+    # The noisy sets still resolve by their prefix, drop nothing; a plain set has no source.
+    assert _derived_source("noisy-fleurs-fr") == "fleurs-fr"
+    assert _derived_drops("noisy-fleurs-fr") == frozenset()
+    assert _derived_source("fleurs-fr") is None
+
+
+def _listed_derived_fixture(tmp_path, monkeypatch):
+    """A source of talks and a listed derived set that drops one of its sealed groups.
+
+    The dropped group is sealed in the source, so it holds no clip of the
+    source's fast or full panel: the shape of nasa-en-test's re-released
+    episode. Returns the pieces the tests assert over.
+    """
+    source, derived = "fake-src", "fake-v2"
+    source_clips = _talk_clips(source, talks=20, per_talk=5)
+    panels_dir = tmp_path / "panels"
+    build_panels(source, source_clips, panels_dir=panels_dir)
+    sealed_ids = set(read_panel(panel_path(f"{source}-sealed", panels_dir)).ids)
+    dropped_group = next(clip.group for clip in source_clips if clip.id in sealed_ids)
+    for name in ("fast", "full"):
+        panel_ids = set(read_panel(panel_path(f"{source}-{name}", panels_dir)).ids)
+        # The dropped group holds no id of the fast or full panel: the shape of
+        # the re-released episode of nasa-en-test.
+        assert not any(_group_of(clip_id, source) == dropped_group for clip_id in panel_ids), name
+    monkeypatch.setitem(DERIVED_SETS, derived, (source, frozenset({dropped_group})))
+    derived_clips = [
+        make_clip(
+            f"{derived}:{clip.id.partition(':')[2]}",
+            group=f"{derived}:{clip.group.partition(':')[2]}",
+            sha256=clip.sha256,
+        )
+        for clip in source_clips
+        if clip.group != dropped_group
+    ]
+    return source, derived, source_clips, derived_clips, dropped_group, panels_dir
+
+
+def test_a_listed_derived_set_drops_exactly_its_listed_groups(tmp_path, monkeypatch):
+    """Each panel of the set is the source's panel, re-prefixed, minus the listed group's ids."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    panels = build_panels(derived, derived_clips, panels_dir=panels_dir)
+    dropped_ids = {
+        f"{derived}:{clip.id.partition(':')[2]}"
+        for clip in source_clips
+        if clip.group == dropped_group
+    }
+    by_name = {panel.name: set(panel.ids) for panel in panels}
+    for name in PANEL_NAMES:
+        source_panel = set(read_panel(panel_path(f"{source}-{name}", panels_dir)).ids)
+        re_prefixed = {f"{derived}:{clip_id.partition(':')[2]}" for clip_id in source_panel}
+        assert by_name[name] == re_prefixed - dropped_ids
+        # The panel checks clean against the set's manifest.
+        assert check_panel(panel_path(f"{derived}-{name}", panels_dir), derived_clips) == []
+
+
+def test_a_listed_derived_set_refuses_a_missing_id_outside_its_listed_groups(tmp_path, monkeypatch):
+    """A clip the source's panel names, other than the dropped group's, must be in the set."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    full_ids = set(read_panel(panel_path(f"{source}-full", panels_dir)).ids)
+    victim = next(
+        clip for clip in source_clips if clip.group != dropped_group and clip.id in full_ids
+    )
+    reduced = [
+        clip for clip in derived_clips if clip.id != f"{derived}:{victim.id.partition(':')[2]}"
+    ]
+    with pytest.raises(ValueError, match="holds no clip"):
+        build_panels(derived, reduced, panels_dir=panels_dir)
+
+
+def test_the_check_of_a_listed_derived_set_refuses_a_changed_manifest(tmp_path, monkeypatch):
+    """The check passes on the derived manifest and refuses a clip it lost
+    outside the listed group."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    build_panels(derived, derived_clips, panels_dir=panels_dir)
+    for name in PANEL_NAMES:
+        assert check_panel(panel_path(f"{derived}-{name}", panels_dir), derived_clips) == []
+    full_ids = set(read_panel(panel_path(f"{source}-full", panels_dir)).ids)
+    victim = next(
+        clip for clip in source_clips if clip.group != dropped_group and clip.id in full_ids
+    )
+    reduced = [
+        clip for clip in derived_clips if clip.id != f"{derived}:{victim.id.partition(':')[2]}"
+    ]
+    problems = check_panel(panel_path(f"{derived}-full", panels_dir), reduced)
+    assert any("not in the manifest" in problem for problem in problems)
+
+
+def test_noisy_derived_panels_still_derive_by_prefix_alone(tmp_path):
+    """With the derived-set table in place, a noisy- set resolves by prefix and drops nothing."""
+    source, derived = "fleurs-fake", "noisy-fleurs-fake"
+    source_clips = _talk_clips(source, talks=10, per_talk=5)
+    derived_clips = [
+        make_clip(
+            f"{derived}:{clip.id.partition(':')[2]}",
+            group=f"{derived}:{clip.group.partition(':')[2]}",
+            sha256=clip.sha256,
+        )
+        for clip in source_clips
+    ]
+    panels_dir = tmp_path / "panels"
+    build_panels(source, source_clips, panels_dir=panels_dir)
+    panels = build_panels(derived, derived_clips, panels_dir=panels_dir)
+    for panel in panels:
+        source_panel = read_panel(panel_path(f"{source}-{panel.name}", panels_dir))
+        assert panel.ids == sorted(
+            f"{derived}:{clip_id.partition(':')[2]}" for clip_id in source_panel.ids
+        )
+        assert check_panel(panel_path(panel.title, panels_dir), derived_clips) == []
