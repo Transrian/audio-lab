@@ -25,7 +25,7 @@ from audiolab.data.download import DownloadError
 from audiolab.data.label_audit import answer_path, write_answer
 from audiolab.data.relabel import EMPTY_ANSWER_LIMIT, fetch_nasa_en_train_qwen
 from audiolab.data.store import read_manifest, write_manifest
-from audiolab.data.talks import LABEL_MODEL, Served
+from audiolab.data.talks import LABEL_MODEL, Served, model_config
 from audiolab.train.data import select_clips
 
 NAME = "nasa-en-train-qwen"
@@ -216,6 +216,39 @@ def test_fetch_asks_nothing_when_the_answers_are_cached(tmp_path, fake_qwen):
     second = fetch_nasa_en_train_qwen(NAME, cache, root / NAME)
     assert second == 8
     assert len(read_manifest(root / NAME)) == 8
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        pytest.param({"request": {"temperature": 0}}, id="request"),
+        pytest.param({"send_language": False}, id="send_language"),
+    ],
+)
+def test_fetch_asks_again_when_the_model_config_changes_the_key(
+    tmp_path, fake_qwen, monkeypatch, changed
+):
+    """An answer cached under the model config as committed is not read when the
+    config now asks another way: the effective request or the language flag
+    changed, so every clip is asked again."""
+    root = tmp_path / "data"
+    clips = make_source(root, 1, 2)
+    for clip in clips:  # every answer cached under the config as committed
+        write_answer(
+            answer_path(tmp_path / "cache", LABEL_MODEL, clip.id),
+            model=LABEL_MODEL,
+            language="en",
+            audio_sha256=clip.sha256,
+            request={},
+            send_language=True,
+            text=f"the old answer of {clip.id}",
+        )
+    base = model_config(LABEL_MODEL)
+    monkeypatch.setattr(relabel, "model_config", lambda model: dataclasses.replace(base, **changed))
+    fake_qwen.texts = lambda index: f"the new answer is {index}"
+    count = fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)
+    assert count == 2
+    assert sorted(fake_qwen.called) == [0, 1]  # nothing from the committed config was read
 
 
 def test_fetch_refuses_more_than_one_percent_empty(tmp_path, fake_qwen):

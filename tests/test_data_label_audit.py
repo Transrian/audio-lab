@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import json
 import random
@@ -9,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from helpers import make_clip, write_tone
 
 from audiolab.data.label_audit import (
     SAMPLE_SEED,
@@ -20,6 +22,8 @@ from audiolab.data.label_audit import (
     write_answer,
     write_sample,
 )
+from audiolab.data.store import write_manifest
+from audiolab.data.talks import LABEL_MODEL, SEGMENT_MODEL, Served, model_config
 
 AUDIT = Path(__file__).resolve().parent.parent / "experiments/label-audit/audit.py"
 spec = importlib.util.spec_from_file_location("label_audit_audit", AUDIT)
@@ -34,6 +38,28 @@ KEY = dict(
     send_language=True,
     audio_sha256="a" * 64,
 )
+# The row the cache held before the send_language field existed: the default
+# caller's key, the same fields, no flag.
+OLD_ROW = {
+    "model": "stt-v-qwen3-asr-1.7B",
+    "language": "en",
+    "request": {},
+    "audio_sha256": "a" * 64,
+    "text": "the quick brown fox",
+}
+
+
+def write_old_row(path: Path, *, model: str, language: str, audio_sha256: str, text: str) -> None:
+    """One row as the cache wrote it before the send_language field existed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "model": model,
+        "language": language,
+        "request": {},
+        "audio_sha256": audio_sha256,
+        "text": text,
+    }
+    path.write_text(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def write(tmp_path: Path, **overrides) -> Path:
@@ -63,13 +89,80 @@ def test_torn_file_is_no_answer(tmp_path):
         ("model", "stt-v-whisper-large-v3"),
         ("language", "fr"),
         ("request", {"response_format": "verbose_json"}),
+        ("send_language", False),
         ("audio_sha256", "b" * 64),
     ],
 )
 def test_a_changed_key_is_asked_again(tmp_path, field, value):
-    """A model, a language, a request or an audio that differs is not served the old answer."""
+    """A model, a language, a request, the language flag or an audio that differs
+    is not served the old answer."""
     path = write(tmp_path)
     assert read_answer(path, **{**KEY, field: value}) is None
+
+
+def test_the_default_key_writes_byte_identical_to_the_old_row(tmp_path):
+    """The default (an empty request, the language sent) writes exactly the
+    fields and bytes the cache held before the send_language field existed."""
+    path = write(tmp_path)
+    old = json.dumps(OLD_ROW, ensure_ascii=False, sort_keys=True) + "\n"
+    assert path.read_bytes() == old.encode("utf-8")
+
+
+def test_an_answer_cached_by_the_old_code_is_reused_by_the_default(tmp_path):
+    """A row written before the send_language field existed is read back by the
+    default key: the caches on disk stay valid, and nothing is asked again. A
+    row that does carry the field, with the default's value, is read too."""
+    path = tmp_path / "answer.json"
+    old_bytes = json.dumps(OLD_ROW, ensure_ascii=False, sort_keys=True) + "\n"
+    path.write_text(old_bytes, encoding="utf-8")
+    assert read_answer(path, **KEY) == "the quick brown fox"
+    assert read_answer(path, **{**KEY, "send_language": False}) is None
+    assert read_answer(path, **{**KEY, "request": {"temperature": 0}}) is None
+    row = {**OLD_ROW, "send_language": True}
+    path.write_text(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    assert read_answer(path, **KEY) == "the quick brown fox"
+
+
+def test_not_sending_the_language_is_asked_again(tmp_path):
+    """An answer asked with the language is not read by a caller that does not
+    send it, and the reverse: the flag is in the key."""
+    path = tmp_path / "answer.json"
+    write_answer(path, text="asked with the language", **KEY)
+    no_language = dict(KEY, send_language=False)
+    assert read_answer(path, **no_language) is None
+    write_answer(path, text="asked without the language", **no_language)
+    assert read_answer(path, **KEY) is None
+    assert read_answer(path, **no_language) == "asked without the language"
+
+
+def test_two_effective_requests_are_asked_again_of_each_other(tmp_path):
+    """An empty request and a non-empty one are different questions on the same
+    clip: neither answer is read by the other's key."""
+    path = tmp_path / "answer.json"
+    write_answer(path, text="the default answer", **KEY)
+    effective = dict(KEY, request={"temperature": 0})
+    assert read_answer(path, **effective) is None
+    write_answer(path, text="the effective answer", **effective)
+    assert read_answer(path, **KEY) is None
+    assert read_answer(path, **effective) == "the effective answer"
+
+
+def test_a_non_default_row_carries_its_request_and_the_flag(tmp_path):
+    """Off the default the row holds the effective request and the flag
+    explicitly, whatever it is, and reads it back."""
+    path = tmp_path / "answer.json"
+    effective = dict(KEY, request={"temperature": 0})
+    write_answer(path, text="the effective answer", **effective)
+    row = json.loads(path.read_text(encoding="utf-8"))
+    assert row["request"] == {"temperature": 0}
+    assert row["send_language"] is True
+    assert read_answer(path, **effective) == "the effective answer"
+    no_language = dict(KEY, send_language=False)
+    write_answer(path, text="asked without the language", **no_language)
+    row = json.loads(path.read_text(encoding="utf-8"))
+    assert row["request"] == {}
+    assert row["send_language"] is False
+    assert read_answer(path, **no_language) == "asked without the language"
 
 
 def test_a_text_field_that_is_not_text_is_no_answer(tmp_path):
@@ -151,6 +244,110 @@ def test_torn_sample_file_is_no_sample(tmp_path):
         read_sample(path, dataset="nasa-en-train", count=30, seed=SAMPLE_SEED, manifest_ids=IDS)
         is None
     )
+
+
+# --- the transcribe pass: the key the cache is read and written with ---------
+
+
+def _small_source(root: Path) -> list:
+    """A prepared ``nasa-en-train`` of two clips, with the real tones behind them."""
+    dataset_dir = root / "nasa-en-train"
+    clips = []
+    for index in range(2):
+        clip_id = f"nasa-en-train:talk-{index:05d}"
+        seconds = 1.0 + index * 0.1
+        write_tone(dataset_dir / f"audio/{clip_id.replace(':', '_')}.wav", seconds=seconds)
+        clip = make_clip(
+            clip_id,
+            language="en",
+            group=f"nasa-en-train:talk-{index:05d}",
+            duration_s=seconds,
+        )
+        clips.append(clip)
+    write_manifest(dataset_dir, clips)
+    return clips
+
+
+def _run_transcribe(
+    tmp_path: Path, monkeypatch, cache: Path, *, changed: dict | None = None
+) -> list:
+    """audit.transcribe over the two-clip source, the server faked; what was asked.
+
+    ``changed`` holds a field of the model config to move off the committed one
+    (``request``, ``send_language``); nothing moves it when it is None.
+    """
+    root = tmp_path / "data"
+    _small_source(root)
+    monkeypatch.setitem(
+        audit.AUDITS, "nasa-en-train", {"count": 2, "language": "en", "human": "a test label"}
+    )
+    monkeypatch.setattr(audit, "cache_dir", lambda: cache)
+    if changed is not None:
+        base = {model: model_config(model) for model in (SEGMENT_MODEL, LABEL_MODEL)}
+        monkeypatch.setattr(
+            audit, "model_config", lambda model: dataclasses.replace(base[model], **changed)
+        )
+    asked: list[bytes] = []
+
+    def fake_transcribe(wav: bytes) -> dict:
+        asked.append(wav)
+        return {"text": "a fresh transcript"}
+
+    class FakeClient:
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(audit, "client", lambda model: FakeClient())
+    monkeypatch.setattr(
+        audit, "served", lambda client_, language: Served(transcribe=fake_transcribe, concurrency=2)
+    )
+    audit.transcribe("nasa-en-train", root, verbose=False)
+    return asked
+
+
+def test_transcribe_reads_the_answers_cached_by_the_old_code(tmp_path, monkeypatch):
+    """A cache the old code wrote — the default key, no send_language field —
+    is read by the committed config: nothing is asked."""
+    cache = tmp_path / "cache"
+    for clip in _small_source(tmp_path / "data"):
+        for model in (SEGMENT_MODEL, LABEL_MODEL):
+            write_old_row(
+                answer_path(cache, model, clip.id),
+                model=model,
+                language="en",
+                audio_sha256=clip.sha256,
+                text=f"the old answer of {clip.id}",
+            )
+    assert _run_transcribe(tmp_path, monkeypatch, cache) == []
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        pytest.param({"request": {"temperature": 0}}, id="request"),
+        pytest.param({"send_language": False}, id="send_language"),
+    ],
+)
+def test_transcribe_asks_again_when_the_model_config_changes_the_key(
+    tmp_path, monkeypatch, changed
+):
+    """An answer cached under the committed config is not read when the config
+    now asks another way: the effective request or the language flag changed,
+    so every clip of every model is asked again."""
+    cache = tmp_path / "cache"
+    for clip in _small_source(tmp_path / "data"):
+        for model in (SEGMENT_MODEL, LABEL_MODEL):
+            write_answer(
+                answer_path(cache, model, clip.id),
+                model=model,
+                language="en",
+                audio_sha256=clip.sha256,
+                request={},
+                send_language=True,
+                text=f"the old answer of {clip.id}",
+            )
+    asked = _run_transcribe(tmp_path, monkeypatch, cache, changed=changed)
+    assert len(asked) == 4  # two models, two clips: nothing from the old key was read
 
 
 # --- the scoring: the agreement rule on synthetic rows ----------------------
