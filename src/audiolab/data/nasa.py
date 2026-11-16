@@ -34,7 +34,10 @@ training sets. Its labels are the same human text, placed in time the same
 way; the edge check is the segmentation model's instead of the base model's,
 because this set is scored on the base model and it may not screen its own
 labels. Every preparation of the training set leaves the reserved episodes
-out of what it reads (decision 0002).
+out of what it reads (decision 0002), and with them the duplicates in their
+classes: the re-release of a reserved episode under another slug, and the
+training conversation a reserved compilation replays (the duplicate classes
+are in :mod:`audiolab.data.duplicates`).
 """
 
 from __future__ import annotations
@@ -62,6 +65,7 @@ from audiolab.data.aligned_clips import NOTE, Line, labelled_clips, same_edges
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.datasets import base_dataset
 from audiolab.data.download import DownloadError
+from audiolab.data.duplicates import duplicate_classes, excluded_talks
 from audiolab.data.talk_clips import Answers, Segment, Transcribe, candidates, clip_text
 from audiolab.data.talk_listing import Talk, TalkSource, read_listing, reading_order
 from audiolab.data.talks import (
@@ -595,11 +599,38 @@ def fetch_nasa_en_train(
         order = reading_order(episodes, SEED, SOURCE.spread_by)
         # The episodes the evaluation set holds are not downloaded (decision
         # 0002): the reserved list is committed, so a set not prepared on this
-        # machine leaves them out just the same.
+        # machine leaves them out just the same. The exclusion is on the
+        # recording, not on the slug alone: an episode in the duplicate class
+        # of a reserved one — the re-release of it, the training conversation
+        # a reserved compilation replays — is left out with it, and each other
+        # class is read once, its first episode in the reading order standing
+        # for it. The classes are over the whole listing.
+        classes = duplicate_classes(episodes, domain="nasa")
         reserved = frozenset(RESERVED_TEST_EPISODES)
-        kept = [episode for episode in order if episode.id not in reserved]
-        if verbose and len(order) - len(kept):
-            say(f"  {len(order) - len(kept)} reserved episodes for {NAME_TEST} are left out")
+        left_out = excluded_talks(classes, reserved)
+        reserved_out = sum(1 for episode in order if left_out.get(episode.id) == "evaluation talk")
+        duplicate_out = sum(
+            1 for episode in order if left_out.get(episode.id) == "duplicate of an evaluation talk"
+        )
+        reupload_out = 0
+        seen_classes: set[str] = set()
+        kept = []
+        for episode in order:
+            if episode.id in left_out:
+                continue
+            class_id = classes[episode.id]
+            if class_id in seen_classes:
+                reupload_out += 1
+                continue
+            seen_classes.add(class_id)
+            kept.append(episode)
+        if verbose:
+            if reserved_out:
+                say(f"  {reserved_out} reserved episodes for {NAME_TEST} are left out")
+            if duplicate_out:
+                say(f"  {duplicate_out} duplicates of a reserved episode are left out")
+            if reupload_out:
+                say(f"  {reupload_out} re-uploads of an episode already read are left out")
         order = kept
         with (
             http_client() as http,

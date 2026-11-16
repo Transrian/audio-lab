@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from helpers import write_tone  # noqa: E402
 
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
-from audiolab.data import nasa, talks  # noqa: E402
+from audiolab.data import duplicates, nasa, talks  # noqa: E402
 from audiolab.data.aligned_clips import Line, labelled_clips  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
@@ -530,6 +530,190 @@ def test_a_preparation_of_the_training_set_skips_the_reserved_episodes(
     # The reserved episode is never downloaded, and its page is never read.
     assert all("/one/" not in path for path in asked)
     assert "1 reserved episodes for nasa-en-test are left out" in capsys.readouterr().out
+
+
+def test_a_preparation_of_the_training_set_also_excludes_a_duplicate_of_a_reserved_episode(
+    tmp_path, monkeypatch, capsys
+):
+    # The re-release of a reserved episode is in its duplicate class (the same
+    # title and length under another slug) and is left out with it.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one",))
+    episodes = [
+        episode("one"),
+        episode("two", title="one"),
+        episode("three"),
+    ]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, text=transcript)
+
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
+    models = FakeModels(
+        [
+            {
+                "start": 0.0,
+                "end": 5.0,
+                "text": " welcome to gravity assist episode seven.",
+            },
+            {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
+        ],
+        [
+            "welcome to gravity assist episode seven",
+            "thanks jim mars has two moons",
+        ],
+    )
+    models.serve(monkeypatch)
+    monkeypatch.setattr(
+        talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0)
+    )
+
+    count = nasa.fetch_nasa_en_train(
+        nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
+
+    assert count == 2
+    clips = read_manifest(tmp_path / "dataset")
+    assert {clip.source_url for clip in clips} == {f"{PAGES}/three/"}
+    # The reserved episode and its duplicate are never downloaded, their pages never read.
+    assert all("/one/" not in path and "/two/" not in path for path in asked)
+    out = capsys.readouterr().out
+    assert "1 reserved episodes for nasa-en-test are left out" in out
+    assert "1 duplicates of a reserved episode are left out" in out
+
+
+def test_a_preparation_of_the_training_set_excludes_a_confirmed_pair_of_a_reserved_episode(
+    tmp_path, monkeypatch, capsys
+):
+    # When the re-release changed its title, the link to the reserved episode
+    # is a confirmed pair, not the title.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one",))
+    monkeypatch.setattr(duplicates, "CONFIRMED_PAIRS", (("nasa", "one", "two"),))
+    episodes = [episode("one"), episode("two"), episode("three")]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, text=transcript)
+
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
+    models = FakeModels(
+        [
+            {
+                "start": 0.0,
+                "end": 5.0,
+                "text": " welcome to gravity assist episode seven.",
+            },
+            {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
+        ],
+        [
+            "welcome to gravity assist episode seven",
+            "thanks jim mars has two moons",
+        ],
+    )
+    models.serve(monkeypatch)
+    monkeypatch.setattr(
+        talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0)
+    )
+
+    count = nasa.fetch_nasa_en_train(
+        nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
+
+    assert count == 2
+    clips = read_manifest(tmp_path / "dataset")
+    assert {clip.source_url for clip in clips} == {f"{PAGES}/three/"}
+    assert all("/one/" not in path and "/two/" not in path for path in asked)
+    out = capsys.readouterr().out
+    assert "1 reserved episodes for nasa-en-test are left out" in out
+    assert "1 duplicates of a reserved episode are left out" in out
+
+
+def test_a_preparation_of_the_training_set_reads_each_class_once(tmp_path, monkeypatch, capsys):
+    # A re-upload of an episode the preparation already reads is skipped: one
+    # episode per duplicate class, the first in the reading order read.
+    monkeypatch.setattr(nasa, "RESERVED_TEST_EPISODES", ("one",))
+    episodes = [
+        episode("one"),
+        episode("two"),
+        episode("three", title="two"),
+    ]
+    source = replace(nasa.SOURCE, listing_path=tmp_path / "listing.json")
+    write_listing(source, "2026-11-08", episodes)
+    monkeypatch.setattr(nasa, "SOURCE", source)
+    monkeypatch.setattr(nasa, "MIN_WORDS_PER_MINUTE", 10)
+    transcript = page(
+        "<strong>Transcript</strong>",
+        "<strong>Jim Green:</strong> Welcome to Gravity Assist, Episode 7! (laughs)",
+        "<strong>Jared Espley:</strong> Thanks, Jim. Mars has 2 moons.",
+    )
+    asked = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, text=transcript)
+
+    monkeypatch.setattr(
+        nasa, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(answer))
+    )
+    models = FakeModels(
+        [
+            {
+                "start": 0.0,
+                "end": 5.0,
+                "text": " welcome to gravity assist episode seven.",
+            },
+            {"start": 6.5, "end": 11.0, "text": " Thanks Jim, Mars has two moons."},
+        ],
+        [
+            "welcome to gravity assist episode seven",
+            "thanks jim mars has two moons",
+        ],
+    )
+    models.serve(monkeypatch)
+    monkeypatch.setattr(
+        talks, "fetch_audio", lambda http, one, path, src: write_tone(path, seconds=12.0)
+    )
+
+    count = nasa.fetch_nasa_en_train(
+        nasa.NAME, tmp_path / "cache", tmp_path / "dataset", verbose=True
+    )
+
+    # "one" is reserved; "two" and "three" are one class, the first of them in
+    # the reading order is read, the other is skipped.
+    order = [one.id for one in nasa.reading_order(episodes, nasa.SEED, nasa.SOURCE.spread_by)]
+    first = next(one for one in order if one in ("two", "three"))
+    skipped = "three" if first == "two" else "two"
+    assert count == 2
+    clips = read_manifest(tmp_path / "dataset")
+    assert {clip.source_url for clip in clips} == {f"{PAGES}/{first}/"}
+    assert all("/one/" not in path and f"/{skipped}/" not in path for path in asked)
+    out = capsys.readouterr().out
+    assert "1 reserved episodes for nasa-en-test are left out" in out
+    assert "1 re-uploads of an episode already read are left out" in out
 
 
 # The preparation of the evaluation set.
