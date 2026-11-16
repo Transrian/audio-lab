@@ -609,8 +609,8 @@ Three kinds of clip that must stay silent, 300 in total:
   files write their spaces as `&nbsp;`, and the parser read the entity as six
   literal characters — 10 973 `&nbsp;` in the text of the gate-passing
   candidates (12 776 in the files), in the 17 talks whose files hold it; the
-  other entities touch 23 of the prepared talks in all (23 `&amp;`, 7
-  `&lt;` and 3 `&gt;` in the same candidates) — all unwritable, while the
+  other entities (23 `&amp;`, 7 `&lt;` and 3 `&gt;`) are in 6 more, so 23 of
+  the 139 talks read hold an entity — all unwritable, while the
   decoded text is plain spaces. Once decoded, 1 792 of the 2 077 (86 %) pass
   the filter (1 867 of the 2 077 hold a `&`), and 13 of the 17 `&nbsp;`
   talks lost every one of their clips to the bug, including technical talks; the second preparation,
@@ -654,6 +654,14 @@ Three kinds of clip that must stay silent, 300 in total:
   not read, 1 because it is too short to cut) and 14 had every candidate clip
   rejected by the gates; the captions are of the teachers' own
   making, with their own timing errors the WER gate only partly removes.
+- **The re-uploads straddle two panels**: two talks are held under two ids
+  each (re-uploads with the same title and duration), and in both cases one
+  id is in the sealed panel and its re-upload is in the full panel (and fast)
+  — every one of those full clips starts at the same time as a sealed clip of
+  its twin, so 13 clips of sealed content (7 of one talk, 6 of the other)
+  have been scored in full and fast by the full-panel reference runs. The
+  panels are frozen, so this is recorded, not repaired; the owner question is
+  [O-12 in the backlog](../backlog.md#owner-review-needed).
 
 ## `peertube-edu-captions-fr-v2` — the same talks, with the caption text decoded
 
@@ -704,9 +712,9 @@ Three kinds of clip that must stay silent, 300 in total:
   clip for clip.
 - **The gate is the first set's, inherited unreviewed**: the same 0.35
   normalized WER of Whisper large-v3, recomputed against the decoded caption.
-  The first set set that value without the separate threshold review its
+  The first set's value was set without the separate threshold review its
   design asked for, and this set inherits it unreviewed — the design's review
-  never happened, for either set; stated, not hidden. The recomputation is
+  never happened, for either set. The recomputation is
   real: 408 of the entity-bearing candidate clips failed the first set's gate
   with the literal `&nbsp;` tokens in the distance; the decoded comparison
   re-scores them from the cached answers, and only clips whose boundaries
