@@ -26,6 +26,7 @@ re-encoded to 16 kHz mono; the source archives are larger and stay in the cache
 | `african-accented-fr-test` | fr | Apache-2.0 | test | 515 | 12 | 0.3 | 36 MiB |
 | `notsofar-en-eval` | en | CC-BY-4.0 | 240825.1_eval_full_with_GT | 20 454 | 12 | 16.7 | 1.9 GiB |
 | `nasa-en-test` | en | public domain (US government work) | listing (60 reserved episodes) | 1505 | 60 | 4.3 | 479 MiB |
+| `nasa-en-test-v2` | en | public domain (US government work) | listing (reserved episodes, one re-released episode out) | 1 479 | 59 | 4.2 | < 1 MiB (the audio is hard links to `nasa-en-test`'s files) |
 | `noisy-fleurs-fr` | fr | CC-BY-4.0 + material, per clip | derived: the source's panels | 676 | 332 | 2.0 | 214 MiB |
 | `noisy-fleurs-en` | en | CC-BY-4.0 + material, per clip | derived: the source's panels | 647 | 350 | 1.8 | 195 MiB |
 | `noisy-servicenow-codeswitched-en-fr` | fr (en) | no licence: evaluation only + material | derived: the source's panels | 298 | 298 | 0.6 | 70 MiB |
@@ -61,6 +62,7 @@ part of how precise its numbers can be:
 | `african-accented-fr-test` | 100 / 10 | 396 / 10 | 119 / 2 |
 | `notsofar-en-eval` | 100 / 10 | 600 / 10 | 4223 / 2 |
 | `nasa-en-test` | 100 / 48 | 600 / 48 | 320 / 12 |
+| `nasa-en-test-v2` | 100 / 48 | 600 / 48 | 294 / 11 |
 | `noisy-fleurs-fr` | 100 / 100 | 533 / 266 | 143 / 66 |
 | `noisy-fleurs-en` | 100 / 100 | 515 / 280 | 132 / 70 |
 | `noisy-servicenow-codeswitched-en-fr` | 100 / 100 | 238 / 238 | 60 / 60 |
@@ -567,6 +569,59 @@ Three kinds of clip that must stay silent, 300 in total:
   their transcript holds a character outside the base model's vocabulary; the
   sets are 60 episodes of four shows, so a
   show's recording conditions are sampled by 15 of its episodes.
+- **The re-released episode**: its sealed panel scores 26 clips of
+  `terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics`,
+  whose re-release under another slug is in every `nasa-en-train` preparation —
+  clips a model is scored on that are trained on. The set without that episode
+  is [`nasa-en-test-v2`](#nasa-en-test-v2--the-same-set-without-the-re-released-episode):
+  future sealed scoring uses `nasa-en-test-v2-sealed`, and this set's panels
+  and the suites that name them stay as they are.
+
+## `nasa-en-test-v2` — the same set without the re-released episode
+
+- **Source**: the same clips and audio as
+  [`nasa-en-test`](#nasa-en-test--nasas-podcasts-the-human-transcribed-evaluation-set);
+  nothing is downloaded. The preparation reads the prepared `nasa-en-test`
+  manifest and links its WAV files into the set
+  (`fetch_nasa_en_test_v2` in `src/audiolab/data/nasa.py`): a clip's audio is
+  the source's file itself, a hard link, so it is never re-encoded and the
+  source's files are never opened for writing. The set will be prepared with
+  `audiolab data fetch nasa-en-test-v2`, and its panels built and checked with
+  `audiolab data panels` at that preparation; the numbers below are by
+  construction over the frozen `nasa-en-test` manifest and panels.
+- **Why it exists**: one of the set's episodes,
+  `terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics`,
+  was re-released by NASA under another slug, and the re-release is in every
+  preparation of `nasa-en-train` — 26 of its clips are training data while the
+  set scores them in its sealed panel. A clip a model is scored on may not be
+  trained on, so a re-released test episode whose duplicate is in a training
+  set leaves the sealed panel. The other duplicate class of the source's
+  episodes does not: the compilation `2017-end-of-year-podcast` replays
+  training episodes, and those episodes were left out of the training sets
+  instead (the duplicate-class rule of
+  [No overlap with the evaluation sets](#no-overlap-with-the-evaluation-sets)),
+  so the compilation stays in the test set.
+- **License**: public domain (US government work), as the source's.
+- **Audio**: 1 479 clips in 59 groups, 4.2 h — the 1 505 clips and 60 groups of
+  `nasa-en-test` minus the 26 clips of the re-released episode; that group
+  holds 0 of the 600 clips of the source's full panel and 0 of the 100 of its
+  fast one, so those two panels are the source's, re-prefixed.
+- **Panels**: the source's panels, re-prefixed —
+  `DERIVED_SETS` in `src/audiolab/data/panels.py` names the set, its source
+  and the group its panels do not hold: `full` and `fast` hold exactly the
+  source's 600 and 100 ids, and `sealed` holds the source's 320 minus the
+  episode's 26 — 294 clips of 11 of the 12 groups. `audiolab data panels
+  nasa-en-test-v2` builds them, and `--check` verifies them against the
+  source's panels and the set's manifest. **Which panel to use when**: future
+  sealed scoring uses `nasa-en-test-v2-sealed`; the `nasa-en-test` panels and
+  the suites that name them stay as they are, so the runs already scored on
+  them read against the numbers already published.
+- **Known limits**: the set is a subtraction from a frozen set, not a re-draw —
+  the fast and full panels are the source's and the sealed one is the source's
+  minus 26 clips, so a number scored on it differs from `nasa-en-test` only in
+  that; and the re-release's speech is still in the prepared `nasa-en-train`
+  sets until their rebuild excludes it, so the exclusion is complete only once
+  the training side is rebuilt with the duplicate-class rule.
 
 ## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
 
