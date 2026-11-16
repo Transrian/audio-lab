@@ -430,7 +430,8 @@ Three kinds of clip that must stay silent, 300 in total:
   (515 lines, one per recording). The part's speakers are Cameroonian, Chadian,
   Congolese and Gabonese. `dev` and `devtest` are in the same archive but are
   not read: `devtest` holds 761 recordings of 16 speakers, 14 of which are
-  train speakers, so it is not a speaker-disjoint reserve (dev: 986 of 23).
+  train speakers, so it is not a speaker-disjoint reserve (dev: 986 recordings
+  of 23 speakers).
 - **License**: Apache-2.0, as the train part.
 - **Audio**: 515 prompted sentences, one recording per line of the transcript.
   12 speakers, 2 to 87 clips each; 0.31 h of audio.
@@ -1403,7 +1404,8 @@ measures, trained on the same clips.
   apostrophe spacing, and most of its damage was that spacing. The source was
   re-prepared afterwards, so its screen config trains on the cleaned text and its
   old numbers no longer describe it.
-- **Group**: the speaker (`group_kind: speaker`), 190 of them, read from the
+- **Group**: the speaker (`group_kind: speaker`), 190 of them in the set
+  prepared 2026-11-08, read from the
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
@@ -1417,7 +1419,9 @@ measures, trained on the same clips.
   recordings hold 11 460 with a transcript, of which 8 are prompting lines and 25
   are longer than 20 s, so the source is 11 427 clips: **the screening's arms do
   not all have the same number of clips**, and this one is 4.8 % short of the
-  cap. Nothing was padded or repeated to close the gap.
+  cap. Nothing was padded or repeated to close the gap. The set prepared
+  2026-11-08 holds all 11 427; the next preparation holds 11 424, the 3 clips
+  of the shared speaker out.
 - **Why it is here**: African accents are otherwise absent from open French ASR
   data. Its transcripts are also the least punctuated of the screening, which is
   the confound below.
@@ -2422,7 +2426,7 @@ training preparation is this rule, above.
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
-| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 3 clips: the two parts name the CA16 speakers in two formats (`012` and `cameroon_m_012`) over one shared numbering, and 11 of the 12 test numbers are absent from the train part's speakers, so a preparation leaves out one speaker, `012` (3 clips); the check first run compared the two formats as strings and matched nothing, and the set prepared 2026-11-08 predates the rule and still holds those clips; `devtest` is not a speaker-disjoint reserve — 14 of its 16 speakers are train speakers |
+| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 3 clips: the two parts name the CA16 speakers in two formats (`012` and `cameroon_m_012`) over one shared numbering, and 11 of the 12 test numbers are absent from the train part's speakers, so a preparation leaves out one speaker, `012` (3 clips); the test preparation's first check compared the two id formats as strings and matched nothing, and the set prepared 2026-11-08 predates the rule and still holds those clips; `devtest` is not a speaker-disjoint reserve — 14 of its 16 speakers are train speakers |
 | `peertube-fr-train` | none: no evaluation set comes from this instance | — |
 | `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks and the duplicates in their classes in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` (the evaluation talks) and `tests/test_data_talks.py` (the duplicates in their classes and the re-uploads of a talk already read, `test_a_preparation_leaves_out_the_reuploads_of_its_evaluation_talks`) |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
