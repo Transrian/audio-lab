@@ -1132,7 +1132,7 @@ screening is a difference between corpora and not between recipes:
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.7 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
 | `nasa-en-train` | en | public domain (US government work) | listing | 12 000 | 234 | 34.9 | 3.7 GiB | 0 for the re-preparation of 2026-11-16, all 234 of its episodes in the cache (the set of 2026-11-09: not measured — the MP3 files are deleted once their sound is out, and its 265 episodes read leave 15.0 GiB of WAV in the cache) |
-| `nasa-en-train-qwen` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 0: the audio is a hard link to the files of the `nasa-en-train` set of 2026-11-09, kept as `nasa-en-train.pre-leakfix-2026-11-15` | 0: nothing is fetched, the labels are the label audit's cached Qwen answers |
+| `nasa-en-train-qwen` | en | public domain (US government work) | listing | 12 000 | 234 | 34.9 | 11 MB (the manifest); the 3.7 GiB of audio are hard links to `nasa-en-train`'s files (the set of 2026-11-14, 11 956 clips, is kept as `nasa-en-train-qwen.pre-leakfix-2026-11-15`) | 0: nothing is fetched; 6 046 of the Qwen answers in the label audit's cache, 5 954 asked (17.3 h of audio) |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -1147,7 +1147,8 @@ label Qwen's text (`src/audiolab/data/talks.py`). How good the kept labels are
 had not been measured; `experiments/label-audit/audit.py` measures it on clips
 that hold a human text beside the audio. A fixed draw (`random.Random(20261110).sample`
 over the ids sorted, cached with the whole id set as its key) of 3 000 clips of
-`nasa-en-train` — NASA's own near-verbatim transcripts — and 1 000 of
+the set of `nasa-en-train` of 2026-11-09 — NASA's own near-verbatim
+transcripts — and 1 000 of
 [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
 — the ministry's human captions. Both models are asked for each clip's audio
 (the answers cached by model, language and audio hash,
@@ -2731,7 +2732,8 @@ this preparation leaves them out (decision 0002).
 - **Source**: derived from
   [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
   by `src/audiolab/data/relabel.py` (`audiolab data fetch nasa-en-train-qwen`):
-  the same 11 956 clips and 265 episodes, and each clip's WAV is a **hard link**
+  the same 12 000 clips and 234 episodes as the set re-prepared on 2026-11-16,
+  and each clip's WAV is a **hard link**
   to the source's file, not a copy — the audio is identical by construction,
   the clip keeps the source's `sha256` and `duration_s`, and the preparation
   never opens a linked file for writing (a write to a link would land on the
@@ -2741,13 +2743,27 @@ this preparation leaves them out (decision 0002).
   What protects the linked bytes is the per-clip `sha256` of the source's
   manifest — the `pcm_sha256` of the audio, checked by `verify_clips` — not the
   frozen set's baseline, which hashes the `manifest.jsonl` files, not the
-  audio.
+  audio. The 2026-11-14 preparation — 11 956 clips and 265 episodes linked to
+  the set of 2026-11-09 — is kept as
+  `nasa-en-train-qwen.pre-leakfix-2026-11-15`, its source as
+  `nasa-en-train.pre-leakfix-2026-11-15`; both still verify clip by clip (PCM
+  hash, 0 problems), their 11 956 links intact.
+- **Re-prepared** (2026-11-16): from the re-prepared source — nothing is
+  downloaded, the clip set is the source's. Of the 12 000 Qwen answers, 6 046
+  were already in the label audit's cache and 5 954 (17.3 h of audio) were
+  asked: 3 min 34 s on the server at the model's concurrency of 10. The result
+  is **12 000 clips, 34.9 h, 234 groups**, 11 MB written (the manifest; the
+  3.7 GiB of audio are hard links to the source's files), all public domain
+  (US government work).
 - **Text**: the text of **every** clip is `plain_label` of the Qwen3-ASR 1.7B
   answer — no agreement filter, no dropping: an empty answer would be an empty
-  text, skipped by the training draw, and there are none (0 of 11 956). The
-  answers are cached per clip, keyed by the model, the language and the audio
-  hash ([D-017](../owner/directives.md)), so the preparation never asks the
-  server for what the [label audit](#label-error-of-the-agreement-pipeline)
+  text, skipped by the training draw, and there are none (0 of 12 000). Five
+  clips (0.04 %) hold a `*` the base model cannot write — the model's italics
+  mark on titles and names (`*The Martian*`); the set of 2026-11-14 held 7,
+  these five among them. The answers are cached per clip, keyed by the
+  model, the language and the audio hash ([D-017](../owner/directives.md)), so
+  the preparation never asks the server for what the [label
+  audit](#label-error-of-the-agreement-pipeline)
   already asked.
 - **Why it is here**: the label arm of the label-style test — the same clips,
   the same audio, the same draw, and only the labels change from NASA's human
@@ -2757,8 +2773,9 @@ this preparation leaves them out (decision 0002).
 - **Label error**: that of Qwen alone against the human text — on the audit's
   3 000-clip draw, the unfiltered Qwen text scores **4.2 % WER** (median per
   clip 2.7 %) against NASA's near-verbatim transcripts: the 2 853 clips the
-  agreement rule keeps score 3.7 % and the 147 it rejects 15.5 %, and this set
-  holds all of them.
+  agreement rule keeps score 3.7 % and the 147 it rejects 15.5 %; the audit
+  drew them from the set of 2026-11-09; this set holds 1 524 of them
+  (1 448 kept, 76 rejected).
 - **Group**: the source's episodes, renamed under the set's own name
   (`group_kind: recording`); the audio inherits the source's known limits.
 
