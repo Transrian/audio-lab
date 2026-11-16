@@ -1216,3 +1216,73 @@ def test_a_preparation_reads_each_class_once_and_counts_the_reuploads(
     )
     out = capsys.readouterr().out
     assert "1 talks of this listing are left out: 1 re-upload of a talk already read" in out
+
+
+def test_a_peertube_preparation_takes_its_classes_over_the_three_listings(
+    tmp_path, monkeypatch, capsys
+):
+    """A PeerTube source's duplicate classes span the union of the three listings.
+
+    The evaluation talk can sit in a different listing than the source's own
+    pinned one: the re-upload this source lists is in the evaluation talk's
+    duplicate class only because the class is computed over the union of the
+    three PeerTube listings. (On the code that took the classes from the
+    source's own listing, the re-upload was read: this test fails without the
+    union.)
+    """
+    from dataclasses import replace
+
+    (tmp_path / "data" / "fake-eval").mkdir(parents=True)
+    (tmp_path / "data" / "fake-eval" / "manifest.jsonl").write_text(
+        make_clip("fake-eval:eval", group="fake-eval:eval").manifest_line() + "\n",
+        encoding="utf-8",
+    )
+    # The source's own (tech) listing holds the re-upload and a plain talk;
+    # the evaluation talk itself sits in another listing.
+    listed = [
+        talk("twin", title="Regards croises sur l'IA", duration_s=3910),
+        talk("plain", title="Another talk", duration_s=1000),
+    ]
+    source = replace(
+        make_source(tmp_path, listed, name="peertube-tech-fr-train"),
+        evaluation_datasets=("fake-eval",),
+    )
+    # The union of the three listings: the evaluation talk (in another
+    # listing), the re-upload, and the plain talk.
+    union = [
+        {"id": "eval", "title": "Regards croises sur l'IA", "duration_s": 3910},
+        {"id": "twin", "title": "Regards croises sur l'IA", "duration_s": 3910},
+        {"id": "plain", "title": "Another talk", "duration_s": 1000},
+    ]
+    monkeypatch.setattr(talks, "peertube_talks", lambda: union)
+    rows = [whisper_row(0.0, 5.0, "Bonjour.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 100)
+    asked: list[str] = []
+
+    def fetch_audio(http, one, destination, source_):
+        asked.append(one.id)
+        return write_tone(destination, seconds=12.0)
+
+    monkeypatch.setattr(talks, "fetch_audio", fetch_audio)
+
+    count = talks.fetch_talks(
+        source,
+        tmp_path / "cache",
+        tmp_path / "data" / "peertube-tech-fr-train",
+        license="CC-BY",
+        verbose=True,
+    )
+
+    assert count == 1 and asked == ["plain"], (
+        "the re-upload is left out with its evaluation talk, which the source's "
+        "own listing does not hold"
+    )
+    out = capsys.readouterr().out
+    assert "1 talks of this listing are left out: 1 duplicate of an evaluation talk" in out
