@@ -259,18 +259,19 @@ def load_answers(dataset: str, spec: dict, root: Path) -> list[dict]:
     """Every sampled clip with its two answers and its human label, in the draw's order."""
     cache = cache_dir()
     language = spec["language"]
+    # Each model's config once: its key is the same for every clip of the pass.
+    configs = {model: model_config(model) for model in (SEGMENT_MODEL, LABEL_MODEL)}
     rows = []
     for clip in sampled_clips(dataset, spec, root):
         row = {"id": clip.id, "human": clip.text, "base_wer": clip.base_wer, "language": language}
         for model, key in ((SEGMENT_MODEL, "whisper"), (LABEL_MODEL, "qwen")):
-            config = model_config(model)
             text = read_answer(
                 answer_path(cache, model, clip.id),
                 model=model,
                 language=language,
                 audio_sha256=clip.sha256,
-                request=config.request,
-                send_language=config.send_language,
+                request=configs[model].request,
+                send_language=configs[model].send_language,
             )
             if text is None:
                 raise SystemExit(

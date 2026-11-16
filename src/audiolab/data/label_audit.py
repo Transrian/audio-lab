@@ -88,7 +88,11 @@ def read_answer(
         return None
     if not isinstance(row, dict) or row.get("model") != model:
         return None
-    if row.get("language") != language or row.get("request") != request:
+    if row.get("language") != language:
+        return None
+    # The request is compared as it is sent (canonical JSON): Python would call
+    # {"t": 0} and {"t": False} equal, but the server gets "0" and "False".
+    if json.dumps(row.get("request"), sort_keys=True) != json.dumps(request, sort_keys=True):
         return None
     if row.get("send_language", True) != send_language:
         return None
