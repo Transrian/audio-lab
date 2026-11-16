@@ -587,10 +587,11 @@ Three kinds of clip that must stay silent, 300 in total:
   (`fetch_nasa_en_test_v2` in `src/audiolab/data/nasa.py`): a clip's audio is
   a hard link to the source's file (only a filesystem that refuses the link
   gets a byte copy, counted and reported), never a re-encode, and the
-  source's files are never opened for writing. The set will be prepared with
-  `audiolab data fetch nasa-en-test-v2`, and its panels built and checked with
-  `audiolab data panels` at that preparation; the numbers below are by
-  construction over the frozen `nasa-en-test` manifest and panels.
+  source's files are never opened for writing. The set is prepared with
+  `audiolab data fetch nasa-en-test-v2` (its 1 479 WAVs hard linked to the
+  source's files, 0 copied) and its panels built and checked with
+  `audiolab data panels nasa-en-test-v2`; the numbers below are measured on
+  the prepared set.
 - **Why it exists**: one of the set's episodes,
   `terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics`,
   was re-released by NASA under another slug, and the re-release was in every
