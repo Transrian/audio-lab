@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 from collections import Counter
@@ -14,6 +15,7 @@ from helpers import (  # noqa: E402
 )
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
+from audiolab.data.duplicates import duplicate_classes, peertube_talks  # noqa: E402
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_SEED,
     DERIVED_SETS,
@@ -23,6 +25,8 @@ from audiolab.data.panels import (  # noqa: E402
     NONSPEECH_SEALED,
     PANEL_NAMES,
     PRESERVED_SEALING,
+    PRESERVED_SEALING_CORPUS,
+    UNPANELLED_TALKS,
     _derived_drops,
     _derived_source,
     _fast_subset,
@@ -384,6 +388,272 @@ def test_preserved_sealing_refuses_talks_the_source_panels_never_name(tmp_path, 
     ]
     with pytest.raises(ValueError, match="share no talk"):
         select_panels_preserved_sealing("src-v2", "src", unrelated, DEFAULT_SEED, panels_dir)
+
+
+# --- The split duplicate classes are unpanelled in the second set -------------
+
+
+def talks_of_panel(panels_dir: Path, title: str) -> set[str]:
+    """The talks one panel file names: the talk id of each of its clip ids."""
+    return {talk_of(clip_id) for clip_id in read_panel(panel_path(title, panels_dir)).ids}
+
+
+def select_fixture(fix: dict, clips: list) -> dict[str, list[str]]:
+    """The rule over the fixture: the second set's clips, the first set's panels."""
+    return select_panels_preserved_sealing(
+        fix["second"], fix["first"], clips, DEFAULT_SEED, fix["panels_dir"], fix["corpus"]
+    )
+
+
+def test_the_unpanelled_talks_are_the_split_classes_of_the_first_set():
+    """The pin recomputes from the committed files: the first set's talks of the
+    duplicate classes its frozen panels split - one member in the sealed
+    panel, another scored in the full or fast panel.
+
+    The pin is committed, not computed at panel time, so this is the drift
+    guard: a growth of the committed duplicate list that touches these talks,
+    or a change of a first-set panel, moves the recomputation and fails here,
+    before any check sees it mid-campaign.
+    """
+    panels_dir = Path(__file__).parent.parent / "configs" / "panels"
+    sealed = talks_of_panel(panels_dir, "peertube-edu-captions-fr-sealed")
+    scored = talks_of_panel(panels_dir, "peertube-edu-captions-fr-full") | talks_of_panel(
+        panels_dir, "peertube-edu-captions-fr-fast"
+    )
+    classes = duplicate_classes(peertube_talks())
+    members: dict[str, set[str]] = {}
+    for talk_id, class_id in classes.items():
+        members.setdefault(class_id, set()).add(talk_id)
+    first_set_talks = sealed | scored
+    split = {
+        talk_id
+        for class_talks in members.values()
+        if (class_talks & sealed) and (class_talks & scored)
+        for talk_id in class_talks & first_set_talks
+    }
+    assert UNPANELLED_TALKS["peertube-edu-captions-fr-v2"] == {
+        f"peertube-edu-captions-fr:{talk}" for talk in split
+    }
+
+
+def unpanelled_fixture(tmp_path, monkeypatch):
+    """A first set whose panels split a duplicate class, and its second set.
+
+    One talk of the first set is sealed in it and its re-upload is scored in
+    its full panel - the shape of the two classes the captions set's frozen
+    panels split. The two are pinned unpanelled (monkeypatched, with the
+    synthetic first set's panel ids), and the corpus holds the two twins, so
+    the classes are exactly what the test states. The second set holds other
+    clips of the same talks plus two talks new to it, which hold no class.
+    """
+    panels_dir = tmp_path / "configs" / "panels"
+    first, second = "first", "second"
+    talks = [f"talk{i:02d}" for i in range(8)]
+    first_clips = [
+        make_clip(f"{first}:{talk}-{index:03d}", group=f"{first}:{talk}")
+        for talk in talks
+        for index in range(10)
+    ]
+    build_panels(first, first_clips, panels_dir, built="2026-11-07")
+    sealed_talks = talks_of_panel(panels_dir, f"{first}-sealed")
+    scored_talks = talks_of_panel(panels_dir, f"{first}-full")
+    # The split class: a sealed talk and a scored one, the pin their ids. The
+    # corpus also holds two re-uploads of it (twin00 and twin01) that are not
+    # clips of the second set: they are what the refusal tests add to it.
+    split_sealed = sorted(sealed_talks)[0]
+    split_scored = sorted(scored_talks - sealed_talks)[0]
+    pin = {f"{first}:{split_sealed}", f"{first}:{split_scored}"}
+    corpus = [
+        {"id": split_sealed, "title": "Twin Title", "duration_s": 100.0},
+        {"id": split_scored, "title": "Twin Title", "duration_s": 100.5},
+        {"id": "twin00", "title": "Twin Title", "duration_s": 100.2},
+        {"id": "twin01", "title": "Twin Title", "duration_s": 100.3},
+    ]
+    monkeypatch.setitem(UNPANELLED_TALKS, second, frozenset(pin))
+    monkeypatch.setitem(PRESERVED_SEALING_CORPUS, second, lambda: corpus)
+    second_clips = [
+        make_clip(f"{second}:{talk}-{index:03d}", group=f"{second}:{talk}")
+        for talk in talks + ["new00", "new01"]
+        for index in range(10)
+    ]
+    return {
+        "panels_dir": panels_dir,
+        "first": first,
+        "second": second,
+        "clips": second_clips,
+        "corpus": corpus,
+        "pin": pin,
+        "sealed_talks": sealed_talks,
+        "scored_talks": scored_talks,
+        "split_sealed": split_sealed,
+        "split_scored": split_scored,
+    }
+
+
+def test_the_unpanelled_talks_are_in_no_panel_of_the_second_set(tmp_path, monkeypatch):
+    """The pinned talks stay in the set's manifest - their clips are its clips -
+    but are in no panel; the draws proceed exactly as the preserved-sealing
+    rule over the remaining talks."""
+    fix = unpanelled_fixture(tmp_path, monkeypatch)
+
+    selected = select_fixture(fix, fix["clips"])
+    pinned = {fix["split_sealed"], fix["split_scored"]}
+    panel_talks = {talk_of(clip_id) for name in PANEL_NAMES for clip_id in selected[name]}
+    assert not (pinned & panel_talks)
+    # Their clips are the set's clips: in the manifest, just not scored.
+    unpanelled_clips = {clip.id for clip in fix["clips"] if talk_of(clip.id) in pinned}
+    assert unpanelled_clips
+    panel_ids = set(selected["sealed"]) | set(selected["full"]) | set(selected["fast"])
+    assert not (unpanelled_clips & panel_ids)
+    assert unpanelled_clips <= {clip.id for clip in fix["clips"]}
+
+    # The rest is exactly the preserved-sealing draw over the remaining talks.
+    panelled = {talk_of(clip.id) for clip in fix["clips"]} - pinned
+    new_talks = sorted(panelled - fix["sealed_talks"] - fix["scored_talks"])
+    sealed_new = set(_take(new_talks, _sealed_group_count(len(new_talks)), DEFAULT_SEED))
+    expected_sealed = {
+        clip.id
+        for clip in fix["clips"]
+        if talk_of(clip.id) in (fix["sealed_talks"] - pinned) | sealed_new
+    }
+    assert selected["sealed"] == sorted(expected_sealed)
+    remaining = sorted(panelled - fix["sealed_talks"] - sealed_new)
+    members: dict[str, list[str]] = {}
+    for clip in sorted(fix["clips"], key=lambda clip: clip.id):
+        members.setdefault(talk_of(clip.id), []).append(clip.id)
+    assert selected["full"] == _take_balanced(remaining, members, FULL_CLIPS, DEFAULT_SEED)
+    assert selected["fast"] == _fast_subset(remaining, members, DEFAULT_SEED)
+
+
+def test_no_scored_talk_shares_a_class_with_a_sealed_source_talk(tmp_path, monkeypatch):
+    """The rule's invariant: a talk scored in the second set (full or fast) does
+    not share a duplicate class with a talk the source sealed - the split
+    class's scored member is unpanelled, and a new talk that would re-score
+    sealed content is refused, so nothing scored here copies sealed content."""
+    fix = unpanelled_fixture(tmp_path, monkeypatch)
+
+    selected = select_fixture(fix, fix["clips"])
+    classes = duplicate_classes(fix["corpus"])
+    members: dict[str, set[str]] = {}
+    for talk_id, class_id in classes.items():
+        members.setdefault(class_id, set()).add(talk_id)
+    for clip_id in set(selected["full"]) | set(selected["fast"]):
+        talk = talk_of(clip_id)
+        class_id = classes.get(talk)
+        mates = members[class_id] if class_id else set()
+        assert not (mates & fix["sealed_talks"]), clip_id
+
+
+def test_a_new_talk_sharing_a_class_with_a_source_talk_is_refused(tmp_path, monkeypatch):
+    """A talk new in the second set that is a re-upload of a source talk - sealed
+    or scored - would let the draw place the source's sealed content, or a
+    scored copy of it, in a panel here: the build and the check refuse it,
+    naming both talks. A new talk whose class touches no source talk is drawn
+    as usual (the fixture's new00 and new01 already prove the draw proceeds)."""
+    fix = unpanelled_fixture(tmp_path, monkeypatch)
+    first, second = fix["first"], fix["second"]
+    # The refusal names the class's source talk with the smallest id.
+    mate = min(fix["split_sealed"], fix["split_scored"])
+    twin_sealed = make_clip(f"{second}:twin00-000", group=f"{second}:twin00")
+    with pytest.raises(
+        ValueError,
+        match=f"talk 'twin00' shares its duplicate class with the {first} talk '{mate}'",
+    ):
+        select_fixture(fix, fix["clips"] + [twin_sealed])
+    # The refusal is on the class, not on the sealed side: a re-upload of a
+    # talk the source scored is refused the same way.
+    twin_scored = make_clip(f"{second}:twin01-000", group=f"{second}:twin01")
+    with pytest.raises(
+        ValueError,
+        match=f"talk 'twin01' shares its duplicate class with the {first} talk '{mate}'",
+    ):
+        select_fixture(fix, fix["clips"] + [twin_scored])
+
+
+def test_a_pin_the_source_panels_no_longer_name_is_refused(tmp_path, monkeypatch):
+    """The pinned talks are source talks by construction: a pin the source's
+    panels no longer name is a changed source, refused rather than drawn over."""
+    fix = unpanelled_fixture(tmp_path, monkeypatch)
+    monkeypatch.setitem(
+        UNPANELLED_TALKS, fix["second"], frozenset({f"{fix['first']}:ghost"}).union(fix["pin"])
+    )
+    with pytest.raises(ValueError, match="stale"):
+        select_fixture(fix, fix["clips"])
+
+
+def test_the_unpanelled_rule_round_trips_through_build_and_check(tmp_path, monkeypatch):
+    """The check verifies the same rule from the panel files and the manifest:
+    the built panels check clean, and so does the source's."""
+    fix = unpanelled_fixture(tmp_path, monkeypatch)
+    monkeypatch.setitem(PRESERVED_SEALING, fix["second"], fix["first"])
+
+    built = build_panels(fix["second"], fix["clips"], fix["panels_dir"], built="2026-11-08")
+    assert [panel.name for panel in built] == list(PANEL_NAMES)
+    for name in PANEL_NAMES:
+        path = panel_path(f"{fix['second']}-{name}", fix["panels_dir"])
+        assert check_panel(path, fix["clips"]) == [], name
+    # The refusal runs in the check path over the dataset's corpus, so a
+    # manifest that gains a re-upload of a source talk fails the check.
+    twin = make_clip(f"{fix['second']}:twin00-000", group=f"{fix['second']}:twin00")
+    with pytest.raises(ValueError, match="shares its duplicate class"):
+        check_panel(panel_path(f"{fix['second']}-full", fix["panels_dir"]), fix["clips"] + [twin])
+
+
+def test_the_first_set_is_drawn_by_the_plain_rule_alone():
+    """The second set's rule applies only through PRESERVED_SEALING: the first
+    set is in no table of it, so its build and check run the plain rule,
+    unchanged by the unpanelled pin and the class refusal."""
+    assert "peertube-edu-captions-fr" not in PRESERVED_SEALING
+    assert "peertube-edu-captions-fr" not in UNPANELLED_TALKS
+    assert "peertube-edu-captions-fr" not in PRESERVED_SEALING_CORPUS
+    assert _derived_source("peertube-edu-captions-fr") is None
+
+
+_CAPTIONS_CACHE = (
+    Path(os.environ["AUDIOLAB_CACHE"]) / "peertube-edu-captions-fr"
+    if os.environ.get("AUDIOLAB_CACHE")
+    else None
+)
+
+
+@pytest.mark.skipif(
+    _CAPTIONS_CACHE is None or not _CAPTIONS_CACHE.is_dir(),
+    reason="needs the prepared cache of peertube-edu-captions-fr",
+)
+def test_no_talk_new_to_the_second_set_shares_a_class_with_the_first_set():
+    """The 'none does today' fact, pinned read-only: the second set's talks are
+    the cache's talks; over the committed first-set panels and the committed
+    listings (the default corpus), the refusal fires for none of them and the
+    pin is not stale against the committed panels. A future preparation that
+    reads a talk sharing a class with the first set would fail here and at
+    the panel build, not surface as a moved panel.
+
+    The clips hold one clip per talk, which is all the rule reads of a
+    manifest: it selects talks, and the sizes it would draw are the test's,
+    not a claim about the prepared set.
+    """
+    talks = sorted(name[:-4] for name in os.listdir(_CAPTIONS_CACHE) if name.endswith(".wav"))
+    assert len(talks) == 139
+    clips = [
+        make_clip(
+            f"peertube-edu-captions-fr-v2:{talk}-0000000",
+            group=f"peertube-edu-captions-fr-v2:{talk}",
+        )
+        for talk in talks
+    ]
+    selected = select_panels_preserved_sealing(
+        "peertube-edu-captions-fr-v2",
+        "peertube-edu-captions-fr",
+        clips,
+        DEFAULT_SEED,
+        Path(__file__).parent.parent / "configs" / "panels",
+    )
+    unpanelled = {
+        clip_id.partition(":")[2] for clip_id in UNPANELLED_TALKS["peertube-edu-captions-fr-v2"]
+    }
+    panel_talks = {talk_of(clip_id) for name in PANEL_NAMES for clip_id in selected[name]}
+    assert not (panel_talks & unpanelled)
+    assert unpanelled <= {talk_of(clip.id) for clip in clips}
 
 
 # --- Derived sets that drop listed groups (nasa-en-test-v2) --------------------
