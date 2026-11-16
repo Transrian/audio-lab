@@ -15,7 +15,7 @@ training-side sets the screening found harmful to mix (``mls-fr-train`` and
 ``librispeech-en-train``): the babble pools. They are training sets, so a new
 training run may not hold their babble utterances: the ``librispeech-pc-en-train``
 preparations exclude them, and a training run containing a babble utterance is
-refused (the training-time refusal is tracked as [C-01](../../docs/backlog.md)).
+refused (the training-time refusal is tracked as [C-01](../../../docs/backlog.md)).
 The babble of the prepared noisy sets is committed as
 ``babble_utterances.json`` beside this module, and a preparation recomputes its
 choice from the pools and is refused when it no longer equals the committed
@@ -402,6 +402,8 @@ def check_babble(
     """
     expected = load_babble_utterances().get(name)
     if expected is None:
+        # Defence in depth: the loader already refuses a file with no list for
+        # name; a future loader change must not silently lose this refusal.
         raise DownloadError(
             f"{name}: no committed babble list in {BABBLE_FILE.name}: "
             f"the babble of a noisy set cannot be checked against nothing"

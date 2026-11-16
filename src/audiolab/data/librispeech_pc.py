@@ -25,7 +25,7 @@ training set must not train on what a frozen panel mixes under it, so a
 preparation leaves out the babble utterances of the prepared noisy sets — the
 committed corpus ids of ``babble_utterances.json`` (one list per noisy clip
 set, beside ``noisy.py``) — and a training run containing a babble utterance is
-refused (the training-time refusal is tracked as [C-01](../../docs/backlog.md)).
+refused (the training-time refusal is tracked as [C-01](../../../docs/backlog.md)).
 The base model very likely trained on this audio with this text (NeMo's
 ASR Set 3.0 lists LibriSpeech and keeps punctuation and casing), so this source
 guards English in a mix rather than bringing gains.
