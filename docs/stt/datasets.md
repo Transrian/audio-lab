@@ -1131,8 +1131,8 @@ screening is a difference between corpora and not between recipes:
 | `peertube-edu-fr-train` | fr | CC-BY / CC0-1.0 (per video, in the manifest) | listing | 12 000 | 113 | 31.2 | 3.4 GiB | not measured: the videos are deleted once their sound is out, and the 119 talks read leave 8.0 GiB of WAV in the cache |
 | `debconf-en-train` | en | CC-BY (per video, in the manifest) | listing | 12 000 | 100 | 34.2 | 3.7 GiB | not measured: the videos are deleted once their sound is out, and the 106 talks read leave 7.1 GiB of WAV in the cache |
 | `fosdem-en-train` | en | CC-BY-2.0-BE (per talk, in the manifest) | listing | 12 000 | 124 | 35.6 | 3.8 GiB | not measured: the videos are deleted once their sound is out, and the 139 talks heard leave 6.4 GiB of WAV in the cache |
-| `nasa-en-train` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 3.7 GiB | not measured: the MP3 files are deleted once their sound is out, and the 265 episodes read leave 15.0 GiB of WAV in the cache |
-| `nasa-en-train-qwen` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 0: the audio is a hard link to `nasa-en-train`'s files | 0: nothing is fetched, the labels are the label audit's cached Qwen answers |
+| `nasa-en-train` | en | public domain (US government work) | listing | 12 000 | 234 | 34.9 | 3.7 GiB | 0 for the re-preparation of 2026-11-16, all 234 of its episodes in the cache (the set of 2026-11-09: not measured — the MP3 files are deleted once their sound is out, and its 265 episodes read leave 15.0 GiB of WAV in the cache) |
+| `nasa-en-train-qwen` | en | public domain (US government work) | listing | 11 956 | 265 | 34.6 | 0: the audio is a hard link to the files of the `nasa-en-train` set of 2026-11-09, kept as `nasa-en-train.pre-leakfix-2026-11-15` | 0: nothing is fetched, the labels are the label audit's cached Qwen answers |
 
 `prepared` is what the fetch wrote into `$AUDIOLAB_DATA`, `downloaded` what it
 read from the network; the cache keeps those bytes, so preparing a source again
@@ -2580,24 +2580,85 @@ this preparation leaves them out (decision 0002).
 
   The prepared set is 3.7 GiB, and the 265 episodes read leave 15.0 GiB of WAV
   in the cache.
+- **Re-prepared** (2026-11-16): the exclusion of the evaluation sets' groups —
+  the 60 reserved episodes of `nasa-en-test` and the 3 episodes in the class of
+  one of them — and the re-pinned listing of 2026-11-13 change what a
+  preparation reads, and the seeded order over the 768 episodes is not the
+  seeded order over the 774 of 2026-11-09. The re-pinned listing is the 774
+  minus the 7 episodes of NASA's Curious Universe plus one episode published
+  between the two pinnings (`episode-186-supercomputing`), which sits at the
+  405th place of the seeded order and is not read by this preparation. From
+  the cache only — no download, no request to a speech server, every episode it
+  read already labelled by the larger preparation below — the preparation
+  re-read **234 episodes, 129.5 h**, in seven batches: 86, 121, 21, 3, then 1,
+  1 and 1 as the cap neared; every page read again passed the listing's rules.
+  Whisper's segments — of which 721 had no words, 65 no duration and 557 lost
+  the words they repeated from the one before — gave 42 301 candidate clips,
+  and the transcripts labelled **18 215 of them (43.1 %)**. The other 24 086
+  are counted under the first test of the alignment (above) they fail, in the
+  order the tests run:
+
+  | left out because | clips |
+  | --- | --- |
+  | shorter than 1 s or longer than 20 s | 693 |
+  | the first or last word Whisper heard has no pair in the transcript | 6 773 |
+  | the two texts do not meet at an edge: the words just outside the clip are not each other's pair, so a transcript word there may have been said inside it | 8 401 |
+  | a word the scorer drops ("Um,") is just outside the clip | 153 |
+  | an edge falls inside a written word (`1,000`) | 74 |
+  | a change of speaker or a note inside the clip | 4 564 |
+  | on or next to a line that notes a sound | 746 |
+  | fewer than 90 % of the words paired on one side | 2 322 |
+  | more than two unpaired words in a row | 360 |
+
+  Of the labelled clips, 1 843 were left out because the first or last word
+  Parakeet hears is not the label's, 18 more for a character the base model
+  cannot write, and the 12 000 kept are what the set holds; the other 4 354
+  were past the room left under the cap or past their episode's share and were
+  never sent. The result is **12 000 clips (the cap), 34.9 h, 234 groups**,
+  median 9.4 s, all public domain (US government work):
+
+  | show | episodes | clips | hours |
+  | --- | --- | --- | --- |
+  | Houston We Have a Podcast | 64 | 4 563 | 13.2 |
+  | Small Steps, Giant Leaps | 59 | 3 019 | 9.2 |
+  | Gravity Assist | 56 | 2 762 | 8.1 |
+  | NASA in Silicon Valley | 55 | 1 656 | 4.4 |
+
+  Every episode read keeps clips, 1 to 173 (median 48.5), so none gives its
+  full 200; five give under 10. Against the set of 2026-11-09, kept as
+  `nasa-en-train.pre-leakfix-2026-11-15`: 6 046 clips are in both, identical in
+  every field and byte; 5 910 clips of it left — 5 053 of 107 episodes the new
+  seeded order did not reach, 496 of the 21 of the 148 episodes it reads again
+  whose new share is smaller, 248 of the 7 Curious Universe episodes the
+  re-pinned listing no longer holds (they leave on their own), and 113 of the
+  3 episodes of the evaluation sets' classes (the re-release of one reserved
+  episode under another slug, and the two conversations a reserved compilation
+  replays); and
+  5 954 came in — 4 802 of 86 episodes of the old listing the first preparation
+  did not read, and 1 152 of 64 of those 148 the new shares give more of.
+  Every clip of the re-prepared set is one of the 30 000 of the larger
+  preparation below. The prepared set is 3.7 GiB.
 - **What the base model gets wrong**: Parakeet's text differs from the label on
-  7 229 of the 11 956 clips (60.5 %); the mean `base_wer` is 5.3 %, and 39 % of
-  the clips have a `base_wer` of 0. By show, it differs on 29 % (NASA's Curious
-  Universe) to 73 % (NASA in Silicon Valley) of the clips. The labels are human
+  7 306 of the 12 000 clips (60.9 %); the mean `base_wer` is 5.2 %, and 39.1 %
+  of the clips have a `base_wer` of 0. By show, it differs on 56 % (Small
+  Steps, Giant Leaps and Gravity Assist) to 72 % (NASA in Silicon Valley) of the
+  clips. The labels are human
   text, so this is closer to the base model's own error than on the talk
   sources, but not equal to it: a false start or a repeat the transcript edited
   out counts as a base-model error, and the edge check keeps only clips whose
   first and last words Parakeet already hears.
 - **Larger preparation** (2026-11-14, the scale-up): `audiolab data fetch
   nasa-en-train --clips 30000`, prepared into
-  `$AUDIOLAB_DATA/nasa-en-train-30k`. The 11 956-clip set above is unchanged,
-  but this preparation reads a different listing from it: the listing was
-  re-pinned on 2026-11-13 (768 episodes; NASA's Curious Universe no longer in
-  it, matching the source's `EXCLUDED_SHOWS`), so the larger set is **not** a
-  superset of the other one. Of the 265 episodes the 11 956-clip set holds, 18
-  are not in the larger set: its 7 Curious Universe episodes (248 clips), left
-  out on purpose, and 11 of Houston We Have a Podcast, still in the listing
-  but past the 576-episode cut below in the seeded order. The preparation read
+  `$AUDIOLAB_DATA/nasa-en-train-30k`. The set re-prepared above reads the same
+  re-pinned listing in the same seeded order, so its 234 episodes are all among
+  the 576 read below, and every one of its 12 000 clips is one of this set's
+  30 000. The set of 2026-11-09, prepared from the listing of 774 episodes,
+  is **not** a subset of this one: the listing was re-pinned on 2026-11-13
+  (768 episodes; NASA's Curious Universe no longer in it, matching the source's
+  `EXCLUDED_SHOWS`), and of the 265 episodes the set of 2026-11-09 holds, 18 are
+  not in the larger set: its 7 Curious Universe episodes (248 clips), left out
+  on purpose, and 11 of Houston We Have a Podcast, still in the listing but
+  past the 576-episode cut below in the seeded order. The preparation read
   **576 episodes** (575 keep clips) in seven batches — 215, 300, 51, 7, then 1,
   1 and 1 as the cap neared — and reached it: **30 000 clips, 86.8 h**, median
   9.3 s, all public domain (US government work), no episode past its
@@ -2655,7 +2716,9 @@ this preparation leaves them out (decision 0002).
   writes none of them: its re-screen (2026-11-13, `screen-nasa-en-plain`)
   holds the unknown token in 10 of 7 712 answers, none of them in a purely
   English panel (against 592 of 4 116 in the first screen), and the first
-  screen's English harm is gone.
+  screen's English harm is gone. The re-preparation of 2026-11-16 writes none
+  of them either: its 12 000 clips hold no character the base model cannot
+  write.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of
@@ -2747,7 +2810,7 @@ training preparation is this rule, above.
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
-| `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` and the duplicates in their classes of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py` |
+| `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` and the duplicates in their classes of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py`; the set prepared 2026-11-16 leaves the 3 episodes of those classes out — 113 of the clips the set of 2026-11-09 held, kept as `nasa-en-train.pre-leakfix-2026-11-15` |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
