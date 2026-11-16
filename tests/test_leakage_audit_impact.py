@@ -69,6 +69,17 @@ PEERTUBE_TALKS = [
         license="CC0",
         author="a",
     ),
+    # The re-upload of the evaluation talk: in the same class, and left out by
+    # the evaluation exclusion like it — a class whose two present members are
+    # both left out contributes nothing to the within-set rule.
+    Talk(
+        id="syn-eval2",
+        url="",
+        title="synthetic evaluation!",
+        duration_s=3601,
+        license="CC0",
+        author="a",
+    ),
     Talk(id="syn-a", url="", title="Synthetic Alpha", duration_s=3600, license="CC0", author="a"),
     Talk(id="syn-b", url="", title="synthetic alpha!", duration_s=3601, license="CC0", author="a"),
     Talk(
@@ -150,6 +161,7 @@ def synthetic_root(root: Path) -> dict[str, str]:
         "peertube-edu-fr-train",
         [
             row("peertube-edu-fr-train", "syn-eval", "syn-eval"),
+            row("peertube-edu-fr-train", "syn-eval2", "syn-eval2"),
             row("peertube-edu-fr-train", "syn-a", "syn-a"),
             row("peertube-edu-fr-train", "syn-b", "syn-b"),
             row("peertube-edu-fr-train", "syn-clean", "syn-clean"),
@@ -300,18 +312,32 @@ def test_every_rule_fires_and_the_counts_hold(tmp_path):
     def counts(row: impact.SetImpact) -> dict[str, int]:
         return {rule: row.count(rule) for rule in impact.RULES}
 
+    # The evaluation class holds two present members (the evaluation talk and
+    # its re-upload): both are left out, so neither is an in-set re-upload.
     assert counts(rows["peertube-edu-fr-train"]) == {
-        "evaluation group or its class": 1,
+        "evaluation group or its class": 2,
         "re-upload of a talk already read": 1,
         "nasa reserved-test-episode class": 0,
         "slr57 speaker": 0,
         "voxpopuli shared session": 0,
         "babble utterance": 0,
     }
-    assert rows["peertube-edu-fr-train"].clips == 4
-    assert rows["peertube-edu-fr-train"].total == 2
+    assert rows["peertube-edu-fr-train"].removed[impact.RULE_EVAL_CLASS] == frozenset(
+        {"peertube-edu-fr-train:syn-eval", "peertube-edu-fr-train:syn-eval2"}
+    )
+    # The within-set rule keeps the first talk of the pair in the reading order
+    # and removes the later one — the exact clip, not just the count.
+    order = inputs.talk_order["peertube-edu-fr-train"]
+    later = max(("syn-a", "syn-b"), key=order.index)
+    assert rows["peertube-edu-fr-train"].removed[impact.RULE_REUPLOAD] == frozenset(
+        {f"peertube-edu-fr-train:{later}"}
+    )
+    assert rows["peertube-edu-fr-train"].clips == 5
+    assert rows["peertube-edu-fr-train"].total == 3
     # The sized set: the same within-set pair, no evaluation hit.
-    assert rows["peertube-edu-fr-train-40k"].count("re-upload of a talk already read") == 1
+    assert rows["peertube-edu-fr-train-40k"].removed[impact.RULE_REUPLOAD] == frozenset(
+        {f"peertube-edu-fr-train-40k:{later}"}
+    )
     assert rows["peertube-edu-fr-train-40k"].total == 1
     # The 12 000-clip set: only within-set re-uploads.
     assert rows["debconf-en-train"].count("re-upload of a talk already read") == 1
@@ -327,12 +353,17 @@ def test_every_rule_fires_and_the_counts_hold(tmp_path):
         "babble utterance": 0,
     }
     assert rows["nasa-en-train"].total == 2  # the twin and one of the pair; the other is kept
+    nasa_order = inputs.talk_order[nasa_mod.NAME]
+    later_nasa = max(("syn-n1", "syn-n2"), key=nasa_order.index)
+    assert rows["nasa-en-train"].removed[impact.RULE_REUPLOAD] == frozenset(
+        {f"nasa-en-train:{later_nasa}"}
+    )
     assert rows["nasa-en-train-30k"].total == 0
     # A talk no longer in the pinned listing is not counted by any rule; the
-    # row records it as stale, and the report prints it.
-    assert rows["nasa-en-train-30k"].stale == frozenset({"syn-stale-episode"})
+    # row records it as stale with its clip count, and the report prints it.
+    assert rows["nasa-en-train-30k"].stale == {"syn-stale-episode": 1}
     report = impact.render(root, list(rows.values()), inputs, [])
-    assert "syn-stale-episode" in report
+    assert "1 talk (1 clip) — syn-stale-episode" in report
     assert rows["nasa-en-train-qwen"].total == 0
     # SLR57: the CA16 twin of a test speaker, as the real function maps it.
     assert rows["african-accented-fr-train"].count("slr57 speaker") == 1
@@ -345,6 +376,62 @@ def test_every_rule_fires_and_the_counts_hold(tmp_path):
     assert rows["librispeech-en-train"].count("babble utterance") == 1
     assert "123/1234/123-1234-0001" not in babble_exclusions(
         ("123/1234/123-1234-0001",), noisy.load_babble_utterances()
+    )
+
+
+def test_the_in_set_rule_is_the_fetchers_exact_loop():
+    """A class counts as read from the first non-left-out talk of the whole
+    order, whether or not that talk is in the set.
+
+    The first talk of the pair is absent from the set and the second (its
+    re-upload) is present: the fetcher reads the first and drops the second —
+    the set's own clips cannot save the re-upload.
+    """
+    a = Talk(id="t-a", url="", title="Mini First Show", duration_s=1000, license="CC0", author="z")
+    b = Talk(id="t-b", url="", title="mini first show", duration_s=1001, license="CC0", author="z")
+    classes = dup.duplicate_classes([a, b], domain="mini")
+    assert classes["t-a"] == classes["t-b"]
+    order = tuple(t.id for t in reading_order([a, b], SEED, None))
+    first, second = order
+    assert impact._in_set_reuploads(order, {second}, classes, frozenset()) == {second}
+    # With the roles swapped, nothing of the set is dropped.
+    assert impact._in_set_reuploads(order, {first}, classes, frozenset()) == set()
+
+
+def test_a_sessionless_vox_clip_id_fails_loudly_and_names_the_set(tmp_path, capsys):
+    root = tmp_path / "data"
+    write_dataset(
+        root,
+        "voxpopuli-fr-train",
+        [row("voxpopuli-fr-train", "not-a-session", "100", "speaker")],
+    )
+    assert impact.main(["--data-dir", str(root)]) == 1
+    err = capsys.readouterr().err
+    assert "voxpopuli-fr-train" in err
+    assert "does not hold a session before a language tag" in err
+
+
+def test_the_rule_inputs_read_the_union_population_and_the_source_orders(tmp_path):
+    """The classes span the PeerTube union and the order is the source's seeded
+    reading order — the two things the fetcher computes, not one listing's own."""
+    from audiolab.data import talk_sources
+
+    root = tmp_path / "data"
+    root.mkdir()
+    inputs, _ = impact.compute_rule_inputs(root)
+
+    # A talk of the edu listing that is in no other listing is a class member
+    # of the fr source: the population is the union, as the fetcher computes it.
+    edu_ids = {t.id for t in read_listing(talk_sources.SOURCES["peertube-edu-fr-train"])[1]}
+    fr_ids = {t.id for t in read_listing(talk_sources.SOURCES["peertube-fr-train"])[1]}
+    outside = sorted(edu_ids - fr_ids)
+    assert outside
+    assert outside[0] in inputs.talk_classes["peertube-fr-train"]
+
+    # The order is the source's seeded reading order, spread by the source.
+    source = talk_sources.SOURCES["debconf-en-train"]
+    assert inputs.talk_order["debconf-en-train"] == tuple(
+        t.id for t in reading_order(read_listing(source)[1], SEED, source.spread_by)
     )
 
 
@@ -435,6 +522,7 @@ def test_main_runs_the_real_wiring_and_exits_zero(tmp_path, capsys):
     out = capsys.readouterr().out
     for line in (
         "| peertube-edu-fr-train | 2 | 1 |",
+        "1024 babble utterance entries (1012 unique) over 3 noisy sets",
         "peertube-edu-captions-fr-v2 (evaluation set of peertube-edu-fr-train): NOT prepared",
         "- peertube-edu-fr-train — eval class: 1 clip",
     ):
