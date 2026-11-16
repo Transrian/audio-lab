@@ -2370,6 +2370,31 @@ feeds an evaluation set passes them to its `Take`, which counts what it left out
 in the fetch report. The evaluation dataset must be prepared (`audiolab data
 fetch`) before the training source is, because the check reads its manifest.
 
+The exclusion is on the recording, not on the group's id alone: the same
+recording often comes back under another id — a video re-uploaded, an episode
+re-released, a compilation that replays an episode — and an exclusion of ids
+misses the copy. The talks of a corpus therefore fall into **duplicate
+classes** (`duplicate_classes` in `src/audiolab/data/duplicates.py`): two
+talks are in the same class when their titles are equal apart from case,
+accents and punctuation and their durations differ by at most 2 s, or when
+they are a confirmed pair of the committed
+[`src/audiolab/data/duplicates.json`](../../src/audiolab/data/duplicates.json)
+— two ids checked against their prepared clips to hold the same speech, the
+evidence beside each pair. The classes are closed transitively, and a class's
+id is the smallest id of its members. A shared author, channel or host never
+puts two talks in the same class: only the same speech does. A preparation
+leaves out every class that holds an evaluation group — the evaluation talk
+and its re-uploads alike — and reads each other class once, its first talk in
+the reading order standing for it; the preparation's log says how many talks
+of the listing were left out, by reason. For the PeerTube sources the classes
+are computed over the union of the three PeerTube listings, because the
+evaluation talks and the training talks come from different listings and a
+re-upload can straddle them. The run-level leakage guard
+(`src/audiolab/train/guard.py`) rechecks the clips a run trains on against the
+prepared evaluation clips, but two clips of the same recording prepared
+differently do not hash alike and pass it: keeping a duplicate class out of a
+training preparation is this rule, above.
+
 | training source | evaluation set checked | left out |
 | --- | --- | --- |
 | `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 956 train clips (4.67 h) share the rooms and microphones of 480 evaluation clips (1.6 h); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)), [proposed decision 0014](../decisions/proposed/0014-voxpopuli-shared-sessions.md) |
@@ -2378,13 +2403,13 @@ fetch`) before the training source is, because the check reads its manifest.
 | `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
-| `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py` |
+| `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the 2026-11-09 preparations predate the set; the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` and the duplicates in their classes of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py` |
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
 | `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 0 clips: the 12 test speakers are absent from the 190 prepared speakers, checked against the prepared test manifest by the fetcher |
 | `peertube-fr-train` | none: no evaluation set comes from this instance | — |
-| `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks via `evaluation_groups` in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` |
+| `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks and the duplicates in their classes in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
 | `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
 
