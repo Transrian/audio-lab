@@ -429,7 +429,8 @@ Three kinds of clip that must stay silent, 300 in total:
   speaker, with the part's single transcript `transcripts/test/ca16/prompts.txt`
   (515 lines, one per recording). The part's speakers are Cameroonian, Chadian,
   Congolese and Gabonese. `dev` and `devtest` are in the same archive but are
-  not read: they stay untouched as a reserve for a later campaign.
+  not read: `devtest` holds 761 recordings of 16 speakers, 14 of which are
+  train speakers, so it is not a speaker-disjoint reserve (dev: 986 of 23).
 - **License**: Apache-2.0, as the train part.
 - **Audio**: 515 prompted sentences, one recording per line of the transcript.
   12 speakers, 2 to 87 clips each; 0.31 h of audio.
@@ -438,12 +439,20 @@ Three kinds of clip that must stay silent, 300 in total:
   its whitespace runs removed, the same cleanup the train text gets. `category`
   is `read` for every clip: the part's one transcript is its prompted sentences.
 - **Group**: the speaker's directory (`group_kind: speaker`), 12 groups.
-- **No overlap with the train part** (decision 0002): the preparation reads the
-  prepared `african-accented-fr-train` manifest and drops a test speaker it
-  already holds; 2026-11-12 that overlap was empty, so all 515 clips are in.
-  More than a tenth of the part's speakers overlapping stops the preparation.
-  The train fetcher keeps the check the other way: its `Take` takes its
-  exclusions from this manifest (`evaluation_groups`).
+- **No shared voice with the train part** (decision 0002): the preparation
+  reads the prepared `african-accented-fr-train` manifest and drops a test
+  speaker it already holds, the ids compared as they are written; more than a
+  tenth of the part's speakers overlapping stops the preparation. All 515
+  clips are in. The two parts name the CA16 speakers in two formats — `012` in
+  the train part, `cameroon_m_012` in this one — over one shared numbering, and
+  11 of the 12 test numbers are absent from the train part's speakers: the
+  12th, `cameroon_m_012`, is the train speaker `012`. The check that ran when
+  the set was prepared compared the two id formats as strings, so it matched
+  nothing: the shared speaker is exactly what it could not see. The train
+  fetcher now maps the two formats and leaves a train speaker out of the train
+  part when its number is a test speaker's: `012`, 3 clips. This part
+  keeps every one of its speakers, and the exclusion rests on the shared
+  numbering: no speaker-embedding comparison was done.
 - **Why it is here**: French spoken with an African accent, which no other
   panel measures; [D-009](../owner/directives.md) keeps French first and this is
   the only open-source set that holds it. The train part's known defect (the
@@ -1398,6 +1407,12 @@ measures, trained on the same clips.
   directory above the recording. One speaker appears in both the read and the
   answer recordings of the Yaoundé part, so the group is the directory and not the
   subdirectory.
+- **The shared speaker** (decision 0002): the preparation leaves the 3 clips
+  of the CA16 speaker `012` out of the train part, because its number is the
+  test part's `cameroon_m_012`'s — the two parts name the CA16 speakers in two
+  formats over one shared numbering, and the test part's card records the
+  evidence and the rule in words. The set prepared 2026-11-08 predates the
+  rule and still holds those 3 clips.
 - **What a cap covers**: the whole train part is smaller than the cap. Its 14 394
   recordings hold 11 460 with a transcript, of which 8 are prompting lines and 25
   are longer than 20 s, so the source is 11 427 clips: **the screening's arms do
@@ -2407,7 +2422,7 @@ training preparation is this rule, above.
 | `granary-fr-train` | none: no evaluation set comes from this corpus | — |
 | `icsi-en-train` | none: no evaluation set comes from this corpus | — |
 | `notsofar-en-train` | `notsofar-en-eval` (the eval split of the same corpus) | 0 clips: the twelve eval aliases are absent from the twelve prepared train aliases, checked against the prepared eval manifest by the fetcher |
-| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 0 clips: the 12 test speakers are absent from the 190 prepared speakers, checked against the prepared test manifest by the fetcher |
+| `african-accented-fr-train` | `african-accented-fr-test` (test part of the same corpus) | 3 clips: the two parts name the CA16 speakers in two formats (`012` and `cameroon_m_012`) over one shared numbering, and 11 of the 12 test numbers are absent from the train part's speakers, so a preparation leaves out one speaker, `012` (3 clips); the check first run compared the two formats as strings and matched nothing, and the set prepared 2026-11-08 predates the rule and still holds those clips; `devtest` is not a speaker-disjoint reserve — 14 of its 16 speakers are train speakers |
 | `peertube-fr-train` | none: no evaluation set comes from this instance | — |
 | `peertube-edu-fr-train` | `peertube-edu-captions-fr` (the human-captioned talks of the same listing) | 1 talk: the training set (prepared 2026-11-09, before the evaluation set existed) holds one of the 140 human-captioned talks, with 73 of its clips; the evaluation fetcher leaves the talk out, and the train fetcher now skips the set's talks and the duplicates in their classes in every preparation it makes after the set exists, checked in `tests/test_data_peertube_edu_captions.py` (the evaluation talks) and `tests/test_data_talks.py` (the duplicates in their classes and the re-uploads of a talk already read, `test_a_preparation_leaves_out_the_reuploads_of_its_evaluation_talks`) |
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
