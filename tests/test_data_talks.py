@@ -23,12 +23,12 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import write_tone  # noqa: E402
+from helpers import make_clip, write_tone  # noqa: E402
 
 from audiolab.core.audio import SAMPLE_RATE  # noqa: E402
 from audiolab.core.parallel import map_requests  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
-from audiolab.data import talk_clips, talk_listing, talk_sources, talks  # noqa: E402
+from audiolab.data import duplicates, talk_clips, talk_listing, talk_sources, talks  # noqa: E402
 from audiolab.data.build import ManifestBuilder  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.store import read_manifest  # noqa: E402
@@ -1109,3 +1109,110 @@ def test_a_larger_preparation_of_the_source_reuses_the_answers_of_the_smaller(
     assert {clip.id.split(":", 1)[1].partition("-")[0] for clip in clips} == asked_first | {
         new_talk
     }, "the smaller preparation's talks stay first, then the larger one reads on"
+
+
+# The duplicate classes, left out whole.
+
+
+def test_a_preparation_leaves_out_the_reuploads_of_its_evaluation_talks(
+    tmp_path, monkeypatch, capsys
+):
+    """The rule is on the recording, not on the id.
+
+    The re-upload of an evaluation talk — same title and length, another id —
+    is in the evaluation talk's duplicate class, and the preparation leaves it
+    out with it. (On the code that excluded by id alone, the re-upload was
+    read and ended up in the set: this test fails without the classes.)
+    """
+    from dataclasses import replace
+
+    (tmp_path / "data" / "fake-eval").mkdir(parents=True)
+    (tmp_path / "data" / "fake-eval" / "manifest.jsonl").write_text(
+        make_clip("fake-eval:eval", group="fake-eval:eval").manifest_line() + "\n",
+        encoding="utf-8",
+    )
+    listed = [
+        talk("eval", title="Regards croises sur l'IA", duration_s=3910),
+        talk("twin", title="Regards croises sur l'IA", duration_s=3910),
+        talk("plain", title="Another talk", duration_s=1000),
+    ]
+    source = replace(make_source(tmp_path, listed), evaluation_datasets=("fake-eval",))
+    rows = [whisper_row(0.0, 5.0, "Bonjour.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 100)
+    asked: list[str] = []
+
+    def fetch_audio(http, one, destination, source_):
+        asked.append(one.id)
+        return write_tone(destination, seconds=12.0)
+
+    monkeypatch.setattr(talks, "fetch_audio", fetch_audio)
+
+    count = talks.fetch_talks(
+        source,
+        tmp_path / "cache",
+        tmp_path / "data" / "test-fr-train",
+        license="CC-BY",
+        verbose=True,
+    )
+
+    assert count == 1 and asked == ["plain"], "the re-upload is left out with its evaluation talk"
+    clips = read_manifest(tmp_path / "data" / "test-fr-train")
+    assert [clip.group for clip in clips] == ["test-fr-train:plain"]
+    out = capsys.readouterr().out
+    assert (
+        "2 talks of this listing are left out: 1 duplicate of an evaluation talk, 1 evaluation talk"
+        in out
+    )
+
+
+def test_a_preparation_reads_each_class_once_and_counts_the_reuploads(
+    tmp_path, monkeypatch, capsys
+):
+    """One talk per duplicate class: the first in the reading order stands for it."""
+    listed = [
+        talk("a", title="Same talk", duration_s=1000),
+        talk("b", title="Same talk", duration_s=1000),
+        talk("c", title="Other talk", duration_s=1000),
+    ]
+    source = make_source(tmp_path, listed)
+    rows = [whisper_row(0.0, 5.0, "Bonjour.")]
+    answers = {
+        WHISPER: lambda wav: {"segments": rows, "text": ""},
+        QWEN: lambda wav: {"text": "Bonjour."},
+        PARAKEET: lambda wav: {"text": "Bonjour."},
+    }
+    log: list[str] = []
+    serve_fakes(monkeypatch, None, answers, log)
+    monkeypatch.setattr(talks, "TRAIN_CLIP_CAP", 100)
+    asked: list[str] = []
+
+    def fetch_audio(http, one, destination, source_):
+        asked.append(one.id)
+        return write_tone(destination, seconds=12.0)
+
+    monkeypatch.setattr(talks, "fetch_audio", fetch_audio)
+
+    talks.fetch_talks(
+        source, tmp_path / "cache", tmp_path / "dataset", license="CC-BY", verbose=True
+    )
+
+    order = [one.id for one in talk_listing.reading_order(listed, talks.SEED, source.spread_by)]
+    classes = duplicates.duplicate_classes(
+        [{"id": one.id, "title": one.title, "duration_s": one.duration_s} for one in listed],
+        domain=source.name,
+    )
+    members = [one for one in order if classes[one] == classes["a"]]
+    first, skipped = members[0], members[1]
+    assert first != skipped and len(members) == 2, "the same-title class holds two talks"
+    assert asked == [one for one in order if one != skipped], (
+        "the first talk of a class in the reading order stands for it, its re-uploads skipped"
+    )
+    out = capsys.readouterr().out
+    assert "1 talks of this listing are left out: 1 re-upload of a talk already read" in out

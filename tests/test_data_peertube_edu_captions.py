@@ -402,7 +402,7 @@ def test_a_preparation_of_the_talk_source_skips_the_talks_of_an_evaluation_set(
     clips = read_manifest(tmp_path / "dataset")
     assert clips and all(c.group == "test-fr-train:a" for c in clips)
     assert asked_downloads == ["a"], "the reserved talk is not even downloaded"
-    assert "1 talks of a prepared evaluation set are left out" in capsys.readouterr().out
+    assert "1 talks of this listing are left out: 1 evaluation talk" in capsys.readouterr().out
 
 
 def serve_fakes(monkeypatch) -> None:

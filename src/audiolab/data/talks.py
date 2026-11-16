@@ -71,6 +71,7 @@ from audiolab.core.progress import progress, say
 from audiolab.core.stop import Stopped, raise_if_stopped, stop_requested
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.download import DownloadError, download
+from audiolab.data.duplicates import duplicate_classes, excluded_talks, peertube_talks
 from audiolab.data.talk_clips import (
     CHUNK_SECONDS,
     MAX_CLIP_SECONDS,
@@ -101,6 +102,10 @@ from audiolab.eval.client import (
 from audiolab.eval.metrics import counts
 
 SEED = 1
+# The PeerTube sources are one corpus listed three times: an evaluation talk
+# and one of its training re-uploads can sit in different listings, so their
+# duplicate classes are computed over the union of the three.
+PEERTUBE_SOURCES = ("peertube-fr-train", "peertube-edu-fr-train", "peertube-tech-fr-train")
 SEGMENT_MODEL = "stt-v-whisper-large-v3"
 LABEL_MODEL = "stt-v-qwen3-asr-1.7B"
 BASE_MODEL = "stt-c-parakeet-tdt-0.6B-v3"
@@ -263,6 +268,12 @@ def fetch_talks(
     cached under the source's name either way, so a larger preparation re-reads
     nothing the usual one already asked, and the talks are read in the same
     seeded order, so it reads the same talks first, then more.
+
+    Before any download, the talks of the corpus that no preparation may read
+    are left out and counted in the report, by the reason that leaves them out:
+    the talks of a prepared evaluation set of this corpus, the re-uploads of
+    those talks in their duplicate class, and the re-uploads of a talk the
+    preparation then reads (one talk per duplicate class).
     """
     cap = clips if clips is not None else TRAIN_CLIP_CAP
     listed_on, talks = read_listing(source)
@@ -286,14 +297,42 @@ def fetch_talks(
             say(f"  listing of {listed_on}: {len(talks)} talks")
         order = reading_order(talks, SEED, source.spread_by)
         # A talk is one recording, and its clips are one group: a prepared
-        # evaluation set of this corpus holds talks that no preparation may read
-        # (decision 0002). The check reads their manifests, so it is what the
-        # evaluation sets were prepared with.
+        # evaluation set of this corpus holds talks that no preparation may
+        # read (decision 0002). The check reads their manifests, so it is what
+        # the evaluation sets were prepared with. The exclusion is on the
+        # recording, not on the id alone: the talks of the corpus fall into
+        # duplicate classes, a class that holds an evaluation group is left
+        # out whole, and each other class is read once, its first talk in the
+        # reading order standing for it. The PeerTube sources are one corpus
+        # listed three times, so their classes span the union of the three
+        # listings.
+        if source.name in PEERTUBE_SOURCES:
+            population, domain = peertube_talks(), "peertube"
+        else:
+            population, domain = talks, source.name
+        classes = duplicate_classes(population, domain=domain)
         reserved = evaluation_groups(*source.evaluation_datasets, root=dataset_dir.parent)
-        if reserved:
-            order = [talk for talk in order if talk.id not in reserved]
-            if verbose:
-                say(f"  {len(reserved)} talks of a prepared evaluation set are left out")
+        left_out = excluded_talks(classes, reserved)
+        left_out_reasons: Counter[str] = Counter()
+        seen_classes: set[str] = set()
+        kept: list[Talk] = []
+        for talk in order:
+            reason = left_out.get(talk.id)
+            if reason is not None:
+                left_out_reasons[reason] += 1
+            elif classes[talk.id] in seen_classes:
+                left_out_reasons["re-upload of a talk already read"] += 1
+            else:
+                seen_classes.add(classes[talk.id])
+                kept.append(talk)
+        order = kept
+        if verbose:
+            left = sum(left_out_reasons.values())
+            reasons = (
+                ", ".join(f"{count} {reason}" for reason, count in sorted(left_out_reasons.items()))
+                or "none"
+            )
+            say(f"  {left} talks of this listing are left out: {reasons}")
         with (
             http_client() as http,
             client(SEGMENT_MODEL, {"response_format": "verbose_json"}) as whisper,
