@@ -439,8 +439,10 @@ def select_panels_preserved_sealing(
     of the source. The remaining talks, the source's unsealed ones and the new
     ones the draw leaves unsealed, hold the full and fast panels, drawn with
     the usual rule. The draw is a pure function of this dataset's clips, the
-    source's committed sealed and full panels and the seed, so a check can
-    recompute it without the source's data.
+    source's committed sealed and full panels, the seed, the unpanelled pin
+    (:data:`UNPANELLED_TALKS`) and the corpus's committed duplicate classes
+    (:data:`PRESERVED_SEALING_CORPUS`'s listings plus the committed duplicate
+    list), so a check can recompute it without the source's data.
 
     The source's talks are read from its sealed and full panels, whose union
     names every source talk when the source's unsealed talks number at most
