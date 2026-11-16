@@ -361,6 +361,27 @@ DATASETS: dict[str, DatasetInfo] = {
         "at the edges. Its episodes are left out of every nasa-en-train preparation "
         "(decision 0002). Curious Universe is never reserved.",
     ),
+    "nasa-en-test-v2": DatasetInfo(
+        name="nasa-en-test-v2",
+        source="the same clips and audio as nasa-en-test, minus the re-released "
+        "episode (no new source)",
+        license="public domain (US government work)",
+        split="listing (reserved episodes, one re-released episode out)",
+        reference_style="NASA's own transcript of each episode, cased and punctuated, "
+        "aligned to the audio by Whisper large-v3, as nasa-en-test",
+        grouping="recording (group = episode page slug), as nasa-en-test",
+        notes="The sealed evaluation set without the re-released episode: one of its "
+        "episodes is in every nasa-en-train preparation under another slug, and a "
+        "clip a model is scored on may not be trained on, so the episode's clips "
+        "leave the sealed panel. The set holds the source's clips "
+        "minus the 26 clips of that episode (1 479 of the 1 505, 59 of the 60 "
+        "groups), prepared from the source's manifest by "
+        "src/audiolab/data/nasa.py; the audio is hard-linked from the source's "
+        "files, never re-encoded. The panels are the source's panels re-prefixed, "
+        "the sealed one minus the episode (294 of the 320). Future sealed scoring "
+        "uses nasa-en-test-v2-sealed; the nasa-en-test panels and suites stay as "
+        "they are. Described in docs/stt/datasets.md.",
+    ),
     "peertube-fr-train": DatasetInfo(
         name="peertube-fr-train",
         source="https://videos.capitoledulibre.org (PeerTube API; the pinned list of "
