@@ -1358,9 +1358,12 @@ measures, trained on the same clips.
   first rows: the set of 2026-11-08 held them and is kept as
   `librispeech-pc-en-train.pre-leakfix-2026-11-15`; the preparation of
   2026-11-16 holds none of them — the 447 left the set and 447 clips read
-  further into the split fill the cap — and the larger set prepared 2026-11-13
-  still holds the same 447. A preparation from this code leaves none of them
-  in.
+  further into the split fill the cap. The larger set prepared 2026-11-13
+  held the same 447 and is kept as
+  `librispeech-pc-en-train-40k.pre-leakfix-2026-11-15`; its re-preparation of
+  2026-11-16 holds none of them either, and the split running out below the
+  cap leaves nothing to replace them. A preparation from this code leaves
+  none of them in.
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   librispeech-pc-en-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/librispeech-pc-en-train-40k`; the 12 000-clip set above is
@@ -1373,6 +1376,15 @@ measures, trained on the same clips.
   beyond 20 s left out. The scale-up plan expected the 40 000-clip cap; the
   valid rows of `train-clean-100` top out at 25 897, so this is the source
   running out, not the cap stopping it. The prepared set is 9.9 GiB.
+  Re-prepared 2026-11-16 with the babble exclusion: **25 449 clips, 89.5 h,
+  251 speakers**, median 14.0 s, CC-BY-4.0, 9.6 GiB — the 447 babble clips of
+  the 2026-11-13 preparation left the set, and the split running out below
+  the cap leaves nothing to replace them (unlike the 12 000-clip set, whose
+  re-preparation read 447 clips further in to fill the cap). The re-preparation
+  left out 2 498 rows without restored text, 141 heading rows and 450 babble
+  utterances (3 of the babble rows also carry a heading and count once); the
+  2026-11-13 preparation is kept as
+  `librispeech-pc-en-train-40k.pre-leakfix-2026-11-15`.
 
 ### `ami-fr-speakers-en-train` — English meetings spoken by French-L1 participants
 
