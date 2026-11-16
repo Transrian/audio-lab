@@ -15,6 +15,7 @@ from helpers import (  # noqa: E402
 )
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
+from audiolab.core.paths import cache_dir  # noqa: E402
 from audiolab.data.duplicates import duplicate_classes, peertube_talks  # noqa: E402
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_SEED,
@@ -609,31 +610,59 @@ def test_the_first_set_is_drawn_by_the_plain_rule_alone():
     assert _derived_source("peertube-edu-captions-fr") is None
 
 
-_CAPTIONS_CACHE = (
-    Path(os.environ["AUDIOLAB_CACHE"]) / "peertube-edu-captions-fr"
-    if os.environ.get("AUDIOLAB_CACHE")
-    else None
-)
+def test_the_second_set_refusal_runs_on_the_committed_corpus():
+    """The refusal is wired to the committed corpus, not to a fixture: over the
+    committed first-set panels and the default corpus, a clip of a corpus talk
+    that is not a first-set talk but shares its class with one is refused,
+    naming both talks. Removing the dataset's corpus entry (or its contents)
+    would let the draw proceed and this test fail - the real dataset's refusal
+    cannot be silently switched off.
+
+    acd1259e… is a member of the class the first set's panels split with
+    93f73849… and eb320545…; it is not in any first-set panel, so it is a talk
+    new in the second set that shares a class with a first-set talk.
+    """
+    assert PRESERVED_SEALING_CORPUS["peertube-edu-captions-fr-v2"] is peertube_talks
+    panels_dir = Path(__file__).parent.parent / "configs" / "panels"
+    first, second = "peertube-edu-captions-fr", "peertube-edu-captions-fr-v2"
+    first_talks = talks_of_panel(panels_dir, f"{first}-sealed") | talks_of_panel(
+        panels_dir, f"{first}-full"
+    )
+    clips = [
+        make_clip(f"{second}:{talk}-0000000", group=f"{second}:{talk}")
+        for talk in sorted(first_talks)
+    ]
+    new_talk = "acd1259e-023c-48f8-b8b7-8609a1ccd1cd"
+    clips.append(make_clip(f"{second}:{new_talk}-0000000", group=f"{second}:{new_talk}"))
+    with pytest.raises(
+        ValueError,
+        match=f"talk '{new_talk}' shares its duplicate class with the {first} "
+        "talk '93f73849-da48-4619-94fa-3d59f75af988'",
+    ):
+        select_panels_preserved_sealing(second, first, clips, DEFAULT_SEED, panels_dir)
+
+
+_CAPTIONS_CACHE = cache_dir() / "peertube-edu-captions-fr"
 
 
 @pytest.mark.skipif(
-    _CAPTIONS_CACHE is None or not _CAPTIONS_CACHE.is_dir(),
-    reason="needs the prepared cache of peertube-edu-captions-fr",
+    not _CAPTIONS_CACHE.is_dir(), reason="needs the prepared cache of peertube-edu-captions-fr"
 )
 def test_no_talk_new_to_the_second_set_shares_a_class_with_the_first_set():
-    """The 'none does today' fact, pinned read-only: the second set's talks are
+    """The 'none does today' facts, pinned read-only: the second set's talks are
     the cache's talks; over the committed first-set panels and the committed
     listings (the default corpus), the refusal fires for none of them and the
     pin is not stale against the committed panels. A future preparation that
-    reads a talk sharing a class with the first set would fail here and at
-    the panel build, not surface as a moved panel.
+    reads a talk sharing a class with the first set would fail here and at the
+    panel build, not surface as a moved panel. The pins are about the classes,
+    not the cache's size, so a re-fetch that adds talks re-pins the facts.
 
     The clips hold one clip per talk, which is all the rule reads of a
     manifest: it selects talks, and the sizes it would draw are the test's,
     not a claim about the prepared set.
     """
+    panels_dir = Path(__file__).parent.parent / "configs" / "panels"
     talks = sorted(name[:-4] for name in os.listdir(_CAPTIONS_CACHE) if name.endswith(".wav"))
-    assert len(talks) == 139
     clips = [
         make_clip(
             f"peertube-edu-captions-fr-v2:{talk}-0000000",
@@ -646,7 +675,7 @@ def test_no_talk_new_to_the_second_set_shares_a_class_with_the_first_set():
         "peertube-edu-captions-fr",
         clips,
         DEFAULT_SEED,
-        Path(__file__).parent.parent / "configs" / "panels",
+        panels_dir,
     )
     unpanelled = {
         clip_id.partition(":")[2] for clip_id in UNPANELLED_TALKS["peertube-edu-captions-fr-v2"]
@@ -654,6 +683,21 @@ def test_no_talk_new_to_the_second_set_shares_a_class_with_the_first_set():
     panel_talks = {talk_of(clip_id) for name in PANEL_NAMES for clip_id in selected[name]}
     assert not (panel_talks & unpanelled)
     assert unpanelled <= {talk_of(clip.id) for clip in clips}
+    # The refusal is about the first set; the fact pinned alongside it is that
+    # no two talks new to the set share a class, so the sealed-share draw
+    # cannot split one class across the panels.
+    classes = duplicate_classes(peertube_talks())
+    members: dict[str, set[str]] = {}
+    for talk_id, class_id in classes.items():
+        members.setdefault(class_id, set()).add(talk_id)
+    first_talks = talks_of_panel(panels_dir, "peertube-edu-captions-fr-sealed") | talks_of_panel(
+        panels_dir, "peertube-edu-captions-fr-full"
+    )
+    new_talks = {talk_of(clip.id) for clip in clips} - first_talks
+    for talk in sorted(new_talks):
+        class_id = classes.get(talk)
+        mates = (members[class_id] - {talk}) & new_talks if class_id is not None else set()
+        assert not mates, f"{talk!r} shares its class with {sorted(mates)}"
 
 
 # --- Derived sets that drop listed groups (nasa-en-test-v2) --------------------
