@@ -344,7 +344,22 @@ def select_panels_preserved_sealing(
     first round. The source set holds under that condition, so its talks are
     all named; a source set that did not would name fewer talks, and the
     difference would over-seal, never unseal.
+
+    The rule is only sound when it can tell the source's talks apart, and a
+    silent "every talk is new" would unseal the whole source: a clip whose id
+    names a different talk than its group, and a dataset whose talks share
+    none with the source's panels, are refused rather than drawn over.
     """
+    talks: set[str] = set()
+    for clip in clips:
+        group_talk = clip.group.partition(":")[2]
+        id_talk = _talk_of_panel_id(clip.id)
+        if id_talk != group_talk:
+            raise ValueError(
+                f"{clip.id!r} names the talk {id_talk!r} but is grouped under "
+                f"{group_talk!r}: a clip's id and its group must name the same talk"
+            )
+        talks.add(group_talk)
     source_paths = {name: panel_path(f"{source}-{name}", panels_dir) for name in ("sealed", "full")}
     for name, path in source_paths.items():
         if not path.is_file():
@@ -356,7 +371,12 @@ def select_panels_preserved_sealing(
     source_sealed = {_talk_of_panel_id(clip_id) for clip_id in sealed_ids}
     source_talks = {_talk_of_panel_id(clip_id) for clip_id in read_panel(source_paths["full"]).ids}
     source_talks |= source_sealed
-    talks = {clip.group.partition(":")[2] for clip in clips}
+    if not (source_talks & talks):
+        raise ValueError(
+            f"the {dataset} clips hold {len(talks)} talks and the {source} panels name "
+            f"{len(source_talks)}; the two sets share no talk, and the rule would "
+            "treat every talk as new and unseal the source, so it refuses"
+        )
     new = [talk for talk in sorted(talks) if talk not in source_talks]
     sealed_new = _take(new, _sealed_group_count(len(new)), seed) if new else []
     sealed = {talk for talk in (source_sealed | set(sealed_new)) if talk in talks}

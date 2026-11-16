@@ -255,10 +255,16 @@ def preserved_sealing_fixture(tmp_path, monkeypatch):
 
     The source set is built with the usual rule first, so its committed sealed
     and full panels name its talks; the second set holds, talk by talk, other
-    clips, plus two talks the source set has not.
+    clips, plus two talks the source set has not. A talk-source clip id is
+    ``<dataset>:<talk>-<start>``, so both sets' ids and groups name the same
+    talk: the rule reads the source's talks from its panel ids.
     """
     panels_dir = tmp_path / "configs" / "panels"
-    source = speech_clips("src", speakers=10, per_speaker=10)
+    source = [
+        make_clip(f"src:spk{i:03d}-{index:03d}", group=f"src:spk{i:03d}")
+        for i in range(10)
+        for index in range(10)
+    ]
     build_panels("src", source, panels_dir, built="2026-11-07")
     talks = [f"spk{i:03d}" for i in range(10)]
     second = [
@@ -294,6 +300,13 @@ def test_preserved_sealing_keeps_the_source_talks_sealed(tmp_path, monkeypatch):
         clip.id for clip in second if talk_of(clip.id) in source_sealed_talks | sealed_new
     }
     assert sealed == expected_sealed
+
+    # A talk the source scored (named by its full panel, and so by its fast) is
+    # never sealed here: sealing it would unseal the source. The sealed talks
+    # are the source's sealed ones and the new talks the draw sealed, nothing
+    # else — a plain draw over every talk would seal talks the source scored.
+    sealed_talks = {talk_of(clip_id) for clip_id in sealed}
+    assert sealed_talks <= source_sealed_talks | sealed_new
 
     # A talk unsealed in the source is never sealed here; a sealed talk, of the
     # source or of the draw, is scored nowhere else.
@@ -335,3 +348,35 @@ def test_preserved_sealing_refuses_a_source_without_panels(tmp_path, monkeypatch
             DEFAULT_SEED,
             empty,
         )
+
+
+def test_preserved_sealing_refuses_a_clip_whose_id_and_group_name_other_talks(
+    tmp_path, monkeypatch
+):
+    """A clip whose id and group disagree would make the rule read the wrong talks.
+
+    The rule reads the source's talks from the panel ids and the dataset's talks
+    from the groups; a clip that names one talk in its id and another in its
+    group would be filed under both, so the draw is refused.
+    """
+    panels_dir, source, second = preserved_sealing_fixture(tmp_path, monkeypatch)
+    bad = make_clip("src-v2:spk000-010", group="src-v2:spk001")  # id names spk000, group spk001
+    with pytest.raises(ValueError, match=r"names the talk 'spk000' but is grouped under 'spk001'"):
+        select_panels_preserved_sealing("src-v2", "src", second + [bad], DEFAULT_SEED, panels_dir)
+
+
+def test_preserved_sealing_refuses_talks_the_source_panels_never_name(tmp_path, monkeypatch):
+    """A dataset that shares no talk with its source is not the derived set.
+
+    If none of the dataset's talks is named by the source's panels, every talk
+    would count as new and the usual draw would unseal the source; the rule
+    refuses to draw rather than unseal.
+    """
+    panels_dir, source, _ = preserved_sealing_fixture(tmp_path, monkeypatch)
+    unrelated = [
+        make_clip(f"src-v2:spk{100 + i:03d}-{index:03d}", group=f"src-v2:spk{100 + i:03d}")
+        for i in range(3)
+        for index in range(5)
+    ]
+    with pytest.raises(ValueError, match="share no talk"):
+        select_panels_preserved_sealing("src-v2", "src", unrelated, DEFAULT_SEED, panels_dir)
