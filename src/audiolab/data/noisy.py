@@ -15,7 +15,8 @@ training-side sets the screening found harmful to mix (``mls-fr-train`` and
 ``librispeech-en-train``): the babble pools. They are training sets, so a new
 training run may not hold their babble utterances: the ``librispeech-pc-en-train``
 preparations exclude them, and a training run containing a babble utterance is
-refused. The babble of the prepared noisy sets is committed as
+refused (the training-time refusal is tracked as [C-01](../../docs/backlog.md)).
+The babble of the prepared noisy sets is committed as
 ``babble_utterances.json`` beside this module, and a preparation recomputes its
 choice from the pools and is refused when it no longer equals the committed
 list, so a changed pool manifest can never change a noisy set.
@@ -65,14 +66,15 @@ BABBLE_NOTE_KEY = "note"
 def load_babble_utterances(path: Path | str | None = None) -> dict[str, list[str]]:
     """The committed babble lists: one sorted list of corpus utterance ids per noisy clip set.
 
-    The file is a JSON object with a ``note`` and one key per noisy clip set
-    (a name of :data:`NOISY_EXPECTED`), each the list of corpus utterance ids —
-    public LibriSpeech/MLS ids, no audio, no text — that the set's babble
-    condition mixes. A list must hold every id once and be sorted, and an entry
-    that is not a string, a key that names no noisy set, a missing or empty
-    note, or any other broken shape is refused: a broken pin would silently
-    change a noisy preparation or a training exclusion, which is what the pin
-    exists to prevent.
+    The file is a JSON object with a ``note`` and exactly one key per noisy clip
+    set (a name of :data:`NOISY_EXPECTED`), each the list of corpus utterance
+    ids — public LibriSpeech/MLS ids, no audio, no text — that the set's babble
+    condition mixes. A list must hold every id once and be sorted; an entry
+    that is not a string, a key that names no noisy set, a file that names no
+    set at all or holds only some of them (its exclusion would silently stop
+    covering the rest), a missing or empty note, or any other broken shape is
+    refused: a broken pin would silently change a noisy preparation or a
+    training exclusion, which is what the pin exists to prevent.
     """
     pin = Path(path) if path is not None else BABBLE_FILE
     try:
@@ -101,8 +103,9 @@ def load_babble_utterances(path: Path | str | None = None) -> dict[str, list[str
         if len(set(value)) != len(value):
             raise ValueError(f"{pin.name}: {key} holds an utterance twice")
         lists[key] = value
-    if not lists:
-        raise ValueError(f"{pin.name} holds no noisy clip set")
+    missing = set(NOISY_EXPECTED) - lists.keys()
+    if missing:
+        raise ValueError(f"{pin.name}: holds no list for {', '.join(sorted(missing))}")
     return lists
 
 
@@ -160,20 +163,19 @@ def fetch_noisy(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool)
         print(f"  {name}: {len(panel_ids)} panel clips of {source}")
     noise = _eval_half(_prepared("musan-noise"))
     rirs = _real_rirs(_prepared("rirs-noises"))
-    babble = [_babble_pool(data_dir() / pool) for pool in BABBLES[source]]
+    babble = []
+    pool_ids = []
+    for pool in BABBLES[source]:
+        paths, license_, ids = _babble_pool(data_dir() / pool)
+        babble.append((paths, license_))
+        pool_ids.append(ids)
     # The babble must be exactly this set's committed list: a pool manifest can
     # change (a pool is a training set), and a changed pool would change the
-    # mix. The check runs before any output is written. The committed list
-    # holds corpus utterance ids, so the dataset prefix of a manifest id is
-    # stripped before the check (as in the babble choice itself, where the
+    # mix. The check runs before any output is written, and it checks the pool
+    # ids of the very entries the mix will use, from the same read. The
+    # committed list holds corpus utterance ids, so the dataset prefix of a
+    # manifest id is stripped there (as in the babble choice itself, where the
     # pool entry's first field is what the committed list names).
-    pool_ids = [
-        [
-            (clip.id.split(":", 1)[1], clip.group)
-            for clip in sorted(read_manifest(data_dir() / pool), key=lambda clip: clip.id)
-        ]
-        for pool in BABBLES[source]
-    ]
     check_babble(name, panel_ids, pool_ids)
     with ManifestBuilder(dataset_dir, verbose=verbose, total=len(panel_ids)) as builder:
         for clip_id in sorted(panel_ids):
@@ -236,13 +238,22 @@ def _real_rirs(dataset_dir: Path) -> list[Path]:
     return out
 
 
-def _babble_pool(dataset_dir: Path) -> tuple[list[tuple[Path, str]], str]:
-    """(wav path, group) for every clip of one training-side set, and its licence."""
+def _babble_pool(
+    dataset_dir: Path,
+) -> tuple[list[tuple[Path, str]], str, list[tuple[str, str]]]:
+    """One babble pool, read once: its (wav path, group) entries, its licence,
+    and the same clips as (corpus utterance id, group).
+
+    The path entries feed the mix and the id entries the committed-list check,
+    so the two see the pool in the same order by construction.
+    """
     clips = sorted(read_manifest(dataset_dir), key=lambda clip: clip.id)
     licenses = {clip.license for clip in clips}
     if len(licenses) != 1:
         raise DownloadError(f"{dataset_dir.name}: a babble pool must hold one licence")
-    return [(dataset_dir / clip.audio, clip.group) for clip in clips], licenses.pop()
+    paths = [(dataset_dir / clip.audio, clip.group) for clip in clips]
+    ids = [(clip.id.split(":", 1)[1], clip.group) for clip in clips]
+    return paths, licenses.pop(), ids
 
 
 def _mix(

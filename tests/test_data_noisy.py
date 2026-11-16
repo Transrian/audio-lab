@@ -289,10 +289,13 @@ def test_babble_union_is_the_sorted_union_without_repeats():
 
 
 def test_the_loader_reads_a_well_formed_pin(tmp_path):
-    path = _pin_file(tmp_path, _pin(**{"noisy-fleurs-en": ["103-1240-0001", "103-1240-0002"]}))
-    assert noisy.load_babble_utterances(path) == {
-        "noisy-fleurs-en": ["103-1240-0001", "103-1240-0002"]
+    lists = {
+        "noisy-fleurs-en": ["103-1240-0001", "103-1240-0002"],
+        "noisy-fleurs-fr": ["9121_800_000001"],
+        "noisy-servicenow-codeswitched-en-fr": ["9121_900_000001"],
     }
+    path = _pin_file(tmp_path, _pin(**lists))
+    assert noisy.load_babble_utterances(path) == lists
 
 
 def test_the_loader_refuses_a_list_that_is_not_sorted(tmp_path):
@@ -313,7 +316,13 @@ def test_the_loader_refuses_a_list_that_holds_an_id_twice(tmp_path):
         (["noisy-fleurs-en"], "must be an object"),
         ({}, "holds no note"),
         ({"note": "  "}, "holds no note"),
-        ({"note": "a test pin"}, "holds no noisy clip set"),
+        ({"note": "a test pin"}, "holds no list for"),
+        # A file holding only some of the sets: its exclusion would silently
+        # stop covering the rest, so the loader refuses it like a broken pin.
+        (
+            {"note": "a test pin", "noisy-fleurs-fr": ["9121_800_000001"]},
+            "holds no list for",
+        ),
         ({"note": "a test pin", "noisy-fake": ["1"]}, "is not a noisy clip set"),
         ({"note": "a test pin", "noisy-fleurs-en": []}, "holds no babble"),
         ({"note": "a test pin", "noisy-fleurs-en": [1]}, "list of utterance ids"),
