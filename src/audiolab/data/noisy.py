@@ -8,17 +8,24 @@ evaluation clips, degraded but recognisably the same ones. Nothing is drawn from
 the manifest outside the panels, and nothing here is random: every choice is a
 hash of the clip id, so a second preparation writes byte-identical audio.
 
-The material comes from the noise banks (T3): the MUSAN noise in the eval half
-and the real-room RIRs, so a model augmented with the training halves is scored
+The material comes from the noise banks: the MUSAN noise in the eval half and
+the real-room RIRs, so a model augmented with the training halves is scored
 against the eval halves. Babble is four other speakers at once, taken from the
 training-side sets the screening found harmful to mix (``mls-fr-train`` and
-``librispeech-en-train``): audio no training mix will use, so a babble mix never
-leaks a sealed clip.
+``librispeech-en-train``): the babble pools. They are training sets, so a new
+training run may not hold their babble utterances: the ``librispeech-pc-en-train``
+preparations exclude them, and a training run containing a babble utterance is
+refused. The babble of the prepared noisy sets is committed as
+``babble_utterances.json`` beside this module, and a preparation recomputes its
+choice from the pools and is refused when it no longer equals the committed
+list, so a changed pool manifest can never change a noisy set.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -46,11 +53,76 @@ BABBLES = {
     "servicenow-codeswitched-en-fr": ("mls-fr-train", "librispeech-en-train"),
 }
 RIRS_LICENSE = "Apache-2.0"
+# The committed babble of the prepared noisy sets, beside this module: one
+# sorted list of corpus utterance ids per noisy clip set. It is read at
+# preparation time, not at import, so a fetcher and a training-run check can
+# point it at another file (a test does) while the default is the committed one.
+BABBLE_FILE = Path(__file__).with_name("babble_utterances.json")
+# The key of the file's note; the only value that is not a list of ids.
+BABBLE_NOTE_KEY = "note"
+
+
+def load_babble_utterances(path: Path | str | None = None) -> dict[str, list[str]]:
+    """The committed babble lists: one sorted list of corpus utterance ids per noisy clip set.
+
+    The file is a JSON object with a ``note`` and one key per noisy clip set
+    (a name of :data:`NOISY_EXPECTED`), each the list of corpus utterance ids —
+    public LibriSpeech/MLS ids, no audio, no text — that the set's babble
+    condition mixes. A list must hold every id once and be sorted, and an entry
+    that is not a string, a key that names no noisy set, a missing or empty
+    note, or any other broken shape is refused: a broken pin would silently
+    change a noisy preparation or a training exclusion, which is what the pin
+    exists to prevent.
+    """
+    pin = Path(path) if path is not None else BABBLE_FILE
+    try:
+        data = json.loads(pin.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as failure:
+        raise ValueError(f"{pin.name}: unreadable babble list: {failure}") from failure
+    if not isinstance(data, dict):
+        raise ValueError(f"{pin.name}: the babble list must be an object")
+    note = data.get(BABBLE_NOTE_KEY)
+    if not isinstance(note, str) or not note.strip():
+        raise ValueError(f"{pin.name} holds no note")
+    lists: dict[str, list[str]] = {}
+    for key, value in data.items():
+        if key == BABBLE_NOTE_KEY:
+            continue
+        if key not in NOISY_EXPECTED:
+            raise ValueError(f"{pin.name}: {key!r} is not a noisy clip set")
+        if not isinstance(value, list) or any(
+            not isinstance(utterance, str) for utterance in value
+        ):
+            raise ValueError(f"{pin.name}: {key} must be a list of utterance ids")
+        if not value:
+            raise ValueError(f"{pin.name}: {key} holds no babble")
+        if value != sorted(value):
+            raise ValueError(f"{pin.name}: {key} is not sorted")
+        if len(set(value)) != len(value):
+            raise ValueError(f"{pin.name}: {key} holds an utterance twice")
+        lists[key] = value
+    if not lists:
+        raise ValueError(f"{pin.name} holds no noisy clip set")
+    return lists
+
+
+def babble_union(babble: dict[str, list[str]]) -> list[str]:
+    """Every babble utterance of the noisy sets: the sorted union, one id once.
+
+    The flat list the training side excludes against: a corpus utterance id is
+    in it exactly when some noisy set mixes it as babble.
+    """
+    return sorted(set().union(*babble.values()))
 
 
 def _h(purpose: str, clip_id: str) -> int:
     """One deterministic integer from a purpose and a clip id (no random state)."""
     return int(hashlib.sha256(f"{purpose}-{clip_id}".encode()).hexdigest()[:16], 16)
+
+
+def _condition(clip_id: str) -> str:
+    """The acoustic condition of one clip of a noisy set: a hash of its id."""
+    return CONDITIONS[_h("noisy-condition", clip_id) % len(CONDITIONS)]
 
 
 def _source(name: str) -> str:
@@ -89,10 +161,24 @@ def fetch_noisy(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool)
     noise = _eval_half(_prepared("musan-noise"))
     rirs = _real_rirs(_prepared("rirs-noises"))
     babble = [_babble_pool(data_dir() / pool) for pool in BABBLES[source]]
+    # The babble must be exactly this set's committed list: a pool manifest can
+    # change (a pool is a training set), and a changed pool would change the
+    # mix. The check runs before any output is written. The committed list
+    # holds corpus utterance ids, so the dataset prefix of a manifest id is
+    # stripped before the check (as in the babble choice itself, where the
+    # pool entry's first field is what the committed list names).
+    pool_ids = [
+        [
+            (clip.id.split(":", 1)[1], clip.group)
+            for clip in sorted(read_manifest(data_dir() / pool), key=lambda clip: clip.id)
+        ]
+        for pool in BABBLES[source]
+    ]
+    check_babble(name, panel_ids, pool_ids)
     with ManifestBuilder(dataset_dir, verbose=verbose, total=len(panel_ids)) as builder:
         for clip_id in sorted(panel_ids):
             original = source_clips[clip_id]
-            condition = CONDITIONS[_h("noisy-condition", clip_id) % len(CONDITIONS)]
+            condition = _condition(clip_id)
             speech = load_audio(source_dir / original.audio)
             mixed, license_ = _mix(clip_id, condition, speech, noise, rirs, babble, original)
             builder.add(
@@ -237,17 +323,87 @@ def _babble_segment(
     return mixed, " + ".join(licenses)
 
 
+def _pick_babble_index(
+    clip_id: str, k: int, pool: Sequence[tuple[object, str]], used: set[str]
+) -> int:
+    """The pool index of the k-th babble clip of a mix: chosen by hash, never a group already used.
+
+    Only the index and the pool's groups are touched, so the choice depends on
+    the pool's order and size alone: the mix passes (path, group) entries and
+    the check of :func:`chosen_babble_utterances` passes (utterance id, group)
+    entries, and both get the same index for the same pool.
+    """
+    for attempt in range(128):
+        index = _h(f"noisy-babble-{k}-{attempt}", clip_id) % len(pool)
+        if pool[index][1] not in used:
+            return index
+    raise DownloadError(f"{clip_id}: the babble pool has fewer than four free groups")
+
+
 def _choose_babble(
     clip_id: str, k: int, pool: list[tuple[Path, str]], used: set[str]
 ) -> tuple[Path, str]:
     """The k-th babble clip of a mix: chosen by hash, never a group already used."""
-    for attempt in range(128):
-        index = _h(f"noisy-babble-{k}-{attempt}", clip_id) % len(pool)
-        path, group = pool[index]
-        if group not in used:
+    index = _pick_babble_index(clip_id, k, pool, used)
+    path, group = pool[index]
+    used.add(group)
+    return path, group
+
+
+def chosen_babble_utterances(
+    clip_ids: Iterable[str], pools: Sequence[Sequence[tuple[str, str]]]
+) -> set[str]:
+    """The corpus utterances one noisy set's babble would mix, recomputed from the pools.
+
+    The pure form of the babble choice of :func:`fetch_noisy`: for every clip
+    whose condition is ``babble-snr5``, the four speakers are drawn from
+    ``pools`` in the same order, with the same hash and the same group rule as
+    the mix itself — the result is the mix's. ``clip_ids`` are the ids the
+    fetcher hashes: the source's clip ids (its panel union, the ids of the
+    ``noisy-``-set's source set), and ``pools`` the pool manifests as (corpus
+    utterance id, group) lists, in the order of :data:`BABBLES`. Nothing is
+    read from disk, so a preparation checks the pools it is about to mix
+    against the committed list, and a test checks a synthetic one.
+    """
+    chosen: set[str] = set()
+    for clip_id in sorted(clip_ids):
+        if _condition(clip_id) != "babble-snr5":
+            continue
+        used: set[str] = set()
+        for k in range(4):
+            pool = pools[k % len(pools)]
+            utterance, group = pool[_pick_babble_index(clip_id, k, pool, used)]
             used.add(group)
-            return path, group
-    raise DownloadError(f"{clip_id}: the babble pool has fewer than four free groups")
+            chosen.add(utterance)
+    return chosen
+
+
+def check_babble(
+    name: str, clip_ids: Iterable[str], pools: Sequence[Sequence[tuple[str, str]]]
+) -> None:
+    """Refuse a noisy preparation whose babble is no longer its committed list.
+
+    A pool is a training set, so its manifest can change, and a changed pool
+    changes the babble of the set being prepared: the choice is recomputed from
+    the pools and compared with the set's committed list in
+    :data:`BABBLE_FILE`. Any difference — and a set with no committed list,
+    which cannot be checked — is refused, before any output is written.
+    """
+    expected = load_babble_utterances().get(name)
+    if expected is None:
+        raise DownloadError(
+            f"{name}: no committed babble list in {BABBLE_FILE.name}: "
+            f"the babble of a noisy set cannot be checked against nothing"
+        )
+    actual = chosen_babble_utterances(clip_ids, pools)
+    if actual != set(expected):
+        gained = len(actual - set(expected))
+        lost = len(set(expected) - actual)
+        raise DownloadError(
+            f"{name}: the babble the pools would mix no longer equals the committed "
+            f"list of {BABBLE_FILE.name} ({gained} utterances new, {lost} gone): "
+            f"the pool manifests changed, and a prepared noisy set must keep its babble"
+        )
 
 
 def _add_noise(speech: np.ndarray, noise: np.ndarray, snr_db: int) -> np.ndarray:

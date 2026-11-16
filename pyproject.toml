@@ -37,6 +37,11 @@ packages = ["src/audiolab"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# The committed babble list is a data file with one long id per line; the
+# JSON formatter would rewrite each list across lines and end it with a
+# trailing comma, which is not valid JSON, so the file is kept as written
+# (the loader, not the formatter, is its authority).
+extend-exclude = ["src/audiolab/data/babble_utterances.json"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
