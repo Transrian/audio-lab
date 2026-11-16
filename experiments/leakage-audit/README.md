@@ -1,9 +1,10 @@
 # Leakage audit
 
-Two read-only audits over prepared manifests, in this directory:
+Three read-only audits over prepared manifests, in this directory:
 
 - the [VoxPopuli session overlap](#the-voxpopuli-session-overlap) (2026-11-13);
-- the [content-level leakage over 6-word text shingles](#content-level-leakage-6-word-text-shingles) (2026-11-15).
+- the [content-level leakage over 6-word text shingles](#content-level-leakage-6-word-text-shingles) (2026-11-15);
+- the [rebuild impact report](#the-rebuild-impact-report) (2026-11-16).
 
 ## The VoxPopuli session overlap
 
@@ -163,3 +164,81 @@ Assist) is the show's stock intro, which the training sets also contain. The
 `-qwen` ratios differ from the 12k ratios because the qwen set carries
 different labels on the same audio. Every reported pair of this run falls in
 one of the categories above.
+
+## The rebuild impact report
+
+**Status:** 2026-11-16. The read-only script that measures what the corrected
+fetchers' exclusion rules remove from every prepared training set, and which
+sets that forces to be re-prepared. The table over the current data root lands
+here when the last evaluation set is prepared; the script is safe to run in
+the meantime and is safe to re-run any number of times.
+
+**Question.** For each prepared training set, how many clips does each
+exclusion rule remove, and which sets must a re-preparation re-run because of
+it?
+
+**Method.** The rules are never re-implemented here: every table column is the
+committed function the fetcher itself uses, applied to the set's current
+`manifest.jsonl`. The one-to-one mapping (a reviewer can check every number
+against the fetcher's code):
+
+| Table column | The committed function |
+|---|---|
+| `eval class` | [`duplicate_classes`](../../src/audiolab/data/duplicates.py) + [`excluded_talks`](../../src/audiolab/data/duplicates.py), with the evaluation groups the prepared evaluation sets of the source hold — [`evaluation_groups`](../../src/audiolab/data/train.py) over the source's `evaluation_datasets`, so a v2 evaluation set counts as soon as it is prepared |
+| `in-set re-upload` | the fetchers' committed selection restricted to one set's clips: the first talk of each duplicate class in the reading order ([`reading_order`](../../src/audiolab/data/talk_listing.py) with the seed of [`SEED`](../../src/audiolab/data/talks.py) and the source's `spread_by`), after the evaluation exclusion the fetchers make first — the loops of `fetch_talks` and `fetch_nasa_en_train` |
+| `nasa reserved` | [`RESERVED_TEST_EPISODES`](../../src/audiolab/data/nasa.py) through the same `excluded_talks` |
+| `slr57 speaker` | [`excluded_train_speakers`](../../src/audiolab/data/african_french.py) over the groups of the prepared `african-accented-fr-test` |
+| `vox session` | the committed pin [`EVALUATION_SESSIONS`](../../src/audiolab/data/voxpopuli_train.py) with [`session_of`](../../src/audiolab/data/voxpopuli_train.py) per clip id |
+| `babble` | the committed pin [`load_babble_utterances`](../../src/audiolab/data/noisy.py) with [`babble_exclusions`](../../src/audiolab/data/librispeech_pc.py) per clip's utterance id |
+
+**Population.** Every prepared training set: a directory of the data root
+(default `$AUDIOLAB_DATA`) whose name contains `-train`, excluding every
+`.pre-*` and `.curly-*` rename, holding a `manifest.jsonl`. The report first
+states which evaluation sets it found prepared, so an evaluation set that is
+missing at run time is visible, not silent.
+
+**Environment and inputs.** The default Python 3.12 environment (`uv sync`);
+no additional dependencies, no audio, no server, no network. Nothing is
+written; the same data root gives the same table on every machine.
+
+**Exact command and output.**
+
+```bash
+uv run python experiments/leakage-audit/impact.py
+uv run python experiments/leakage-audit/impact.py --data-dir <root>
+```
+
+Exit codes: 0 a table is printed; 1 a manifest is malformed (the set is named
+on stderr); 2 the data root holds no prepared training set.
+
+The table has one line per set: `clips`, the set's current manifest size; each
+rule column, the clips that rule removes; `total`, the union — a clip several
+rules remove counts once (the two NASA rules cover the same clips on a machine
+where both `nasa-en-test` and `nasa-en-test-v2` are prepared). Clips of talks
+that are no longer in the source's current pinned listing (the set was
+prepared from an earlier one) carry no rule count; the report lists them under
+the table, and the re-preparation reads the current listing, so they leave the
+set on their own.
+
+The **rebuild list** is the sets a re-preparation with the corrected fetchers
+must re-run: every set where one of the evaluation rules removes a clip; every
+sized (`-30k` / `-40k`) set where the within-set re-upload rule removes a
+clip; and every set derived from a set of the list — the `-<k>k` larger
+preparation of its source ([`base_dataset`](../../src/audiolab/data/datasets.py))
+and `nasa-en-train-qwen`, the re-labeling of `nasa-en-train`
+([`relabel`](../../src/audiolab/data/relabel.py)). A 12 000-clip set that only
+loses within-set re-uploads is not rebuilt: its re-preparation for any other
+reason drops them anyway. The two babble pools `mls-fr-train` and
+`librispeech-en-train` are never rebuilt: their manifests are the committed
+babble of the noisy evaluation sets ([`noisy`](../../src/audiolab/data/noisy.py)),
+and a noisy preparation whose pool no longer gives the committed utterances is
+refused.
+
+**Limits.** The report measures the current manifests: it predicts what the
+re-preparation removes, it does not run it. Its counts are as good as the
+pinned listings and pins it reads — a re-pinned listing changes the duplicate
+classes and the reading order, and the stale-listing section of the output
+names what that leaves behind.
+
+**Table over the current data root.** *(To be filled in when the last
+evaluation set is prepared.)*
