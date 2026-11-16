@@ -371,8 +371,9 @@ DATASETS: dict[str, DatasetInfo] = {
         "aligned to the audio by Whisper large-v3, as nasa-en-test",
         grouping="recording (group = episode page slug), as nasa-en-test",
         notes="The sealed evaluation set without the re-released episode: one of its "
-        "episodes is in every nasa-en-train preparation under another slug, and a "
-        "clip a model is scored on may not be trained on, so the episode's clips "
+        "episodes was in every nasa-en-train preparation made before the "
+        "duplicate-class rule (the re-release, under another slug), and a clip "
+        "a model is scored on may not be trained on, so the episode's clips "
         "leave the sealed panel. The set holds the source's clips "
         "minus the 26 clips of that episode (1 479 of the 1 505, 59 of the 60 "
         "groups), prepared from the source's manifest by "

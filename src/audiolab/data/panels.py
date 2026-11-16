@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
@@ -136,10 +137,11 @@ DERIVED_SETS: dict[str, tuple[str, frozenset[str]]] = {
         "nasa-en-test",
         frozenset(
             {
-                # The re-release of this episode, under another slug, is in
-                # every preparation of nasa-en-train: a clip a model is scored
-                # on may not be trained on, so the episode leaves the sealed
-                # panel in the v2 set.
+                # The re-release of this episode, under another slug, was in
+                # every preparation of nasa-en-train made before the
+                # duplicate-class rule, so the models trained on them have
+                # heard it: a clip a model is scored on may not be trained
+                # on, so the episode leaves the sealed panel in the v2 set.
                 "nasa-en-test:terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics",
             }
         ),
@@ -160,13 +162,20 @@ def _derived_drops(dataset: str) -> frozenset[str]:
 
 
 def _group_of(clip_id: str, dataset: str) -> str:
-    """The group a clip id names: its talk, under the dataset's prefix.
+    """The group a clip id names: ``<dataset>:<group>-<start>``.
 
     The id of a talk source is the group's name plus the clip's start in
-    centiseconds, so the group is the id without its last ``-<digits>`` part;
-    an id without such a part is its own group.
+    centiseconds, so the group is the id without its last ``-<digits>`` part.
+    A listed derived set drops clips by group, and an id without that part
+    names no group, so it is refused rather than guessed.
     """
-    return f"{dataset}:{_talk_of_panel_id(clip_id)}"
+    match = re.fullmatch(r"[^:]+:(.+)-\d+", clip_id)
+    if match is None:
+        raise ValueError(
+            f"{clip_id!r} is not <dataset>:<group>-<start>: "
+            "a listed derived set drops clips by group"
+        )
+    return f"{dataset}:{match.group(1)}"
 
 
 # The datasets whose panels preserve the sealing of a source dataset: every
@@ -242,11 +251,21 @@ def _build_derived_panels(
     sealed, and a set listed in :data:`DERIVED_SETS` drops exactly the clips
     of the groups it names — the source panel ids of those groups are the only
     ones a panel of it may not hold. Any other source panel id the set holds
-    no clip of is a wrong derivation, refused here, not dropped. The
-    source's three panel files must exist, or the build is refused.
+    no clip of is a wrong derivation, refused here, not dropped, as is a
+    manifest that still holds a clip of a listed group: the set and its
+    panels make the same subtraction. The source's three panel files must
+    exist, or the build is refused.
     """
     by_id = {clip.id: clip for clip in clips}
     dropped = _derived_drops(dataset)
+    if dropped:
+        dropped_groups = {group.partition(":")[2] for group in dropped}
+        stray = [clip.id for clip in clips if clip.group.partition(":")[2] in dropped_groups]
+        if stray:
+            raise ValueError(
+                f"{dataset} holds {stray[0]!r}: the set and its panels make the same "
+                "subtraction, so its manifest may not hold a clip of a listed group"
+            )
     panels = []
     for name in PANEL_NAMES:
         source_path = panel_path(f"{source}-{name}", panels_dir)

@@ -40,12 +40,14 @@ training conversation a reserved compilation replays (the duplicate classes
 are in :mod:`audiolab.data.duplicates`).
 
 ``nasa-en-test-v2`` is the evaluation set without the re-released episode: one
-of its episodes is in every ``nasa-en-train`` preparation under another slug,
-and a clip a model is scored on may not be trained on, so the episode's clips
-leave the sealed panel in the v2 set. ``fetch_nasa_en_test_v2`` prepares it
-from the prepared ``nasa-en-test`` manifest — the clips' audio are hard links
-to the source's files, never re-encoded — and the v2 panels derive from the
-source's panels in :mod:`audiolab.data.panels`.
+of its episodes was in every ``nasa-en-train`` preparation made before the
+duplicate-class rule (the re-release, under another slug), so the models
+trained on those preparations have heard it, and a clip a model is scored on
+may not be trained on, so the episode's clips leave the sealed panel in the
+v2 set. ``fetch_nasa_en_test_v2`` prepares it from the prepared
+``nasa-en-test`` manifest — the clips' audio are hard links to the source's
+files, never re-encoded — and the v2 panels derive from the source's panels
+in :mod:`audiolab.data.panels`.
 """
 
 from __future__ import annotations
@@ -550,9 +552,9 @@ SOURCE = TalkSource(
 NAME_TEST = "nasa-en-test"
 # The evaluation set without the re-released episode: the clips of
 # ``nasa-en-test`` minus the ones of the group listed for it in
-# ``panels.DERIVED_SETS`` (the group whose re-release, under another slug, is
-# in every preparation of ``nasa-en-train``), linked from ``nasa-en-test``'s
-# files, never re-encoded.
+# ``panels.DERIVED_SETS`` (the group whose re-release, under another slug, was
+# in every preparation of ``nasa-en-train`` made before the duplicate-class
+# rule), linked from ``nasa-en-test``'s files, never re-encoded.
 NAME_TEST_V2 = "nasa-en-test-v2"
 # How many episodes the set holds, and how many of one show: a set that held
 # forty of one show would be that show's test set, not the source's.
@@ -745,21 +747,24 @@ def fetch_nasa_en_test_v2(
 ) -> int:
     """Prepare ``nasa-en-test-v2``: the clips of ``nasa-en-test`` minus the re-released episode.
 
-    One of the set's episodes is held by every preparation of
-    ``nasa-en-train`` under another slug — the re-release of the same
-    conversation — and a clip a model is scored on may not be trained on
-    (decision 0002): that episode's clips leave the sealed panel in the v2
-    set. The episode is the one listed for the set in ``panels.DERIVED_SETS``
-    (with its source); the fetcher reads the same list, so the set and its
-    panels drop the same clips.
+    One of the set's episodes was in every preparation of ``nasa-en-train``
+    made before the duplicate-class rule — the re-release of the same
+    conversation, under another slug — so the models trained on those
+    preparations have heard it, and a clip a model is scored on may not be
+    trained on (decision 0002): that episode's clips leave the sealed panel
+    in the v2 set. The episode is the one listed for the set in
+    ``panels.DERIVED_SETS`` (with its source); the fetcher reads the same
+    list, so the set and its panels drop the same clips.
 
     Nothing is downloaded: the fetcher reads the prepared manifest of
     ``nasa-en-test`` (it must exist) and, for every clip but the ones of the
     listed group, re-prefixes the id and the group under the set's own name,
     keeps every other field, and links the clip's WAV from the source into the
-    set with :func:`audiolab.data.relabel._link_clip` — the same file, never a
-    copy and never a re-encode. The linked file is never opened for writing:
-    a write to a hard link lands on the source's file, on the same inode. A
+    set with :func:`audiolab.data.relabel._link_clip` — a hard link to the
+    source's file (only a filesystem that refuses the link gets a byte copy,
+    counted and reported), never a re-encode. The linked file is never opened
+    for writing: a write to a hard link lands on the source's file, on the
+    same inode. A
     listed group the source manifest no longer holds is refused: the list
     names what the set removes, and a list entry that matched nothing would
     prepare a copy of the source under a name that promises a subtraction.
@@ -782,7 +787,7 @@ def fetch_nasa_en_test_v2(
     dataset_dir.mkdir(parents=True, exist_ok=True)
     audio_dir = dataset_dir / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
-    kept = dropped_out = linked = copied = 0
+    kept = dropped_out = linked = copied = relinked = 0
     clips: list[Clip] = []
     for clip in source_clips:
         if clip.group in dropped:
@@ -790,7 +795,9 @@ def fetch_nasa_en_test_v2(
             continue
         new_id = f"{name}:{clip.id.split(':', 1)[1]}"
         state = _link_clip(source_dir / clip.audio, audio_dir / file_name_for(new_id))
-        if state == "linked":
+        if state == "kept":
+            relinked += 1
+        elif state == "linked":
             linked += 1
         elif state == "copied":
             copied += 1
@@ -810,7 +817,7 @@ def fetch_nasa_en_test_v2(
     if verbose:
         say(
             f"  {name}: {kept} clips kept, {dropped_out} of the listed group left out; "
-            f"{linked} WAVs linked, {copied} copied"
+            f"{linked} WAVs linked, {copied} copied, {relinked} already linked"
         )
     return kept
 

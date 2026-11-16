@@ -503,6 +503,53 @@ def test_the_check_of_a_listed_derived_set_refuses_a_changed_manifest(tmp_path, 
     assert any("not in the manifest" in problem for problem in problems)
 
 
+def test_a_listed_derived_set_refuses_a_manifest_that_still_holds_a_listed_group(
+    tmp_path, monkeypatch
+):
+    """The set and its panels make the same subtraction: the build refuses a
+    manifest that still holds a clip of the listed group."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    stray = next(clip for clip in source_clips if clip.group == dropped_group)
+    stray_derived = make_clip(
+        f"{derived}:{stray.id.partition(':')[2]}",
+        group=f"{derived}:{stray.group.partition(':')[2]}",
+        sha256=stray.sha256,
+    )
+    with pytest.raises(ValueError, match="may not hold a clip of a listed group"):
+        build_panels(derived, [*derived_clips, stray_derived], panels_dir=panels_dir)
+
+
+def test_a_listed_derived_set_refuses_a_panel_id_that_names_no_group(tmp_path, monkeypatch):
+    """A source panel id without the talk's ``-<start>`` part names no group:
+    the build refuses it rather than guessing."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    fast_path = panel_path(f"{source}-fast", panels_dir)
+    fast_path.write_text(
+        fast_path.read_text(encoding="utf-8").rstrip("\n") + f"\n{source}:untitled-talk\n"
+    )
+    with pytest.raises(ValueError, match="is not <dataset>:<group>-<start>"):
+        build_panels(derived, derived_clips, panels_dir=panels_dir)
+
+
+def test_the_check_of_a_listed_derived_set_refuses_a_panel_that_lost_an_id(tmp_path, monkeypatch):
+    """A panel of the set that lost one id outside the listed group fails the
+    check: the ids differ from the source's panel."""
+    source, derived, source_clips, derived_clips, dropped_group, panels_dir = (
+        _listed_derived_fixture(tmp_path, monkeypatch)
+    )
+    build_panels(derived, derived_clips, panels_dir=panels_dir)
+    fast_path = panel_path(f"{derived}-fast", panels_dir)
+    lines = fast_path.read_text(encoding="utf-8").splitlines()
+    lost = next(line for line in lines if line.strip() and not line.startswith("#"))
+    fast_path.write_text("\n".join(line for line in lines if line.strip() != lost) + "\n")
+    problems = check_panel(fast_path, derived_clips)
+    assert any("ids differ" in problem for problem in problems)
+
+
 def test_noisy_derived_panels_still_derive_by_prefix_alone(tmp_path):
     """With the derived-set table in place, a noisy- set resolves by prefix and drops nothing."""
     source, derived = "fleurs-fake", "noisy-fleurs-fake"

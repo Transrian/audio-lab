@@ -28,7 +28,12 @@ from helpers import make_clip, write_tone  # noqa: E402
 
 from audiolab.core.audio import pcm_sha256  # noqa: E402
 from audiolab.core.stop import Stopped, request_stop  # noqa: E402
-from audiolab.data import duplicates, nasa, talks  # noqa: E402
+from audiolab.data import (  # noqa: E402
+    duplicates,
+    nasa,
+    panels,  # noqa: E402
+    talks,
+)
 from audiolab.data.aligned_clips import Line, labelled_clips  # noqa: E402
 from audiolab.data.download import DownloadError  # noqa: E402
 from audiolab.data.fetch import fetch_dataset  # noqa: E402
@@ -931,7 +936,27 @@ def test_the_v2_preparation_drops_the_listed_group_and_reprefixes_the_rest(tmp_p
         )
 
 
-def test_fetch_nasa_en_test_v2_never_writes_through_the_link(tmp_path):
+def test_the_v2_fetcher_reads_its_drop_list_from_the_table(tmp_path, monkeypatch):
+    """The fetcher subtracts what the table names: swap the table's group and the
+    subtraction follows (a hard-coded slug would leave the set untouched)."""
+    root = tmp_path / "data"
+    make_nasa_test_source(root, (KEPT_SLUG, DROPPED_SLUG))
+    monkeypatch.setitem(
+        panels.DERIVED_SETS,
+        nasa.NAME_TEST_V2,
+        (nasa.NAME_TEST, frozenset({f"{nasa.NAME_TEST}:{KEPT_SLUG}"})),
+    )
+
+    count = nasa.fetch_nasa_en_test_v2(
+        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+    )
+
+    assert count == 2
+    clips = read_manifest(root / nasa.NAME_TEST_V2)
+    assert all(clip.group == f"{nasa.NAME_TEST_V2}:{DROPPED_SLUG}" for clip in clips)
+
+
+def test_fetch_nasa_en_test_v2_never_writes_through_the_link(tmp_path, capsys):
     """A write to a hard link lands on the source's file; the fetcher never opens one.
 
     The source WAV holds samples at the edge of the int16 range: a re-encode would
@@ -965,13 +990,16 @@ def test_fetch_nasa_en_test_v2_never_writes_through_the_link(tmp_path):
     derived = read_manifest(root / nasa.NAME_TEST_V2)
     assert os.stat(root / nasa.NAME_TEST_V2 / derived[0].audio).st_ino == os.stat(wav_path).st_ino
 
-    # A second preparation keeps the links; it writes nothing through them either.
+    # A second preparation keeps the links; it writes nothing through them either,
+    # and its report counts them.
     (root / nasa.NAME_TEST_V2 / "manifest.jsonl").unlink()
     nasa.fetch_nasa_en_test_v2(
-        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=False
+        nasa.NAME_TEST_V2, tmp_path / "cache", root / nasa.NAME_TEST_V2, verbose=True
     )
     assert wav_path.read_bytes() == before
     assert os.stat(wav_path).st_mtime_ns == before_mtime
+    out = capsys.readouterr().out
+    assert "0 WAVs linked, 0 copied, 2 already linked" in out
 
 
 def test_the_v2_preparation_is_refused_when_the_source_is_missing(tmp_path):
