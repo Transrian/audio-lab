@@ -121,29 +121,42 @@ Training-vs-training: 2 196 talk-group pairs across two sets at ratio ≥ 30 %
 (mostly by design: the 12k ⊂ 40k/30k supersets, the same episodes under the
 12k / 30k / qwen label sets, talks shared across the three PeerTube
 listings), 42 pairs inside one set, and a re-upload shortlist of 58 rows at
-ratio ≥ 75 % with different group ids — 21 distinct PeerTube id-pairs and
-the NASA `introducing-nasas-curious-universe-season-two` episode that
-replays `crew-1-the-astronauts` (both in
-[`duplicates.json`](../../src/audiolab/data/duplicates.json)), plus 15
-granary id-pairs kept in this table only, since `duplicates.json` covers the
-PeerTube and NASA listings: J6MMI5tsnJk↔McLkUdBrlXg, KWQcxTPKZMU↔RfZPaQ4D3F0,
+ratio ≥ 75 % with different group ids: 18 distinct PeerTube id-pairs (in
+[`duplicates.json`](../../src/audiolab/data/duplicates.json), which also
+holds the three evaluation↔training re-upload pairs), 16 distinct granary
+id-pairs, and the NASA `introducing-nasas-curious-universe-season-two`
+↔ `crew-1-the-astronauts` pair — the granary pairs and the NASA pair are
+kept in this table only: `duplicates.json` covers the PeerTube and NASA
+listings, and the `introducing` episode is not in the NASA listing (the
+Curious Universe show is excluded from it, so the rebuilt training sets will
+not read it). The 79.8 % shortlist row is
+`nasa-en-train-30k:crew-1-the-astronauts` ↔
+`nasa-en-train-qwen:introducing-nasas-curious-universe-season-two` (75 of
+94 six-word shingles); `nasa-en-train:introducing-nasas-curious-universe-season-two`
+↔ `nasa-en-train-30k:crew-1-the-astronauts` is 71.0 % (66 of 93), and the
+episode also replays `gravity-assist-life-in-the-clouds-with-david-j-smith`
+at 58.1 % (54 of 93), both below the 75 % shortlist. The 16 granary
+id-pairs: J6MMI5tsnJk↔McLkUdBrlXg, KWQcxTPKZMU↔RfZPaQ4D3F0,
 zB-T6Urw3zy↔XojSl5HZR64, sBvYAg3ADK8↔FEQqqOKYrvy,
-3zwOPq3HJD8↔hsoj91JTjJU, M2Z2S7rstIQ↔aMuBAqtMmfA,
+M2Z2S7rstIQ↔aMuBAqtMmfA,
 06LOOzSIAcc↔GZZxF4ID89A, wf5_2_uUiP8↔EdogqOHuB-A,
 JvZRK0c8hE0↔{M2Z2S7rstIQ, aMuBAqtMmfA, gpTL6tbUhhc},
 {3zwOPq3HJD8, ZMfbCNYzBb4, hsoj91JTjJU},
 {M2Z2S7rstIQ, aMuBAqtMmfA}↔gpTL6tbUhhc, kgdA3-q9ZTA↔o95HCvmGPKc.
 
 **Limits.** The audit covers prepared sets only: `nasa-en-train-30k` holds
-575 episodes while about 130 non-test episodes of the listing were never
-prepared, and the 2017 end-of-year compilation is only about 30 % explained
-by the two replayed episodes; a re-run of this script on the rebuilt NASA
-training sets will confirm that no `nasa-en-test` group has a ≥ 5 % pair
-other than the stock-intro pattern. The two replayed-episode pairs sit below
-the 30 % / 0.7 gates because the compilation cuts and re-edits the segments
-(clip boundaries do not line up: 0 shared sha256, time-overlap word recall
-0.16–0.26); they were classified as replays by inspecting the shared text,
-not by threshold. Disclosure, not a removal: about one clip of each affected
-test episode (3–4 for Gravity Assist) is the show's stock intro, which the
-training sets also contain. The `-qwen` ratios differ from the 12k ratios
-because the qwen set carries different labels on the same audio.
+575 episodes while 122 of the listing's 708 non-test episodes (the 768
+listing minus the 60 reserved test episodes) hold in none of the three
+prepared NASA training sets and were never prepared, and the 2017 end-of-year
+compilation is only about 30 % explained by the two replayed episodes; a
+re-run of this script on the rebuilt NASA training sets will confirm that no
+`nasa-en-test` group has a ≥ 5 % pair other than the stock-intro pattern. The
+two replayed-episode pairs sit below the 30 % / 0.7 gates because the
+compilation cuts and re-edits the segments (clip boundaries do not line up:
+0 shared sha256, time-overlap word recall 0.16–0.26); they were classified as
+replays by inspecting the shared text, not by threshold. Disclosure, not a
+removal: about one clip of each affected test episode (3–4 for Gravity
+Assist) is the show's stock intro, which the training sets also contain. The
+`-qwen` ratios differ from the 12k ratios because the qwen set carries
+different labels on the same audio. Every reported pair of this run falls in
+one of the categories above.
