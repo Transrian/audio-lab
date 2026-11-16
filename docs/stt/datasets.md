@@ -1880,7 +1880,7 @@ published.
   `audiolab data fetch peertube-fr-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/peertube-fr-train-40k` — the clips are recorded under that
   directory's name; the 12 000-clip set above is unchanged. It read **288 talks
-  (215.4 h of the 405 h listed)** and reached the cap: **40 000 clips, 106.7 h,
+  (215.4 h of the 378.9 h listed)** and reached the cap: **40 000 clips, 106.7 h,
   270 talks** (18 of the talks read yielded none), median 8.5 s, all CC-BY; 74
   talks give their full 200-clip share, the smallest gives 6. Qwen labelled
   60 855 candidate clips and **20 730 of them (34.1 %) were rejected** because
@@ -1894,6 +1894,38 @@ published.
   scale-up plan expected the listing to run out near 26 000–30 000 clips; the
   cap was reached instead, with 231 of the 519 talks still unread. The
   prepared set is 12 GiB.
+- **Re-prepared** (2026-11-16): the instance re-uploaded a talk of this
+  preparation under a second id (a confirmed re-upload pair of
+  `src/audiolab/data/duplicates.json`): the 2026-11-13 set, prepared before
+  the pair was committed, held clips of both ids, and the
+  [leakage audit](../../experiments/leakage-audit/README.md) counted the 154
+  of the id read second in the reading order as in-set re-uploads. The reading order reads each
+  duplicate class once, its first talk standing for it ([decision
+  0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
+  three of the 519 talks are re-uploads of talks already read and are left
+  out, one of them that id. The same command, with the 2026-11-13
+  answers still cached, prepared into the same directory; the 2026-11-13 set
+  is kept as `peertube-fr-train-40k.pre-leakfix-2026-11-15`. It read **289 talks (215.7 h
+  of the 378.9 h listed)** and reached the cap again: **40 000 clips, 106.7 h,
+  272 talks** (17 of the talks read yielded none), median 8.5 s, all CC-BY; 74
+  talks give their full 200-clip share, the smallest gives 1. Against the
+  2026-11-13 set, **279 clips left and 279 entered**: the re-uploaded talk's
+  154 and the 125 of the talk that had closed the old set left — the room the
+  154 freed went, in reading order, to three earlier talks (11, 100 and 41
+  clips, plus 2 later found unwritable), so the talk that had closed the old
+  set got none — and 121 entered from the talk the batch boundary freed, 5
+  from the next and 1 from the one after; the 39 721 clips that survive are
+  byte-identical, audio included. Qwen's walk covered 60 966 candidate clips
+  and **20 838 of them (34.2 %) were rejected** because the two models
+  disagree; only 481 of the walk's requests were new (the 20 the 2026-11-13 run
+  had failed, and 461 of the five talks it read for the first time or newly
+  roomed), with 282 Parakeet and 13 Whisper chunks; the rest was answered from
+  the cache. Parakeet's text differs from the label on 29 508 of the 40 000
+  clips (73.8 %), the mean `base_wer` is 17.9 %, and 26.2 % of the clips have
+  a `base_wer` of 0 — the same shape as the 2026-11-13 set. 128 candidates
+  were left out for a character the base model cannot write (125 as before, 3
+  new); the prepared set holds none. 227 of the 516 talks it may read are
+  still unread.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 1 000 French clips with human captions the agreement rule keeps
   80.6 % and the kept labels score 6.5 % WER against them ([label error of the
