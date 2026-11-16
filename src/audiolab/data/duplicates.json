@@ -111,11 +111,6 @@
   },
   {
     "domain": "nasa",
-    "ids": ["introducing-nasas-curious-universe-season-two", "crew-1-the-astronauts"],
-    "reason": "the 'introducing' episode replays 'crew-1-the-astronauts'; 75 of 94 six-word shingles shared (79.8 %) in nasa-en-train-qwen, 66 of 93 (71.0 %) in nasa-en-train; 0 shared audio sha256"
-  },
-  {
-    "domain": "nasa",
     "ids": ["2017-end-of-year-podcast", "natalie-batalha-talks-about-hunting-exoplanets-with-the-kepler-space-telescope"],
     "reason": "the 2017 end-of-year compilation (nasa-en-test) replays segments of this conversation verbatim; content audit: 137 of 666 six-word shingles shared (20.6 %)"
   },
