@@ -796,15 +796,14 @@ Three kinds of clip that must stay silent, 300 in total:
   moved are asked. A dry run over the prepared cache (`dry_run_unescaped` in
   the fetcher, no request and no write) counts what a preparation would have
   to ask before it asks: on the prepared cache, 20 616 clips over the 139
-  talks, of which 702 have no cached answer. The preparation asked 704 of
-  them — the dry run had counted 702 without a cached answer — and read
-  every other answer from the first set's cache. One of the 704, the last
-  talk's 361st candidate above, failed (the one clip Whisper failed on), so
-  its gate file (`alignment-wers-v2.json`) holds the other 20 615: 18 262
-  (88.6 %) at or under the 0.35 threshold, WER deciles 0.00, 0.00, 0.00,
-  0.00, 0.04, 0.06, 0.09, 0.13, 0.21, 0.40; of the 18 262 that met it, 312
-  hold a character the base model cannot write, 13 059 go beyond the
-  40-clip share of their talk, and 4 891 became clips.
+  talks, of which 702 have no cached answer. The preparation asked exactly
+  those 702 and read every other answer from the first set's cache. One of
+  the 702, the last talk's 361st candidate above, failed (the one clip
+  Whisper failed on), so its gate file (`alignment-wers-v2.json`) holds the
+  other 20 615: 18 262 (88.6 %) at or under the 0.35 threshold, WER deciles
+  0.00, 0.00, 0.00, 0.00, 0.04, 0.06, 0.09, 0.13, 0.21, 0.40; of the 18 262
+  that met it, 312 hold a character the base model cannot write, 13 059 go
+  beyond the 40-clip share of their talk, and 4 891 became clips.
 - **The training-vocabulary filter applies to this set too, and is disclosed
   as what it is**: the fetcher drops every clip holding a character the base
   model cannot write, after the decoding as well as before. Of the first
