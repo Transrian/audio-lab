@@ -13,6 +13,7 @@ from audiolab.core.audio import SAMPLE_RATE, Audio, to_int16
 from audiolab.data import noisy
 from audiolab.data.download import DownloadError
 from audiolab.data.panels import build_panels, check_panel, panel_path, read_panel
+from audiolab.data.store import read_manifest, write_manifest
 
 # --- the mixing itself ---------------------------------------------------------
 
@@ -470,3 +471,132 @@ def test_check_babble_refuses_a_set_with_no_committed_list(monkeypatch):
         noisy.check_babble(
             "noisy-fleurs-en", _clips_in_condition("babble-snr5", 1), [_synthetic_pool()]
         )
+
+
+# --- the preparation's check of the committed babble, end to end ---------------
+
+
+def _panel_files(panels_dir: Path, source: str, ids: list[str]) -> None:
+    """Three panel files for one source, each holding the same ids."""
+    panels_dir.mkdir(exist_ok=True)
+    header = "\n".join(
+        [
+            f"# dataset: {source} ({len(ids)} clips in {len(ids)} groups; test {len(ids)})",
+            f"# items: {len(ids)}",
+            "# clips_sha256: 000000000000",
+            "# manifest_sha256: 000000000000",
+            "# seed: 1",
+            "# built: 2026-01-01",
+        ]
+    )
+    for name in ("fast", "full", "sealed"):
+        (panels_dir / f"{source}-{name}.txt").write_text(
+            header + "\n" + "\n".join(ids) + "\n", encoding="utf-8"
+        )
+
+
+def _noisy_world(tmp_path, monkeypatch):
+    """A fake prepared world holding one small noisy preparation of noisy-fleurs-fr.
+
+    The source manifest, its panels, the babble pool, the noise and the RIRs all
+    live under a temp data dir, and the audio is the fake material of the
+    mixing tests. The ids are picked by the condition hash itself, so the set
+    holds babble clips to mix.
+    """
+    name = "noisy-fleurs-fr"
+    source = "fleurs-fr"
+    candidates = [f"{source}:clip-{i:03d}" for i in range(300)]
+    ids = sorted(
+        [c for c in candidates if noisy._condition(c) == "babble-snr5"][:3]
+        + [c for c in candidates if noisy._condition(c).startswith("noise")][:3]
+    )
+    data = tmp_path / "data"
+    write_manifest(data / source, [make_clip(clip_id) for clip_id in ids])
+    pool_clips = [
+        make_clip(f"mls-fr-train:9121_{800 + k}_{i:06d}", group=f"mls-fr-train:9121_{800 + k}")
+        for k in range(4)
+        for i in range(2)
+    ]
+    write_manifest(data / "mls-fr-train", pool_clips)
+    write_manifest(
+        data / "musan-noise",
+        [make_clip("musan-noise:n1", language="none", source_split="eval", group="g1")],
+    )
+    write_manifest(
+        data / "rirs-noises",
+        [
+            make_clip(
+                "rirs-noises:r1",
+                language="none",
+                source_split="eval",
+                category="real-rir",
+                group="g1",
+            )
+        ],
+    )
+    monkeypatch.setattr(noisy, "data_dir", lambda: data)
+    monkeypatch.setattr(noisy, "load_audio", _fake_material)
+    panels_dir = tmp_path / "panels"
+    _panel_files(panels_dir, source, ids)
+    monkeypatch.setattr(noisy, "DEFAULT_PANELS_DIR", panels_dir)
+    monkeypatch.setattr(noisy, "NOISY_EXPECTED", {name: len(ids)})
+    pool_ids = [
+        (clip.id.split(":", 1)[1], clip.group)
+        for clip in sorted(pool_clips, key=lambda clip: clip.id)
+    ]
+    return name, ids, pool_ids
+
+
+def _committed_pin(tmp_path, monkeypatch, name: str, ids: list[str], omit: tuple = ()) -> None:
+    """A committed-list pin the loader points at: one key per set, unless omitted."""
+    pin = {"note": "a test pin"}
+    for key in noisy.NOISY_EXPECTED:
+        if key not in omit:
+            pin[key] = sorted(ids) if key == name else ["9121_800_000001"]
+    path = tmp_path / "pin.json"
+    path.write_text(json.dumps(pin, indent=1), encoding="utf-8")
+    monkeypatch.setattr(noisy, "BABBLE_FILE", path)
+
+
+def test_a_preparation_runs_when_the_pools_mix_the_committed_babble(tmp_path, monkeypatch):
+    name, ids, pool_ids = _noisy_world(tmp_path, monkeypatch)
+    expected = noisy.chosen_babble_utterances(ids, [pool_ids])
+    assert expected
+    _committed_pin(tmp_path, monkeypatch, name, sorted(expected))
+
+    count = noisy.fetch_noisy(name, tmp_path / "cache", tmp_path / "out", verbose=False)
+
+    assert count == len(ids)
+    clips = {clip.id for clip in read_manifest(tmp_path / "out")}
+    assert clips == {f"{name}:{clip_id.split(':', 1)[1]}" for clip_id in ids}
+    assert (tmp_path / "out" / "manifest.jsonl").is_file()
+    assert list((tmp_path / "out" / "audio").glob("*.wav"))
+
+
+def test_a_preparation_is_refused_when_the_pools_mix_another_babble(tmp_path, monkeypatch):
+    name, ids, pool_ids = _noisy_world(tmp_path, monkeypatch)
+    expected = sorted(noisy.chosen_babble_utterances(ids, [pool_ids]))
+    assert len(expected) >= 2
+    # One utterance is gone from the pin: the pool no longer mixes the committed babble.
+    _committed_pin(tmp_path, monkeypatch, name, expected[:-1])
+    out = tmp_path / "out"
+
+    with pytest.raises(DownloadError, match="no longer equals"):
+        noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)
+
+    # The refusal happens before any output is written.
+    assert not (out / "manifest.jsonl").exists()
+    assert not (out / "manifest.partial.jsonl").exists()
+    assert not (out.is_dir() and any(out.iterdir()))
+
+
+def test_a_preparation_is_refused_when_the_pin_lacks_the_set(tmp_path, monkeypatch):
+    name, ids, _pool_ids = _noisy_world(tmp_path, monkeypatch)
+    _committed_pin(tmp_path, monkeypatch, name, [], omit=(name,))
+    out = tmp_path / "out"
+
+    with pytest.raises(ValueError, match="holds no list for"):
+        noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)
+
+    assert not (out / "manifest.jsonl").exists()
+    assert not (out / "manifest.partial.jsonl").exists()
