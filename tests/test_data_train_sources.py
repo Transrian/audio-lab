@@ -574,6 +574,9 @@ def test_african_french_ca16_speaker_number_maps_only_the_two_part_formats():
     assert african_french.ca16_speaker_number("Cameroon_m_012") is None
     assert african_french.ca16_speaker_number("cameroon_x_012") is None
     assert african_french.ca16_speaker_number("") is None
+    # The digits are the ASCII ones the corpus writes.
+    assert african_french.ca16_speaker_number("٠١٢") is None
+    assert african_french.ca16_speaker_number("cameroon_m_٠١٢") is None
 
 
 def test_african_french_same_ca16_speaker_detects_the_shared_speaker():
