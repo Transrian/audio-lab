@@ -86,8 +86,8 @@ SUFFIXES = (".wav", ".tdf")
 # ``<country>_<m|f>_<number>``. Every other id — the Yaoundé part's
 # ``ctell1-01`` and its recording numbers, a two-digit ``12`` — has no CA16
 # number: a trailing number of such an id is not one.
-CA16_TRAIN_SPEAKER = re.compile(r"\d{3}\Z")
-CA16_TEST_SPEAKER = re.compile(r"[a-z]+_[mf]_(\d{3})\Z")
+CA16_TRAIN_SPEAKER = re.compile(r"\d{3}\Z", re.ASCII)
+CA16_TEST_SPEAKER = re.compile(r"[a-z]+_[mf]_(\d{3})\Z", re.ASCII)
 APOSTROPHE_SPACING = re.compile(r"(?<=[^\W\d_]) *' *(?=[^\W\d_])")
 # A line holding this offers the speaker two answers ("c' est lui / elle", "un
 # / une"): the recording is one of them, the transcript does not say which, so
@@ -117,11 +117,16 @@ def ca16_speaker_number(speaker_id: str) -> str | None:
 def same_ca16_speaker(train_id: str, test_id: str) -> bool:
     """Whether a train speaker and a test speaker are the same CA16 speaker.
 
-    The ids agree when they are equal as strings, or when both carry a CA16
-    number and the numbers are equal: ``same_ca16_speaker("012",
-    "cameroon_m_012")`` is True. An id without a number agrees only with
-    itself, so ``same_ca16_speaker("ctell1-01", "chad_m_001")`` is False,
-    although the first id ends in a number.
+    ``train_id`` is an id of the train part — a bare CA16 number (``012``) or a
+    Yaoundé directory (``ctell1-01``) — and ``test_id`` an id of the test part
+    (``cameroon_m_012``). The ids agree when they are equal as strings, or when
+    both carry a CA16 number and the numbers are equal:
+    ``same_ca16_speaker("012", "cameroon_m_012")`` is True. An id without a
+    number agrees only with itself, so ``same_ca16_speaker("ctell1-01",
+    "chad_m_001")`` is False, although the first id ends in a number. The
+    function is the symmetric test helper for the two parts' formats; the
+    asymmetric acting rule — only the train side excludes — lives in
+    :func:`excluded_train_speakers`.
     """
     if train_id == test_id:
         return True
