@@ -683,6 +683,13 @@ with the ids re-prefixed, so sealed stays sealed and a `--check` on either side
 agrees. Every choice in a mix is a hash of the clip id (which condition, which
 noise file, at which offset, which four babble speakers, which RIR), so a
 re-preparation is byte-identical and no model has ever seen a specific mix.
+The babble comes from the training pools below, so its utterances are real
+training audio: the babble of every prepared set is committed in
+`src/audiolab/data/babble_utterances.json` beside `src/audiolab/data/noisy.py`
+(one sorted list per noisy clip set, 1 012 utterances in all), a noisy
+preparation recomputes its choice from the pools and is refused when it no
+longer equals its committed list, and every `librispeech-pc-en-train*`
+preparation leaves those utterances out.
 One clip, one condition:
 
 - `noise-snr10` / `noise-snr5` / `noise-snr0`: eval-half MUSAN noise (the
@@ -1055,6 +1062,14 @@ measures, trained on the same clips.
   published files of the two splits, not of how they are read. Nothing was
   filtered, corrected or replaced: the screening has to train on the source as it
   is, and a model trained on this arm is expected to write `immdiatement`.
+- **Babble pool of the noisy evaluation sets**: the prepared `noisy-fleurs-fr`
+  and `noisy-servicenow-codeswitched-en-fr` mix four speakers at a time from
+  this set's clips, and the utterances they mix are committed in
+  `src/audiolab/data/babble_utterances.json` beside `src/audiolab/data/noisy.py`
+  — 524 of the 1 012. The pool is never rebuilt: a rebuild would change the
+  babble of the frozen panels and make the noisy sets impossible to prepare
+  again byte-identically. The rule is on the training side instead: a new
+  training run containing a babble utterance is refused.
 - **Why it is here**: the register closest to the target use, read audiobook
   French, with enough volume for a cap — and the source the earlier project
   measured as harmful in a mix ([sources.md](sources.md#used--trained-on-here)),
@@ -1096,6 +1111,14 @@ measures, trained on the same clips.
 - **What a cap covers**: the cap was reached after 13 315 rows: 1 243 without
   restored text and 72 with a heading were dropped on the way. Same per-group
   share as `librispeech-en-train`.
+- **Babble exclusion**: this audio is the babble of the noisy evaluation sets —
+  `noisy-fleurs-en` mixes four speakers at a time from `librispeech-en-train`,
+  and this source relabels the very audio — so every preparation leaves out
+  the babble utterances committed in `src/audiolab/data/babble_utterances.json`
+  beside `src/audiolab/data/noisy.py`: a training set must not train on what a
+  frozen panel mixes under it. Of the prepared sets below, 447 clips are such
+  babble: the sets on disk were prepared before the rule and still hold them,
+  a preparation from this code leaves none of them in.
 - **Larger preparation** (2026-11-13, the scale-up): `audiolab data fetch
   librispeech-pc-en-train --clips 40000`, prepared into
   `$AUDIOLAB_DATA/librispeech-pc-en-train-40k`; the 12 000-clip set above is
@@ -1437,6 +1460,15 @@ measures, trained on the same clips.
 - **Group**: the speaker (`group_kind: speaker`), 108 of them, at most 165 clips
   each, which is below the per-group share, so this source is untouched by it.
   Its clips are long and close to the cap (median 14.1 s, 1.4 s to 17.3 s).
+- **Babble pool of the noisy evaluation sets**: the prepared `noisy-fleurs-en`
+  and `noisy-servicenow-codeswitched-en-fr` mix four speakers at a time from
+  this set's clips, and the utterances they mix are committed in
+  `src/audiolab/data/babble_utterances.json` beside `src/audiolab/data/noisy.py`
+  — 488 of the 1 012. The pool is never rebuilt: a rebuild would change the
+  babble of the frozen panels and make the noisy sets impossible to prepare
+  again byte-identically. The rule is on the training side instead: a new
+  training run containing a babble utterance is refused, and every
+  `librispeech-pc-en-train*` preparation leaves the 488 out of its clips.
 - **Why it is here**: the English arm of the screening — the same register as
   `mls-fr-train` in the other language, and the corpus the English evaluation
   panel comes from, with its test speakers left out.
