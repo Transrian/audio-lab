@@ -17,18 +17,27 @@ sentence of an utterance (``THE PEOPLE MARCH He became aware ...``). A run of
 three or more words in capitals marks such an utterance — punctuation is stripped
 from a word first, so ``MARCH,`` and ``MIXER'S`` count — and 144 of the split's
 26 041 utterances match it. The preparation leaves those out, because a heading
-in capitals is not the text a dictation model should write. The base model very
-likely trained on this audio with this text (NeMo's ASR Set 3.0 lists LibriSpeech
-and keeps punctuation and casing), so this source guards English in a mix rather
-than bringing gains.
+in capitals is not the text a dictation model should write.
+
+The audio is the babble of the noisy evaluation sets: they mix four speakers
+taken from ``librispeech-en-train``, and this source relabels the very audio. A
+training set must not train on what a frozen panel mixes under it, so a
+preparation leaves out the babble utterances of the prepared noisy sets — the
+committed corpus ids of ``babble_utterances.json`` (one list per noisy clip
+set, beside ``noisy.py``) — and a training run containing a babble utterance is
+refused. The base model very likely trained on this audio with this text (NeMo's
+ASR Set 3.0 lists LibriSpeech and keeps punctuation and casing), so this source
+guards English in a mix rather than bringing gains.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from audiolab.data import noisy
 from audiolab.data.build import ManifestBuilder
 from audiolab.data.datasets import base_dataset
 from audiolab.data.download import DownloadError, download, open_archive
@@ -56,6 +65,30 @@ PINNED_AUDIO_SHA256 = LIBRISPEECH_SHA256[TRAIN_ARCHIVE_NAME]
 TITLE_RUN = 3
 _CAPITAL_WORD = re.compile(r"[A-ZÀ-Þ]+")
 _NOT_A_LETTER = re.compile(r"[^A-Za-zÀ-Þà-ÿ]")
+# Why a babble utterance is left out of a preparation.
+BABBLE_REASON = "a babble utterance of the noisy evaluation sets"
+
+
+def babble_exclusions(
+    utterance_ids: Iterable[str], babble: Mapping[str, list[str]]
+) -> dict[str, str]:
+    """The corpus utterance ids a LibriSpeech-PC preparation leaves out, and why.
+
+    The pure rule: an utterance is left out when its id is in the committed
+    babble list (one list per noisy clip set) — the audio of that utterance is
+    mixed into a frozen noisy panel as babble, and a training set must not
+    train on it. The French pool's ids never match a LibriSpeech id, so the one
+    rule covers both pools. ``utterance_ids`` are corpus ids (a manifest id
+    with its dataset prefix off) and the function reads nothing but its
+    arguments, so a fetcher and the measurement of what a prepared set would
+    hold use the same rule.
+    """
+    blocked = set().union(*babble.values()) if babble else set()
+    return {
+        utterance: BABBLE_REASON
+        for utterance in dict.fromkeys(utterance_ids)
+        if utterance in blocked
+    }
 
 
 def fetch_librispeech_pc_en_train(
@@ -67,6 +100,11 @@ def fetch_librispeech_pc_en_train(
     the clips are recorded under ``name``, the directory they land in, and the
     audio and the manifests are read from the source's own cache, so the larger
     preparation downloads nothing the usual one already read.
+
+    Every preparation, 12 000 and larger alike, leaves out the babble
+    utterances of the prepared noisy sets (``noisy.load_babble_utterances``):
+    this source relabels the very audio they mix, and a broken or emptied list
+    is refused, so the exclusion cannot silently stop.
     """
     manifests = download(
         MANIFESTS_URL,
@@ -81,15 +119,20 @@ def fetch_librispeech_pc_en_train(
         sha256=PINNED_AUDIO_SHA256,
     )
     texts = read_texts(name, manifests)
+    excluded = babble_exclusions(texts, noisy.load_babble_utterances())
     with ManifestBuilder(
         dataset_dir, verbose=verbose, total=clips if clips is not None else None
     ) as builder:
-        dropped = {"without restored text": 0, "with a heading in capitals": 0}
+        dropped = {
+            "without restored text": 0,
+            "with a heading in capitals": 0,
+            BABBLE_REASON: 0,
+        }
         take = prepare_train_audio(
             name,
             archive,
             builder,
-            text_for_clip=_restored(texts, dropped),
+            text_for_clip=_restored(texts, dropped, excluded),
             text_has_casing_punct=True,
             cap=clips,
         )
@@ -116,10 +159,14 @@ def read_texts(name: str, archive: Path) -> dict[str, str]:
     return texts
 
 
-def _restored(texts: dict[str, str], dropped: dict[str, int]):
+def _restored(texts: dict[str, str], dropped: dict[str, int], excluded: dict[str, str]):
     """The ``text_for_clip`` callback of this source: label a clip or drop it."""
 
     def text_for_clip(utterance: str) -> str | None:
+        reason = excluded.get(utterance)
+        if reason is not None:
+            dropped[reason] += 1
+            return None
         text = texts.get(utterance)
         if text is None:
             dropped["without restored text"] += 1
