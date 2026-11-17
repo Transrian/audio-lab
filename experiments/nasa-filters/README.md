@@ -31,7 +31,8 @@ Inputs, all read-only, from the environment
 
 - `$AUDIOLAB_DATA/nasa-en-train/manifest.jsonl` — the current preparation;
 - `$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09/manifest.jsonl` — the first,
-  typographic, preparation it was rewritten from;
+  typographic, preparation it was rewritten from; deleted on 2026-11-17 at
+  the owner's request, so it no longer exists on this machine;
 - `$AUDIOLAB_DATA/nonspeech/manifest.jsonl` — the category of each
   non-speech clip;
 - `$AUDIOLAB_CACHE/nasa-en-train/*.stt-c-parakeet-tdt-0.6B-v3.clips.jsonl`
@@ -56,20 +57,21 @@ uv run python experiments/nasa-filters/analyze.py \
 ```
 
 The script analyzes one preparation — the first, typographic, one — and its
-edge gate is the one table 4 reports, so `--old-dataset` is required. The
-tables are that preparation's only when the cache is its own answer cache:
-the cache directory is shared with the source's other preparations, so the
-script compares the cache's episodes to the analysed preparation's manifest
-and **refuses with exit `2`** when the cache holds episodes that preparation
-never read — on the shared cache of today's preparations it prints the
-refusal instead of a table. The check is on the episodes, not on the
-individual clips: inside the episodes the preparation read, the shared
+edge gate is the one table 4 reports, so `--old-dataset` is required. On this
+machine the command now stops before any table: the analysed preparation was
+deleted on 2026-11-17 at the owner's request, so the read of its manifest
+fails with exit `2`. Even restored, the shared cache would hold every table
+back: the cache directory is shared with the source's other preparations, so
+the script compares the cache's episodes to the analysed preparation's
+manifest and **refuses with exit `2`** when the cache holds episodes that
+preparation never read — on the shared cache of today's preparations it
+prints the refusal instead of a table. The check is on the episodes, not on
+the individual clips: inside the episodes the preparation read, the shared
 cache's extra asks (the other preparations' longer prefixes) are not seen,
 and no file records what this preparation asked, so the refusal is the guard
-the existing files allow. The refusal holds every table back, and the script
-cannot run at all once the analysed preparation is gone — the edge-gate table
-measured on 2026-11-13, while the cache still held only the first
-preparation's answers, is committed as historical on the
+the existing files allow. The edge-gate table measured on 2026-11-13, while
+the cache still held only the first preparation's answers, is committed as
+historical on the
 [`nasa-en-train` card](../../docs/stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts).
 
 Flags override the rest of the defaults: `--data-dir`, `--runs-dir`,

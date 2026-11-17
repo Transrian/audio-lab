@@ -81,8 +81,9 @@ The six runs `screen-voxpopuli-fr`, `screen-african-accented-fr`,
 `screen-nasa-en-qwen` trained on the then-current copies of
 `voxpopuli-fr-train`, `african-accented-fr-train`, `librispeech-pc-en-train`,
 `nasa-en-train` and `nasa-en-train-qwen` — `screen-nasa-en` on the
-curly-apostrophe preparation, now kept as `nasa-en-train.curly-2026-11-09`,
-the other five on the copies now kept as `<set>.pre-leakfix-2026-11-15` —
+curly-apostrophe preparation `nasa-en-train.curly-2026-11-09`, deleted on
+2026-11-17 at the owner's request, the other five on the copies now kept as
+`<set>.pre-leakfix-2026-11-15` —
 and those copies held clips the re-prepared sets no longer hold: 1 956 clips
 of the plenary sessions shared with `voxpopuli-en-nonnative`, the 3 clips of
 the speaker shared with `african-accented-fr-test`, the 447 babble

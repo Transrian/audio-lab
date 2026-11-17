@@ -24,11 +24,9 @@ live; the report rows stay short and point at it:
   * ``$AUDIOLAB_RUNS/train/screen-peertube-fr`` (control of plan 02);
   * ``$AUDIOLAB_DATA/mls-fr-train`` and ``$AUDIOLAB_DATA/librispeech-en-train``
     (plan 01 T4 takes its babble noise from them);
-  * ``$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09`` and
-    ``$AUDIOLAB_RUNS/train/screen-nasa-en``, kept for the re-screen comparison
-    the backlog's P-01 asks for (``docs/backlog.md``), and the archived ICSI
-    preparation ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11``
-    (the frozen input of its screening);
+  * the archived ICSI preparation
+    ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11`` (the frozen
+    input of its screening);
   * the evaluation run directories cited by ``docs/stt/screening.md`` or
     ``docs/stt/evaluation.md`` (they hold the per-clip answers the docs
     quote), and the transcript cache that holds those answers; the docs can
@@ -121,21 +119,17 @@ PINNED_DATASETS = frozenset(
 # panel datasets, configs/train datasets, talk answer caches, the evaluation
 # runs the docs cite) is computed from the repository, not hard-coded.
 KEEP_BY_NAME: dict[str, str] = {
-    # The two archived preparations: each one is the frozen input of a
-    # screening run, so it is kept like the run that trained on it.
+    # The archived preparation: the frozen input of a screening run, so it is
+    # kept like the run that trained on it.
     "icsi-en-train.pre-plain-label-2026-11-11": (
         "frozen screening input of configs/train/screen-icsi-en-train.yaml, "
         "whose 2026-11-08 run trained on the 8 752 clips it holds"
     ),
-    # The NASA pair: the earlier preparation and the run that screened it, kept
-    # until the re-screen comparison the backlog's P-01 asks for is checked.
-    "nasa-en-train.curly-2026-11-09": "kept for the P-01 re-screen comparison (docs/backlog.md)",
     # The babble noise the noise experiment takes from them (plan 01 T4).
     "mls-fr-train": "babble noise of plan 01 T4",
     "librispeech-en-train": "babble noise of plan 01 T4",
     # Screening runs a plan still uses.
     "screen-peertube-fr": "control run of plan 02",
-    "screen-nasa-en": "kept for the P-01 re-screen comparison (docs/backlog.md)",
 }
 
 # The candidate rules, in one table: the note the report shows for each one

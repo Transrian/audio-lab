@@ -31,10 +31,7 @@ The `keep (rule above)` logic is:
 - `screen-peertube-fr`, the control run of the noise experiment (plan 02);
 - `mls-fr-train` and `librispeech-en-train`, where the noise experiment takes
   its babble noise from (plan 01 T4);
-- `nasa-en-train.curly-2026-11-09` and `screen-nasa-en`, the earlier NASA
-  preparation and the run that screened it: kept until the re-screen comparison
-  [P-01](../../docs/backlog.md) asks for is checked, and
-  `icsi-en-train.pre-plain-label-2026-11-11`, the frozen input of the ICSI
+- `icsi-en-train.pre-plain-label-2026-11-11`, the frozen input of the ICSI
   screening: its 2026-11-08 run trained on it, so re-making that screen means
   keeping it ([datasets card](../../docs/stt/datasets.md));
 - the evaluation run directories cited by `docs/stt/screening.md` or
@@ -43,6 +40,12 @@ The `keep (rule above)` logic is:
   without naming the directory; those runs are listed in the script's
   `DOC_CITED_EVAL_RUNS` constant, each with the doc section its citation comes
   from.
+
+The earlier NASA preparation `nasa-en-train.curly-2026-11-09` and the run
+`train/screen-nasa-en` that screened it were on this list until the re-screen
+comparison was committed in [screening.md](../../docs/stt/screening.md); both
+were deleted on 2026-11-17 at the owner's request — the first screen's
+evaluation answers (`eval/screen-nasa-en`) stay among the doc-cited runs.
 
 Each rule carries a comment in the script.
 

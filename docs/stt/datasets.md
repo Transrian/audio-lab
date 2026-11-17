@@ -672,14 +672,14 @@ Three kinds of clip that must stay silent, 300 in total:
   side, and only in the archives: the episodes the compilation
   `2017-end-of-year-podcast` replays (13 of the full panel's clips and 2 of the
   fast panel's are the compilation's) were in the `nasa-en-train` sets
-  prepared before the duplicate-class rule, which are kept as
-  `nasa-en-train.curly-2026-11-09`, `nasa-en-train.pre-leakfix-2026-11-15`,
-  `nasa-en-train-qwen.pre-leakfix-2026-11-15` and
-  `nasa-en-train-30k.pre-leakfix-2026-11-15`, so the full and fast numbers
-  of a model trained on those old preparations still score speech it was
-  trained on, while the `nasa-en-train` sets re-prepared on 2026-11-16 hold
-  none of those episodes; the sealed panel holds no clip of either duplicate
-  class.
+  prepared before the duplicate-class rule, kept as
+  `nasa-en-train.pre-leakfix-2026-11-15`, `nasa-en-train-qwen.pre-leakfix-2026-11-15`
+  and `nasa-en-train-30k.pre-leakfix-2026-11-15` — the first, typographic,
+  preparation `nasa-en-train.curly-2026-11-09` held them too and was deleted
+  on 2026-11-17 at the owner's request — so the full and fast numbers of a
+  model trained on those old preparations still score speech it was trained
+  on, while the `nasa-en-train` sets re-prepared on 2026-11-16 hold none of
+  those episodes; the sealed panel holds no clip of either duplicate class.
 
 ## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
 
@@ -1136,11 +1136,14 @@ screening is a difference between corpora and not between recipes:
   that same run also flagged the two preparations below, since re-made)
   are `debconf-en-train`, `fosdem-en-train`, `granary-fr-train`,
   `peertube-edu-fr-train`, `peertube-fr-train`, `pxcorpus-fr-train` and
-  `voxpopuli-fr-train`. Two other preparations were re-made and their pre-rule
-  versions archived, and each archive is what its screening numbers came from:
+  `voxpopuli-fr-train`. Two other preparations were re-made; the pre-rule
+  version of each is what its screening numbers came from:
 
-  - `nasa-en-train.curly-2026-11-09` is kept for the
-    [NASA re-screening comparison](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts);
+  - `nasa-en-train.curly-2026-11-09`, the first, typographic, preparation the
+    first [screen](screening.md#what-each-source-does-alone) trained on: its
+    numbers and the comparison with the re-screen are committed in
+    [screening.md](screening.md), and the preparation itself was deleted on
+    2026-11-17 at the owner's request;
   - `icsi-en-train.pre-plain-label-2026-11-11` is the frozen input of the
     `icsi-en-train` screening, and `configs/train/screen-icsi-en-train.yaml`
     points at it

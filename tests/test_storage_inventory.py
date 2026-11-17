@@ -87,7 +87,7 @@ def roots(tmp_path, monkeypatch):
     write(data / "ds-fr/manifest.jsonl")  # panel + train dataset
     write(data / "x-train/manifest.jsonl")  # train dataset of screen-x.yaml
     write(data / "mls-fr-train/manifest.jsonl")  # babble rule
-    write(data / "nasa-en-train.curly-2026-11-09/manifest.jsonl")  # P-01 keep rule
+    write(data / "nasa-en-train.curly-2026-11-09/manifest.jsonl")  # no keep rule any more
     write(data / "lonely-train/manifest.jsonl")  # prepared, referenced nowhere
     write(data / "docs-only-train/manifest.jsonl")  # prepared, named in docs only
     write(
@@ -113,7 +113,7 @@ def roots(tmp_path, monkeypatch):
     write(runs / "transcripts/a.jsonl", "g" * 8)
     write(runs / "label-logs/x.log", "h" * 4)
     write(runs / "train/screen-peertube-fr/model.nemo", "n" * 100)
-    write(runs / "train/screen-nasa-en/model.nemo", "n" * 100)
+    write(runs / "train/screen-nasa-en/model.nemo", "n" * 100)  # no keep rule any more
     write(runs / "train/screen-x/model.nemo", "n" * 100)
     write(runs / "train/screen-ghost/model.nemo", "n" * 100)  # no recipe
     write(runs / "train/mystery-run/foo.txt", "m" * 2)  # not a screen-* run
@@ -171,8 +171,10 @@ def test_classifications(roots, capsys):
     assert "configs/train dataset" in row(text, "$AUDIOLAB_DATA/x-train")
     assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/mls-fr-train")
     assert "babble" in row(text, "$AUDIOLAB_DATA/mls-fr-train")
-    assert "keep (rule above)" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
-    assert "P-01" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
+    # The keep rule for the first NASA preparation was removed with its
+    # deletion of 2026-11-17: the synthetic entry is now an ordinary
+    # unreferenced candidate, and a re-added rule fails these asserts.
+    assert "candidate: unreferenced" in row(text, "$AUDIOLAB_DATA/nasa-en-train.curly-2026-11-09")
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_DATA/lonely-train")
     assert "unknown" in row(text, "$AUDIOLAB_DATA/mystery-dir")
     # A prepared dataset the docs alone name is referenced, so it is kept: the
@@ -213,7 +215,10 @@ def test_classifications(roots, capsys):
     assert "control run of plan 02" in control
     assert "model.nemo 100 B" in control
     assert "must stay" in control
-    assert "keep (rule above)" in row(text, "$AUDIOLAB_RUNS/train/screen-nasa-en")
+    # The run that screened it went with the preparation: no recipe in the
+    # synthetic repo, so it is a candidate like any other screen run.
+    assert "candidate: unreferenced" in row(text, "$AUDIOLAB_RUNS/train/screen-nasa-en")
+    assert "not retrainable" in row(text, "$AUDIOLAB_RUNS/train/screen-nasa-en")
     assert "candidate: re-creatable" in row(text, "$AUDIOLAB_RUNS/train/screen-x")
     assert "configs/train/screen-x.yaml" in row(text, "$AUDIOLAB_RUNS/train/screen-x")
     assert "candidate: unreferenced" in row(text, "$AUDIOLAB_RUNS/train/screen-ghost")
