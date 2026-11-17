@@ -47,6 +47,11 @@ comparison was committed in [screening.md](../../docs/stt/screening.md); both
 were deleted on 2026-11-17 at the owner's request — the first screen's
 evaluation answers (`eval/screen-nasa-en`) stay among the doc-cited runs.
 
+The eleven `*.pre-leakfix-2026-11-15` directories (the pre-rebuild copies of
+the training sets re-prepared under the committed exclusions) are not named
+in the keep list above; they were kept by the `keep (referenced)` rule, the
+docs naming them, and were deleted on 2026-11-17 at the owner's request.
+
 Each rule carries a comment in the script.
 
 The special cases:

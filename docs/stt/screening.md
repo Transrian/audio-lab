@@ -82,8 +82,9 @@ The six runs `screen-voxpopuli-fr`, `screen-african-accented-fr`,
 `voxpopuli-fr-train`, `african-accented-fr-train`, `librispeech-pc-en-train`,
 `nasa-en-train` and `nasa-en-train-qwen` — `screen-nasa-en` on the
 curly-apostrophe preparation `nasa-en-train.curly-2026-11-09`, deleted on
-2026-11-17 at the owner's request, the other five on the copies now kept as
-`<set>.pre-leakfix-2026-11-15` —
+2026-11-17 at the owner's request, the other five on the copies that were
+kept as `<set>.pre-leakfix-2026-11-15` and deleted the same day at the
+owner's request —
 and those copies held clips the re-prepared sets no longer hold: 1 956 clips
 of the plenary sessions shared with `voxpopuli-en-nonnative`, the 3 clips of
 the speaker shared with `african-accented-fr-test`, the 447 babble
@@ -104,8 +105,9 @@ Two later runs of the NASA source (2026-11-13 and 2026-11-14, both on an RTX
 | `screen-nasa-en-qwen` | `463150e` | RTX 3090 | 49 min | 19.9 GiB |
 
 The re-screen's 10 000 training clips came from the re-prepared
-`nasa-en-train` pool (11 956 clips, now kept as
-`nasa-en-train.pre-leakfix-2026-11-15`), against 12 000 in the first screen's
+`nasa-en-train` pool (11 956 clips, which were kept as
+`nasa-en-train.pre-leakfix-2026-11-15` until it was deleted on 2026-11-17 at
+the owner's request), against 12 000 in the first screen's
 curly-apostrophe preparation, and 8 423 clips are in both draws. The re-screen
 recorded commit `a677b06` from a working tree in which its config was not yet
 committed; the config is the next commit, `7a437a4`.

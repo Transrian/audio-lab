@@ -68,11 +68,11 @@ shared sessions: 0 of 307
 shared sessions: 0 of 307
 ```
 
-The positive control holds: the same command over the set of 2026-11-08, kept
-as `voxpopuli-fr-train.pre-leakfix-2026-11-15`, still gives 206 of 307 shared
-sessions and 1 956 of its 12 000 clips, and over
-`voxpopuli-fr-train-40k.pre-leakfix-2026-11-15` gives 219 of 307 and 4 815
-clips.
+The positive control held: the same command over the set of 2026-11-08, kept
+as `voxpopuli-fr-train.pre-leakfix-2026-11-15` until it was deleted on
+2026-11-17 at the owner's request, gave 206 of 307 shared sessions and 1 956
+of its 12 000 clips, and over `voxpopuli-fr-train-40k.pre-leakfix-2026-11-15`,
+deleted the same day, gave 219 of 307 and 4 815 clips.
 
 ### Limits
 
