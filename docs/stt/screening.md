@@ -94,6 +94,21 @@ replays) in each of the two `nasa-en-train` sets. So the numbers of those runs
 describe those pre-re-preparation copies, and no screening has been re-run on
 the re-prepared sets.
 
+Two later runs of the NASA source (2026-11-13 and 2026-11-14, both on an RTX
+3090):
+
+| Run | Commit | Card | Wall time | Peak memory |
+|---|---|---|---|---|
+| `screen-nasa-en-plain` | `a677b06` | RTX 3090 | 53 min | 19.7 GiB |
+| `screen-nasa-en-qwen` | `463150e` | RTX 3090 | 49 min | 19.9 GiB |
+
+The re-screen's 10 000 training clips came from the re-prepared
+`nasa-en-train` pool (11 956 clips, now kept as
+`nasa-en-train.pre-leakfix-2026-11-15`), against 12 000 in the first screen's
+curly-apostrophe preparation, and 8 423 clips are in both draws. The re-screen
+recorded commit `a677b06` from a working tree in which its config was not yet
+committed; the config is the next commit, `7a437a4`.
+
 ## Results
 
 Normalized WER on the full suite (hallucination rate for `nonspeech`). The base
@@ -273,8 +288,9 @@ Second batch:
   training labels are now written in the characters the base model can write
   ([Training sources](datasets.md#training-sources)) and `nasa-en-train` was
   prepared again. Its re-screen (`screen-nasa-en-plain`, 2026-11-13, the same
-  budget and recipe, scored on the suite of 2026-11-13 against its base run)
-  shows the text defect was its English harm: no answer of its purely English
+  budget and recipe, scored on the suite of 2026-11-13 against its base run,
+  the base model served by CrispASR rather than by `audiolab serve`) shows
+  the text defect was its English harm: no answer of its purely English
   panels holds the unknown token (10 of its 7 712 answers hold one, all on
   French or code-switched panels; the base run of this suite holds none, the
   first screen's base held 3, the run above 592 of 4 116), librispeech-en is
@@ -283,13 +299,37 @@ Second batch:
   separable (−1.05 [−2.37, +0.32]); the gains stay, cs-fleurs-fr-en −2.21
   [−3.25, −1.29], voxpopuli-en-nonnative −4.45 [−5.78, −3.36] and fleurs-fr
   −0.31 [−0.55, −0.08]. On panels the first screen did not score, it gains on
-  `nasa-en-test` (5.10 → 2.83) and on peertube-edu-captions-fr (13.94 → 7.44),
-  and it harms notsofar-en-eval (+3.69 [1.97, 5.65]). The hallucination rate
+  `nasa-en-test` (5.10 → 2.83) — an in-domain gain: the test's 60 episodes and
+  all but 7 of the training episodes (209 of the 10 000 clips, from NASA's
+  Curious Universe) come from the same four shows, with the same
+  near-verbatim transcript style, and the shows' episodes may even share a
+  host (the manifests carry no speaker, so that part is a suspicion) — and on
+  peertube-edu-captions-fr (13.94 → 7.44), and it harms notsofar-en-eval
+  (+3.69 [1.97, 5.65]). The hallucination rate
   is still above the base on non-speech (5.36 → 8.57, +3.21 [0.36, 6.07]; the
   run above was at 10.36): the label fix did not explain it, and its 24
   non-speech answers are still short conversational fragments as in the first
   screen ("I'm going to talk about", "What do you think?"), now spelled with
-  real apostrophes.
+  real apostrophes. Against the base model served by NeMo, the verdicts are the
+  same on the nine panels both runs score: better for the re-screen on
+  voxpopuli-en-nonnative (−4.73 [−6.16, −3.56]), cs-fleurs-fr-en
+  (−2.38 [−3.52, −1.36]), mls-fr (−0.60 [−1.14, −0.19], approximate),
+  fleurs-en (−0.67 [−0.95, −0.39]) and fleurs-fr (−0.28 [−0.51, −0.06]);
+  still above the base on nonspeech (+3.57 [0.71, 6.43]), and not separable
+  on librispeech-en (−0.07 [−0.26, +0.11]), servicenow en-fr (−1.19
+  [−2.55, +0.23]) and servicenow en-fr-ca (−1.08 [−2.73, +0.34]). Paired
+  against the first screen
+  (`screen-nasa-en`) on the same nine panels, the re-screen is separably
+  better on librispeech-en (−1.24 [−1.83, −0.75]), fleurs-en
+  (−1.27 [−1.71, −0.87]), servicenow en-fr (−3.12 [−4.09, −2.26]),
+  voxpopuli-en-nonnative (−0.79 [−1.50, −0.46]) and mls-fr (−0.24 [−0.40,
+  −0.09], approximate), consistent with the label fix, though the two runs
+  also differ in 1 577 of their 10 000 training clips and in card; it is not
+  separable on the other four
+  (cs-fleurs-fr-en −0.17 [−0.45, +0.09], fleurs-fr +0.09 [−0.09, +0.26],
+  servicenow en-fr-ca −0.69 [−1.66, +0.36], nonspeech −1.79 [−5.00, +1.43]),
+  and the 10.36 % → 8.57 % drop in the hallucination rate between the two runs
+  is not separable (its interval contains zero).
 - **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
   label style**, the model learning to write like a stronger ASR model (a kind
   of distillation), since the human-labelled podcast does not give all of it:
