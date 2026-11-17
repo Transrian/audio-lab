@@ -180,6 +180,24 @@ test set, all triaged as the shows' scripted stock openings, no conversation
 text shared). Population: 17 prepared evaluation sets and 25 prepared training
 sets.
 
+The same re-run's training-vs-training part reports **2 129 talk-group pairs
+across two sets** at ratio ≥ 30 % (mostly by design: the 12k ⊂ 40k/30k
+supersets, the same episodes under the 12k / 30k / qwen label sets, talks
+shared across the three PeerTube listings), **22 pairs inside one set**, and a
+re-upload shortlist of 37 rows at ratio ≥ 75 % with different group ids, 18
+distinct id-pairs: the 16 granary id-pairs of the run of 2026-11-15 — the same
+videos under a second id; granary is not a talk source: no duplicate-class
+rule covers its videos, so the set keeps them (a repetition inside one set) —
+the ministry talk re-uploaded in the edu and
+tech sets (`b01320a7…` ↔ `c18d134b…`, 99.5 %, the 12k and 40k edu sets against
+`peertube-tech-fr-train-40k`), and the Capitole re-upload pair
+(`44325ad5…` ↔ `66095949…`, 78.8–79.6 %, the 12k set against itself and against
+the 40k and tech sets). The two PeerTube pairs are one duplicate class each
+over the pinned union listing (both id-pairs are committed in
+[`duplicates.json`](../../src/audiolab/data/duplicates.json)); the 2026-11-15
+NASA shortlist pair is gone, the `introducing` episode being in none of the
+rebuilt NASA training sets (the run of 2026-11-15, above).
+
 **Limits.** The audit covers prepared sets only: `nasa-en-train-30k` holds
 570 episodes while 138 of the listing's 708 non-test episodes (the 768
 listing minus the 60 reserved test episodes) hold in none of the three

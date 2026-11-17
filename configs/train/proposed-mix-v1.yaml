@@ -1,0 +1,84 @@
+# Mix v1 — a proposal, awaiting the owner's answer in proposed decision 0016
+# (docs/decisions/proposed/0016-training-mix-v1.md). Not a run: do not start it
+# until 0016 is accepted. The table it implements, measured read-only with the
+# same code a run uses, is in that decision.
+#
+# The rows are the proposal's mix, in the proposal's order: the tech talks are a
+# filtered union of the two other PeerTube listings, so they come before the
+# two listing rows, and `exclusive: true` makes a row's pool drop what the whole
+# datasets of the earlier rows already hold — the peertube-fr and peertube-edu
+# rows therefore do not retrain the tech talks (docs/stt/training.md,
+# "Mixing datasets"). Each row draws its share with a seed derived from the
+# run's seed and its name, and the run is checked by the leakage guard before
+# its model is loaded (docs/stt/training.md, "The leakage guard").
+#
+# The recipe: decision 0004's about 30 000 updates and constant rates, at the
+# screening configs' 16 clips per update, weight decay, 20 s window and seed —
+# about 480 000 presentations, each of the 151 882 clips seen about 3 times.
+# No noise fields: decision 0004's noise clause is the open question of
+# proposed decision 0015.
+
+base_model: nvidia/parakeet-tdt-0.6b-v3
+base_model_env: AUDIOLAB_PARAKEET_NEMO
+
+# The proposal's rows and shares (of the 151 882 clips): the French rows hold
+# 70 % of the clips and the English rows 30 % — the proposal's reading of
+# D-009's "French is the priority, English is kept".
+datasets:
+  # 25 % — the anchor: it harmed nothing in the screening. The whole set.
+  - name: granary-fr-train-40k
+    clips: 37971
+  # 15 % — the target use: technical French. First talk row: the two listing
+  #  rows below subtract its talks.
+  - name: peertube-tech-fr-train-40k
+    clips: 22783
+  # 10 % — French talks; loses the tech talks to the row above.
+  - name: peertube-fr-train-40k
+    clips: 15188
+  # 10 % — French variety; loses the tech talks to the row above.
+  - name: peertube-edu-fr-train-40k
+    clips: 15188
+  # 5 % — human labels; costs accented English, kept small (decision 0014
+  #  dropped its shared plenary sessions from the preparation).
+  - name: voxpopuli-fr-train-40k
+    clips: 7594
+  # 5 % — accents (the 12 000-clip set; the source runs out below the cap).
+  - name: african-accented-fr-train
+    clips: 7594
+  # 10 % — harmless English, gains on code-switching.
+  - name: librispeech-pc-en-train-40k
+    clips: 15188
+  # 7½ % — technical English.
+  - name: debconf-en-train-30k
+    clips: 11391
+  # 7½ % — technical English.
+  - name: fosdem-en-train-30k
+    clips: 11391
+  # 5 % — human-labelled technical English.
+  - name: nasa-en-train-30k
+    clips: 7594
+
+exclusive: true
+
+updates: 30000
+# 16 clips per update, one at a time: 1 × 16 is what fits the 24 GB cards this
+# run targets (2 × 8 peaks at 22.4 GiB on a 32 GB card and does not fit in
+# 24 GB) — the micro-batch of configs/train/noise-peertube-fr-control-1x16.yaml.
+batch_size: 1
+grad_accumulation: 16
+
+# Decision 0004's rates: constant, no scheduler.
+lr_encoder: 5.0e-6
+lr_heads: 1.5e-5
+weight_decay: 1.0e-3
+
+schedule: constant
+precision: bf16-mixed
+grad_clip: 1.0
+max_clip_seconds: 20.0
+workers: 4
+gpu: "0"
+
+seed: 20261107
+resume_every: 500
+log_every: 50
