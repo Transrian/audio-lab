@@ -57,6 +57,23 @@ shared sessions: 206 of 307
   train clips in shared sessions: 1956 of 12000 (4.67 h)
 ```
 
+Over the re-prepared data, runs of 2026-11-17 — the same command with
+`--train` pointed at each set:
+
+```text
+  voxpopuli-fr-train: 12000 clips, 2136 sessions
+shared sessions: 0 of 307
+
+  voxpopuli-fr-train-40k: 24259 clips, 2280 sessions
+shared sessions: 0 of 307
+```
+
+The positive control holds: the same command over the set of 2026-11-08, kept
+as `voxpopuli-fr-train.pre-leakfix-2026-11-15`, still gives 206 of 307 shared
+sessions and 1 956 of its 12 000 clips, and over
+`voxpopuli-fr-train-40k.pre-leakfix-2026-11-15` gives 219 of 307 and 4 815
+clips.
+
 ### Limits
 
 The audit is over prepared manifests: re-preparing either set changes the
@@ -67,7 +84,8 @@ own metadata.
 
 ## Content-level leakage (6-word text shingles)
 
-**Status:** 2026-11-15. The confirmed duplicate pairs are committed in
+**Status:** 2026-11-15, and a re-run of 2026-11-17 over the re-prepared data.
+The confirmed duplicate pairs are committed in
 [`src/audiolab/data/duplicates.json`](../../src/audiolab/data/duplicates.json).
 Every reported pair below is classified by the leak policy: a leak is the
 same speech as an evaluation group — a re-upload, a republication or a
@@ -94,10 +112,11 @@ or stock intro is not a re-upload, a compilation that replays an episode is.
 Shared audio is checked by clip sha256; shared speakers by the
 corpus-provided speaker id.
 
-**Population.** Prepared sets only: the 15 prepared evaluation sets with
-panel files in `configs/panels/` (the two non-speech sets excluded) and the
-25 prepared training directories (names containing `-train`, with the
-`.pre-*` and `.curly-*` renames excluded). The audit reads manifests only —
+**Population.** Prepared sets only: the prepared evaluation sets with panel
+files in `configs/panels/` (the two non-speech sets excluded — 15 in the run
+of 2026-11-15, 17 in the re-run of 2026-11-17) and the 25 prepared training
+directories (names containing `-train`, with the `.pre-*` and `.curly-*`
+renames excluded). The audit reads manifests only —
 no audio, no server, no network; it is CPU-only and reads one manifest at a
 time, keeping the groups in memory (about 3.5 GB peak on this data).
 
@@ -148,13 +167,27 @@ JvZRK0c8hE0↔{M2Z2S7rstIQ, aMuBAqtMmfA, gpTL6tbUhhc},
 {3zwOPq3HJD8, ZMfbCNYzBb4, hsoj91JTjJU},
 {M2Z2S7rstIQ, aMuBAqtMmfA}↔gpTL6tbUhhc, kgdA3-q9ZTA↔o95HCvmGPKc.
 
+**Results, 2026-11-17, over the re-prepared data.** 659 evaluation-vs-training
+pairs were reported, and none is a leak: **0 pair holds the same recording** —
+the eight leak pairs of the run of 2026-11-15 (the three PeerTube re-uploads,
+the three pairs of the re-released interview, the two compilation replays) left
+the training sets with the re-preparations of 2026-11-16 and 2026-11-17 — and
+**0 of the 659 pairs shares an audio `sha256`**. The 659 split into 377 of the
+same text read by another corpus speaker (374 of the SLR57 short read-task
+sentences, 3 of the one LibriSpeech chapter pair of the table above) and 282 of
+the recurring show intro of the table above, in the 5–30 % band (141 per NASA
+test set, all triaged as the shows' scripted stock openings, no conversation
+text shared). Population: 17 prepared evaluation sets and 25 prepared training
+sets.
+
 **Limits.** The audit covers prepared sets only: `nasa-en-train-30k` holds
-575 episodes while 122 of the listing's 708 non-test episodes (the 768
+570 episodes while 138 of the listing's 708 non-test episodes (the 768
 listing minus the 60 reserved test episodes) hold in none of the three
 prepared NASA training sets and were never prepared, and the 2017 end-of-year
-compilation is only about 30 % explained by the two replayed episodes; a
-re-run of this script on the rebuilt NASA training sets will confirm that no
-`nasa-en-test` group has a ≥ 5 % pair other than the stock-intro pattern. The
+compilation is only about 30 % explained by the two replayed episodes; the
+re-run of 2026-11-17 above confirms that no `nasa-en-test` group has a
+≥ 5 % pair other than the stock-intro pattern, and no pair of any evaluation
+set shares a recording or an audio `sha256` with a training set. The
 two replayed-episode pairs sit below the 30 % / 0.7 gates because the
 compilation cuts and re-edits the segments (clip boundaries do not line up:
 0 shared sha256, time-overlap word recall 0.16–0.26); they were classified as

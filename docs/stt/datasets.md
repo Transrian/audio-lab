@@ -350,19 +350,23 @@ Three kinds of clip that must stay silent, 300 in total:
   of many, and the corpus's own transcripts hold errors that no model can avoid
   repeating. The name of the accent is a claim by the corpus, and this project
   has not checked the first language of any speaker.
-- **Overlap with the prepared training source** (2026-11-13):
-  `voxpopuli-fr-train` holds no clip of the 27 speakers of this set, but 206 of
-  its 307 plenary sessions are in the source as well: 480 of the 737 clips here
-  (1.6 h of the 2.4) and 1 956 of the source's 12 000 (4.67 h of 29.0) were
-  recorded in the same sittings, in the same rooms and with the same
-  microphones. A session is the clip id's prefix before the language tag, and
-  the population is the prepared data — the two manifests —, reproducible with
-  [`experiments/leakage-audit/sessions.py`](../../experiments/leakage-audit/README.md).
+- **Overlap with the prepared training source**: `voxpopuli-fr-train` holds
+  no clip of the 27 speakers of this set. On sessions — same sittings, rooms
+  and microphones — the audit of 2026-11-13 found 206 of this set's 307
+  plenary sessions in the prepared source: 480 of the 737 clips here (1.6 h of
+  the 2.4) and 1 956 of the source's 12 000 (4.67 h of 29.0) recorded in them;
+  [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md)
+  (option 2) leaves them out of every preparation, and the re-prepared source
+  of 2026-11-16 shares **0 of the 307** — a re-run of the [session
+  audit](../../experiments/leakage-audit/README.md#the-voxpopuli-session-overlap)
+  over the current manifests, the same command over the source of 2026-11-08,
+  kept as `voxpopuli-fr-train.pre-leakfix-2026-11-15`, still giving 206 of 307
+  and 1 956 clips. A session is the clip id's prefix before the language tag,
+  and the population is the prepared data — the two manifests —, reproducible
+  with [`experiments/leakage-audit/sessions.py`](../../experiments/leakage-audit/README.md).
   That is not a text leak — different languages, different
-  utterances — but it is the one overlap that shares acoustics with an
-  evaluation set; whether it disqualifies those train clips is answered by
-  [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md),
-  which drops them (option 2).
+  utterances — but it is the one overlap that shared acoustics with an
+  evaluation set.
 - **Corpus label in doubt** (2026-11-08): matched to the Parliament's own list
   of members, only about 26 of the 737 clips come from French, Luxembourgish or
   French-speaking Belgian members; the largest speakers are from Latvia
@@ -529,10 +533,10 @@ Three kinds of clip that must stay silent, 300 in total:
   are the other two), recorded after the base model's data and not in the
   training list its card cites; the close microphones make it a hard,
   spontaneous-speech set.
-- **Known limits**: twelve speakers — the split holds no more, so the panel
-  the plan expected (600 clips over at least fifteen speakers) cannot be
-  drawn from it: the sealed panel holds two whole groups and the full panel
-  spans the other ten, sixty clips of each. The challenge publishes a
+- **Known limits**: twelve speakers — the split holds no more, so every panel
+  of it stays within those twelve: the sealed panel holds two whole groups
+  and the full panel spans the other ten, sixty clips of each. The challenge
+  publishes a
   thousand simulated hours in the same repository; they are not read.
 
 ## `nasa-en-test` — NASA's podcasts, the human-transcribed evaluation set
@@ -1150,8 +1154,31 @@ screening is a difference between corpora and not between recipes:
   in [screening.md](screening.md). A larger preparation is recorded under
   its directory's name — the clip ids and the groups carry that prefix —
   reads the source in the same order, and reuses the source's cache, so it
-  takes the same talks first, and the same clips wherever the current text
-  rule keeps them, then reads more.
+  takes the same talks first, then reads more. Whether the larger set holds
+  the default-cap set's clips is checked, not assumed: the three pairs
+  re-prepared together on 2026-11-16 hold them one for one (clip id and
+  audio `sha256`, over the prepared manifests) — `nasa-en-train` in
+  `nasa-en-train-30k`, `voxpopuli-fr-train` in `voxpopuli-fr-train-40k`,
+  `librispeech-pc-en-train` in `librispeech-pc-en-train-40k`; the five pairs
+  cut from the same pinned listing (or the same corpus split) at different
+  dates hold most of them — `granary-fr-train` 11 990 of its 12 000 clips in
+  `granary-fr-train-40k`, `debconf-en-train` 11 970 in
+  `debconf-en-train-30k`, `fosdem-en-train` 11 942 in
+  `fosdem-en-train-30k`, `peertube-fr-train` 11 806 in
+  `peertube-fr-train-40k` and `peertube-edu-fr-train` 11 976 in
+  `peertube-edu-fr-train-40k`: the missing clips are the ones whose label
+  holds a character the base model cannot write, a rule applied after the
+  12 000-clip preparations of 2026-11-08 and 2026-11-09 (granary 10,
+  debconf 30, fosdem 58, peertube-edu 24, peertube-fr 40), plus, for
+  `peertube-fr-train`, the 154 clips of the re-uploaded talk the
+  re-preparation left out; and the pre-rebuild NASA
+  pair held 10 327 of its 11 956 clips in the 30 000-clip set of 2026-11-14,
+  kept as `nasa-en-train-30k.pre-leakfix-2026-11-15` — 845 of the missing
+  clips are the 18 episodes absent from it (7 of NASA's Curious Universe,
+  11 of Houston), the other 784 fall in the 22 episodes both sets hold,
+  whose shares of those episodes differ (the 18 absent episodes are on the
+  [`nasa-en-train`
+  card](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)).
   `CLIP_CAP_PER_GROUP` stays 200 at every cap,
   and a source that runs out before the cap is prepared with what it has, as at
   the default.
@@ -1283,9 +1310,8 @@ measures, trained on the same clips.
   out before the cap: **37 971 clips, 26.3 h, 8 802 videos**, median 1.5 s,
   all audio CC-BY-3.0, labels CC-BY-4.0. On the way, 2 965 rows shorter than
   0.5 s and 2 710 longer than 20 s were left out, and 45 with a character the
-  base model cannot write; the prepared set holds none of those. The scale-up
-  plan expected the split to stop near 35 000–38 000 clips; 37 971 is the top
-  of that band. The prepared set is 3.0 GiB.
+  base model cannot write; the prepared set holds none of those. The prepared
+  set is 3.0 GiB.
 
 ### `voxpopuli-fr-train` — European Parliament French
 
@@ -1338,9 +1364,15 @@ measures, trained on the same clips.
   in the larger set. The preparation of 2026-11-14 — 26 973 clips, 65.9 h,
   230 speakers — held 4 815 of the clips of the 219 shared sessions (11.6 h)
   and is kept as `voxpopuli-fr-train-40k.pre-leakfix-2026-11-15`. Re-prepared
-  2026-11-16 with the shared-session rule of the bullet above: those 4 815
-  clips left, and 2 101 rows came in that the 200-clip share of a speaker had
-  left out while the shared-session clips still occupied the share — 78 of
+  2026-11-16 with the shared-session rule of the bullet above ([decision
+  0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md)): those 4 815
+  clips left, and the set now holds **0 of the 307 sessions of the evaluation
+  set** — a re-run of the [session
+  audit](../../experiments/leakage-audit/README.md#the-voxpopuli-session-overlap)
+  over the current manifests, the same command over the set of 2026-11-14
+  still giving 219 of 307 and 4 815 clips — and 2 101 rows came in that the
+  200-clip share of a speaker had left out while the shared-session clips
+  still occupied the share — 78 of
   the 180 readers that lost clips take theirs back, none above the 200-clip
   share. The split still runs out below the cap: **24 259 clips, 59.4 h,
   227 speakers** (the 230 of 2026-11-14, minus the readers 188254, 96776 and
@@ -1465,9 +1497,9 @@ measures, trained on the same clips.
   cap: it holds 28 539 utterances, of which 2 498 have no restored text and
   144 begin with a heading in capitals, leaving 25 897 rows — **25 896 clips,
   91.1 h, 251 speakers**, median 14.0 s, CC-BY-4.0 — the one remaining row
-  beyond 20 s left out. The scale-up plan expected the 40 000-clip cap; the
-  valid rows of `train-clean-100` top out at 25 897, so this is the source
-  running out, not the cap stopping it. The prepared set is 9.9 GiB.
+  beyond 20 s left out. The valid rows of `train-clean-100` top out at 25 897,
+  so this is the source running out, not the 40 000-clip cap stopping it. The
+  prepared set is 9.9 GiB.
   Re-prepared 2026-11-16 with the babble exclusion: **25 449 clips, 89.5 h,
   251 speakers**, median 14.0 s, CC-BY-4.0, 9.6 GiB — the 447 babble clips of
   the 2026-11-13 preparation left the set, and the split running out below
@@ -1946,8 +1978,7 @@ published.
   `base_wer` is 17.9 %, and 26.3 % of the clips have a `base_wer` of 0 — the
   same shape as the 12 000-clip set. 125 candidates were left out for a
   character the base model cannot write; the prepared set holds none. The
-  scale-up plan expected the listing to run out near 26 000–30 000 clips; the
-  cap was reached instead, with 231 of the 519 talks still unread. The
+  cap was reached with 231 of the 519 talks still unread. The
   prepared set is 12 GiB.
 - **Re-prepared** (2026-11-16): the instance re-uploaded a talk of this
   preparation under a second id (a confirmed re-upload pair of
@@ -2099,9 +2130,12 @@ published.
   candidates were left out for a character the base model cannot write; the
   prepared set holds none. The 113 talks of
   `peertube-edu-captions-fr` that this listing holds are absent from every
-  batch ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
-  The scale-up plan expected the source to run out near 26 000–30 000 clips;
-  the cap was reached instead, with 2 062 listed talks still unread. The
+  batch ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)) —
+  the talks themselves: the preparation predates the duplicate-class rule of
+  [No overlap with the evaluation
+  sets](#no-overlap-with-the-evaluation-sets) and kept the re-uploads of the
+  evaluation talks under other ids, until the re-preparation below.
+  The cap was reached with 2 062 listed talks still unread. The
   prepared set is 12 GiB.
 - **Re-prepared** (2026-11-16): the exclusions of this listing now cover both
   prepared evaluation sets — the 113 talks of
@@ -2195,12 +2229,10 @@ Per instance, as the listing of 2026-11-08 holds them:
   sources of [sources.md](sources.md#french-variety), rows 3 bis and 22. Every
   clip carries its video's `source_url`, `source_title`, `source_author` and
   `license`, as in the parents' cards.
-- **Why it is here**: scale-up of the French technical vocabulary the screening
-  measured on the two parents (2026-11-10, plan 03 of the training-data
-  campaign): the talks whose titles already say they are about what a developer
-  dictates — programming, networks, data, artificial intelligence — in the
-  source the base model's target use is built for
-  ([D-009](../owner/directives.md)). The title words are the source's own
+- **Why it is here**: scale-up of the French technical vocabulary of the
+  target use ([D-009](../owner/directives.md)): the talks whose titles already
+  say they are about what a developer dictates — programming, networks, data,
+  artificial intelligence. The title words are the source's own
   definition; the listing pins what they kept.
 - **Split and order**: `source_split` is `listing`; the listing is written with
   the Capitole's talks first and the ministry's after, each in its parent's
@@ -2214,16 +2246,31 @@ Per instance, as the listing of 2026-11-08 holds them:
   clips it keeps are recorded under its own name.
 - **Group**: the recording (`group_kind: recording`, the video uuid), at most
   200 clips per talk.
-- **Overlap with the parents**: the talks are the parents' talks, so a
-  preparation of this source and a preparation of a parent can keep the same
-  audio. That is allowed: the guard against a training mix double-counting
-  audio is the `sha256` check of `src/audiolab/train/data.py`, which refuses a
-  mix whose two datasets share one.
-- **Evaluation exclusion**: the talks of
+- **Overlap with the parents**: the talks are the parents' talks, but this
+  source re-segments them from its own cache
+  (`$AUDIOLAB_CACHE/peertube-tech-fr-train`), so a clip of a shared talk is
+  the same speech cut at this source's boundaries and re-encoded — different
+  bytes from the parent's clip of the same utterance. The duplicate-audio
+  check of a mix — the `sha256` check of `src/audiolab/train/data.py`, which
+  refuses two datasets holding the same recording ([mixing
+  datasets](training.md#mixing-datasets)) — therefore does not see the
+  overlap. Preparing this set from the parents' caches would make the shared
+  clips byte-identical; that is not planned, because the mix
+  ([P-02](../backlog.md)) will subtract a row's clips by the duplicate class
+  of the talks they hold, so the shared talks leave the other row by the whole
+  talk and byte-identity adds nothing.
+- **Evaluation exclusion**: the talks of both prepared evaluation sets — the
+  113 talks of
   [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
-  are left out of every preparation made after that set exists
-  (`evaluation_datasets`, [decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md));
-  the listing of 2026-11-13 holds one such talk.
+  and the 126 of
+  [`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded)
+  — and the duplicates in their classes are left out of every preparation
+  (the duplicate-class rule of [No overlap with the evaluation
+  sets](#no-overlap-with-the-evaluation-sets), [decision
+  0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
+  this listing holds 3 of the evaluation talks and 2 of their duplicates, and
+  the preparation of 2026-11-13 above predates the rule — it left out the v1
+  talks by id and kept the re-uploads until the re-preparation of 2026-11-17.
 - **Prepared** (2026-11-13): the first preparation of this source is a larger
   one, at the 40 000-clip cap of the scale-up —
   `audiolab data fetch peertube-tech-fr-train --clips 40000` — prepared into
@@ -2240,9 +2287,8 @@ Per instance, as the listing of 2026-11-08 holds them:
   disagree — the 2026-11-09 preparations measured 32.8 % and 28.4 % for the
   two parents; on the way, 1 599 candidates fell outside 0.5–20 s, 2 361
   segments had no words, 285 no duration, 1 174 lost the words they repeated
-  from the one before, and 2 were decoding loops. The plan expected the
-  listing to run out near 25 000–35 000 clips; it did not — the cap was
-  reached with 100 of the 420 readable talks still unread. The prepared set is
+  from the one before, and 2 were decoding loops. The cap was reached with 100
+  of the 420 readable talks still unread. The prepared set is
   13 GiB; the 320 talks read leave 24 GiB of WAV in the cache.
 - **Re-prepared** (2026-11-17): the exclusions of this listing now cover both
   prepared evaluation sets — the 113 talks of
@@ -2426,9 +2472,8 @@ Per instance, as the listing of 2026-11-08 holds them:
   the label on 19 874 of the 30 000 clips (66.2 %), the mean `base_wer` is
   8.2 %, and 33.8 % of the clips have a `base_wer` of 0 — the same shape as
   the 12 000-clip set (66.5 %). 82 candidates were left out for a character
-  the base model cannot write; the prepared set holds none. The scale-up plan
-  expected the listing to run out near 20 000–25 000 clips; the 30 000 cap was
-  reached instead, with 1 656 listed videos still unread. The prepared set is
+  the base model cannot write; the prepared set holds none. The 30 000 cap was
+  reached with 1 656 listed videos still unread. The prepared set is
   9.2 GiB.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 3 000 English clips with near-verbatim human transcripts the
@@ -2540,9 +2585,8 @@ Per instance, as the listing of 2026-11-08 holds them:
   clips (63.9 %), the mean `base_wer` is 6.7 %, and 36.1 % of the clips have a
   `base_wer` of 0 — the same shape as the 12 000-clip set (64.7 %). 178
   candidates were left out for a character the base model cannot write; the
-  prepared set holds none. The scale-up plan expected the listing to run out
-  near 20 000–25 000 clips; the 30 000 cap was reached instead, with 5 144
-  listed talks still unread. The prepared set is 9.7 GiB.
+  prepared set holds none. The 30 000 cap was reached with 5 144 listed talks
+  still unread. The prepared set is 9.7 GiB.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 3 000 English clips with near-verbatim human transcripts the
   agreement rule keeps 95.1 % and the kept labels score 3.7 % WER against them
@@ -2830,6 +2874,13 @@ this preparation leaves them out (decision 0002).
   did not read, and 1 152 of 64 of those 148 the new shares give more of.
   Every clip of the re-prepared set is one of the 30 000 of the larger
   preparation below. The prepared set is 3.7 GiB.
+- **2026-11-14, the set's files were rewritten and restored**: the 11 956 WAVs
+  of the set then in place — the 2026-11-09 preparation — were rewritten by a
+  defective relabel design (all of them, file times 2026-11-14 09:10–09:17)
+  and then restored byte-exact. The restore was verified clip by clip, every
+  clip's PCM re-hash equal to the `sha256` of its manifest line (0
+  mismatches), and the set was re-prepared on 2026-11-16 (above); the
+  2026-11-09 preparation is kept as `nasa-en-train.pre-leakfix-2026-11-15`.
 - **What the base model gets wrong**: Parakeet's text differs from the label on
   7 306 of the 12 000 clips (60.9 %); the mean `base_wer` is 5.2 %, and 39.1 %
   of the clips have a `base_wer` of 0. By show, it differs on 56 % (Small
@@ -3040,10 +3091,10 @@ training preparation is this rule, above.
 
 | training source | evaluation set checked | left out |
 | --- | --- | --- |
-| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; **206 of the set's 307 plenary sessions are in the source too** — 1 956 train clips (4.67 h) share the rooms and microphones of 480 evaluation clips (1.6 h); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)), [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md) |
+| `voxpopuli-fr-train` | `voxpopuli-en-nonnative` (accent `en_fr`) | no shared speaker: the 896 clips of the set's 27 speakers are left out and none of them is in the prepared source; shared sessions: the audit of 2026-11-13 found **206 of the set's 307 plenary sessions** in the prepared source then — 1 956 train clips (4.67 h) sharing the rooms and microphones of 480 evaluation clips (1.6 h); [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md) (option 2) leaves them out of every preparation, and the set re-prepared on 2026-11-16 holds **0 of the 307** (a re-run of the session audit over the current manifests; the same command over the set of 2026-11-08, kept as `voxpopuli-fr-train.pre-leakfix-2026-11-15`, still gives 206 of 307 and 1 956 clips); session = clip id's prefix before the language tag, population = the prepared manifests ([audit](../../experiments/leakage-audit/README.md)) |
 | `mls-fr-train` | `mls-fr` (test split of the same corpus) | 0 clips: MLS keeps the speakers of its splits apart, and the 18 test speakers are absent from the 138 prepared readers |
 | `librispeech-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and the 40 test speakers are absent from the 108 prepared readers |
-| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 119 prepared readers |
+| `librispeech-pc-en-train` | `librispeech-en` (test-clean of the same corpus) | 0 clips: LibriSpeech keeps its splits apart, and none of the 40 test speakers is among the 123 prepared readers |
 | `pxcorpus-fr-train` | none: no evaluation set comes from this corpus | — |
 | `ami-fr-speakers-en-train` | none: no evaluation set comes from this corpus | — |
 | `nasa-en-train` | `nasa-en-test` (the 60 committed reserved episodes of the same listing) | 0 clips: the fetcher skips the reserved list of `src/audiolab/data/nasa_test_episodes.json` and the duplicates in their classes of every preparation, whether or not the set is prepared, checked in `tests/test_data_nasa.py`; the set prepared 2026-11-16 leaves the 3 episodes of those classes out — 113 of the clips the set of 2026-11-09 held, kept as `nasa-en-train.pre-leakfix-2026-11-15` |
@@ -3056,6 +3107,8 @@ training preparation is this rule, above.
 | `debconf-en-train` | none: no evaluation set comes from PeerTube | — |
 | `fosdem-en-train` | none: no evaluation set comes from a video tree | — |
 
+Checked per set, the [rebuild impact report](../../experiments/leakage-audit/README.md#the-rebuild-impact-report) measures every prepared training set against every rule, with each column the committed function the fetcher itself uses: its run of 2026-11-17, over the current data root, removes **0 clips of the evaluation rules from every prepared set** — the only non-zero totals are the 488 and 524 babble clips of the two committed babble pools and the 154 in-set re-uploads `peertube-fr-train` keeps by the rebuild-list rule — and its rebuild list is empty. The content-level check ([content audit](../../experiments/leakage-audit/README.md#content-level-leakage-6-word-text-shingles)), re-run over the re-prepared data, reports **no pair of the same recording** between any evaluation group and any training set: 0 of its 659 evaluation-vs-training pairs shares an audio `sha256`.
+
 No other source of the screening shares a corpus with an evaluation set: FLEURS
 is not used for training, and the sources that are not evaluation sets at all
 (Granary, PxCorpus, AMI, ICSI) publish no other split here. The dev split of
@@ -3064,17 +3117,20 @@ NOTSOFAR is still not read, so no prepared source overlaps it.
 The voxpopuli check is the one that bites. The camera-ready way to break decision
 0002 would be to train on French parliamentary speech and then score the same
 people reading English: the exclusion is by speaker, and the
-prepared French source holds 229 speakers, none of them one of the 27. The
-session check goes further: 206 of the evaluation set's 307 plenary sessions
-are in the prepared source too, so 480 of its 737 clips (1.6 h) and 1 956 of the
-source's 12 000 (4.67 h) were recorded in the same sittings, rooms and
-microphones. A session is the clip id's prefix before the language tag, the
+prepared French source holds 224 speakers, none of them one of the 27. The
+session check goes further: the audit of 2026-11-13 found 206 of the evaluation
+set's 307 plenary sessions in the prepared source — 480 of its 737 clips (1.6 h)
+and 1 956 of the source's 12 000 (4.67 h) recorded in the same sittings, rooms
+and microphones. A session is the clip id's prefix before the language tag, the
 population the prepared manifests
 ([`experiments/leakage-audit`](../../experiments/leakage-audit/README.md)).
 That shares acoustics, not text — the languages and the utterances
-are different — and whether it disqualifies those train clips is answered
-by [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md),
-which drops them (option 2).
+are different — and [decision 0014](../decisions/accepted/0014-voxpopuli-shared-sessions.md)
+answers it (option 2): every preparation leaves the evaluation set's 307
+sessions out, and the sets re-prepared on 2026-11-16 share 0 of them — a
+re-run of the session audit over the current manifests, the same command over
+the source of 2026-11-08, kept as `voxpopuli-fr-train.pre-leakfix-2026-11-15`,
+still giving 206 of 307 and 1 956 clips.
 
 ## Known overlap with what models were trained on
 
