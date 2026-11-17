@@ -2189,6 +2189,60 @@ Per instance, as the listing of 2026-11-08 holds them:
   listing to run out near 25 000–35 000 clips; it did not — the cap was
   reached with 100 of the 420 readable talks still unread. The prepared set is
   13 GiB; the 320 talks read leave 24 GiB of WAV in the cache.
+- **Re-prepared** (2026-11-17): the exclusions of this listing now cover both
+  prepared evaluation sets — the 113 talks of
+  [`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+  and the 126 of
+  [`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded) —
+  plus the duplicate-class rule, so **14 of the 421 listed talks are left out
+  before reading** (3 evaluation talks, 2 of their duplicates, 9 re-uploads of
+  talks the seeded order had already read). Against the set of 2026-11-13, kept
+  as `peertube-tech-fr-train-40k.pre-leakfix-2026-11-15`, it read **317 of the
+  407 readable talks (217.5 h of the 289.5 h listed)** — a first batch of 286,
+  then 30, then 1 — to the cap: **40 000 clips, 110.9 h, 306 talks** (11 of the
+  talks read yielded none), median 8.9 s; 38 801 CC-BY and 1 199 CC0-1.0; 79
+  talks give their full 200-clip share, the smallest gives 2. Qwen labelled
+  56 404 candidate clips and **16 340 of them (29.0 %) were rejected** because
+  the two models disagree; on the way, 1 598 candidates fell outside 0.5–20 s,
+  2 627 segments had no words, 348 no duration, 1 169 lost the words they
+  repeated from the one before, and 2 were decoding loops. Parakeet's text
+  differs from the label on 27 596 of the 40 000 clips (69.0 %), the mean
+  `base_wer` is 15.5 %, and 31.0 % of the clips have a `base_wer` of 0. 64
+  candidates were left out for a character the base model cannot write, and the
+  prepared set keeps none of them and no clip of the two evaluation sets' 126
+  talks nor of their 56 duplicate re-uploads. Against the set of 2026-11-13:
+  38 477 clips are in both, identical in every field and byte; 1 523 of it
+  left — the 1 518 of the twelve talks the new exclusions left out that held
+  clips (cf513c6d 200, 387fd740 200, b01320a7 200, 5a253074 200, 63de5bbe 198,
+  2ec2b543 80, 34f516bd 80, 84ab639d 80, bf9efe74 80, 7c8c6999 74, 32ad669f 63,
+  a7ab93ec 63 — the other two of the 14, a2c7bd63 and 9ac056e8, held none) and
+  5 of talk ba5dd673, whose turn came with no room left under the cap — and
+  1 523 came in: 1 521 of thirteen talks the 2026-11-13 run had read (twelve
+  that kept no clip and 18b1a682, which held 80 and now holds 199), whose
+  turns now come with room (26468a5e 200, 23fc1711 170,
+  c33b2982 166, f6dd842a 155, 0f8caf62 145, e97b3145 124, 18b1a682 119,
+  d99f885d 101, ebfa3449 93, 03e00545 60, e72ff6f8 56, 37ea7d24 92, 0ff9bec6
+  40) and 2 of a talk the old run never read: 3318e312, "Logiciel libre et
+  Environnement: Green washing ou réalité ?" (31.8 min, CC-BY). The run read
+  nine talks the 2026-11-13 run never read (330.6 min, all CC-BY); eight kept
+  no clip — their turns came with no room left under the cap — and one kept 2
+  (3318e312, above): 2e2f6e3c "Le logiciel libre : un enjeu politique et
+  social — Étienne Gonnu" (54.6 min), 65cc2b8b "Les métiers d'un éditeur de
+  Logiciel Libre" (28.4 min), 2b3f57ac "Présentation de HorsCiné, plateforme de
+  films libres et vecteur de projection" (30.5 min), 6783d82c "Démystification
+  du règlement général sur la protection des données" (45.0 min), 1e3daae0
+  "Robotique en Rust : de l’UI web au microcontrôleurs" (29.8 min), 96effb3e
+  "Linux embarqué : comment se lancer ?" (55.7 min), 28ce6d3d "PostgreSQL,
+  base de données vectorielle avec pgvector." (23.6 min), and 18f55663 "Linux
+  capabilities : se passer des commandes su et sudo — Ahmad Samer Wazan, Rémi
+  Venant" (31.2 min). Speech requests: 73 Whisper chunks (the nine talks read
+  for the first time), 2 462 Qwen clips (the thirteen queue talks and
+  3318e312) and 1 525 Parakeet clips (the clips they agreed); 8 videos
+  downloaded, plus one more prefetched (36efe36c, the talk after the last one
+  read, never used; 2e2f6e3c's video had been prefetched already by the
+  2026-11-13 run — the talk after the last one it read). The listing is not
+  exhausted: 90 talks are still unread. Wall 27 min 29 s; the prepared set is
+  13 GiB.
 - **What the base model gets wrong**: Parakeet's text differs from the label
   on 27 443 of the 40 000 clips (68.6 %); the mean `base_wer` is 15.2 %, and
   31.4 % of the clips have a `base_wer` of 0 — between the two parents
