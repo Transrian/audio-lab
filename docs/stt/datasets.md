@@ -136,6 +136,37 @@ The runs are reference numbers of the current suite, not a screening: they say
 where each model stands on each new panel before campaign 1's fine-tunes are
 trained.
 
+### Reference runs of the v2 captions panels (2026-11-17)
+
+One run per model over a suite named ``captions-v2-2026-11-15`` holding only the
+two panels of
+[`peertube-edu-captions-fr-v2`](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded)
+(``audiolab eval --model configs/models/<model>.yaml --suite <that suite>``):
+700 panel items per run, 0 failed requests. The fast panel's 100 clips are a
+subset of the full panel's 600, so each clip was asked once; the runs live under
+``$AUDIOLAB_RUNS/eval/<model>/captions-v2-2026-11-15/``. The models are the two
+served models of the runs above.
+
+| panel | Parakeet | Qwen3 |
+| --- | --- | --- |
+| `peertube-edu-captions-fr-v2-fast` | 13.66 | 10.04 |
+| `peertube-edu-captions-fr-v2-full` | 14.37 | 8.09 |
+
+Formatted WER, the view that keeps the captions' casing and punctuation:
+
+| panel | Parakeet | Qwen3 |
+| --- | --- | --- |
+| `peertube-edu-captions-fr-v2-fast` | 19.70 | 20.01 |
+| `peertube-edu-captions-fr-v2-full` | 20.26 | 16.57 |
+
+Both models sit at their v1 level on the full panel (13.94 → 14.37 Parakeet,
+7.78 → 8.09 Qwen3). The two panels are not comparable clip for clip: the v2
+set's clip boundaries move where the undecoded entities hid sentence ends, and
+the v2 full panel spans 98 of the set's 126 talks — 10 of the 13 the entity
+bug removed from the first set, which the
+[`peertube-edu-captions-fr`](#peertube-edu-captions-fr--the-education-ministrys-french-talks-with-human-captions)
+full panel (90 of its 113 talks) does not hold.
+
 ## Frozen sources
 
 Every source is fetched at a pinned revision and verified against a checksum
