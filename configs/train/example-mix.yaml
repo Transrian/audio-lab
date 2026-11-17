@@ -22,6 +22,12 @@ datasets:
   - name: peertube-fr-train
     clips: 1000
 
+# Without `exclusive` (the default) each row draws whole: the same recording
+# prepared into two rows is refused, the same talk prepared again is trained
+# twice. `exclusive: true` makes a row's pool drop what the whole datasets of
+# the earlier rows already hold (docs/stt/training.md, "Mixing datasets").
+# exclusive: true
+
 # The run's clip count is the sum of the entries above (3000). It must still
 # cover a batch: at least batch_size.
 

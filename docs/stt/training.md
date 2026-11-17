@@ -159,6 +159,38 @@ the first five duplicates: training it twice would count the same audio against
 two shares. A repetition inside one dataset is that dataset's business, not
 the mix's.
 
+**An exclusive mix subtracts its rows from each other.** A mix config may add
+`exclusive: true` (the default, `false`, is the mix described above: each row
+draws whole). With it, the rows are processed in the order the recipe lists
+them: a row's pool drops every clip that a whole dataset of an earlier row
+already holds — the duplicate class of its talk for a dataset prepared from a
+source of talks, its audio `sha256` for the other datasets — and the row draws
+its share from what remains. The first row subtracts from nothing, and the
+subtraction is at the level of whole talks: a row whose corpus is a filtered
+union of another row's corpus is listed first, and the other rows lose its
+talks. The subtraction is what the inter-dataset refusal above cannot see:
+the same talk prepared with other bytes is other audio, and only its duplicate
+class says the two rows hold it. Each row records its pool before and after
+the subtraction and the number of clips it removed — in `train.json` and in
+the run's start log, one line per row — and the same recipe over the same
+manifests subtracts and draws the same clips again, which is how a resume is
+checked. The per-dataset seed is still derived from the dataset's name, but
+with `exclusive` the pool a row draws from depends on its place in the recipe:
+swapping two rows moves the loss to the later one.
+
+```yaml
+# The tech talks are a filtered union of the two other listings: they go
+# first, so the other two rows subtract them.
+exclusive: true
+datasets:
+  - name: peertube-tech-fr-train-40k
+    clips: 20000
+  - name: peertube-fr-train-40k
+    clips: 15000
+  - name: peertube-edu-fr-train-40k
+    clips: 15000
+```
+
 ### The leakage guard
 
 Every run — single dataset or mix — is checked before its model is loaded,
@@ -350,13 +382,13 @@ resumed is not bit-for-bit the run that would not have stopped.
 
 | file | what it is |
 |---|---|
-| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well — and, for a run that augments, the sha256 of each bank manifest it writes (§2). Written before the first update, never rewritten; a resume is checked against it (§5) |
+| `config.json` | what the run was started as: the config, the base model and its identity, and the clips it drew — for a mix, the clip hash per dataset as well, and for an exclusive mix the `exclusive` key of the recipe (recorded only when true, so a config that does not use it — or that predates it — keeps the file it wrote, §2) — and, for a run that augments, the sha256 of each bank manifest it writes (§2). Written before the first update, never rewritten; a resume is checked against it (§5) |
 | `manifest.jsonl` | the clips of this run, as NeMo reads them: absolute path, duration, text |
 | `noise.jsonl`, `reverb.jsonl` | only for a run that augments: the NeMo manifest of its noise bank and its reverb bank, the train half of each, one line per ≤20 s window (§2) |
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, the `leakage_guard` block (§2), and, for a run that augmented, the `augmentation` block: per perturbation, its probability, its SNR range (noise), its bank, the bank's line count and the sha256 of the bank's manifest (§2) |
+| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and, for a row of an exclusive mix, a `subtraction` block: the pool before and after the earlier rows' subtraction and the number of clips removed, §2; and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, the `leakage_guard` block (§2), and, for a run that augmented, the `augmentation` block: per perturbation, its probability, its SNR range (noise), its bank, the bank's line count and the sha256 of the bank's manifest (§2) |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so.

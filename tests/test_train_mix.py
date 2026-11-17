@@ -25,15 +25,21 @@ from helpers import (  # noqa: E402
     point_the_guard_at_a_test_suite,
 )
 
+from audiolab.data.duplicates import duplicate_classes, peertube_talks  # noqa: E402
 from audiolab.data.panels import (  # noqa: E402
     DEFAULT_PANELS_DIR,
     SuiteError,
     load_suite,
 )
-from audiolab.data.store import manifest_id_sha256, write_manifest  # noqa: E402
+from audiolab.data.store import (  # noqa: E402
+    manifest_id_sha256,
+    read_manifest,
+    write_manifest,
+)
 from audiolab.train import runner  # noqa: E402
-from audiolab.train.config import DatasetShare, TrainConfig  # noqa: E402
+from audiolab.train.config import DatasetShare, TrainConfig, TrainConfigError  # noqa: E402
 from audiolab.train.data import (  # noqa: E402
+    MixExclusion,
     TrainDataError,
     mix_seed,
     select_clips,
@@ -43,11 +49,15 @@ from audiolab.train.data import (  # noqa: E402
 from audiolab.train.guard import check_leakage, evaluation_datasets  # noqa: E402
 from audiolab.train.run import (  # noqa: E402
     MANIFEST_NAME,
+    RESUME_NAME,
     TRAIN_JSON,
     TrainRunError,
+    config_differences,
     is_finished,
+    prepare_run_dir,
     read_run_config,
     run_dir,
+    write_run_config,
 )
 
 # --- the draw -------------------------------------------------------------------
@@ -545,3 +555,488 @@ def test_a_single_dataset_run_records_nothing_about_a_mix(tmp_path, monkeypatch)
     assert "datasets" not in record and "clips_available" in record
     started = read_run_config(directory)
     assert "datasets" not in started and started["config"]["dataset"] == "fleurs-fr"
+
+
+# --- exclusive: the rows subtract the earlier rows' datasets ----------------------
+
+
+@pytest.fixture(scope="module")
+def shared_talks() -> tuple[str, str, str, str]:
+    """One talk of the pinned PeerTube corpus, and three more of other classes.
+
+    The subtraction runs on the duplicate class of the talk a clip's group
+    names, over the pinned listings a preparation reads. The synthetic rows of
+    this section hold clips whose groups name these talks, so what is shared
+    and what is not is decided by the same rule a preparation applies: the
+    first talk is the one two rows share, the others are the rows' own talks,
+    one per class.
+    """
+    talks = peertube_talks()
+    classes = duplicate_classes(talks, domain="peertube")
+    shared = min(record["id"] for record in talks)
+    own: list[str] = []
+    for record in talks:
+        class_id = classes[record["id"]]
+        if class_id != classes[shared] and all(class_id != classes[talk] for talk in own):
+            own.append(record["id"])
+        if len(own) == 3:
+            break
+    return shared, *own
+
+
+def write_talk_dataset(
+    root: Path, name: str, shared: str, own: str, n_shared: int, n_own: int
+) -> None:
+    """A synthetic talk dataset whose copy of the shared talk is other prepared bytes.
+
+    The clip ids differ by the dataset name, and the test clips take their audio
+    hashes from their ids: the same talk prepared by two rows holds the same
+    speech in other bytes, so only the duplicate class - not the audio hash -
+    can say the two rows hold it.
+    """
+    clips = [
+        make_clip(f"{name}:{index:04d}", group=f"{name}:{shared}") for index in range(n_shared)
+    ]
+    clips += [
+        make_clip(f"{name}:{n_shared + index:04d}", group=f"{name}:{own}") for index in range(n_own)
+    ]
+    write_manifest(root / name, clips)
+
+
+def test_exclusive_subtracts_the_talk_a_later_row_shares_with_an_earlier_row(
+    tmp_path, shared_talks
+):
+    """The same talk in two rows, prepared with other bytes: the later row loses it.
+
+    The inter-dataset check is on the audio, and the two rows hold other bytes of
+    the same talk, so only the class subtraction keeps the later row from
+    training the talk a second time.
+    """
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    shares = (
+        DatasetShare("peertube-fr-train-40k", 6),
+        DatasetShare("peertube-edu-fr-train-40k", 6),
+    )
+    mix = select_mix(shares, seed=7, max_seconds=20.0, data_dir=data, exclusive=True)
+    first, second = mix.datasets
+    # The earlier row subtracts from nothing yet; the later row loses the shared talk.
+    assert first.exclusion == MixExclusion(pool_before=12, pool_after=12, clips_removed=0)
+    assert second.exclusion == MixExclusion(pool_before=12, pool_after=8, clips_removed=4)
+    # The pools the draws saw: the first whole, the second the remainder.
+    assert first.drawn.available == 12
+    assert second.drawn.available == 8
+    classes = duplicate_classes(peertube_talks(), domain="peertube")
+    shared_class = classes[shared]
+    assert all(
+        classes.get(clip.group.partition(":")[2]) != shared_class for clip in second.drawn.clips
+    )
+    # The earlier row drew what it draws alone, and the mix holds no clip twice.
+    solo = select_clips(
+        read_manifest(data / "peertube-fr-train-40k"),
+        count=6,
+        seed=mix_seed(7, "peertube-fr-train-40k"),
+        max_seconds=20.0,
+    )
+    assert [clip.id for clip in first.drawn.clips] == [clip.id for clip in solo.clips]
+    assert len(mix.clips) == 12
+    assert mix.ids_sha256 == manifest_id_sha256(mix.clips)
+
+
+def test_without_exclusive_the_same_mix_is_not_refused_for_other_bytes(tmp_path, shared_talks):
+    """The gap the option fills: same speech, other prepared bytes.
+
+    The inter-dataset check is on the audio, and the two rows hold other bytes of
+    the same talk, so nothing refuses the mix without the flag: it would train
+    the talk twice. exclusive is what subtracts it.
+    """
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    mix = select_mix(
+        (
+            DatasetShare("peertube-fr-train-40k", 6),
+            DatasetShare("peertube-edu-fr-train-40k", 6),
+        ),
+        seed=7,
+        max_seconds=20.0,
+        data_dir=data,
+    )
+    assert len(mix.clips) == 12
+    for per in mix.datasets:
+        assert per.exclusion is None
+
+
+def test_swapping_the_rows_moves_the_loss_to_the_later_row(tmp_path, shared_talks):
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    first = select_mix(
+        (
+            DatasetShare("peertube-fr-train-40k", 6),
+            DatasetShare("peertube-edu-fr-train-40k", 6),
+        ),
+        seed=7,
+        max_seconds=20.0,
+        data_dir=data,
+        exclusive=True,
+    )
+    swapped = select_mix(
+        (
+            DatasetShare("peertube-edu-fr-train-40k", 6),
+            DatasetShare("peertube-fr-train-40k", 6),
+        ),
+        seed=7,
+        max_seconds=20.0,
+        data_dir=data,
+        exclusive=True,
+    )
+    by_name = {per.name: per for per in first.datasets}
+    assert by_name["peertube-fr-train-40k"].exclusion.clips_removed == 0
+    assert by_name["peertube-edu-fr-train-40k"].exclusion.clips_removed == 4
+    by_name = {per.name: per for per in swapped.datasets}
+    assert by_name["peertube-edu-fr-train-40k"].exclusion.clips_removed == 0
+    assert by_name["peertube-fr-train-40k"].exclusion.clips_removed == 2
+
+
+def test_without_exclusive_shared_audio_is_refused_and_exclusive_subtracts_it(tmp_path):
+    """The same recording prepared into two rows: refused as it was, subtracted with the flag.
+
+    A dataset without a corpus of talks subtracts by the audio sha256 it holds,
+    and the subtraction reads the whole datasets of the earlier rows.
+    """
+    data = tmp_path / "data"
+    shared = [hashlib.sha256(f"recording {i}".encode()).hexdigest() for i in range(3)]
+    for name in ("ds-a", "ds-b"):
+        write_manifest(
+            data / name,
+            [make_clip(f"{name}:{i:04d}", sha256=shared[i]) for i in range(3)]
+            + [make_clip(f"{name}:{i:04d}") for i in range(3, 8)],
+        )
+    with pytest.raises(TrainDataError, match="3 recordings appear in more than one dataset"):
+        select_mix(
+            (DatasetShare("ds-a", 8), DatasetShare("ds-b", 8)),
+            seed=7,
+            max_seconds=20.0,
+            data_dir=data,
+        )
+    mix = select_mix(
+        (DatasetShare("ds-a", 5), DatasetShare("ds-b", 5)),
+        seed=7,
+        max_seconds=20.0,
+        data_dir=data,
+        exclusive=True,
+    )
+    first, second = mix.datasets
+    assert first.exclusion == MixExclusion(pool_before=8, pool_after=8, clips_removed=0)
+    assert second.exclusion == MixExclusion(pool_before=8, pool_after=5, clips_removed=3)
+    assert second.drawn.available == 5
+    shas = [clip.sha256 for clip in mix.clips]
+    assert len(set(shas)) == len(shas)
+
+
+def test_a_talk_row_subtracts_its_audio_from_a_later_row_without_a_corpus(tmp_path, shared_talks):
+    """Every row's audio is what a later row without a corpus subtracts by.
+
+    The first row holds a corpus of talks, so its clips subtract by class; the
+    second row has none, so its clip with the first row's bytes is dropped by
+    the audio sha256 it holds in its whole dataset, not only in its draw.
+    """
+    _, own_a, _, _ = shared_talks
+    data = tmp_path / "data"
+    audio = hashlib.sha256(b"shared recording").hexdigest()
+    write_manifest(
+        data / "peertube-fr-train-40k",
+        [
+            make_clip(
+                "peertube-fr-train-40k:0000",
+                group="peertube-fr-train-40k:shared-talk",
+                sha256=audio,
+            )
+        ]
+        + [
+            make_clip(
+                f"peertube-fr-train-40k:{index:04d}",
+                group=f"peertube-fr-train-40k:{own_a}",
+            )
+            for index in range(1, 7)
+        ],
+    )
+    write_manifest(
+        data / "ds-b",
+        [make_clip("ds-b:0000", sha256=audio)]
+        + [make_clip(f"ds-b:{index:04d}") for index in range(1, 7)],
+    )
+    mix = select_mix(
+        (DatasetShare("peertube-fr-train-40k", 4), DatasetShare("ds-b", 4)),
+        seed=7,
+        max_seconds=20.0,
+        data_dir=data,
+        exclusive=True,
+    )
+    first, second = mix.datasets
+    assert first.exclusion == MixExclusion(pool_before=7, pool_after=7, clips_removed=0)
+    assert second.exclusion == MixExclusion(pool_before=7, pool_after=6, clips_removed=1)
+    assert second.drawn.available == 6
+    assert all(clip.sha256 != audio for clip in second.drawn.clips)
+
+
+def test_exclusive_is_deterministic_for_the_same_recipe_and_manifests(tmp_path, shared_talks):
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    shares = (
+        DatasetShare("peertube-fr-train-40k", 6),
+        DatasetShare("peertube-edu-fr-train-40k", 6),
+    )
+    first = select_mix(shares, seed=7, max_seconds=20.0, data_dir=data, exclusive=True)
+    second = select_mix(shares, seed=7, max_seconds=20.0, data_dir=data, exclusive=True)
+    assert [clip.id for clip in first.clips] == [clip.id for clip in second.clips]
+    assert first.ids_sha256 == second.ids_sha256
+    assert [per.exclusion for per in first.datasets] == [per.exclusion for per in second.datasets]
+
+
+def test_exclusive_applies_to_a_mix_only(tmp_path):
+    with pytest.raises(TrainConfigError, match="exclusive is a mix option"):
+        TrainConfig.from_mapping(
+            {**MINIMAL, "base_model": str(base_model(tmp_path)), "exclusive": True},
+            name="example",
+        )
+
+
+def test_exclusive_must_be_a_boolean(tmp_path):
+    with pytest.raises(TrainConfigError, match="exclusive must be true or false"):
+        mix_config(tmp_path, exclusive="yes")
+
+
+def test_a_mix_with_exclusive_false_is_the_mix_it_did_not_name(tmp_path):
+    config = mix_config(tmp_path, exclusive=False)
+    assert config.exclusive is False
+    assert "exclusive" not in config.to_dict()
+
+
+def test_an_exclusive_mix_run_records_and_logs_the_subtraction_per_row(
+    tmp_path, monkeypatch, shared_talks
+):
+    """One line per row in the start log, one block per row in train.json, and the
+    recipe's flag and the draw's hashes in config.json."""
+    step = FakeStep()
+    monkeypatch.setattr(runner, "train_checkpoint", step)
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    config = mix_config(
+        tmp_path,
+        datasets=[
+            {"name": "peertube-fr-train-40k", "clips": 6},
+            {"name": "peertube-edu-fr-train-40k", "clips": 6},
+        ],
+        exclusive=True,
+    )
+    lines: list[str] = []
+    directory = runner.run_training(
+        config, data_dir=data, runs_root=tmp_path / "runs", print_line=lines.append
+    )
+    mix = step.calls[0].clips
+    # The start log: the clips line each row always gets, and one subtraction line.
+    assert (
+        "6 clips of peertube-fr-train-40k: 12 were usable "
+        "(0 outside the duration window, 0 without text)" in lines
+    )
+    assert (
+        "exclusive mix: peertube-fr-train-40k: 0 clips removed as shared with the "
+        "earlier rows: pool 12 -> 12 usable clips" in lines
+    )
+    assert (
+        "exclusive mix: peertube-edu-fr-train-40k: 4 clips removed as shared with the "
+        "earlier rows: pool 12 -> 8 usable clips" in lines
+    )
+    # train.json: the per-row block, the rest of the record as always.
+    record = json.loads((directory / TRAIN_JSON).read_text(encoding="utf-8"))
+    by_name = {entry["name"]: entry for entry in record["datasets"]}
+    assert by_name["peertube-fr-train-40k"] == {
+        "name": "peertube-fr-train-40k",
+        "clips": 6,
+        "clips_available": 12,
+        "sampled_ids_sha256": mix.datasets[0].drawn.ids_sha256,
+        "subtraction": {"pool_before": 12, "pool_after": 12, "clips_removed": 0},
+    }
+    assert by_name["peertube-edu-fr-train-40k"]["subtraction"] == {
+        "pool_before": 12,
+        "pool_after": 8,
+        "clips_removed": 4,
+    }
+    assert record["clips"] == 12
+    assert record["sampled_ids_sha256"] == mix.ids_sha256
+    # config.json: the recipe says exclusive, and the per-dataset hashes are what
+    # a resume is checked against.
+    started = read_run_config(directory)
+    assert started["config"]["exclusive"] is True
+    assert started["datasets"] == [
+        {"name": per.name, "sampled_ids_sha256": per.drawn.ids_sha256} for per in mix.datasets
+    ]
+    assert started["sampled_ids_sha256"] == record["sampled_ids_sha256"]
+
+
+def test_the_subtraction_enters_the_resume_check(tmp_path, shared_talks):
+    """Same recipe + same manifests resumes; a different subtraction is a different run.
+
+    The resume check compares the run's ``config.json`` - the recipe and the
+    per-dataset hashes of the draw - against what the same command recomputes.
+    The subtraction is derived from the recipe and the manifests, so it enters
+    the comparison in the recipe's flag and in the draw the flag changes.
+    """
+    shared, own_a, own_b, own_c = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    # The later row holds own_c in one clip only: a new clip of that talk in
+    # the earlier row removes exactly that one clip from its pool.
+    edu = [
+        make_clip(f"peertube-edu-fr-train-40k:{i:04d}", group=f"peertube-edu-fr-train-40k:{shared}")
+        for i in range(4)
+    ]
+    edu.append(
+        make_clip("peertube-edu-fr-train-40k:0004", group=f"peertube-edu-fr-train-40k:{own_c}")
+    )
+    edu += [
+        make_clip(
+            f"peertube-edu-fr-train-40k:{5 + i:04d}", group=f"peertube-edu-fr-train-40k:{own_b}"
+        )
+        for i in range(7)
+    ]
+    write_manifest(data / "peertube-edu-fr-train-40k", edu)
+    datasets = [
+        {"name": "peertube-fr-train-40k", "clips": 6},
+        {"name": "peertube-edu-fr-train-40k", "clips": 6},
+    ]
+    config = mix_config(tmp_path, datasets=datasets, exclusive=True)
+    plain = mix_config(tmp_path, datasets=datasets)
+    checkpoint = config.weights()
+    identity = checkpoint.identity()
+    drawn = select_mix(
+        config.datasets,
+        seed=config.seed,
+        max_seconds=config.max_clip_seconds,
+        data_dir=data,
+        exclusive=True,
+    )
+    started = runner._start_payload(config, checkpoint, identity, drawn, {})
+    # The same recipe over the same manifests recomputes the same start: a resume.
+    redrawn = select_mix(
+        config.datasets,
+        seed=config.seed,
+        max_seconds=config.max_clip_seconds,
+        data_dir=data,
+        exclusive=True,
+    )
+    restarted = runner._start_payload(config, checkpoint, identity, redrawn, {})
+    assert config_differences(started, restarted) == []
+    # The flag off draws the later row whole: the check sees it in the recipe.
+    other_drawn = select_mix(
+        plain.datasets, seed=plain.seed, max_seconds=plain.max_clip_seconds, data_dir=data
+    )
+    other_started = runner._start_payload(plain, checkpoint, identity, other_drawn, {})
+    assert "config.exclusive" in config_differences(started, other_started)
+    # The record a run started before the option wrote: no exclusive key in the
+    # recipe, the same top-level keys, so it recomputes against the plain one.
+    assert "exclusive" not in other_started["config"]
+    assert set(other_started) == {
+        "config",
+        "base_model",
+        "base_model_identity",
+        "sampled_ids_sha256",
+        "clips",
+        "datasets",
+    }
+    # A new clip in the earlier row, holding a talk the later row's pool holds:
+    # the later row's pool shrinks by that clip, its draw changes, and its
+    # hash - what the resume check compares - changes with it.
+    upstream = read_manifest(data / "peertube-fr-train-40k")
+    write_manifest(
+        data / "peertube-fr-train-40k",
+        upstream
+        + [make_clip("peertube-fr-train-40k:0012", group=f"peertube-fr-train-40k:{own_c}")],
+    )
+    changed = select_mix(
+        config.datasets,
+        seed=config.seed,
+        max_seconds=config.max_clip_seconds,
+        data_dir=data,
+        exclusive=True,
+    )
+    assert changed.datasets[1].exclusion == MixExclusion(
+        pool_before=12, pool_after=7, clips_removed=5
+    )
+    changed_started = runner._start_payload(config, checkpoint, identity, changed, {})
+    assert "datasets" in config_differences(started, changed_started)
+    assert "sampled_ids_sha256" in config_differences(started, changed_started)
+
+
+def test_resuming_an_exclusive_run_refuses_a_changed_subtraction(
+    tmp_path, monkeypatch, shared_talks
+):
+    """A stopped exclusive run resumes with the same recipe, and nothing else.
+
+    The subtraction is what the resume check compares, so a resume that would
+    subtract different clips - the flag off, the rows reordered - is a
+    different run, and the refusal says which key moved.
+    """
+    step = FakeStep()
+    monkeypatch.setattr(runner, "train_checkpoint", step)
+    shared, own_a, own_b, _ = shared_talks
+    data = tmp_path / "data"
+    write_talk_dataset(data, "peertube-fr-train-40k", shared, own_a, n_shared=2, n_own=10)
+    write_talk_dataset(data, "peertube-edu-fr-train-40k", shared, own_b, n_shared=4, n_own=8)
+    datasets = [
+        {"name": "peertube-fr-train-40k", "clips": 6},
+        {"name": "peertube-edu-fr-train-40k", "clips": 6},
+    ]
+    config = mix_config(tmp_path, datasets=datasets, exclusive=True)
+    plain = mix_config(tmp_path, datasets=datasets)
+    swapped = mix_config(tmp_path, datasets=list(reversed(datasets)), exclusive=True)
+    drawn = select_mix(
+        config.datasets,
+        seed=config.seed,
+        max_seconds=config.max_clip_seconds,
+        data_dir=data,
+        exclusive=True,
+    )
+    started = runner._start_payload(
+        config, config.weights(), config.weights().identity(), drawn, {}
+    )
+
+    def stopped_run(runs_root: Path) -> Path:
+        """The stopped exclusive run: its start written, its slot, no finish."""
+        directory = prepare_run_dir(run_dir(config.name, runs_root))
+        write_run_config(directory, started)
+        (directory / RESUME_NAME).write_bytes(b"optimizer state")
+        return directory
+
+    # The same recipe over the same manifests resumes it.
+    directory = stopped_run(tmp_path / "runs" / "same")
+    directory = runner.run_training(
+        config, data_dir=data, runs_root=tmp_path / "runs" / "same", print_line=lambda _: None
+    )
+    assert is_finished(directory)
+    assert step.calls[-1].resuming is True
+    # The flag off would draw the later row whole: refused, and named.
+    stopped_run(tmp_path / "runs" / "plain")
+    with pytest.raises(TrainRunError, match="config.exclusive"):
+        runner.run_training(
+            plain, data_dir=data, runs_root=tmp_path / "runs" / "plain", print_line=lambda _: None
+        )
+    # The rows reordered subtract the other way: refused, and named.
+    stopped_run(tmp_path / "runs" / "swapped")
+    with pytest.raises(TrainRunError, match="config.datasets"):
+        runner.run_training(
+            swapped,
+            data_dir=data,
+            runs_root=tmp_path / "runs" / "swapped",
+            print_line=lambda _: None,
+        )

@@ -50,6 +50,7 @@ TRAIN_FIELDS = (
     "noise_max_snr_db",
     "reverb_prob",
     "reverb_bank",
+    "exclusive",
 )
 # The keys with no sensible guess: a run that picked its own size, batch or rate
 # would be another run than the file says, so these must be written down.
@@ -134,6 +135,11 @@ class TrainConfig:
     # The datasets of a mix run, in config order. Empty for a single-dataset
     # run, whose dataset and clips are the fields above.
     datasets: tuple[DatasetShare, ...] = ()
+    # An exclusive mix subtracts the rows from each other, in this order: a row's
+    # pool drops what the whole datasets of the earlier rows already hold, and
+    # the row draws its share from what remains. The default, false, is the mix
+    # of today: a config without the key.
+    exclusive: bool = False
     source: str = field(default="", compare=False)
 
     @classmethod
@@ -181,6 +187,7 @@ class TrainConfig:
         if missing:
             raise TrainConfigError(f"{source}: missing required keys: {', '.join(missing)}")
         shares = _parse_shares(raw["datasets"], source) if has_datasets else ()
+        exclusive = _parse_exclusive(raw, source)
         config = cls(
             name=name,
             base_model=str(raw["base_model"]).strip(),
@@ -210,6 +217,7 @@ class TrainConfig:
             reverb_prob=float(raw.get("reverb_prob", cls.reverb_prob)),
             reverb_bank=str(raw.get("reverb_bank") or "").strip(),
             datasets=shares,
+            exclusive=exclusive,
             source=source,
         )
         config._check()
@@ -238,6 +246,11 @@ class TrainConfig:
                 seen.add(share.name)
         elif not NAME_PATTERN.match(self.dataset):
             raise TrainConfigError(f"{where}: {self.dataset!r} is not a prepared dataset name")
+        if self.exclusive and not self.datasets:
+            raise TrainConfigError(
+                f"{where}: exclusive is a mix option: it subtracts the rows of datasets "
+                "from each other, and this run has none"
+            )
         counts = {
             "clips": self.clips,
             "updates": self.updates,
@@ -326,6 +339,12 @@ class TrainConfig:
         """
         recorded = asdict(self)
         recorded.pop("source", None)
+        # The mix's exclusive flag is recorded only when it is on: a config
+        # without the key (a run started before it existed, or one that does
+        # not use it) keeps the ``config.json`` it wrote, so a resume of an old
+        # run is checked against the same record and reads as the same run.
+        if not self.exclusive:
+            recorded.pop("exclusive", None)
         if self.noise_prob <= 0.0:
             for key in ("noise_prob", "noise_bank", "noise_min_snr_db", "noise_max_snr_db"):
                 recorded.pop(key)
@@ -374,3 +393,15 @@ def _parse_shares(raw: object, source: str) -> tuple[DatasetShare, ...]:
             )
         shares.append(DatasetShare(name=name, clips=count))
     return tuple(shares)
+
+
+def _parse_exclusive(raw: dict, source: str) -> bool:
+    """The mix's ``exclusive`` flag: the rows subtract the earlier rows' datasets.
+
+    Absent is ``false`` - the mix of today, a config that leaves no trace of
+    the flag in the record it writes.
+    """
+    value = raw.get("exclusive", False)
+    if not isinstance(value, bool):
+        raise TrainConfigError(f"{source}: exclusive must be true or false, not {value!r}")
+    return value

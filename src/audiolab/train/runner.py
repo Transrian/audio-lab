@@ -23,6 +23,7 @@ from audiolab.eval.records import git_commit
 from audiolab.train.config import TrainConfig
 from audiolab.train.data import (
     MixClips,
+    MixExclusion,
     TrainingClips,
     build_bank_manifest,
     dataset_dir,
@@ -125,9 +126,12 @@ def run_training(
             seed=config.seed,
             max_seconds=config.max_clip_seconds,
             data_dir=data_dir,
+            exclusive=config.exclusive,
         )
         for per in drawn.datasets:
             print_line(_clips_line(per.name, per.drawn))
+            if per.exclusion is not None:
+                print_line(_exclusion_line(per.name, per.exclusion))
     else:
         with_data = dataset_dir(config.dataset, data_dir)
         drawn = load_training_clips(
@@ -201,6 +205,14 @@ def _clips_line(name: str, drawn: TrainingClips) -> str:
         f"{len(drawn.clips)} clips of {name}: {drawn.available} were usable "
         f"({drawn.outside_duration} outside the duration window, "
         f"{drawn.without_text} without text)"
+    )
+
+
+def _exclusion_line(name: str, exclusion: MixExclusion) -> str:
+    """One row of an exclusive mix: what the subtraction took off it before the draw."""
+    return (
+        f"exclusive mix: {name}: {exclusion.clips_removed} clips removed as shared with the "
+        f"earlier rows: pool {exclusion.pool_before} -> {exclusion.pool_after} usable clips"
     )
 
 
@@ -339,17 +351,26 @@ def _record(
     updates = result.updates or config.updates
     seconds = result.wall_seconds or 0.0
     if isinstance(training.clips, MixClips):
+        entries = []
+        for per in training.clips.datasets:
+            entry = {
+                "name": per.name,
+                "clips": len(per.drawn.clips),
+                "clips_available": per.drawn.available,
+                "sampled_ids_sha256": per.drawn.ids_sha256,
+            }
+            # The subtraction block only for a row of an exclusive mix: the
+            # record of the mix it always drew stays what it was.
+            if per.exclusion is not None:
+                entry["subtraction"] = {
+                    "pool_before": per.exclusion.pool_before,
+                    "pool_after": per.exclusion.pool_after,
+                    "clips_removed": per.exclusion.clips_removed,
+                }
+            entries.append(entry)
         data_record: dict = {
             "clips": len(training.clips.clips),
-            "datasets": [
-                {
-                    "name": per.name,
-                    "clips": len(per.drawn.clips),
-                    "clips_available": per.drawn.available,
-                    "sampled_ids_sha256": per.drawn.ids_sha256,
-                }
-                for per in training.clips.datasets
-            ],
+            "datasets": entries,
             "sampled_ids_sha256": training.clips.ids_sha256,
         }
     else:
