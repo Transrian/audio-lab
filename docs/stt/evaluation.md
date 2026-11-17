@@ -13,7 +13,7 @@ Data never lives in the repository. Point `AUDIOLAB_DATA` at a directory with
 room for a few gigabytes:
 
 ```bash
-export AUDIOLAB_DATA=/mnt/data/audio-lab/data
+export AUDIOLAB_DATA=/path/to/your/data-directory
 audiolab data list                      # what can be prepared
 audiolab data fetch                     # every dataset, or: audiolab data fetch fleurs-fr
 audiolab data panels fleurs-fr          # freeze fast/full/sealed id lists
@@ -476,7 +476,6 @@ are optimistic, since clips of one voice are not independent.
   spoken afterwards, so a person thinking out loud and switching language
   mid-sentence is still not measured;
 - a semantic score from a language model;
-- local models on our own GPUs (phase 1b);
 - accents beyond the African accent of `african-accented-fr-test` and the
   non-native English of `voxpopuli-en-nonnative`;
 - the panels are small and were chosen by us, so absolute numbers use them as

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -309,6 +310,18 @@ def test_missing_run_is_exit_2(tmp_path, capsys):
     (runs / "eval" / "screen-nasa-en" / "full" / "records.jsonl").unlink()
     assert run(data, runs, cache) == 2
     assert "records.jsonl" in capsys.readouterr().err
+
+
+def test_missing_curly_prep_says_no_fetch_recreates_it(tmp_path, capsys):
+    # The analysed preparation was deleted: the refusal must not suggest a
+    # fetch that cannot bring it back.
+    data, runs, cache = world(tmp_path)
+    shutil.rmtree(data / "nasa-en-train.curly-2026-11-09")
+    assert run(data, runs, cache) == 2
+    err = capsys.readouterr().err
+    assert "deleted on 2026-11-17" in err
+    assert "runs only while a preparation exists" in err
+    assert "audiolab data fetch" not in err
 
 
 def test_never_writes_under_the_input_roots(tmp_path):

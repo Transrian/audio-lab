@@ -30,6 +30,7 @@ import yaml
 
 from audiolab.core.paths import data_dir
 from audiolab.data.duplicates import duplicate_classes, peertube_talks
+from audiolab.data.noise_bank import NOISE_BANKS
 from audiolab.data.store import (
     Clip,
     manifest_id_sha256,
@@ -230,6 +231,12 @@ def build_panels(
     built: str | None = None,
 ) -> list[Panel]:
     """Build the three panels of a dataset, refusing to replace existing files."""
+    if dataset in NOISE_BANKS:
+        raise ValueError(
+            f"cannot build panels for {dataset}: a noise bank holds no text to "
+            "score, so it gets no panels — it is the material the noisy sets "
+            "mix and the training augmentation takes from"
+        )
     panels_dir = Path(panels_dir)
     for name in PANEL_NAMES:
         path = panel_path(f"{dataset}-{name}", panels_dir)

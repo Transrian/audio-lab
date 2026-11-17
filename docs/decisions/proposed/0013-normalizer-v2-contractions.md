@@ -60,7 +60,7 @@ Everything else stays v1. The normalizer version becomes
 apply to the running or past campaigns ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
 Every v1 result — including the whole screening — stays as published; no
 historical number is rewritten. The rule set is fixed and reviewable in
-[`experiments/normalization-review`](../../experiments/normalization-review/README.md),
+[`experiments/normalization-review`](../../../experiments/normalization-review/README.md),
 where the diagnostic that motivates it was run.
 
 ## Why

@@ -32,7 +32,6 @@ from pathlib import Path
 import numpy as np
 
 from audiolab.core.audio import SAMPLE_RATE, Audio, load_audio
-from audiolab.core.paths import data_dir
 from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import DownloadError
 from audiolab.data.panels import DEFAULT_PANELS_DIR, PANEL_NAMES, panel_path, read_panel
@@ -134,8 +133,8 @@ def _source(name: str) -> str:
     return name.removeprefix("noisy-")
 
 
-def _prepared(dataset: str) -> Path:
-    path = data_dir() / dataset
+def _prepared(dataset: str, root: Path) -> Path:
+    path = root / dataset
     if not (path / "manifest.jsonl").is_file():
         raise DownloadError(
             f"{dataset} is not prepared (no manifest.jsonl): run 'audiolab data fetch {dataset}'"
@@ -146,14 +145,18 @@ def _prepared(dataset: str) -> Path:
 def fetch_noisy(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool) -> int:
     """Prepare one noisy set: the source's panel clips, each in one condition."""
     source = _source(name)
+    # The inputs live beside the output: a fetch into a data directory other
+    # than the global one must read its own neighbours, not the default data
+    # directory (the convention of relabel.py).
+    root = dataset_dir.parent
     missing = [
         d
         for d in (*BABBLES[source], source, "musan-noise", "rirs-noises")
-        if not (data_dir() / d / "manifest.jsonl").is_file()
+        if not (root / d / "manifest.jsonl").is_file()
     ]
     if missing:
         raise DownloadError(f"{name} needs the prepared datasets: {', '.join(missing)}")
-    source_dir = _prepared(source)
+    source_dir = _prepared(source, root)
     source_clips = {clip.id: clip for clip in read_manifest(source_dir)}
     panel_ids = _panel_union(source)
     unknown = [clip_id for clip_id in sorted(panel_ids) if clip_id not in source_clips]
@@ -161,12 +164,12 @@ def fetch_noisy(name: str, cache_dir: Path, dataset_dir: Path, *, verbose: bool)
         raise DownloadError(f"{source} holds no clip {unknown[0]} that its panels name")
     if verbose:
         print(f"  {name}: {len(panel_ids)} panel clips of {source}")
-    noise = _eval_half(_prepared("musan-noise"))
-    rirs = _real_rirs(_prepared("rirs-noises"))
+    noise = _eval_half(_prepared("musan-noise", root))
+    rirs = _real_rirs(_prepared("rirs-noises", root))
     babble = []
     pool_ids = []
     for pool in BABBLES[source]:
-        paths, license_, ids = _babble_pool(data_dir() / pool)
+        paths, license_, ids = _babble_pool(root / pool)
         babble.append((paths, license_))
         pool_ids.append(ids)
     # The babble must be exactly this set's committed list: a pool manifest can

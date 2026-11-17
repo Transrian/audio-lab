@@ -70,7 +70,7 @@ SOURCES: dict[str, TalkSource] = {
         audio_url=peertube.smallest_file_url,
         spread_by=peertube_edu.spread_key,
         # The captions sets are prepared from this same listing: a preparation
-        # leaves its talks out (decision 0002, plan 01 T7).
+        # leaves its talks out (decision 0002).
         evaluation_datasets=("peertube-edu-captions-fr", "peertube-edu-captions-fr-v2"),
     ),
     "debconf-en-train": TalkSource(
@@ -133,7 +133,7 @@ SOURCES["peertube-tech-fr-train"] = TalkSource(
     audio_url=peertube.smallest_file_url,
     spread_by=peertube_edu.spread_key,
     # The captions sets are prepared from the edu parent's listing: a preparation
-    # leaves its talks out (decision 0002, plan 01 T7).
+    # leaves its talks out (decision 0002).
     evaluation_datasets=("peertube-edu-captions-fr", "peertube-edu-captions-fr-v2"),
 )
 

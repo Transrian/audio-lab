@@ -1,6 +1,6 @@
-# Storage inventory (plan 09, P-07): list, never delete
+# Storage inventory (P-07): list, never delete
 
-**Status:** the read-only inventory behind the retention question (Q8, P-07).
+**Status:** the read-only inventory behind the retention question (P-07).
 The script classifies, the owner decides: it never proposes a deletion in code
 and never deletes, moves or renames anything. The keep list below is this
 experiment's own statement of what must not be proposed for deletion, and the
@@ -28,9 +28,11 @@ The `keep (rule above)` logic is:
 - the prepared datasets used by a frozen panel or a `configs/train/*.yaml`;
 - the talk-source answer caches: their model answers are kept, the downloaded
   audio inside them is a candidate (the second table splits the two);
-- `screen-peertube-fr`, the control run of the noise experiment (plan 02);
-- `mls-fr-train` and `librispeech-en-train`, where the noise experiment takes
-  its babble noise from (plan 01 T4);
+- `screen-peertube-fr`, the control run of the noise test
+  ([screening.md, "Noise augmentation"](../../docs/stt/screening.md#noise-augmentation));
+- `mls-fr-train` and `librispeech-en-train`, where the noisy sets mix their
+  babble noise from and the training augmentation takes it
+  ([training, noise and reverb](../../docs/stt/training.md#noise-and-reverberation));
 - `icsi-en-train.pre-plain-label-2026-11-11`, the frozen input of the ICSI
   screening: its 2026-11-08 run trained on it, so re-making that screen means
   keeping it ([datasets card](../../docs/stt/datasets.md));
@@ -58,12 +60,12 @@ The special cases:
 
 - **talk caches**: the downloaded audio (re-downloadable from the pinned
   listings) is separated from the model answers (expensive, and what makes
-  larger preparations cheap, plan 03) using the file layout
+  larger preparations cheap, DS-03) using the file layout
   [`src/audiolab/data/talks.py`](../../src/audiolab/data/talks.py) writes
   (`<talk id>.wav` audio, `<talk id>.<model>.jsonl` answers, NASA's cached
   `pages/`), and both sizes are reported per source;
-- **screening checkpoints**: each `model.nemo` is sized, the runs a plan still
-  uses are the keeps, the rest are candidates — a screen checkpoint is
+- **screening checkpoints**: each `model.nemo` is sized, the runs the
+  repository still uses are the keeps, the rest are candidates — a screen checkpoint is
   retrainable when a committed `configs/train/*.yaml` of its own exists, and
   one without such a recipe is not retrainable from the repository. The small
   evaluation answers of a checkpoint (`runs/eval/<checkpoint>`, the transcript

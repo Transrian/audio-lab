@@ -12,7 +12,7 @@ Do the screening conclusions change if scoring treats English contractions
 equivalent? The base model expands contractions like the Parliament's edited
 report while the verbatim references do not, and the first African-accented
 French run learned a space after the apostrophe
-([screening](../../docs/stt/screening.md)). The answer feeds Q6: a
+([screening](../../docs/stt/screening.md)). The answer feeds P-04: a
 normalizer version 2 for the next campaign
 ([proposed decision 0013](../../docs/decisions/proposed/0013-normalizer-v2-contractions.md)).
 

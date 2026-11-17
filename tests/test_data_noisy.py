@@ -534,7 +534,6 @@ def _noisy_world(tmp_path, monkeypatch):
             )
         ],
     )
-    monkeypatch.setattr(noisy, "data_dir", lambda: data)
     monkeypatch.setattr(noisy, "load_audio", _fake_material)
     panels_dir = tmp_path / "panels"
     _panel_files(panels_dir, source, ids)
@@ -544,7 +543,7 @@ def _noisy_world(tmp_path, monkeypatch):
         (clip.id.split(":", 1)[1], clip.group)
         for clip in sorted(pool_clips, key=lambda clip: clip.id)
     ]
-    return name, ids, pool_ids
+    return name, ids, pool_ids, data
 
 
 def _committed_pin(tmp_path, monkeypatch, name: str, ids: list[str], omit: tuple = ()) -> None:
@@ -559,27 +558,45 @@ def _committed_pin(tmp_path, monkeypatch, name: str, ids: list[str], omit: tuple
 
 
 def test_a_preparation_runs_when_the_pools_mix_the_committed_babble(tmp_path, monkeypatch):
-    name, ids, pool_ids = _noisy_world(tmp_path, monkeypatch)
+    name, ids, pool_ids, data = _noisy_world(tmp_path, monkeypatch)
     expected = noisy.chosen_babble_utterances(ids, [pool_ids])
     assert expected
     _committed_pin(tmp_path, monkeypatch, name, sorted(expected))
+    out = data / name
 
-    count = noisy.fetch_noisy(name, tmp_path / "cache", tmp_path / "out", verbose=False)
+    count = noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)
 
     assert count == len(ids)
-    clips = {clip.id for clip in read_manifest(tmp_path / "out")}
+    clips = {clip.id for clip in read_manifest(out)}
     assert clips == {f"{name}:{clip_id.split(':', 1)[1]}" for clip_id in ids}
-    assert (tmp_path / "out" / "manifest.jsonl").is_file()
-    assert list((tmp_path / "out" / "audio").glob("*.wav"))
+    assert (out / "manifest.jsonl").is_file()
+    assert list((out / "audio").glob("*.wav"))
+
+
+def test_a_preparation_into_a_non_default_root_reads_its_neighbours(tmp_path, monkeypatch):
+    """A fetch into a data directory other than the global one must read the
+    datasets next to its output, never the global data directory."""
+    monkeypatch.setenv("AUDIOLAB_DATA", str(tmp_path / "empty-global"))
+    (tmp_path / "empty-global").mkdir()
+    name, ids, pool_ids, data = _noisy_world(tmp_path, monkeypatch)
+    expected = noisy.chosen_babble_utterances(ids, [pool_ids])
+    assert expected
+    _committed_pin(tmp_path, monkeypatch, name, sorted(expected))
+    out = data / name
+
+    count = noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)
+
+    assert count == len(ids)
+    assert (out / "manifest.jsonl").is_file()
 
 
 def test_a_preparation_is_refused_when_the_pools_mix_another_babble(tmp_path, monkeypatch):
-    name, ids, pool_ids = _noisy_world(tmp_path, monkeypatch)
+    name, ids, pool_ids, data = _noisy_world(tmp_path, monkeypatch)
     expected = sorted(noisy.chosen_babble_utterances(ids, [pool_ids]))
     assert len(expected) >= 2
     # One utterance is gone from the pin: the pool no longer mixes the committed babble.
     _committed_pin(tmp_path, monkeypatch, name, expected[:-1])
-    out = tmp_path / "out"
+    out = data / name
 
     with pytest.raises(DownloadError, match="no longer equals"):
         noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)
@@ -591,9 +608,9 @@ def test_a_preparation_is_refused_when_the_pools_mix_another_babble(tmp_path, mo
 
 
 def test_a_preparation_is_refused_when_the_pin_lacks_the_set(tmp_path, monkeypatch):
-    name, ids, _pool_ids = _noisy_world(tmp_path, monkeypatch)
+    name, ids, _pool_ids, data = _noisy_world(tmp_path, monkeypatch)
     _committed_pin(tmp_path, monkeypatch, name, [], omit=(name,))
-    out = tmp_path / "out"
+    out = data / name
 
     with pytest.raises(ValueError, match="holds no list for"):
         noisy.fetch_noisy(name, tmp_path / "cache", out, verbose=False)

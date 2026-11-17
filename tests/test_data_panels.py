@@ -174,6 +174,16 @@ def test_build_panels_refuses_to_overwrite(tmp_path):
         panels_of(clips, tmp_path)
 
 
+def test_build_panels_refuses_a_noise_bank(tmp_path):
+    """A noise bank has no text to score: it gets no panels, with a message
+    that says what the bank is for, not an empty run."""
+    clips = speech_clips("fake", speakers=10, per_speaker=10)
+    for bank in ("musan-noise", "rirs-noises"):
+        with pytest.raises(ValueError, match="a noise bank holds no text"):
+            build_panels(bank, clips, tmp_path / "configs" / "panels")
+    assert not list((tmp_path / "configs" / "panels").glob("musan-noise-*"))
+
+
 def test_check_panel_accepts_a_matching_manifest(tmp_path):
     clips = speech_clips("fake", speakers=10, per_speaker=10)
     panels_of(clips, tmp_path)

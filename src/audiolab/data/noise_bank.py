@@ -2,10 +2,10 @@
 
 Two non-speech datasets. They are not evaluation sets and have no panels: they
 hold the files that ``noisy.py`` mixes into the noisy evaluation sets and that
-plan 02 mixes into training data. One rule decides forever which half of the
-MUSAN noise is for evaluation and which for training, so an evaluation noise
-can never be the noise a model was augmented with (decision 0002, applied to
-non-speech audio).
+the training noise augmentation mixes into training data. One rule decides
+forever which half of the MUSAN noise is for evaluation and which for training,
+so an evaluation noise can never be the noise a model was augmented with
+(decision 0002, applied to non-speech audio).
 
 MUSAN (OpenSLR 17, CC-BY-4.0 for the corpus) keeps its noise in two
 sub-collections: ``musan/noise/free-sound/`` (marked public domain) and
@@ -36,6 +36,10 @@ import soxr
 from audiolab.core.audio import SAMPLE_RATE, Audio, load_audio
 from audiolab.data.build import ManifestBuilder, require_clips
 from audiolab.data.download import DownloadError, download
+
+# The two noise banks: material the noisy sets mix and the training
+# augmentation takes from — no text of their own, so no panels.
+NOISE_BANKS = frozenset({"musan-noise", "rirs-noises"})
 
 MUSAN_URL = "https://openslr.trmal.net/resources/17/musan.tar.gz"
 # The digest of musan.tar.gz as served by the OpenSLR mirrors at first download;

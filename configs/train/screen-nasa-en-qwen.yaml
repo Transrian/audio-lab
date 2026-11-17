@@ -1,4 +1,4 @@
-# The label-style test (plan 06, Part B): the same run as screen-nasa-en-plain,
+# The label-style test (backlog P-03): the same run as screen-nasa-en-plain,
 # on nasa-en-train-qwen — the same clips and audio with the text of every clip
 # replaced by the Qwen3-ASR answer. Only the dataset differs, so a comparison
 # against screen-nasa-en-plain measures the labels alone (docs/stt/screening.md,

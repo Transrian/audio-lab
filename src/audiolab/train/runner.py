@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from audiolab.core.checkpoint import Checkpoint
+from audiolab.core.checkpoint import Checkpoint, CheckpointError
 from audiolab.core.gpu import select_gpu
 from audiolab.core.progress import say
 from audiolab.core.stop import Stopped, raise_if_stopped
@@ -344,6 +344,28 @@ def _refuse_a_different_run(directory: Path, started: dict) -> None:
         )
 
 
+def _base_model_fields(config: TrainConfig, identity: str) -> dict:
+    """The two parts of the base, for the record that is read after the run.
+
+    ``base_model_hf`` is the repository the config's ``base_model`` names;
+    null when ``base_model`` names no repository — with a local copy
+    (``base_model_env``), the copy is declared to be that repository's
+    weights, not verified, and ``base_model`` may then be a stand-in the
+    reference does not read. ``base_model_sha256`` is parsed from the run's
+    ``base_identity`` — ``sha256=<hex>`` for a start from a local file, never
+    re-hashed — and is null for a start from the repository, which cannot say
+    what weights NeMo resolved.
+    """
+    try:
+        hf_id = Checkpoint.from_reference(config.base_model).hf_id or None
+    except CheckpointError:
+        # A base_model the env override replaced and that names no repository.
+        hf_id = None
+    if identity.startswith("sha256="):
+        return {"base_model_hf": hf_id, "base_model_sha256": identity.removeprefix("sha256=")}
+    return {"base_model_hf": hf_id, "base_model_sha256": None}
+
+
 def _record(
     config: TrainConfig, training: Training, result: TrainResult, guard: GuardResult
 ) -> dict:
@@ -386,6 +408,9 @@ def _record(
         **data_record,
         "base_model": str(training.base),
         "base_model_identity": training.base_identity,
+        # train.json only, never the start payload: a new key there would
+        # refuse every run started before it existed.
+        **_base_model_fields(config, training.base_identity),
         "resumed": training.resuming,
         "git_commit": git_commit(),
         # What the leakage guard checked. train.json only, never config.json:

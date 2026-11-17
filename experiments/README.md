@@ -7,9 +7,10 @@ feature of the maintained `audiolab` core
 | Experiment | Purpose | Entry point |
 |---|---|---|
 | [Source screening](source-screening/README.md) | Render comparisons of already evaluated per-source training runs | [table.py](source-screening/table.py) |
-| [Normalization review](normalization-review/README.md) | Re-score finished screening runs with contraction and elision rules on top of the frozen normalizer (plan 07, P-04; diagnostic only) | [rescore.py](normalization-review/rescore.py) |
+| [Normalization review](normalization-review/README.md) | Re-score finished screening runs with contraction and elision rules on top of the frozen normalizer (P-04; diagnostic only) | [rescore.py](normalization-review/rescore.py) |
 | [Label-text check](label-text/README.md) | Report how many training clips hold a character the base model cannot write, after each preparation | [check_text.py](label-text/check_text.py) |
-| [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (plan 09, P-07) | [inventory.py](storage-inventory/inventory.py) |
+| [Label audit](label-audit/README.md) | The measured error of the talk pipeline's kept labels: the two models' transcripts of prepared clips that hold a human label, the agreement rule, and the kept and rejected scores against the human text (P-03) | [audit.py](label-audit/audit.py) |
+| [Storage inventory](storage-inventory/README.md) | Read-only size, reference and keep/candidate classification of the cache, data and run directories (P-07) | [inventory.py](storage-inventory/inventory.py) |
 | [Leakage audit](leakage-audit/README.md) | Reproduce the VoxPopuli session-overlap table from the two prepared manifests | [sessions.py](leakage-audit/sessions.py) |
 | [Leakage audit — content level](leakage-audit/README.md) | 6-word text-shingle overlap between evaluation and training sets: the same speech (re-upload, republication, replay) is a leak, a shared host or another reader of the same text is not; feeds `src/audiolab/data/duplicates.json` | [content.py](leakage-audit/content.py) |
 | [Leakage audit — rebuild impact](leakage-audit/README.md) | Read-only: what each corrected fetcher's exclusion rule removes from each prepared training set, and the list of the sets a re-preparation must re-run | [impact.py](leakage-audit/impact.py) |

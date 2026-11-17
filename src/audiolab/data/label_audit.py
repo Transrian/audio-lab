@@ -7,7 +7,7 @@ Two served models — Whisper large-v3 and Qwen3-ASR, the two of the talk
 pipeline's agreement rule — are asked for the transcript of each clip's own
 audio, and the agreement rule decides which clips it would have kept and how
 its labels score against the human text. The derived set
-``nasa-en-train-qwen`` (plan 06, Part B) relabels the whole source with the
+``nasa-en-train-qwen`` (backlog P-03) relabels the whole source with the
 Qwen answer alone, and reads the same answers this module caches, so it never
 asks for what the audit already asked.
 
@@ -41,8 +41,8 @@ from pathlib import Path
 # ids, so a server that serves other ids under these names asks for what it
 # really holds.
 AUDIT_MODELS = ("stt-v-whisper-large-v3", "stt-v-qwen3-asr-1.7B")
-# The seed the plan pins the sample to: the same sample on every machine and
-# every run, as long as the dataset's ids do not change.
+# The seed that pins the sample: the same sample on every machine and every
+# run, as long as the dataset's ids do not change.
 SAMPLE_SEED = 20261110
 
 

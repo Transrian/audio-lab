@@ -27,25 +27,27 @@ from audiolab.eval.records import (
 SUMMARY_NAME = "summary.json"
 REPORT_NAME = "report.md"
 
-# What a report does not measure, which 1a measured none of when this list was
-# written. The panels of accented and code-switched speech changed that: what
-# they leave out is said below rather than dropped, because a reader who sees a
-# non-native English panel scored must not be told that accents are not measured.
+# What a report does not measure, for the suite of today: each gap says what
+# the named panels measure rather than what an earlier suite did. A panel's
+# limits are said, not dropped — a reader who sees a non-native English panel
+# scored must not be told that accents are not measured.
 # How many excluded ids the comparison prints before it points at the JSON.
 EXCLUDED_IDS_SHOWN = 20
 # Said in the report whenever a panel has too few groups for its interval.
 FEW_GROUPS_CAUTION = "few groups (n < 20): interval approximate"
 
 GAPS = (
-    "noise and reverberation: not measured in 1a",
+    "noise and reverberation: measured at the fixed conditions of the noisy-* panels, "
+    "not across a range of them",
     "long-form audio (more than one utterance per request): not measured",
-    "other accents than the non-native English of the voxpopuli-en-nonnative panel: not measured",
+    "other accents than the non-native English of the voxpopuli-en-nonnative panel and "
+    "the African accent of the african-accented-fr-test panel: not measured",
     "which word an accent or a code switch cost, and term recall: not measured",
     "dictation itself: the code-switched panels are text written first and read or spoken "
     "afterwards",
     "semantic score from a language model: not measured",
-    "local models on our own GPUs: not measured in 1a",
-    "music: the non-speech battery covers silence, noise and everyday sounds only",
+    "music: measured as a hallucination rate on the nonspeech-music panel, "
+    "not as transcription quality",
     "these panels are small and were chosen by us: absolute numbers use them as the population",
 )
 

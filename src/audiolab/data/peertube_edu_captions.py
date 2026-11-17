@@ -98,8 +98,8 @@ MAX_CLIP_WER = 0.35
 # measure anything: the preparation stops and reports instead.
 MIN_TALKS = 20
 
-# The title words that make a talk a ``tech`` talk: the report of the reference
-# runs shows the WER of the set's tech clips separately (plan 01, T7).
+# The title words that make a talk a ``tech`` talk: they set the clip's
+# ``category`` field, marking the set's technical subpopulation.
 TECH_TITLE = re.compile(
     r"informatique|programm|python|algorithm|nsi|numérique|réseau|linux|donnée"
     r"|code|logiciel|web|intelligence artificielle|\bia\b|cyber|robot"
@@ -423,7 +423,7 @@ def fetch_peertube_edu_captions_fr(
         raise DownloadError(
             f"only {len(usable)} talks of the {len(talks)} listed hold a human French "
             f"caption; a set of fewer than {MIN_TALKS} talks cannot measure anything, "
-            "and the preparation stops (plan 01, T7)"
+            "and the preparation stops"
         )
     # The train set's talks are out: a clip of a talk may not measure a model
     # that was trained on it (decision 0002).

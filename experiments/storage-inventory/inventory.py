@@ -1,10 +1,10 @@
-"""Plan 09 (P-07) storage inventory: list what is stored, never touch it.
+"""P-07 storage inventory: list what is stored, never touch it.
 
 Reads the three storage roots named by the environment ($AUDIOLAB_CACHE,
 $AUDIOLAB_DATA, $AUDIOLAB_RUNS) and reports, per directory: size, file count,
 newest file mtime, who in the repository references the name, and a
-classification (keep / candidate / unknown) that plan 09 takes to the owner
-(Q8). The script is read-only: it walks the tree with ``os.scandir`` and
+classification (keep / candidate / unknown) that P-07 takes to the owner.
+The script is read-only: it walks the tree with ``os.scandir`` and
 ``stat``, reads one ``run.json`` per evaluation run, and writes nothing at
 all — its report goes to stdout. Nothing under the storage roots is created,
 written, moved or renamed, not even a temporary file, and the script starts
@@ -21,9 +21,11 @@ live; the report rows stay short and point at it:
   * every talk-source answer cache (``$AUDIOLAB_CACHE/<talk source>/``):
     the model answers are kept, the downloaded audio inside it is a
     candidate (reported separately in the talk table);
-  * ``$AUDIOLAB_RUNS/train/screen-peertube-fr`` (control of plan 02);
+  * ``$AUDIOLAB_RUNS/train/screen-peertube-fr`` (the control run of the noise
+    test, ``docs/stt/screening.md`` "Noise augmentation");
   * ``$AUDIOLAB_DATA/mls-fr-train`` and ``$AUDIOLAB_DATA/librispeech-en-train``
-    (plan 01 T4 takes its babble noise from them);
+    (the noisy sets mix their babble noise from them, and so does the
+    training augmentation);
   * the archived ICSI preparation
     ``$AUDIOLAB_DATA/icsi-en-train.pre-plain-label-2026-11-11`` (the frozen
     input of its screening);
@@ -48,7 +50,7 @@ The special cases:
 
 - talk caches: the downloaded audio (re-downloadable from the pinned
   listings) is separated from the model answers (expensive, and what makes
-  larger preparations cheap, plan 03) and both are reported per source; the
+  larger preparations cheap, DS-03) and both are reported per source; the
   file layout is the one ``src/audiolab/data/talks.py`` writes
   (``<talk id>.wav`` audio, ``<talk id>.<model>.jsonl`` answers, plus
   ``pages/`` of cached episode pages for NASA);
@@ -114,7 +116,7 @@ PINNED_DATASETS = frozenset(
     }
 )
 
-# Plan 09's keep list, the parts that name concrete entries: one table,
+# The P-07 keep list, the parts that name concrete entries: one table,
 # name -> the reason the report shows for it. The rest of that list (frozen
 # panel datasets, configs/train datasets, talk answer caches, the evaluation
 # runs the docs cite) is computed from the repository, not hard-coded.
@@ -125,11 +127,12 @@ KEEP_BY_NAME: dict[str, str] = {
         "frozen screening input of configs/train/screen-icsi-en-train.yaml, "
         "whose 2026-11-08 run trained on the 8 752 clips it holds"
     ),
-    # The babble noise the noise experiment takes from them (plan 01 T4).
-    "mls-fr-train": "babble noise of plan 01 T4",
-    "librispeech-en-train": "babble noise of plan 01 T4",
-    # Screening runs a plan still uses.
-    "screen-peertube-fr": "control run of plan 02",
+    # The babble noise the noisy sets mix and the training augmentation
+    # takes from them.
+    "mls-fr-train": "babble noise of the noisy sets and the training augmentation",
+    "librispeech-en-train": "babble noise of the noisy sets and the training augmentation",
+    # The control run of the noise test (screening.md, "Noise augmentation").
+    "screen-peertube-fr": "control run of the noise test (screening.md, 'Noise augmentation')",
 }
 
 # The candidate rules, in one table: the note the report shows for each one
@@ -870,7 +873,7 @@ def main(argv: list[str] | None = None) -> int:
             talk_rows.append((entry, audio, answers, other))
 
     lines: list[str] = [
-        "# Storage inventory (plan 09, P-07): list, never delete",
+        "# Storage inventory (P-07): list, never delete",
         "",
         f"Measured {datetime.now().astimezone().isoformat(timespec='seconds')} by "
         "`experiments/storage-inventory/inventory.py`: it reads only and writes "
@@ -928,7 +931,7 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("")
         lines.append(
             "The audio is re-downloadable from the pinned listings; the answers are "
-            "what makes larger preparations cheap (plan 03) and are kept."
+            "what makes larger preparations cheap (DS-03) and are kept."
         )
         lines.append("")
         lines.append(

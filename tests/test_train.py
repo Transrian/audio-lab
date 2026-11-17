@@ -492,6 +492,8 @@ def test_a_run_writes_the_manifest_the_records_and_the_serving_config(tmp_path, 
         "sampled_ids_sha256",
         "base_model",
         "base_model_identity",
+        "base_model_hf",
+        "base_model_sha256",
         "resumed",
         "git_commit",
         "leakage_guard",
@@ -513,6 +515,11 @@ def test_a_run_writes_the_manifest_the_records_and_the_serving_config(tmp_path, 
     # The base model is recorded as what it is, not as where it sits.
     assert record["base_model_identity"].startswith("sha256=")
     assert str(tmp_path) not in record["base_model_identity"]
+    # And the two parts of it, parsed from the identity, not re-hashed:
+    # a run from a local file cannot say which repository the weights came from.
+    assert record["base_model_sha256"] == record["base_model_identity"].removeprefix("sha256=")
+    assert record["base_model_sha256"] and len(record["base_model_sha256"]) == 64
+    assert record["base_model_hf"] is None
     assert record["updates_per_second"] == 2.0  # 64 updates in 32 seconds
     assert record["peak_vram_gib"] == 7.25
     assert record["device"] == "Fake GPU"
@@ -648,8 +655,55 @@ def test_what_a_run_was_started_as_is_on_disk_before_it_trains(tmp_path, monkeyp
     # The guard's block is in train.json only: config.json is compared field by
     # field to resume an old run, and a new key there would refuse it.
     assert "leakage_guard" not in started
+    # The base model's two parts, like the guard's block, are train.json only.
+    assert "base_model_hf" not in started and "base_model_sha256" not in started
     # The run that went on from the base model is not a resumed one.
     assert train_json(directory)["resumed"] is False
+
+
+def test_the_record_splits_the_base_identity_into_its_parts(tmp_path):
+    """base_model_hf is the repository the config's base_model names — a run
+    that keeps a local copy under base_model_env declares the copy to be that
+    repository's weights, not a verification of them — and base_model_sha256
+    is parsed from the cached identity, never re-hashed: a start from the
+    repository cannot say what weights NeMo resolved, so its sha is null."""
+    # A start from the repository: the config names it, and its sha is null.
+    hub = config(base_model="nvidia/parakeet-tdt-0.6b-v3", clips=6, updates=4)
+    assert runner._base_model_fields(hub, "hf=nvidia/parakeet-tdt-0.6b-v3") == {
+        "base_model_hf": "nvidia/parakeet-tdt-0.6b-v3",
+        "base_model_sha256": None,
+    }
+    # A start from a local copy of that repository, declared by
+    # base_model_env: the config still names the repository, and the record
+    # carries the sha of the copy.
+    via_env = config(
+        base_model="nvidia/parakeet-tdt-0.6b-v3",
+        base_model_env="TEST_LOCAL_NEMO",
+        clips=6,
+        updates=4,
+    )
+    assert runner._base_model_fields(via_env, "sha256=0123456789abcdef") == {
+        "base_model_hf": "nvidia/parakeet-tdt-0.6b-v3",
+        "base_model_sha256": "0123456789abcdef",
+    }
+    # A config that names a local path itself declares no repository.
+    local = run_config(tmp_path)
+    assert runner._base_model_fields(local, "sha256=0123456789abcdef") == {
+        "base_model_hf": None,
+        "base_model_sha256": "0123456789abcdef",
+    }
+    # A base_model the env override replaced and that names no repository: the
+    # record says no repository, it does not refuse to write.
+    stand_in = config(
+        base_model="parakeet-local",
+        base_model_env="TEST_LOCAL_NEMO",
+        clips=6,
+        updates=4,
+    )
+    assert runner._base_model_fields(stand_in, "sha256=0123456789abcdef") == {
+        "base_model_hf": None,
+        "base_model_sha256": "0123456789abcdef",
+    }
 
 
 def old_start_payload(config: TrainConfig, base, base_identity: str, drawn) -> dict:

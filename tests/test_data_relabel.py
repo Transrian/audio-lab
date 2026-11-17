@@ -9,6 +9,7 @@ link, the hash and the duration the fetcher writes are the real things.
 from __future__ import annotations
 
 import dataclasses
+import errno
 import io
 import os
 import random
@@ -280,10 +281,10 @@ def test_fetch_allows_at_most_one_percent_empty(tmp_path, fake_qwen):
 def test_fetch_copies_when_the_link_fails(tmp_path, fake_qwen, monkeypatch):
     """Different filesystems: the copy is the fallback, counted the same way."""
 
-    def no_link(*args, **kwargs):
-        raise OSError("cross-device link")
+    def exdev(*args, **kwargs):
+        raise OSError(errno.EXDEV, "cross-device link")
 
-    monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "link", exdev)
     root = tmp_path / "data"
     make_source(root, 1, 3)
     fake_qwen.texts = lambda index: f"the answer is {index}"
@@ -296,6 +297,43 @@ def test_fetch_copies_when_the_link_fails(tmp_path, fake_qwen, monkeypatch):
         dest_wav = root / NAME / clip.audio
         assert dest_wav.read_bytes() == source_wav
         assert os.stat(dest_wav).st_nlink == 1  # a copy, not a link
+
+
+def test_fetch_copies_when_the_filesystem_forbids_links(tmp_path, fake_qwen, monkeypatch):
+    """EPERM, like EXDEV, is a filesystem that will not link: the copy stands in."""
+
+    def eperm(*args, **kwargs):
+        raise OSError(errno.EPERM, "operation not permitted")
+
+    monkeypatch.setattr(os, "link", eperm)
+    root = tmp_path / "data"
+    make_source(root, 1, 3)
+    fake_qwen.texts = lambda index: f"the answer is {index}"
+    count = fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)
+    assert count == 3
+    for source, clip in zip(
+        read_manifest(root / "nasa-en-train"), read_manifest(root / NAME), strict=True
+    ):
+        dest_wav = root / NAME / clip.audio
+        assert dest_wav.read_bytes() == (root / "nasa-en-train" / source.audio).read_bytes()
+        assert os.stat(dest_wav).st_nlink == 1  # a copy, not a link
+
+
+def test_fetch_surfaces_a_link_error_that_is_not_device_or_permission(
+    tmp_path, fake_qwen, monkeypatch
+):
+    """Only EXDEV and EPERM fall back to a copy; anything else must not be
+    hidden behind a copy, or a broken source would pass as a copied set."""
+
+    def denied(*args, **kwargs):
+        raise OSError(errno.EACCES, "permission denied")
+
+    monkeypatch.setattr(os, "link", denied)
+    root = tmp_path / "data"
+    make_source(root, 1, 3)
+    fake_qwen.texts = lambda index: f"the answer is {index}"
+    with pytest.raises(OSError, match="permission denied"):
+        fetch_nasa_en_train_qwen(NAME, tmp_path / "cache", root / NAME)
 
 
 def test_fetch_never_writes_through_the_link(tmp_path, fake_qwen):

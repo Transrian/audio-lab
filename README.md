@@ -34,8 +34,8 @@ non-speech audio, and reports honest numbers (grouped confidence intervals, a
 paired comparison, a repeatable summary).
 
 ```bash
-export AUDIOLAB_DATA=/mnt/data/audio-lab/data    # datasets live outside the repo
-export AUDIOLAB_RUNS=/mnt/data/audio-lab/runs    # runs too
+export AUDIOLAB_DATA=/path/to/your/data-directory  # datasets live outside the repo
+export AUDIOLAB_RUNS=/path/to/your/runs-directory  # runs too
 uv run audiolab data fetch fleurs-fr             # prepare one dataset (no name: all of them)
 uv run audiolab data panels fleurs-fr            # freeze one dataset's panels
 

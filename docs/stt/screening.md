@@ -333,14 +333,18 @@ Second batch:
   servicenow en-fr-ca −0.69 [−1.66, +0.36], nonspeech −1.79 [−5.00, +1.43]),
   and the 10.36 % → 8.57 % drop in the hallucination rate between the two runs
   is not separable (its interval contains zero).
-- **A hypothesis, not tested: part of the talks' gain may be the Qwen3-ASR
-  label style**, the model learning to write like a stronger ASR model (a kind
-  of distillation), since the human-labelled podcast does not give all of it:
-  even through the diagnostic, NASA does not gain separably on servicenow
-  en-fr-ca or mls-fr, and it raises the hallucination rate. NASA also differs
-  from the talks in register, recording and editing, so this screening cannot
-  tell the two apart; a test that changes only the labels would, for example the
-  same NASA clips labelled as the talks are.
+- **The label-style hypothesis, now tested.** Part of the talks' gain may have
+  been the Qwen3-ASR label style — the model learning to write like a stronger
+  ASR model (a kind of distillation), since the human-labelled podcast does not
+  give all of it: even through the diagnostic, NASA does not gain separably on
+  servicenow en-fr-ca or mls-fr, and it raises the hallucination rate. The
+  [label-style test](#label-style-same-audio) changed only the labels — the
+  same 10 000 NASA clips with every clip's label Qwen's alone — and found no
+  separable difference on the code-switched panels, so for them, with the
+  English labels the test measured, the label style does not explain the talk
+  gain; where the gain is real, it is the audio's.
+  (NASA also differs from the talks in register, recording and editing, which
+  that test does not control.)
 
 Both batches:
 
@@ -446,7 +450,10 @@ differ: 10 886 of the 11 956 texts are not the source's, and on the audit's
 transcripts ([label error of the agreement
 pipeline](datasets.md#label-error-of-the-agreement-pipeline)).
 
-**Pre-registered reading**, written before the table was computed:
+**Pre-registered reading** — the three readings below were written before the
+table was computed, in a working plan that was not committed; they entered the
+repository after the evaluation this table reports (commit `af2a932`,
+2026-11-14):
 
 - (a) Qwen labels better on the code-switched panels, with intervals excluding
   zero → the label style explains part of the talk gain;
@@ -483,7 +490,11 @@ en-fr-ca −0.27 [−1.47, 0.99], noisy en-fr +0.76 [−0.48, 2.03]). Replacing 
 human labels with Qwen's labels does not move those panels on the same audio,
 so this test does not support the label-style explanation of the talk gain:
 where the talk gain is real, it comes from the audio — or it is not real, which
-the larger preparations decide, not this 10 000-clip screen.
+the larger preparations decide, not this 10 000-clip screen. The conclusion is
+scoped to those panels and to the English labels the test measured (the NASA
+audio is English only); outside that scope the two panels where the model
+labels move the score move it in their favour (notsofar-en-eval −3.30,
+voxpopuli-en-nonnative −2.87), as the outside-reading section below covers.
 
 **Outside the pre-registered reading.** Six panels are separable, in both
 directions: qwen's labels are better on notsofar-en-eval (−3.30 [−5.10, −1.68],
@@ -493,10 +504,15 @@ are better on nasa-en-test (+1.46 [1.07, 1.88]), peertube-edu-captions-fr
 noisy-fleurs-en (+0.55 [0.14, 0.99]). Two of those four are human text of the
 model's own register: trained on model labels, the model is clearly worse on
 NASA's held-out human-transcribed episodes and on the ministry's captions. That
-is the accuracy cost of model labels where the human text is the reference; it
-is reported to the owner as an observation, and the pre-registered reading
-(c) — tightening the agreement threshold — does not follow from it, because
-(c) was registered on the code-switched panels.
+is the accuracy cost of model labels where the human text is the reference.
+Reading (c) as registered names no panel — only (a) names the code-switched
+ones; read on that scope it does not fire, while on the human-reference panels
+the human labels are better (nasa-en-test +1.46 [1.07, 1.88],
+peertube-edu-captions-fr +2.17 [1.08, 3.44]), which its text matches. Its
+scope was not fixed at registration, so whether to tighten the rule is the
+owner's call
+(backlog O-11): the large preparations were labelled with the pipeline's 15 %
+agreement rule before this test ran.
 
 The qwen run was trained on a later commit than the plain run. Nothing in the
 training or evaluation packages changed between the two run commits (the diff
@@ -904,7 +920,7 @@ not fire.
 - **Model labels or human labels.** The four talk sources are labelled by
   models. How good the kept labels are is measured on similar clips — 3.7 %
   WER against NASA's transcripts in English and 6.5 % against the ministry's
-  captions in French
+  captions in French, a likely lower bound of the pipeline's label error
   ([label error of the agreement
   pipeline](datasets.md#label-error-of-the-agreement-pipeline)) — and what
   model labels cost or bring is measured on the same audio, one model's labels

@@ -242,7 +242,7 @@ def test_the_guard_defaults_resolve_to_the_repos_full_suite_and_its_panels():
     read through the repo root, so this test passes from any working directory.
 
     The datasets behind the panels are not pinned: one panel added to the suite
-    (a new evaluation set, plan 01) is the suite's business, and the guard checks
+    (a new evaluation set) is the suite's business, and the guard checks
     whatever it names. Reading them here proves the suite and every panel it
     names are there, and that each dataset is listed once.
     """

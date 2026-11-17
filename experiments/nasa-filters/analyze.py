@@ -492,7 +492,31 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         clips = read_manifest(data_dir / args.dataset)
+    except (FileNotFoundError, ValueError) as failure:
+        print(f"analyze: {failure}", file=sys.stderr)
+        return 2
+    try:
         old_clips = read_manifest(data_dir / args.old_dataset)
+    except (FileNotFoundError, ValueError) as failure:
+        if (
+            isinstance(failure, FileNotFoundError)
+            and args.old_dataset == "nasa-en-train.curly-2026-11-09"
+        ):
+            # The analysed preparation was deleted, so no fetch recreates it
+            # and the store's "run 'audiolab data fetch'" hint must not stand.
+            print(
+                f"analyze: {data_dir / args.old_dataset} is not prepared: the "
+                "first, typographic, preparation was deleted on 2026-11-17 "
+                "at the owner's request and no fetch recreates it, so the "
+                "script runs only while a preparation exists; the tables it "
+                "printed on 2026-11-13 are committed on the nasa-en-train "
+                "card in docs/stt/datasets.md",
+                file=sys.stderr,
+            )
+        else:
+            print(f"analyze: {failure}", file=sys.stderr)
+        return 2
+    try:
         categories = {clip.id: clip.category for clip in read_manifest(data_dir / "nonspeech")}
     except (FileNotFoundError, ValueError) as failure:
         print(f"analyze: {failure}", file=sys.stderr)

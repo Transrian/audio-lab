@@ -159,10 +159,12 @@ from the audio, not the label style. The other side of the ledger, outside the
 pre-registered reading: the model labels are **better on `notsofar-en-eval`
 (−3.30 points [−5.10, −1.68]) and on `voxpopuli-en-nonnative` (−2.87 points
 [−3.97, −1.98])**. The test's pre-registered option to
-tighten the agreement threshold was registered on the code-switched panels, so
-it does not follow from the test; both sides of the ledger are reported to the
-owner, to be decided with the mix ([O-11](../../backlog.md)). The options it
-opens:
+tighten the agreement threshold names no panel in its registered text — only
+reading (a) names the code-switched ones; read on that scope it does not fire,
+while on the human-reference panels the human labels are better (+1.46, +2.17),
+which its text matches. Its scope was not fixed at registration, so both sides
+of the ledger are reported to the owner, to be decided with the mix
+([O-11](../../backlog.md)). The options it opens:
 
 - **Tighten the agreement threshold** `MAX_DISAGREEMENT` (0.15,
   `src/audiolab/data/talks.py`) and re-label the model-labelled talk rows

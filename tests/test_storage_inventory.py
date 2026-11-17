@@ -1,4 +1,4 @@
-"""Storage inventory (plan 09): synthetic roots, read-only behavior, classes."""
+"""Storage inventory (P-07): synthetic roots, read-only behavior, classes."""
 
 from __future__ import annotations
 
@@ -212,7 +212,7 @@ def test_classifications(roots, capsys):
     # The screening checkpoints.
     control = row(text, "$AUDIOLAB_RUNS/train/screen-peertube-fr")
     assert "keep (rule above)" in control
-    assert "control run of plan 02" in control
+    assert "control run of the noise test" in control
     assert "model.nemo 100 B" in control
     assert "must stay" in control
     # The run that screened it went with the preparation: no recipe in the

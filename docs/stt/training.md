@@ -117,7 +117,13 @@ enters the repository — no voice recordings or transcripts
 ([D-013](../owner/directives.md)), and no datasets, weights or run outputs. The
 checkpoint is identified by the
 sha256 of its file, or by its Hub id when it is not a local file, so `train.json`
-says which weights the run started from without naming a machine.
+says which weights the run started from without naming a machine — in two
+fields beside `base_model` and `base_model_identity`: `base_model_hf`, the
+repository the config's `base_model` names — null when `base_model` names no
+repository (with a local copy under `base_model_env`, the copy is declared to
+be that repository's weights, not verified) — and `base_model_sha256`, the sha
+of the weights (a run that started from the repository cannot say what weights
+NeMo resolved, so it is null there).
 
 `gpu` accepts an index (`1`) or a UUID prefix (`GPU-1a2b`); `audiolab gpus` lists
 what the machine has. `audiolab train` has no `--gpu`: the GPU is part of the run,
@@ -388,7 +394,7 @@ resumed is not bit-for-bit the run that would not have stopped.
 | `train-log.jsonl` | one line per logged update: `update`, `loss` (the mean of the batch losses seen since the previous line), `seconds` since the run started |
 | `model.nemo` | the fine-tuned checkpoint, ready to serve |
 | `model.yaml` | a model config for it, with a `serve:` block naming `model.nemo`: `audiolab eval --model <run>/model.yaml --suite configs/suites/fast.yaml` scores it on the spot |
-| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and, for a row of an exclusive mix, a `subtraction` block: the pool before and after the earlier rows' subtraction and the number of clips removed, §2; and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity, whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, the `leakage_guard` block (§2), and, for a run that augmented, the `augmentation` block: per perturbation, its probability, its SNR range (noise), its bank, the bank's line count and the sha256 of the bank's manifest (§2) |
+| `train.json` | what the run did: the config, the dataset and the number of usable clips (a mix writes `datasets` instead: one entry per dataset, with its clip count, its usable clips and its clip hash, and, for a row of an exclusive mix, a `subtraction` block: the pool before and after the earlier rows' subtraction and the number of clips removed, §2; and no `dataset` or `clips_available`), the sha256 of the sampled clip ids, the base model and its identity — with its two parts, `base_model_hf` (the repository the config's `base_model` names; null when it names no repository, §1) and `base_model_sha256` (the sha of the weights; null for a run that started from the repository, §1) — whether it went on from a resume slot, the git commit, the wall-clock time, the final logged loss, the updates per second, the peak GPU memory, the device name, the `leakage_guard` block (§2), and, for a run that augmented, the `augmentation` block: per perturbation, its probability, its SNR range (noise), its bank, the bank's line count and the sha256 of the bank's manifest (§2) |
 
 `train.json` is written last, and its presence is what makes a run *finished*:
 `audiolab train` on a finished run refuses to start and says so.

@@ -79,7 +79,12 @@ prepared data by ``audiolab data panels --check``; the clip counts are checked b
 The first full-suite numbers of the campaign, one run per model:
 ``audiolab eval --model configs/models/<model>.yaml --suite configs/suites/full.yaml``
 — 7 712 panel items per run, 0 failed (the Qwen run's records show 15 clips
-answered only after a retry: 9 on the second attempt and 6 on the third). The
+answered only after a retry: 9 on the second attempt and 6 on the third). Both
+runs record `git_commit` `9d52e6d`, a pre-rebase commit no branch contains;
+that tree differs from `6377ae1` only in the two suite files and three docs
+files (no code), and the suites the runs scored — the eight new panels among
+them — are the ones `6377ae1` committed, so the runs correspond to `6377ae1`.
+The
 base model (``parakeet-tdt-0.6b-v3-crispasr``) is served by CrispASR on the
 owner's home server, and ``qwen3-asr-1.7b-vllm`` by vLLM on the owner's home
 server. Normalized WER in
@@ -115,14 +120,21 @@ Formatted WER, the panels whose references carry casing and punctuation:
 
 Reading of the new panels:
 
-- Noise and reverberation cost 3 to 6 points of normalized WER on both models
-  (fleurs-fr 4.99 → 16.33 Parakeet, 4.04 → 13.77 Qwen3; fleurs-en 5.24 → 10.11,
-  3.51 → 6.89), and the code-switched set is the hardest condition of all for
-  both (13.12 → 19.20, 13.00 → 20.25).
+- Noise and reverberation cost 3.4 to 11.3 points of normalized WER on both
+  models (fleurs-fr 4.99 → 16.33 Parakeet, 4.04 → 13.77 Qwen3; fleurs-en
+  5.24 → 10.11, 3.51 → 6.89), and the code-switched set is the hardest
+  condition of all for both (13.12 → 19.20, 13.00 → 20.25).
 - Real meetings (`notsofar-en-eval`) are at the level of read speech for both
-  models (7.29 / 7.40), but the base model answers **empty on 8.5 % of its
-  clips** there (51 of 600), an empty-output rate it never shows above 2.4 % on
-  any other panel; Qwen3's is 1.5 %.
+  models (7.29 / 7.40). The base model's answers normalize to empty on 8.5 % of
+  the clips (51 of 600) — an empty-answer rate it never shows above 2.4 % on
+  any other panel (Qwen3's is 1.5 %, 9 of 600) — but that is mostly
+  normalization, not silence: only 1 of the 51 answers is raw-empty; the other
+  50 are fillers ("Mm-hmm." ×21, "Mm." ×19, "Um" ×5, "Hmm." ×2, "Uh" ×2,
+  "Uh uh." ×1) that the normalizer removes, and their references are fillers
+  too (36 normalize to empty, 13 to "mmm", 1 to "yeah"). The one raw-empty
+  answer sits on a real reference ("can point at people and say hey, you're
+  going too fast."); the 9 of Qwen3 are fillers of the same kind, and none of
+  them is raw-empty.
 - The base model stays silent on music (1.75 % hallucination) where Qwen3
   writes words on **25.44 %** of the clips; on the whole non-speech battery the
   gap is 5.36 % against 16.43 %.
@@ -517,12 +529,19 @@ Three kinds of clip that must stay silent, 300 in total:
 - **License**: CC-BY-4.0.
 - **Audio**: 129 meetings, 16.7 h. Twelve participants (the corpus's aliases
   Beth, Brad, Chris, Donald, Jenny, John, Linda, Rachel, Ron, Sally, Sarah and
-  Tom) attend all of them; 20 454 clips, median 1.4 s, the longest 20 s.
+  Tom) attend all of them; 20 454 clips, median 1.4 s, the longest 20 s. The
+  set keeps the corpus's own segmentation: there is no 0.5 s floor, the floor
+  the train split drops clips under.
 - **Text**: the annotators' words, cased and punctuated
   (`text_has_casing_punct: true`), with the markup treated as in the train
   split: `<ST/>` stays in the row and nothing here reads it, `<FILL*/>` goes
   with its filler, `<PName>` keeps its name, and a row that holds only markup
-  or a `<UNKNOWN/>` or `<ISSUE/>` stretch is left out. Every clip has text.
+  or a `<UNKNOWN/>` or `<ISSUE/>` stretch is left out. Every clip has text; of
+  the 600 full-panel references, 43 (7.2 %) normalize to empty and 137 are one
+  word, and 203 of the 600 clips are under 1 s. A normalized-empty reference is
+  left out of the panel WER's denominator, and per utterance it is scored as
+  one error per invented word — 0 % when the answer is empty too
+  (`src/audiolab/eval/metrics.py`).
 - **Group**: the speaker's alias (`group_kind: speaker`), 12 groups.
 - **No overlap with the train split** (decision 0002): the preparation reads
   the prepared `notsofar-en-train` manifest and drops an eval alias it already
@@ -747,10 +766,9 @@ Three kinds of clip that must stay silent, 300 in total:
   design had asked for; the decoded set inherits it unreviewed.
 - **Group**: the video's uuid (`group_kind: recording`): the clips of one talk
   share its teacher, its room and its jargon. `category` is `tech` when the
-  talk's title matches the keyword list in the fetcher — 240 clips of 6 talks
-  (the plan's 15-talk threshold for a separate `tech` report in T9 is not
-  met) — and `general` otherwise: technical French is a subpopulation of the
-  set, not a separate dataset.
+  talk's title matches the keyword list in the fetcher — 240 clips of 6 talks —
+  and `general` otherwise: technical French is a subpopulation of the set, not
+  a separate dataset.
 - **No overlap with the training set** (decision 0002): the one talk of this
   set that [`peertube-edu-fr-train`](#peertube-edu-fr-train--the-education-ministrys-french-videos)
   already holds (73 of its clips are in that set) is left out at preparation,
@@ -906,10 +924,12 @@ Three kinds of clip that must stay silent, 300 in total:
 
 ## Noise banks — material for augmentation, not evaluation sets
 
-These two datasets hold the files that the noisy evaluation sets are mixed
-with (T4) and that the training augmentations take from (plan 02). They are
-not scored: they have no text to measure against and no panels, by
-deliberate refusal rather than by omission.
+These two datasets hold the files that the noisy evaluation sets
+([cards](#noisy-sets--the-same-panel-clips-degraded-acoustically)) are mixed
+with, and that the training noise augmentation ([training, noise and
+reverb](training.md#noise-and-reverberation)) takes from. They are not
+scored: they have no text to measure against and no panels, by deliberate
+refusal rather than by omission.
 
 ## `musan-noise` — MUSAN's noise files for augmentation
 
@@ -1052,9 +1072,11 @@ The license field is the source clip's licence plus the material's, e.g.
   else the file (`recording`) — two files by one artist are not independent.
 - **Panels**: fast 30, full 114, sealed 147 — the `music` family of the
   non-speech battery, sized on its own so the frozen `nonspeech` panels keep
-  checking. The sealed part holds whole artists back, as the speech panels do:
-  here that is the entire rfm catalogue, one artist (Kevin MacLeod), which the
-  40-clip family budget seals in one go.
+  checking. The sealed part holds whole groups back, as the speech panels do:
+  a group is the raw artist field, so the sealed part is the group
+  `Kevin_MacLeod` — the entire rfm catalogue — which the 40-clip family budget
+  seals in one go; `Kevin_MacLeod Bach`, `Kevin_MacLeod Wagner` and the like
+  are different groups (16 clips in full, 4 in fast) and stay in the panels.
 - **Why it is here**: the `nonspeech` battery (backlog N-03) had no music, and
   a model that transcribes music is hallucinating: the reference is empty, as
   for the silences and the noises.
@@ -1280,16 +1302,27 @@ numbers, a digit the label reads as words or reads back wrong, name spellings,
 and the rest. Of the 1 529 kept English clips with differences: filler
 insertions 66, numbers 40, name spellings 132, the rest 1 291. Of the 504
 French: filler insertions 1, numbers 32, name spellings 75, the rest 396.
+Most of the differing clips classify as "other" (1 291 of the 1 529 English,
+396 of the 504 French), so the named categories explain a minority of the
+differences.
 
-Two caveats. The human text is not the talk sets: the English numbers are on
-NASA's podcasts — clean, read interviews with near-verbatim transcripts — and
-the French ones on the ministry's captions, the closest human reference the
-French talk sets have. The talk sets themselves hold no human text, so these
-are what the rule lets through on similar audio, not a per-set measurement. And
-the labels the pipeline keeps are Qwen's: the number also says what a model
-label costs against a human one on the same audio, which is what the
-`nasa-en-train-qwen` arm of the [screening](screening.md#label-style-same-audio)
-measures, trained on the same clips.
+Three caveats. **Register.** The human text is not the talk sets: the English
+numbers are on NASA's podcasts — conversational interviews with near-verbatim
+transcripts — and the French ones on the ministry's captions, the closest human
+reference the French talk sets have. **A likely lower bound.** Both measured
+populations were built by keeping clips Whisper gets right — the NASA set by
+the edge thresholds bound to Whisper's words, the captions set by a gate on
+Whisper's own WER against the caption — and the audit asked Whisper on the
+isolated clip, whereas the pipeline's rule compares Whisper's long-form,
+timestamped segment text, so it checks the cut as well as the words. On the
+talk sets themselves the rule keeps about 66–78 % of the clips it labels
+(21.7–34.1 % rejected, the [source register](sources.md)), against the 95.1 % /
+80.6 % measured here, so the figures are a likely lower bound of the pipeline's
+label error on the talk sets. **Model labels.** And the labels the pipeline
+keeps are Qwen's: the number also says what a model label costs against a human
+one on the same audio, which is what the `nasa-en-train-qwen` arm of the
+[screening](screening.md#label-style-same-audio) measures, trained on the same
+clips.
 
 ### `granary-fr-train` — pseudo-labelled YouTube French
 
@@ -1748,7 +1781,7 @@ measures, trained on the same clips.
   meetings that became the dev set of the challenge, and with a faulty device
   removed from three meetings, as the `logs/README.txt` of the split itself says.
   It holds 18 178 rows, 2 014 of which last less than 0.5 s, and 1 511 of them are
-  left out before the plan (above); the rest become 12 993 stretches by joining
+  left out before the stretches (above); the rest become 12 993 stretches by joining
   the rows of one speaker, 475 of the prepared clips spanning two rows or more.
   No row of the split is longer than 8.7 s, and the longest clip is 19.83 s, so
   the 20 s window holds but is not far away. The share of a group holds the
@@ -2039,8 +2072,9 @@ published.
   still unread.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 1 000 French clips with human captions the agreement rule keeps
-  80.6 % and the kept labels score 6.5 % WER against them ([label error of the
-  agreement pipeline](#label-error-of-the-agreement-pipeline)). The rule lets
+  80.6 % and the kept labels score 6.5 % WER against them — a likely lower
+  bound of the pipeline's label error ([label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)). The rule lets
   through a word both models get wrong, and one word
   only one of them gets wrong in a long enough clip: Qwen writes "on utilise
   l'ADN" where the speaker says "FDN" (French Data Network, which Whisper and
@@ -2213,8 +2247,9 @@ published.
   is 12 GiB.
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 1 000 French clips with human captions the agreement rule keeps
-  80.6 % and the kept labels score 6.5 % WER against them ([label error of the
-  agreement pipeline](#label-error-of-the-agreement-pipeline)). What the test
+  80.6 % and the kept labels score 6.5 % WER against them — a likely lower
+  bound of the pipeline's label error ([label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)). What the test
   lets through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
@@ -2383,8 +2418,9 @@ Per instance, as the listing of 2026-11-08 holds them:
   ([decision 0002](../decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)).
 - **Known limits**: as in the parents' cards — the label error of the kept
   clips is measured on similar clips (on 1 000 French clips with human
-  captions the kept labels score 6.5 % WER against them, [label error of the
-  agreement pipeline](#label-error-of-the-agreement-pipeline)), and the labels
+  captions the kept labels score 6.5 % WER against them — a likely lower bound
+  of the pipeline's label error, [label error of the agreement
+  pipeline](#label-error-of-the-agreement-pipeline)), and the labels
   depend on the run (vLLM does not answer bit for bit the same when the requests sent
   beside one change, and the cache keeps the first answer). The talks are the
   parents' talks, so a mix of this source with a parent needs the `sha256`
@@ -2505,8 +2541,8 @@ Per instance, as the listing of 2026-11-08 holds them:
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 3 000 English clips with near-verbatim human transcripts the
   agreement rule keeps 95.1 % and the kept labels score 3.7 % WER against them
-  ([label error of the agreement
-  pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
+  — a likely lower bound of the pipeline's label error ([label error of the
+  agreement pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
   through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
@@ -2617,8 +2653,8 @@ Per instance, as the listing of 2026-11-08 holds them:
 - **Known limits**: **the label error of the kept clips is measured on similar
   clips** — on 3 000 English clips with near-verbatim human transcripts the
   agreement rule keeps 95.1 % and the kept labels score 3.7 % WER against them
-  ([label error of the agreement
-  pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
+  — a likely lower bound of the pipeline's label error ([label error of the
+  agreement pipeline](#label-error-of-the-agreement-pipeline)). What the test lets
   through, and why a preparation from an
   empty cache can keep a slightly different set of clips and labels, is in the
   [card of `peertube-fr-train`](#peertube-fr-train--capitole-du-libre-talks-in-french).
@@ -3005,7 +3041,8 @@ this preparation leaves them out (decision 0002).
 - **Known limits**: **the label error of the kept clips is measured on a sample
   of the set** — had the agreement rule labelled the same 3 000 clips, it keeps
   95.1 % of them, and the kept labels — Qwen's, not NASA's — score 3.7 % WER
-  against NASA's transcripts ([label error of the agreement
+  against NASA's transcripts — a likely lower bound of the pipeline's label
+  error ([label error of the agreement
   pipeline](#label-error-of-the-agreement-pipeline)). The set's own labels are
   NASA's near-verbatim transcripts, bound to Whisper's words by the edge
   thresholds; the clips the rule drops have not been checked against the audio.
@@ -3245,22 +3282,31 @@ model card before trusting a difference of a few points, not a finding:
 
 ### Known gaps
 
-- **Music is not covered.** The battery has silence, noise and ESC-50 sounds;
-  music and singing are the cases where hallucinations are most likely. Named
-  as a gap for phase 1a rather than half-measured.
+- **Music is measured as a hallucination case, not as transcription.** The
+  `nonspeech-music` panel (the `music` family of the non-speech battery) is
+  scored by hallucination rate against an empty reference; how a model
+  transcribes music is not measured, and singing stays out — the source drops
+  the files its annotations mark as vocal, because a sung file would hand a
+  hallucinating model words to output.
 - FLEURS, MLS, LibriSpeech and the read subset of CS-FLEURS are read speech.
-  Spontaneous speech, telephone audio and overlapping speech are not covered by
-  any dataset here.
+  Spontaneous speech is covered by `notsofar-en-eval` (recorded meetings, one
+  close mic per participant); telephone audio and overlapping speech are not
+  covered by any panel.
 - **Dictation itself is still not covered.** The two code-switched sets put a
   switch inside a sentence, but their text is written first and read or spoken
   afterwards (ServiceNow's voices are synthetic, CS-FLEURS's sentences are
   generated from FLEURS ones). Someone thinking out loud, switching language
   mid-sentence and correcting themselves is not represented; the vocabulary is
   closer to the target use than the register is.
-- **Accents are covered once.** `voxpopuli-en-nonnative` is English spoken by
-  the Parliament's non-native speakers, drawn from the one accent the corpus
-  labels `en_fr`; English with another accent, and French with a foreign accent,
-  are not covered, and the label is the corpus's own claim rather than something
-  checked here.
+- **Long-form audio is still not covered.** Every request holds one utterance;
+  a recording with its pauses, topic shifts and speaker changes, beyond one
+  utterance per request, is not represented. [evaluation.md §8](evaluation.md#8-what-this-does-not-measure)
+  keeps the full list.
+- **Accents are covered once per language.** `voxpopuli-en-nonnative` is
+  English spoken by the Parliament's non-native speakers, drawn from the one
+  accent the corpus labels `en_fr`, and `african-accented-fr-test` is French
+  spoken by Cameroonian, Chadian, Congolese and Gabonese speakers; English with
+  another accent is not covered, and both labels are the corpora's own claims
+  rather than something checked here.
 - The panels are samples of these test splits and were chosen by us, so absolute
   numbers describe the panels, not the whole datasets.

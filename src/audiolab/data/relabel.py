@@ -1,6 +1,6 @@
 """A prepared set with the labels of one model on every clip: ``nasa-en-train-qwen``.
 
-The label-style test (plan 06, Part B) asks what the audio of ``nasa-en-train``
+The label-style test (backlog P-03) asks what the audio of ``nasa-en-train``
 is worth when the labels are a model's instead of NASA's. The test changes only
 the labels: the same clips, the same audio, and the text of every clip is the
 Qwen3-ASR answer, without the agreement filter — a clip set that were not
@@ -42,6 +42,7 @@ comparable to ``nasa-en-train`` — same clips, same audio, different labels.
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import threading
@@ -156,7 +157,12 @@ def _link_clip(source: Path, target: Path) -> str:
     try:
         os.link(source, target)
         return "linked"
-    except OSError:
+    except OSError as failure:
+        # A hard link fails across devices (EXDEV) or where the filesystem
+        # forbids it (EPERM): only then is the copy the fallback. Any other
+        # failure is an error the preparation must see, not hide behind a copy.
+        if failure.errno not in (errno.EXDEV, errno.EPERM):
+            raise
         shutil.copy2(source, target)
         return "copied"
 

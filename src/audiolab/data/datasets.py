@@ -356,10 +356,15 @@ DATASETS: dict[str, DatasetInfo] = {
         "aligned to the audio by Whisper large-v3; speaker labels and notes removed",
         grouping="recording (group = episode page slug), at most 30 clips per episode",
         notes="Conversational technical English, labelled from human transcripts. "
-        "The edge check is Whisper's, not the base model's, which is the model the "
-        "set is scored on; the set is thereby biased toward clips Whisper hears well "
-        "at the edges. Its episodes are left out of every nasa-en-train preparation "
-        "(decision 0002). Curious Universe is never reserved.",
+        "The 60 episodes were reserved on 2026-11-13 from the listing then "
+        "pinned, the one of 2026-11-09 (774 episodes); the listing was "
+        "re-pinned the same day to the one of 2026-11-13 (768 episodes, "
+        "Curious Universe out of the shows) and holds the same 60. The edge "
+        "check is Whisper's, not the base model's, which is the model the "
+        "set is scored on; the set is thereby biased toward clips Whisper "
+        "hears well at the edges. Its episodes are left out of every "
+        "nasa-en-train preparation (decision 0002). Curious Universe is "
+        "never reserved.",
     ),
     "nasa-en-test-v2": DatasetInfo(
         name="nasa-en-test-v2",
@@ -470,7 +475,7 @@ DATASETS: dict[str, DatasetInfo] = {
         split="the source's panels, in one acoustic condition per clip",
         reference_style="the source clip's transcript, unchanged",
         grouping="the source's group, re-prefixed (group = the TTS voice)",
-        notes="Owner-approved (Q4, 2026-11-10). The babble alternates French and "
+        notes="Owner-approved (2026-11-10). The babble alternates French and "
         "English speakers. As for the source: synthetic speech with no licence, "
         "used for evaluation only and never redistributed (decision 0011).",
     ),
@@ -494,8 +499,8 @@ DATASETS: dict[str, DatasetInfo] = {
         split="eval + train by the musan-split hash rule",
         reference_style="no speech: the reference text is empty",
         grouping="recording (group = the noise file)",
-        notes="Noise for the noisy evaluation sets (T4) and for training "
-        "augmentation (plan 02). One hash rule decides forever which half of the "
+        notes="Noise for the noisy evaluation sets and for the training noise "
+        "augmentation. One hash rule decides forever which half of the "
         "files is for evaluation and which for training; the point-source noises "
         "of RIRS_NOISES are copies of these files and are never read. No panels.",
     ),

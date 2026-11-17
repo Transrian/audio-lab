@@ -25,9 +25,12 @@ copyright in the United States, and D-019 allows public domain. The evidence and
 the rules that follow from it are on the source's card in `docs/stt/datasets.md`.
 
 ``nasa-en-test`` is the evaluation set of this source: the 60 episodes of the
-committed list :data:`RESERVED_TEST_EPISODES`, at most 15 of a show, which the
-reservation rule chose from the listing of 2026-11-13, the episodes of the
-training sets prepared at the time and of NASA's Curious Universe left out.
+committed list :data:`RESERVED_TEST_EPISODES`, at most 15 of a show. The
+reservation rule chose them on 2026-11-13 from the listing then pinned —
+the one of 2026-11-09 (774 episodes) — with the episodes of the training
+sets prepared at the time and of NASA's Curious Universe left out; the
+listing was re-pinned the same day to the one of 2026-11-13 (768 episodes,
+Curious Universe out of the shows), and it holds the same 60.
 The list is committed, so the set is the same on every machine and on every
 run: a preparation re-reads it rather than recomputing it from the machine's
 training sets. Its labels are the same human text, placed in time the same
@@ -573,13 +576,15 @@ TEST_CLIPS_PER_EPISODE = 30
 # it entirely rather than episode by episode.
 EXCLUDED_SHOWS = frozenset({"curious-universe"})
 # The 60 episodes of the evaluation set, fixed. On 2026-11-13 the reservation
-# rule chose them from the listing: an episode is reserved when it is in the
-# listing, its show is not in EXCLUDED_SHOWS, and its
-# sha256("nasa-test-" + id) is among the first 60, at most 15 of a show, the
-# episodes of the training sets prepared at the time left out. They are
-# committed here, so a preparation re-reads this list instead of recomputing
-# it from the machine's training sets: the set is the same on every machine
-# and on every run.
+# rule chose them from the listing then pinned — the one of 2026-11-09
+# (774 episodes): an episode is reserved when it is in the listing, its show
+# is not in EXCLUDED_SHOWS, and its sha256("nasa-test-" + id) is among the
+# first 60, at most 15 of a show, the episodes of the training sets prepared
+# at the time left out. The listing was re-pinned the same day to the one of
+# 2026-11-13 (768 episodes, Curious Universe out of the shows) and holds the
+# same 60. They are committed here, so a preparation re-reads this list
+# instead of recomputing it from the machine's training sets: the set is the
+# same on every machine and on every run.
 RESERVED_TEST_EPISODES = tuple(
     json.loads((Path(__file__).parent / "nasa_test_episodes.json").read_text(encoding="utf-8"))
 )
