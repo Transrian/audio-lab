@@ -76,6 +76,24 @@ them, so each clip is seen more often:
 first batch trained on the text as published, and that run's evaluation is kept
 as `$AUDIOLAB_RUNS/eval/screen-african-accented-fr-uncleaned-2026-11-08/`.
 
+The six runs `screen-voxpopuli-fr`, `screen-african-accented-fr`,
+`screen-librispeech-pc-en`, `screen-nasa-en`, `screen-nasa-en-plain` and
+`screen-nasa-en-qwen` trained on the then-current copies of
+`voxpopuli-fr-train`, `african-accented-fr-train`, `librispeech-pc-en-train`,
+`nasa-en-train` and `nasa-en-train-qwen` — `screen-nasa-en` on the
+curly-apostrophe preparation, now kept as `nasa-en-train.curly-2026-11-09`,
+the other five on the copies now kept as `<set>.pre-leakfix-2026-11-15` —
+and those copies held clips the re-prepared sets no longer hold: 1 956 clips
+of the plenary sessions shared with `voxpopuli-en-nonnative`, the 3 clips of
+the speaker shared with `african-accented-fr-test`, the 447 babble
+utterances of the committed noisy panels, and the 113 clips of the three
+evaluation-class episodes of `nasa-en-test` (the re-released
+`terry-fong-talks-about-virtual-reality-self-driving-cars-and-the-future-of-robotics-2`
+interview and the two episodes the `2017-end-of-year-podcast` compilation
+replays) in each of the two `nasa-en-train` sets. So the numbers of those runs
+describe those pre-re-preparation copies, and no screening has been re-run on
+the re-prepared sets.
+
 ## Results
 
 Normalized WER on the full suite (hallucination rate for `nonspeech`). The base

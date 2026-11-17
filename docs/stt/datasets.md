@@ -627,12 +627,17 @@ Three kinds of clip that must stay silent, 300 in total:
   the fast and full panels are the source's and the sealed one is the source's
   minus 26 clips, so a number scored on it differs from `nasa-en-test` only in
   that. The set still shares speech with the prepared training sets on one
-  side: the episodes the compilation `2017-end-of-year-podcast` replays (13 of
-  the full panel's clips and 2 of the fast panel's are the compilation's) are
-  still in the `nasa-en-train` sets prepared before the duplicate-class rule,
-  so the full and fast numbers of a model trained on those preparations still
-  score speech it was trained on; the sealed panel holds no clip of either
-  duplicate class.
+  side, and only in the archives: the episodes the compilation
+  `2017-end-of-year-podcast` replays (13 of the full panel's clips and 2 of the
+  fast panel's are the compilation's) were in the `nasa-en-train` sets
+  prepared before the duplicate-class rule, which are kept as
+  `nasa-en-train.curly-2026-11-09`, `nasa-en-train.pre-leakfix-2026-11-15`,
+  `nasa-en-train-qwen.pre-leakfix-2026-11-15` and
+  `nasa-en-train-30k.pre-leakfix-2026-11-15`, so the full and fast numbers
+  of a model trained on those old preparations still score speech it was
+  trained on, while the `nasa-en-train` sets re-prepared on 2026-11-16 hold
+  none of those episodes; the sealed panel holds no clip of either duplicate
+  class.
 
 ## `peertube-edu-captions-fr` — the education ministry's French talks with human captions
 
@@ -1107,15 +1112,34 @@ screening is a difference between corpora and not between recipes:
 - **Larger preparations** go to new directories named after their cap:
   `audiolab data fetch granary-fr-train --clips 40000` prepares
   `granary-fr-train-40k`. The 12 000-clip sets above are what the per-source
-  screening drew its runs from (`configs/train/screen-*.yaml`), and they stay
-  exactly as they are, so the screening is not scaled and remains
-  reproducible. A larger preparation is recorded under its directory's name —
-  the clip ids and the groups carry that prefix — reads the source in the same
-  order, and reuses the source's cache, so it takes the same talks first, and
-  the same clips wherever the current text rule keeps them, then reads more.
+  screening drew its runs from (`configs/train/screen-*.yaml`); the four of
+  them re-prepared under the committed exclusions were prepared at the same
+  default cap (12 000 clips, fewer where the source runs out), so the
+  screening is not scaled, and which copy each run trained on is recorded
+  in [screening.md](screening.md). A larger preparation is recorded under
+  its directory's name — the clip ids and the groups carry that prefix —
+  reads the source in the same order, and reuses the source's cache, so it
+  takes the same talks first, and the same clips wherever the current text
+  rule keeps them, then reads more.
   `CLIP_CAP_PER_GROUP` stays 200 at every cap,
   and a source that runs out before the cap is prepared with what it has, as at
   the default.
+- **Freezing a data state** is a two-step check over the prepared sets. The
+  first step is a freeze list: one `sha256sum` line per prepared set — the hash
+  of its `manifest.jsonl`, the path relative to the data root, in
+  `$AUDIOLAB_RUNS/frozen-manifests-<date>.txt` — which records exactly which
+  clips the state holds. The second step verifies the audio: every clip's WAV
+  is decoded and its 16-bit mono samples re-hashed (`pcm_sha256` in
+  [`src/audiolab/core/audio.py`](../../src/audiolab/core/audio.py), the check
+  `verify_clips` performs in
+  [`src/audiolab/data/store.py`](../../src/audiolab/data/store.py)) against the
+  `sha256` of its manifest line. The list of 2026-11-13 (34 sets) froze the
+  manifests only; the list of 2026-11-17 is the first to carry the audio
+  verification — 46 sets, the 34 of 2026-11-13 plus the ten
+  `-30k`/`-40k`/`-qwen` preparations and the two `…-v2` evaluation sets,
+  563 284 clips verified, 0 mismatches — and of its 34 lines shared with the
+  old list, 30 are the same hash and 4 are new, exactly the four 12 000-clip
+  sets re-prepared on 2026-11-16.
 
 | dataset | language | license | split | clips | groups | hours | prepared | downloaded |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

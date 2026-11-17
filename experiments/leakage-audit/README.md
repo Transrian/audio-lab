@@ -170,8 +170,9 @@ one of the categories above.
 **Status:** 2026-11-16. The read-only script that measures what the corrected
 fetchers' exclusion rules remove from every prepared training set, and which
 sets that forces to be re-prepared. The table over the current data root,
-printed below, is the run of 2026-11-16, taken once the last evaluation set
-was prepared; the script is safe to re-run any number of times, and a re-run
+printed below, is the run of 2026-11-17, taken once every set of the run of
+2026-11-16's rebuild list had been re-prepared (the rebuild list below it is
+now empty); the script is safe to re-run any number of times, and a re-run
 over a changed data root gives the new table.
 
 **Question.** For each prepared training set, how many clips does each
@@ -246,8 +247,9 @@ pinned listings and pins it reads — a re-pinned listing changes the duplicate
 classes and the reading order, and the stale-listing section of the output
 names what that leaves behind.
 
-**Table over the current data root.** Run of 2026-11-16, over the current
-data root.
+**Table over the current data root.** Run of 2026-11-17, over the current data
+root, once every set of the run of 2026-11-16's rebuild list had been
+re-prepared.
 
 Evaluation sets found prepared (the evaluation-class rule reads their
 manifests):
@@ -265,7 +267,7 @@ entries (1012 unique) over 3 noisy sets; 60 nasa reserved test episodes.
 
 | set | clips | eval class | in-set re-upload | nasa reserved | slr57 speaker | vox session | babble | total |
 |---|---|---|---|---|---|---|---|---|
-| african-accented-fr-train | 11427 | 0 | 0 | 0 | 3 | 0 | 0 | 3 |
+| african-accented-fr-train | 11424 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | ami-fr-speakers-en-train | 3971 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | debconf-en-train | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | debconf-en-train-30k | 30000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -275,48 +277,41 @@ entries (1012 unique) over 3 noisy sets; 60 nasa reserved test episodes.
 | granary-fr-train-40k | 37971 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | icsi-en-train | 8746 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | librispeech-en-train | 12000 | 0 | 0 | 0 | 0 | 0 | 488 | 488 |
-| librispeech-pc-en-train | 12000 | 0 | 0 | 0 | 0 | 0 | 447 | 447 |
-| librispeech-pc-en-train-40k | 25896 | 0 | 0 | 0 | 0 | 0 | 447 | 447 |
+| librispeech-pc-en-train | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| librispeech-pc-en-train-40k | 25449 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | mls-fr-train | 12000 | 0 | 0 | 0 | 0 | 0 | 524 | 524 |
-| nasa-en-train | 11956 | 113 | 0 | 113 | 0 | 0 | 0 | 113 |
-| nasa-en-train-30k | 30000 | 124 | 0 | 124 | 0 | 0 | 0 | 124 |
-| nasa-en-train-qwen | 11956 | 113 | 0 | 113 | 0 | 0 | 0 | 113 |
+| nasa-en-train | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| nasa-en-train-30k | 30000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| nasa-en-train-qwen | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | notsofar-en-train | 2330 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | peertube-edu-fr-train | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| peertube-edu-fr-train-40k | 40000 | 248 | 186 | 0 | 0 | 0 | 0 | 434 |
+| peertube-edu-fr-train-40k | 40000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | peertube-fr-train | 12000 | 0 | 154 | 0 | 0 | 0 | 0 | 154 |
-| peertube-fr-train-40k | 40000 | 0 | 154 | 0 | 0 | 0 | 0 | 154 |
-| peertube-tech-fr-train-40k | 40000 | 400 | 1118 | 0 | 0 | 0 | 0 | 1518 |
+| peertube-fr-train-40k | 40000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| peertube-tech-fr-train-40k | 40000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | pxcorpus-fr-train | 1912 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| voxpopuli-fr-train | 12000 | 0 | 0 | 0 | 0 | 1956 | 0 | 1956 |
-| voxpopuli-fr-train-40k | 26973 | 0 | 0 | 0 | 0 | 4815 | 0 | 4815 |
-| total | 461138 | 998 | 1612 | 350 | 3 | 6771 | 1906 | 11290 |
+| voxpopuli-fr-train | 12000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| voxpopuli-fr-train-40k | 24259 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| total | 458062 | 0 | 154 | 0 | 0 | 0 | 1012 | 1166 |
 
 The `total` column is the union: a clip several rules remove (the two nasa
 rules cover the same clips) counts once; the rule columns may count it twice.
+The only set with a non-zero `total` outside the two committed babble pools is
+`peertube-fr-train`: its 154 within-set re-uploads stay in the frozen
+12 000-clip set (the rebuild-list rule above), so they are what the 1 166
+union of the run consists of together with the babble pools.
 
 Clips of talks that are no longer in the source's pinned listing (the set was
 prepared from an earlier listing) carry no rule count; when the set is
 re-prepared, the preparation reads the current listing, so these clips stay
 out of it on their own:
 
-- nasa-en-train: 7 talks (248 clips) — inside-a-black-hole, introducing-nasas-curious-universe, introducing-nasas-curious-universe-season-two, introducing-season-four, our-cosmic-time-machine-the-james-webb-space-telescope, seasons-of-the-sun, the-crawlers
-- nasa-en-train-qwen: 7 talks (248 clips) — inside-a-black-hole, introducing-nasas-curious-universe, introducing-nasas-curious-universe-season-two, introducing-season-four, our-cosmic-time-machine-the-james-webb-space-telescope, seasons-of-the-sun, the-crawlers
+- none: every talk and NASA set holds only clips of talks of its source's current pinned listing
 
 Rebuild list — the sets a re-preparation with the corrected fetchers must
 re-run:
 
-- african-accented-fr-train — slr57 speaker: 3 clips
-- librispeech-pc-en-train — babble: 447 clips
-- librispeech-pc-en-train-40k — babble: 447 clips
-- nasa-en-train — eval class: 113 clips; nasa reserved: 113 clips
-- nasa-en-train-30k — eval class: 124 clips; nasa reserved: 124 clips
-- nasa-en-train-qwen — eval class: 113 clips; nasa reserved: 113 clips
-- peertube-edu-fr-train-40k — eval class: 248 clips; in-set re-upload: 186 clips (sized set)
-- peertube-fr-train-40k — in-set re-upload: 154 clips (sized set)
-- peertube-tech-fr-train-40k — eval class: 400 clips; in-set re-upload: 1118 clips (sized set)
-- voxpopuli-fr-train — vox session: 1956 clips
-- voxpopuli-fr-train-40k — vox session: 4815 clips
+- (none)
 
 Not rebuilt:
 
