@@ -169,7 +169,24 @@ listed in `configs/suites/full.yaml`. A run is refused when
   the hash of the prepared clip's PCM, so this is that prepared audio byte for
   byte), or
 - a training clip is **named after** an evaluation dataset (its id prefix is
-  one of the suite's dataset names).
+  one of the suite's dataset names), or
+- a training clip of a talk or NASA source — or of a dataset derived from one,
+  a relabelled set of the source's own clips — is a **duplicate of a talk or
+  episode of a prepared evaluation set** — the re-upload, re-release or replay
+  of an evaluation recording, whose prepared audio is other bytes. The talks
+  of a source fall into [duplicate classes](datasets.md#no-overlap-with-the-evaluation-sets),
+  computed over the source's pinned listing the way its preparations compute
+  them, and a class that holds a group of a prepared evaluation set is refused
+  whole,
+- or, in a run that is not a resume, a training clip is a **babble utterance
+  of the noisy evaluation sets**: the babble a prepared noisy set mixes is the
+  committed corpus ids of `src/audiolab/data/babble_utterances.json`, taken
+  from the two babble pools ([`mls-fr-train`](datasets.md#mls-fr-train--read-audiobook-french)
+  and [`librispeech-en-train`](datasets.md#librispeech-en-train--read-audiobook-english)),
+  and a training run must not hold an utterance a frozen panel mixes under it
+  (tracked as [C-01](../backlog.md)). Resuming a run is not a new run, so a run
+  that started before this rule and holds a babble utterance may still be
+  resumed; the babble is the one check a resume does not apply.
 
 An evaluation dataset that is not prepared on this machine cannot be checked:
 the run prints one warning line naming it and goes on with a partial check,
@@ -177,15 +194,22 @@ rather than failing. The check prints a one-line summary of what it did.
 
 What the guard does **not** do: it does not compare group ids across different
 corpora, because ids collide by accident across corpora, and it does not
-recognize a recording that is only the *same one*: the same audio cut, trimmed,
-resampled, re-encoded or levelled differently hashes to something else and
-passes. Keeping evaluation recordings out of a training preparation stays the
-job of the fetchers, through their `evaluation_groups` exclusion; the guard is
-the last check, on the clips a run is actually about to train. What it checked
-is recorded in `train.json` under `leakage_guard` — the datasets checked, the
-missing ones, the number of training clips checked. It is never in `config.json`,
-because a resume is checked against that file field by field, and a new key
-there would refuse every run written before the guard existed.
+recognize a recording that is only the *same one* when the class rules cannot
+say so: speech re-recorded or re-edited under another title and another
+length, or the same audio cut, trimmed, resampled, re-encoded or levelled
+differently, hashes to something else and passes. The classes exist only for
+the talk and NASA sources; a clip of any other source is checked by the
+`sha256` and the name, and by nothing else. A talk or episode the source's
+pinned listing does not hold has no class at all, so a clip of it passes the
+class check without a word: the guard, like the preparations, only knows the
+listing. Keeping evaluation recordings out
+of a training preparation stays the job of the fetchers, through their
+`evaluation_groups` and duplicate-class exclusions; the guard is the last
+check, on the clips a run is actually about to train. What it checked is
+recorded in `train.json` under `leakage_guard` — the datasets checked, the
+missing ones, the number of training clips checked. It is never in
+`config.json`, because a resume is checked against that file field by field,
+and a new key there would refuse every run written before the guard existed.
 
 ### Noise and reverberation
 

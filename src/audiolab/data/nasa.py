@@ -544,6 +544,10 @@ SOURCE = TalkSource(
     lister=list_episodes,
     audio_url=lambda http, episode: episode.file,
     spread_by=lambda episode: episode.channel,
+    # The evaluation sets prepared from this listing: their episodes are the
+    # reserved list below, left out of every training preparation (decision
+    # 0002) and checked against by the training-time guard.
+    evaluation_datasets=("nasa-en-test", "nasa-en-test-v2"),
 )
 
 

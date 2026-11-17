@@ -137,17 +137,21 @@ def run_training(
             max_seconds=config.max_clip_seconds,
         )
         print_line(_clips_line(config.dataset, drawn))
+    # Whether this start resumes a run that already started. The guard runs on
+    # every start, but the babble rule is a new-run rule: a resume of a run
+    # that started before it is checked for the other things alone.
+    resuming = not fresh and resume_checkpoint(directory) is not None
     # Before the model is loaded and before anything is written: a run that
     # would train on what the suite scores is refused, and a refusal costs no
     # directory and no GPU time.
-    guard = check_leakage(drawn.clips, data_dir=data_dir, print_line=print_line)
+    guard = check_leakage(drawn.clips, data_dir=data_dir, resuming=resuming, print_line=print_line)
     # Built before the resume check: the hash of each bank manifest is part of
     # what a resume is checked against, so a bank re-prepared between a stop
     # and a resume is refused, and a bank that is missing is reported before
     # anything is written.
     banks = _bank_manifests(config, data_dir)
     started = _start_payload(config, base, base_identity, drawn, banks)
-    if not fresh and resume_checkpoint(directory) is not None:
+    if resuming:
         _refuse_a_different_run(directory, started)
     prepare_run_dir(directory, fresh=fresh)
     # Written before the first update, and never rewritten: this is what a later
@@ -167,7 +171,7 @@ def run_training(
         clips=drawn,
         base=base,
         base_identity=base_identity,
-        resuming=not fresh and resume_checkpoint(directory) is not None,
+        resuming=resuming,
         augmentation=augmentation,
     )
     print_line(
