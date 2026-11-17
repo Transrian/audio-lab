@@ -13,6 +13,7 @@ feature of the maintained `audiolab` core
 | [Leakage audit](leakage-audit/README.md) | Reproduce the VoxPopuli session-overlap table from the two prepared manifests | [sessions.py](leakage-audit/sessions.py) |
 | [Leakage audit — content level](leakage-audit/README.md) | 6-word text-shingle overlap between evaluation and training sets: the same speech (re-upload, republication, replay) is a leak, a shared host or another reader of the same text is not; feeds `src/audiolab/data/duplicates.json` | [content.py](leakage-audit/content.py) |
 | [Leakage audit — rebuild impact](leakage-audit/README.md) | Read-only: what each corrected fetcher's exclusion rule removes from each prepared training set, and the list of the sets a re-preparation must re-run | [impact.py](leakage-audit/impact.py) |
+| [NASA filters](nasa-filters/README.md) | The read-only facts behind the NASA source's open questions: what the edge-word gate drops per show, what the first screen's hallucinations look like, and Curious Universe's share of the prepared set | [analyze.py](nasa-filters/analyze.py) |
 
 The [research index](../docs/research/README.md) links questions and findings.
 The [backlog](../docs/backlog.md) tracks open work and pauses; creating an

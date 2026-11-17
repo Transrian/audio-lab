@@ -541,14 +541,21 @@ Three kinds of clip that must stay silent, 300 in total:
 
 ## `nasa-en-test` — NASA's podcasts, the human-transcribed evaluation set
 
-- **Source**: the same pinned listing as
+- **Source**: 60 episodes of the source's pinned listing, chosen by the
+  reservation rule of
+  [`nasa.py`](../../src/audiolab/data/nasa.py) on 2026-11-13: an episode is
+  reserved when it is in the listing, its show is not in
+  `EXCLUDED_SHOWS` (NASA's Curious Universe), its groups the `nasa-en-train`
+  preparations of the time hold are out, and of the rest
+  `sha256("nasa-test-" + episode id)` is among the first 60, at most 15 of a
+  show. The set was prepared that day from the listing then pinned — the one
+  of 2026-11-09 (774 episodes; the preparation log's "listing of 2026-11-09:
+  774 episodes; 60 reserved for nasa-en-test") — and the listing was re-pinned
+  the same day to the one of 2026-11-13 (768 episodes, NASA's Curious Universe
+  left out of the shows the source reads), which holds the same 60 and is the
+  one
   [`nasa-en-train`](#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts)
-  (768 episodes, four shows, 2026-11-13), of which 60 are the set's episodes:
-  on 2026-11-13 the reservation rule chose them from the listing (the episodes
-  whose groups the `nasa-en-train` preparations of the time hold are out,
-  NASA's Curious Universe is out, and of the rest the first 60 by
-  `sha256("nasa-test-" + episode id)`, at most 15 of a show) and they are
-  committed in
+  reads. They are committed in
   [`nasa_test_episodes.json`](../../src/audiolab/data/nasa_test_episodes.json),
   so the set is the same on every machine and run. It comes out 15 of each of
   the four shows — 30.2 h of episodes (median episode 26 minutes).
@@ -2990,6 +2997,35 @@ this preparation leaves them out (decision 0002).
   screen's English harm is gone. The re-preparation of 2026-11-16 writes none
   of them either: its 12 000 clips hold no character the base model cannot
   write.
+
+  **The first preparation's edge gate, per show** — historical, as measured by
+  [`analyze.py`](../../experiments/nasa-filters/analyze.py) of
+  [experiments/nasa-filters](../../experiments/nasa-filters/README.md) at
+  commit `4944555` on 2026-11-13 and not recomputed since: its per-clip cache
+  is shared with the 30 000-clip preparation and the re-preparation of
+  2026-11-16, and the script now refuses when the cache holds episodes the
+  analysed preparation never read — on the shared cache of 2026-11-17 it
+  holds 16 894 answers in its 265 episodes, of which 13 834 are that run's,
+  and the episode check does not see the other 3 060 inside them. Of the
+  13 834 clips the first (typographic) preparation asked the base model
+  about, the gate dropped:
+
+  | show | gate-dropped | rate |
+  | --- | --- | --- |
+  | Houston We Have a Podcast | 595 | 12.9 % |
+  | NASA in Silicon Valley | 458 | 19.3 % |
+  | Small Steps, Giant Leaps | 400 | 12.1 % |
+  | Gravity Assist | 361 | 11.0 % |
+  | NASA's Curious Universe | 20 | 7.4 % |
+  | total | 1 834 of 13 834 | 13.3 % |
+
+  The first screen's hallucination count on the non-speech panel: 15 of the
+  29 non-empty answers look like podcast speech (three or more words with two
+  of them different) as measured at commit `4944555`, which counted the
+  pieces of a contraction the unknown token broke as separate words; counting
+  the broken contraction as the one word it is makes it 12 of the 29 — the
+  rule the script's speech-likeness check now applies. 8 of the 29 hold the
+  tokenizer's unknown token `⁇`.
 - **Group**: the recording (`group_kind: recording`), the episode, by the slug of
   its page; at most 200 clips from one episode, as for every source.
 - **Why it is here**: conversational technical English — interviews of

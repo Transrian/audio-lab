@@ -24,8 +24,18 @@ touched:
 The script is strictly read-only: it reads manifests, the Parakeet per-clip
 answer cache, one evaluation run's records and prints to standard output.
 It opens no audio, sends no request, starts no server, and writes nothing
-under the data, runs or cache roots, not even a temporary file. See the
-adjacent README for the environment, the command and the limits.
+under the data, runs or cache roots, not even a temporary file.
+
+The gate table is the analysed preparation's own only when the cache is its
+own answer cache: the cache directory is shared by every preparation of the
+source that reads it, and a shared cache holds other preparations' asks.
+The check is on the episodes: the script refuses with exit 2 when the cache
+holds episodes the analysed preparation never read. Inside the episodes it
+read it does not see another preparation's extra asks — the shared
+preparation's longer prefix — so the refusal is the guard the existing files
+allow, and the tables it prints are the preparation's own only while the
+cache is its own answer cache. See the adjacent README for the environment,
+the command and the limits.
 """
 
 from __future__ import annotations
@@ -51,6 +61,9 @@ KEY = re.compile(r"^(\d+\.\d{2})-(\d+\.\d{2})$")
 # What a word is for the speech-likeness count: a token with a letter (the
 # unknown token and stray symbols are not words).
 WORD = re.compile(r"[a-z]")
+# The base model's unknown token: where it has no piece for a character, it
+# writes this, and the word the character stood in splits around it.
+UNKNOWN = "\u2047"
 
 
 def show_of(author: str) -> str:
@@ -147,8 +160,39 @@ def words(text: str) -> list[str]:
     The unknown token and stray symbols are not words: the scorer reads them
     as word breaks, and they should not make an interjection look like speech.
     "Yeah," and "yeah." are one word, so the punctuation goes before the count.
+    Where the model has no piece for a character it writes the unknown token,
+    and the word the character stood in splits around it ("I'm" into "I" +
+    "m"): the two halves count as the one word they were — "i'm" — so "I ⁇ m
+    just." is the two words "i'm" and "just", not speech, and "It ⁇ s new." is
+    "it's" and "new".
     """
-    return [token.strip(".,;:!?…").lower() for token in text.split() if WORD.search(token.lower())]
+    tokens = text.split()
+    out = []
+    i = 0
+    while i < len(tokens):
+        word = tokens[i].strip(".,;:!?…").lower()
+        if word == UNKNOWN:
+            # The broken word: the half counted last (if any) and the piece
+            # that follows (if it holds a letter).
+            left = out.pop() if out else ""
+            right = ""
+            if i + 1 < len(tokens):
+                piece = tokens[i + 1].strip(".,;:!?…").lower()
+                if WORD.search(piece):
+                    right = piece
+                    i += 1
+            if left and right:
+                out.append(left + "'" + right)  # the word it was: "i'm"
+            elif left or right:
+                out.append(left + right)
+            i += 1
+            continue
+        if not WORD.search(word):
+            i += 1
+            continue
+        out.append(word)
+        i += 1
+    return out
 
 
 def speech_like(text: str) -> bool:
@@ -157,7 +201,9 @@ def speech_like(text: str) -> bool:
     A bare "Oh", a repeated "Yeah, yeah, yeah." or a siren read as "BIT! BIT!"
     is a sound the model made of nothing; a stretch of at least three words
     with two different words in it ("So they use the two microphones.") is the
-    shape of the podcast speech the run learns, so it counts as speech.
+    shape of the podcast speech the run learns, so it counts as speech. A
+    contraction the unknown token broke counts as the one word it was ("I ⁇ m
+    just." is "i'm" and "just", two words, not speech).
     """
     seen = words(text)
     return len(seen) >= 3 and len(set(seen)) >= 2
@@ -204,6 +250,40 @@ def cache_starts(path: Path) -> set[int]:
             raise ValueError(f"{path}:{number}: the key {key!r} is not a clip stretch")
         starts.add(round(float(match.group(1)) * 100))
     return starts
+
+
+def cache_fit(cache_dir: Path, suffix: str, clips) -> str | None:
+    """Why the cache is not the analysed preparation's own answer cache, or None.
+
+    The gate table is "asked in the cache − kept in the analysed preparation";
+    that is that preparation's own gate only when the cache is its own answer
+    cache. The comparison is on the episodes: the preparation asked the base
+    model about the clips of the episodes it read, every episode it read kept
+    at least one clip, so the manifest's episodes are exactly the episodes its
+    cache holds. The check is on the episodes, not the individual starts: a
+    preparation's own gate-dropped clips are in the cache and out of its set —
+    that is what the table measures — and the ones at an episode's edges sit
+    outside the kept clips' time range. The cache directory is shared by every
+    preparation of the source that reads it (the 30 000-clip preparation, a
+    re-preparation), so a shared cache holds other preparations' episodes, and
+    counting their asks as gate drops would mix preparations. What the check
+    does not see: the shared cache's extra asks inside the same episodes the
+    preparation read — the longer prefixes the larger preparations read
+    there — which only a record of what this preparation asked would separate,
+    and no such file exists.
+    """
+    episodes = {clip.group.removeprefix(GROUP_PREFIX) for clip in clips}
+    foreign: list[tuple[str, int]] = []
+    for path in sorted(cache_dir.glob(f"*{suffix}")):
+        slug = path.name[: -len(suffix)]
+        if slug not in episodes:
+            foreign.append((slug, len(cache_starts(path))))
+    if not foreign:
+        return None
+    return (
+        f"{sum(n for _, n in foreign)} cached clips of {len(foreign)} episodes the "
+        f"analysed preparation never read (first: {', '.join(s for s, _ in foreign[:3])})"
+    )
 
 
 def table_edge_gate(cache_dir: Path, suffix: str, clips, old_clips) -> str:
@@ -369,8 +449,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--old-dataset",
-        default="nasa-en-train.curly-2026-11-09",
-        help="the first, typographic, preparation (default: nasa-en-train.curly-2026-11-09)",
+        required=True,
+        help="the analysed preparation: the first, typographic, one. Its edge "
+        "gate is the one the table reports, and the cache must be its own "
+        "answer cache (the script refuses entries outside it)",
     )
     parser.add_argument(
         "--eval-run",
@@ -434,6 +516,20 @@ def main(argv: list[str] | None = None) -> int:
     suffix = f".{args.base_model}.clips.jsonl"
     if not any(clip_cache.glob(f"*{suffix}")):
         print(f"analyze: no {suffix} files in {clip_cache}", file=sys.stderr)
+        return 2
+
+    foreign = cache_fit(clip_cache, suffix, old_clips)
+    if foreign is not None:
+        print(
+            f"analyze: the cache holds episodes the analysed preparation "
+            f"{args.old_dataset} never read: {foreign}. The gate table is "
+            "asked-in-cache minus kept-in-that-preparation, which is that "
+            "preparation's own gate only for its own answer cache; the check "
+            "is on the episodes it read, so it does not see the shared "
+            "cache's extra asks inside those same episodes. Refusing a "
+            "cache that holds foreign episodes.",
+            file=sys.stderr,
+        )
         return 2
 
     print(table_by_show(clips))

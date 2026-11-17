@@ -34,8 +34,10 @@ Inputs, all read-only, from the environment
   typographic, preparation it was rewritten from;
 - `$AUDIOLAB_DATA/nonspeech/manifest.jsonl` — the category of each
   non-speech clip;
-- `$AUDIOLAB_CACHE/audiolab/nasa-en-train/*.stt-c-parakeet-tdt-0.6B-v3.clips.jsonl`
-  — the base model's answer for every clip the gate asked about;
+- `$AUDIOLAB_CACHE/nasa-en-train/*.stt-c-parakeet-tdt-0.6B-v3.clips.jsonl`
+  — the base model's answer for every clip the gate asked about; the
+  directory is shared by every preparation of the source that reads it (the
+  30 000-clip preparation, the re-preparation of 2026-11-16);
 - `$AUDIOLAB_RUNS/eval/screen-nasa-en/full/records.jsonl` — the first screen's
   answers.
 
@@ -49,17 +51,34 @@ uv run python experiments/nasa-filters/analyze.py --help
 
 ```bash
 set -a; . ./.env; set +a
-uv run python experiments/nasa-filters/analyze.py
+uv run python experiments/nasa-filters/analyze.py \
+  --old-dataset nasa-en-train.curly-2026-11-09
 ```
 
-Flags override every default: `--data-dir`, `--runs-dir`, `--cache-dir`,
-`--dataset` (default `nasa-en-train`), `--old-dataset` (default
-`nasa-en-train.curly-2026-11-09`), `--eval-run` (default
+The script analyzes one preparation — the first, typographic, one — and its
+edge gate is the one table 4 reports, so `--old-dataset` is required. The
+tables are that preparation's only when the cache is its own answer cache:
+the cache directory is shared with the source's other preparations, so the
+script compares the cache's episodes to the analysed preparation's manifest
+and **refuses with exit `2`** when the cache holds episodes that preparation
+never read — on the shared cache of today's preparations it prints the
+refusal instead of a table. The check is on the episodes, not on the
+individual clips: inside the episodes the preparation read, the shared
+cache's extra asks (the other preparations' longer prefixes) are not seen,
+and no file records what this preparation asked, so the refusal is the guard
+the existing files allow. The refusal holds every table back, and the script
+cannot run at all once the analysed preparation is gone — the edge-gate table
+measured on 2026-11-13, while the cache still held only the first
+preparation's answers, is committed as historical on the
+[`nasa-en-train` card](../../docs/stt/datasets.md#nasa-en-train--nasas-podcasts-labelled-from-nasas-own-transcripts).
+
+Flags override the rest of the defaults: `--data-dir`, `--runs-dir`,
+`--cache-dir`, `--dataset` (default `nasa-en-train`), `--eval-run` (default
 `<runs-dir>/eval/screen-nasa-en/full`), `--panel` (default `nonspeech-full`)
 and `--base-model` (default `stt-c-parakeet-tdt-0.6B-v3`, the name its
 per-clip cache files carry). The tables go to standard output; a missing
-manifest, a missing run or a malformed cache file is a standard-error error
-with exit `2`.
+manifest, a missing run, a malformed cache file or a cache with episodes the
+analysed preparation never read is a standard-error error with exit `2`.
 
 ## Output
 
@@ -78,7 +97,9 @@ with exit `2`.
    line per clip, keyed by the clip's stretch of audio); `gate-dropped`: the
    asked clips the first set does not hold; `rewrite-dropped`: the clips the
    first set holds that the current set does not (the label rewrite lost them
-   to a character still outside the vocabulary, not to the gate).
+   to a character still outside the vocabulary, not to the gate). The table
+   prints only when the cache is the analysed preparation's own answer cache;
+   a shared cache is a refusal before any table.
 5. **The characters of the current set's labels** — the clips that hold a
    character the base model cannot write, the same check as
    [label-text](../label-text/); a clean set prints the zero line.
@@ -88,9 +109,15 @@ with exit `2`.
 - The match between a manifest clip and its cached answer is the clip's start:
   the id carries it in centiseconds, the cache key in seconds with two
   decimals, so the two are the same number and the match is exact.
-- `gate-dropped` is the difference "in the cache but not in the first set",
-  which the preparation's order guarantees to be the gate's own drops: every
-  clip of the first set was asked, and no other rule drops an asked clip.
+- `gate-dropped` is the difference "in the cache but not in the first set".
+  For the analysed preparation's own answer cache, that difference is the
+  gate's own drops when no other rule refused an asked clip: every clip of
+  the first set was asked, and the cache holds nothing else of the episodes
+  it read. On the 2026-11-13 data that held — the asked total matched the
+  preparation's own report. The cache directory is shared with the source's
+  other preparations, whose asks the difference would count as gate drops, so
+  the script refuses a cache holding episodes the analysed preparation never
+  read instead of printing the table.
 - The dropped clips' `base_wer` is **not recorded**: the cache holds the base
   model's raw text for each asked clip but not its label, so the error of a
   dropped clip cannot be computed from the existing files. Getting it would
@@ -101,11 +128,15 @@ with exit `2`.
   so the rule's borderlines stay visible.
 - The script opens no audio, sends no request and starts no server, and
   writes nothing under the data, runs or cache roots, not even a temporary
-  file: re-running it changes nothing and says the same.
+  file; what it prints depends on the cache's state — the tables while the
+  cache is the analysed preparation's own, the refusal once it is shared.
 
 [Tests](../../tests/test_nasa_filters.py) run the tables on synthetic
 manifests, a synthetic per-clip cache and synthetic run records: the per-show
-rows, the share, the speech-likeness rule, the gate's arithmetic (asked,
-dropped, rewrite, and the failure on a kept clip with no cached answer), the
-zero line of the character check, and a snapshot assertion that nothing under
-the input roots is created, written or renamed.
+rows, the share, the speech-likeness rule (the unknown token is not a word,
+and the two halves of the word it broke count as the one word they were), the
+gate's arithmetic (asked, dropped, rewrite, and the failure on a kept clip
+with no cached answer), the refusal of a cache holding an episode the
+analysed preparation never read, the refusal of a command without
+`--old-dataset`, the zero line of the character check, and a snapshot
+assertion that nothing under the input roots is created, written or renamed.

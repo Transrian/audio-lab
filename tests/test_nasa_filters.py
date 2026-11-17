@@ -158,7 +158,16 @@ def main_in(tmp_path: Path, argv: list[str] | None = None) -> int:
 
 
 def run(data: Path, runs: Path, cache: Path, argv: list[str] | None = None) -> int:
-    args = ["--data-dir", str(data), "--runs-dir", str(runs), "--cache-dir", str(cache)]
+    args = [
+        "--data-dir",
+        str(data),
+        "--runs-dir",
+        str(runs),
+        "--cache-dir",
+        str(cache),
+        "--old-dataset",
+        "nasa-en-train.curly-2026-11-09",
+    ]
     return nasa_filters.main(args + (argv or []))
 
 
@@ -187,9 +196,21 @@ def test_missing_environment_is_exit_2(monkeypatch, capsys):
     for variable in ("AUDIOLAB_DATA", "AUDIOLAB_RUNS", "AUDIOLAB_CACHE"):
         monkeypatch.delenv(variable, raising=False)
     with pytest.raises(SystemExit) as error:
-        nasa_filters.main([])
+        nasa_filters.main(["--old-dataset", "nasa-en-train.curly-2026-11-09"])
     assert error.value.code == 2
     assert "AUDIOLAB_DATA" in capsys.readouterr().err
+
+
+def test_old_dataset_is_required(tmp_path, capsys):
+    data, runs, cache = world(tmp_path)
+    # The analysed preparation has no default: it is the first, typographic,
+    # one, and the command must name it.
+    with pytest.raises(SystemExit) as error:
+        nasa_filters.main(
+            ["--data-dir", str(data), "--runs-dir", str(runs), "--cache-dir", str(cache)]
+        )
+    assert error.value.code == 2
+    assert "--old-dataset" in capsys.readouterr().err
 
 
 def test_table_by_show(tmp_path, capsys):
@@ -215,11 +236,13 @@ def test_table_hallucinations(tmp_path, capsys):
     # The empty answer and the other panel stay out; the newest record wins.
     assert "| noise | 'Yeah.' |  |" in out
     assert "| animals/dog | 'So they use the two microphones.' | yes |" in out
-    assert "| human/laughing | 'It \u2047 s new.' | yes |" in out
+    # The broken contraction is the one word it was: "it's" and "new" are
+    # two words, not speech.
+    assert "| human/laughing | 'It \u2047 s new.' |  |" in out
     assert "'Oh'" not in out
     assert "an answer on another panel" not in out
     assert "3 non-empty answers" in out
-    assert "2 of the 3 answers look like podcast speech" in out
+    assert "1 of the 3 answers look like podcast speech" in out
     assert "1 hold the tokenizer's unknown token" in out
 
 
@@ -259,6 +282,18 @@ def test_table_characters_clean(tmp_path, capsys):
     assert "0 clips hold a character the base model cannot write." in out
 
 
+def test_cache_with_foreign_episode_refuses(tmp_path, capsys):
+    data, runs, cache = world(tmp_path)
+    # An episode the analysed preparation never read (a larger preparation's
+    # ask, in the shared cache): the gate table would count its clips as drops.
+    write_cache(cache, "ep-three", [1000])
+    assert run(data, runs, cache) == 2
+    err = capsys.readouterr().err
+    assert "ep-three" in err
+    assert "analysed preparation" in err
+    assert "gate" in err
+
+
 def test_table_characters_dirty(tmp_path, capsys):
     data, runs, cache = world(tmp_path)
     write_manifest(data, "dirty", [clip_line("ep-one", 1000, "Show A", text="« a »")])
@@ -288,7 +323,6 @@ def test_speech_like():
     # The shape rule: three or more words with two of them different.
     assert nasa_filters.speech_like("So they use the two microphones.")
     assert nasa_filters.speech_like("This is mist! This is mist!")
-    assert nasa_filters.speech_like("It \u2047 s new.")
     assert nasa_filters.speech_like("Oh, no, no, no.")
     assert not nasa_filters.speech_like("Oh")
     assert not nasa_filters.speech_like("Yeah.")
@@ -300,3 +334,14 @@ def test_speech_like():
     assert not nasa_filters.speech_like("Oh! Oh! Oh, oh!")
     # The unknown token is not a word.
     assert not nasa_filters.speech_like("\u2047 \u2047 \u2047")
+    # A contraction the unknown token broke is the one word it was: "I ⁇ m
+    # just." is "i'm" and "just" (two words, not speech), "It ⁇ s new." is
+    # "it's" and "new" (not speech), "That ⁇ s great." the same, and "I ⁇ m
+    # just here." is three words (speech).
+    assert nasa_filters.words("I \u2047 m just.") == ["i'm", "just"]
+    assert nasa_filters.words("It \u2047 s new.") == ["it's", "new"]
+    assert nasa_filters.words("That \u2047 s great.") == ["that's", "great"]
+    assert not nasa_filters.speech_like("I \u2047 m just.")
+    assert not nasa_filters.speech_like("It \u2047 s new.")
+    assert not nasa_filters.speech_like("That \u2047 s great.")
+    assert nasa_filters.speech_like("I \u2047 m just here.")
