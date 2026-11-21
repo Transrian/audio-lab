@@ -7,9 +7,10 @@ the rules it measured are now normalizer **version 2** of
 what campaign 1 uses (see [evaluation.md § 5](../../docs/stt/evaluation.md#5-text-normalization-three-views-two-versions)).
 The diagnostic itself is unchanged: it re-reads runs that were scored under the
 frozen version 1 and adds the rules on top of them, which is why `rescore.py`
-defaults to `--normalizer 1`. Scoring a run with version 2 is now a plain
-`audiolab score RUN --normalizer 2`, and the numbers of this diagnostic stay the
-ones published in [screening.md](../../docs/stt/screening.md).
+defaults to `--normalizer 1`. Scoring a run with version 2 is now what a plain
+`audiolab score RUN` does (version 2 is the default; `--normalizer 1` asks for the
+frozen rules), and the numbers of this diagnostic stay the ones published in
+[screening.md](../../docs/stt/screening.md).
 
 ## Question
 
