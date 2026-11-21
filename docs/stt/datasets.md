@@ -795,13 +795,23 @@ Three kinds of clip that must stay silent, 300 in total:
   its twin: 13 clips of sealed content (7 of one talk, 6 of the other) are
   in the full panel, 3 of them also in fast, and every run scored on the
   full panel — the reference runs and the screening and noise runs among
-  them — has scored them. The panels are frozen, so this is recorded, not
-  repaired. The owner's answer (2026-11-16,
+  them — has scored them. A third class was found on 2026-11-21
+  ([proposed decision 0017](../decisions/proposed/0017-campaign-1-test-freeze.md) § 3):
+  `67e80486…` ("RPI_Vallee_de_la_Deme_2025", sealed here) and `cd06bad8…`
+  ("…_2026", scored in the full and fast panels) are one 3 068 s recording
+  uploaded under titles that differ by the year, so the title-and-length rule
+  of the duplicate finder (equal titles, durations within 2 s) does not join
+  them — 7 more clips of sealed content
+  in the full panel, 1 in fast, or 20 and 4 in total. The panels are frozen,
+  so this is recorded, not repaired. The owner's answer (2026-11-16,
   [O-12 in the backlog](../backlog.md#owner-review-needed)): the full-panel
   scores stand as written, and if the sealed panel is ever the final test of
-  a campaign, the primary number is pre-registered on the 840 clips of the 21
-  sealed talks outside the two classes, the 920 clips reported alongside; the
-  two classes stay out of the panels of the decoded set, as recorded on
+  a campaign, the primary number is pre-registered on the sealed clips outside
+  the split classes — 840 clips of the 21 talks by the 2026-11-16 reading,
+  800 clips of 20 talks once the third class is counted — the 920 clips
+  reported alongside, and which of the two readings is primary is the owner's
+  to confirm (0017 § 3); the classes the duplicate list joins stay out of the
+  panels of the decoded set, as recorded on
   [its card](#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded).
 
 ## `peertube-edu-captions-fr-v2` — the same talks, with the caption text decoded
@@ -909,6 +919,19 @@ Three kinds of clip that must stay silent, 300 in total:
   and the full and fast panels draw on the 98 talks left (600 and 100
   clips, the usual sizes); the four unpanelled talks' 160 clips stay in the
   manifest, just not scored.
+- **The third split class reaches this set's sealed panel**: `67e80486…`
+  ("RPI_Vallee_de_la_Deme_2025") is sealed here, and `cd06bad8…` ("…_2026"),
+  the same 3 068 s recording under a title the year apart, is scored in this
+  set's full (6 clips) and fast (1) panels — the duplicate finder joins equal
+  titles with durations within 2 s, and these two titles differ by the year,
+  so this class is not one of the four unpanelled talks and the build could
+  not refuse it. The decoded sealed panel is therefore **not**
+  pristine: 7 items of this set's frozen panels are audio-identical to sealed
+  clips, and its number outside every split class is 894 clips of 23 talks
+  against the 934 figure reported alongside (found 2026-11-21,
+  [proposed decision 0017](../decisions/proposed/0017-campaign-1-test-freeze.md) § 3).
+  The decoded set's sealed panel stays as built: the panels are frozen and
+  the scores stand.
 - **No overlap with the training set** (decision 0002): the one talk the
   training set holds is left out, as in the first set, and the talk training
   preparations leave both sets' talks out of every preparation they make.
