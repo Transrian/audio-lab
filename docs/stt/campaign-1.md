@@ -72,6 +72,11 @@ difference is *separable* when its paired 95 % interval stays away from zero.
    loss: a `mix-v1-n40` minus `mix-v1` interval wholly above zero whose point
    estimate is larger than the best qualifying noisy gain of 1.
 
+Magnitudes are compared in points, whatever the metric — WER points on a speech
+panel, hallucination-rate points on a `nonspeech*` one — as the screening's own
+rule compares its `B − A` differences ([screening.md, "Matched control: the
+rule, before the numbers"](screening.md#matched-control-the-rule-before-the-numbers)).
+
 Otherwise the result is **"not shown at recipe scale"**, and proposed decision
 0015 option 1 — the baseline keeps no noise — is what the campaign's baseline
 already does.
