@@ -63,3 +63,4 @@ Never invent alternatives after the fact.
 | [0014](accepted/0014-voxpopuli-shared-sessions.md) | stt | accepted | VoxPopuli: train clips from the evaluation set's plenary sessions |
 | [0015](proposed/0015-noise-augmentation-in-the-baseline-recipe.md) | stt/parakeet-fr | proposed | Noise augmentation in the baseline recipe |
 | [0016](proposed/0016-training-mix-v1.md) | stt | proposed | Training mix v1 |
+| [0017](proposed/0017-campaign-1-test-freeze.md) | stt | proposed | Campaign 1 test freeze |
