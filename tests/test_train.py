@@ -349,6 +349,43 @@ def test_the_mix_form_of_to_dict_records_the_shares_and_nothing_about_the_single
     assert "dataset" not in recorded and "clips" not in recorded
 
 
+def test_the_committed_mix_v1_is_the_baseline_recipe_without_noise():
+    """The recipe the baseline run trains on: decision 0004's settings, decision 0016's mix.
+
+    The file is data, so an edit to a row or a rate would otherwise reach a GPU
+    run unnoticed. The numbers pinned here are the ones proposed decision 0016's
+    table writes (the rows, in its order, and the 151 882-clip total) and
+    decision 0004's recipe; the noise fields are absent because the committed
+    recipe assumes proposed decision 0015, option 1. The committed ``gpu`` is
+    the placeholder a launch copy overrides with a machine's card, so no
+    committed config names a machine.
+    """
+    loaded = TrainConfig.from_file(REPO_ROOT / "configs" / "train" / "mix-v1.yaml")
+    assert loaded.name == "mix-v1"
+    assert loaded.clips == 151882 and loaded.exclusive is True
+    assert [(share.name, share.clips) for share in loaded.datasets] == [
+        ("granary-fr-train-40k", 37971),
+        ("peertube-tech-fr-train-40k", 22783),
+        ("peertube-fr-train-40k", 15188),
+        ("peertube-edu-fr-train-40k", 15188),
+        ("voxpopuli-fr-train-40k", 7594),
+        ("african-accented-fr-train", 7594),
+        ("librispeech-pc-en-train-40k", 15188),
+        ("debconf-en-train-30k", 11391),
+        ("fosdem-en-train-30k", 11391),
+        ("nasa-en-train-30k", 7594),
+    ]
+    # Decision 0004's recipe, at the screening configs' 16 clips per update.
+    assert (loaded.updates, loaded.batch_size, loaded.grad_accumulation) == (30000, 1, 16)
+    assert (loaded.lr_encoder, loaded.lr_heads, loaded.schedule) == (5.0e-6, 1.5e-5, "constant")
+    assert (loaded.weight_decay, loaded.max_clip_seconds) == (1.0e-3, 20.0)
+    # Proposed decision 0015, option 1: no noise, and no noise key recorded.
+    assert loaded.noise_prob == 0.0 and loaded.reverb_prob == 0.0
+    recorded = loaded.to_dict()
+    assert not {"noise_prob", "noise_bank", "noise_min_snr_db", "noise_max_snr_db"} & set(recorded)
+    assert loaded.gpu == "0"
+
+
 # --- the clips a run draws --------------------------------------------------------
 
 
