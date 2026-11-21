@@ -360,11 +360,12 @@ panels are what the campaign may look at while it works.
 - **No other sealed file's audio is scored.** The audio `sha256` of every clip
   of all 18 sealed files, cross-checked against all 36 `full` and `fast` panels:
   only the captions sets share any: `peertube-edu-captions-fr-sealed` 20 clips
-  in its own `full` panel (4 of them also in `fast`),
-  `peertube-edu-captions-fr-v2-sealed` 6 in its own `full` panel (1 also in
-  `fast`) and 7 in the first set's `full` panel (the `cd06bad8` clips; 1 also in
-  `fast`), so 20 and 7 distinct sealed clips — and every other sealed file
-  shares none. This cross-check is how § 3's third class was found.
+  in its own `full` panel (4 of them also in `fast`) and 6 in the v2 set's
+  `full` panel (1 also in `fast`), `peertube-edu-captions-fr-v2-sealed` 6 in its
+  own `full` panel (1 also in `fast`) and 7 in the first set's `full` panel (the
+  `cd06bad8` clips; 1 also in `fast`), so 20 and 7 distinct sealed clips — and
+  every other sealed file shares none. This cross-check is how § 3's third class
+  was found.
 - **The captions sealed panels are not talk-disjoint.** 21 of the v1 panel's
   23 talks are also in the v2 sealed panel; 831 of the 840 v1 clips outside the
   two O-12 classes match a v2 sealed clip by audio `sha256`, the 9 that do not
