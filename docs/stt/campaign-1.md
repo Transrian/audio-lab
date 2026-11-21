@@ -54,13 +54,13 @@ the clause at 2 000 updates on one source ([screening.md, "Noise
 augmentation"](screening.md#noise-augmentation)); this run measures it at the
 recipe's scale, on mix v1's data.
 
-**The comparison.** `audiolab compare --normalizer 2 BASE mix-v1-n40` and
-`audiolab compare --normalizer 2 mix-v1 mix-v1-n40`, `--json` for the per-panel
-numbers, on `full.yaml`, where BASE is the base run of proposed decision 0017
-§ 4, `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`. `mix-v1-n40` minus the
-base says where the arm sits; the noise's effect is the direct one, `mix-v1`
-versus `mix-v1-n40`. A panel's difference is *separable* when its paired 95 %
-interval stays away from zero.
+**The comparison.** `audiolab compare --normalizer 2 BASE $AUDIOLAB_RUNS/eval/mix-v1-n40/full`
+and `audiolab compare --normalizer 2 $AUDIOLAB_RUNS/eval/mix-v1/full $AUDIOLAB_RUNS/eval/mix-v1-n40/full`,
+`--json` for the per-panel numbers, on `full.yaml`, where BASE is the base run of
+proposed decision 0017 § 4, `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`.
+`mix-v1-n40` minus the base says where the arm sits; the noise's effect is the
+direct one, `mix-v1` versus `mix-v1-n40`. A panel's difference is *separable* when
+its paired 95 % interval stays away from zero.
 
 **The rule.** The noise **adds value** only if both hold:
 
