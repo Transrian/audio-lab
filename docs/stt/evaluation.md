@@ -303,11 +303,12 @@ fresh run records 2. `audiolab score` re-scores the stored records under the rul
 set it was asked for and writes the version it actually used, which is not the
 version in `run.json` of a run written earlier: a run directory written under
 version 1 and re-scored with no flag reports 2 in `summary.json` and `report.md`,
-and one re-scored with `--normalizer 1` reports 1. Because that rewrites the run
-directory in place, scoring a run whose numbers are published is done on a copy
-(`cp -a RUN RUN-<date>`), never on the published directory. The comparison says
-the version in its header, because two runs of different vintages say different
-things in their own files.
+and one re-scored with `--normalizer 1` reports 1. Scoring rewrites the run
+directory in place, so re-scoring a run whose numbers are published is best done
+on a copy (`cp -a RUN RUN-<date>`), leaving the published directory as it was
+cited. That copy is an agent's recommendation, not a project rule: no decision
+states it. The comparison says the version in its header, because two runs of
+different vintages say different things in their own files.
 
 | view | rule | example: reference vs hypothesis | equal? |
 | --- | --- | --- | --- |
