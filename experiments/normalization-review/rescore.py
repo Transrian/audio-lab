@@ -3,31 +3,31 @@
 
 This re-scores the per-clip answer files of finished runs (under $AUDIOLAB_RUNS)
 with the frozen normalizer (version 1, decision 0002) and, on top of it, the
-rules that became version 2 of ``audiolab.eval.normalize``:
+extra style rules of proposed decision 0013 as the published diagnostic ran
+them, on both sides (reference and hypothesis):
 
-- English contractions, both sides (reference and hypothesis), mapped to a
-  canonical expanded form from a fixed table, with the ``'s`` reading chosen by
-  its context (``has`` before ``been``/``got``/``gotten``, ``is`` after a
-  pronoun);
+- English contractions, mapped to a canonical expanded form from a fixed table,
+  with ``'s`` always read as ``is`` after a pronoun;
 - the French elision spacing: ``j' ai`` is scored as ``j'ai``.
 
-The rules are applied here to reproduce the diagnostic that motivated
-[proposed decision 0013] as it was run, against runs scored with version 1.
-Scoring a run with the official version 2 is now possible directly, with
-``audiolab score --normalizer 2``; this script's extra rules then only re-state
-what version 2 already does to the stored texts.
+Two things the official version 2 does are therefore **not** in this default,
+and each has a switch: ``'s`` before ``been``/``got``/``gotten`` is ``has`` only
+under ``--s-context`` (rule 2 of the proposal, which the published numbers
+predate), and scoring a run under version 2 at all needs ``--normalizer 2``
+*and* a run that records version 2.
 
-Nothing here is an official score. No file under ``src/audiolab/eval/`` is
-changed, and the numbers go through the official pipeline: tokenization and
-edit counts from ``audiolab.eval.metrics``, the per-group bootstrap and the
-paired difference interval from ``audiolab.eval.stats``. By default, every
+Nothing here is an official score: the numbers go through the official pipeline
+— tokenization and edit counts from ``audiolab.eval.metrics``, the per-group
+bootstrap and the paired difference interval from ``audiolab.eval.stats`` — and
+the diagnostic transform lives only in this script. By default, every
 candidate's official column is cross-checked against the official
 ``audiolab.eval.report.compare_runs`` and the run stops if they diverge.
 
-A run recorded under another normalizer version than the one selected
-(``--normalizer``, default 1, the version the diagnostic was measured with) is
-refused rather than scored under rules it was not produced with; the report says
-which version was used.
+A run whose ``run.json`` records another normalizer version than the one
+selected (``--normalizer``, default 1, the version the diagnostic was measured
+with) is refused rather than scored under rules it was not produced with; the
+report says which version was used. Since no screening run records 2,
+``--normalizer 2`` needs a run directory whose own ``run.json`` says 2.
 
 See the adjacent README for the question, the reproduction command, the
 ambiguities of the rule tables and the limits.
@@ -112,7 +112,9 @@ CONTRACTIONS: dict[str, str] = {
 # ``'s`` is ambiguous (contraction or possessive): it is expanded only after
 # these words, never for a possessive such as ``john's``. Which reading it takes
 # is rule 2 of proposed decision 0013: ``has`` before a participle ("it's been",
-# "he's got", "that's gotten"), ``is`` everywhere else.
+# "he's got", "that's gotten"), ``is`` everywhere else. The published diagnostic
+# predates that rule and read ``is`` everywhere, so rule 2 is the opt-in
+# ``--s-context``; a verbatim ``has`` then still counts as an error without it.
 S_PRONOUNS = ("it", "that", "there", "here", "what", "who", "he", "she", "where", "how")
 S_HAS_FOLLOWERS = frozenset({"been", "got", "gotten"})
 _S_PRONOUN_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s")
@@ -122,17 +124,20 @@ _S_PRONOUN_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s")
 # ``'d`` is never expanded: ``he'd`` is had or would, with no canonical form.
 
 
-def expand_contraction(token: str, following: str = "") -> str:
+def expand_contraction(token: str, following: str = "", s_context: bool = False) -> str:
     """The canonical expanded form of one case-folded token, or the token itself.
 
-    ``following`` is the next word, which is what tells the two readings of
-    ``'s`` apart.
+    ``following`` is the word after the token, and it is read only when
+    ``s_context`` is set: the two readings of ``'s`` are told apart by it (rule 2
+    of proposed decision 0013, ``has`` before ``been``/``got``/``gotten``), while
+    the default of this diagnostic reads every pronominal ``'s`` as ``is``.
     """
     if token in CONTRACTIONS:
         return CONTRACTIONS[token]
     match = _S_PRONOUN_RE.fullmatch(token)
     if match:
-        return f"{match.group(1)} {'has' if following.casefold() in S_HAS_FOLLOWERS else 'is'}"
+        verb = "has" if s_context and following.casefold() in S_HAS_FOLLOWERS else "is"
+        return f"{match.group(1)} {verb}"
     if token.endswith("'ll"):
         return f"{token[:-3]} will"
     if token.endswith("'ve"):
@@ -146,13 +151,13 @@ _CONTRACTION_TOKEN = re.compile(r"\b[a-z]+(?:'[a-z]+)*\b", re.IGNORECASE)
 _FOLLOWING_WORD = re.compile(r"[a-z]+", re.IGNORECASE)
 
 
-def apply_contractions(text: str) -> str:
+def apply_contractions(text: str, s_context: bool = False) -> str:
     """Expand the contractions of ``text``; everything else stays as written."""
 
     def expand(match: re.Match) -> str:
-        following = _FOLLOWING_WORD.search(text, match.end())
+        following = _FOLLOWING_WORD.search(text, match.end()) if s_context else None
         return expand_contraction(
-            match.group(0).casefold(), following.group(0) if following else ""
+            match.group(0).casefold(), following.group(0) if following else "", s_context
         )
 
     return _CONTRACTION_TOKEN.sub(expand, text)
@@ -185,25 +190,25 @@ def _ascii(text: str) -> str:
     return folded
 
 
-def _contractions_only(text: str) -> str:
-    return apply_contractions(_ascii(text))
+def _contractions_only(text: str, s_context: bool = False) -> str:
+    return apply_contractions(_ascii(text), s_context)
 
 
 def _elision_only(text: str) -> str:
     return apply_elision(_ascii(text))
 
 
-def diagnostic_text(text: str) -> str:
+def diagnostic_text(text: str, s_context: bool = False) -> str:
     """The full diagnostic transform: both rules, on ASCII-folded text."""
-    return apply_elision(apply_contractions(_ascii(text)))
+    return apply_elision(apply_contractions(_ascii(text), s_context))
 
 
-def transform_for(rules: str) -> Callable[[str], str]:
+def transform_for(rules: str, s_context: bool = False) -> Callable[[str], str]:
     """The text transform the diagnostic column uses; ``none`` is the official view."""
     if rules == "both":
-        return diagnostic_text
+        return lambda text: diagnostic_text(text, s_context)
     if rules == "contractions":
-        return _contractions_only
+        return lambda text: _contractions_only(text, s_context)
     if rules == "elision":
         return _elision_only
     if rules == "none":
@@ -366,6 +371,7 @@ def rescore(
     *,
     rules: str = "both",
     normalizer: int = V1,
+    s_context: bool = False,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
     verify_official: bool = True,
@@ -373,12 +379,16 @@ def rescore(
     """Re-score every candidate against the base, official and diagnostic.
 
     The official column is the pipeline applied to the runs' records under
-    ``normalizer``; the diagnostic column applies ``transform_for(rules)`` to
-    both sides before it. ``verify_official`` cross-checks every candidate's
-    official column against the official ``compare_runs`` and raises Problem on
-    any divergence, which is what a wrong pairing would look like. A candidate
-    may be a path or a ``(label, path)`` pair; the label is what the tables call
-    it.
+    ``normalizer``; the diagnostic column applies ``transform_for(rules,
+    s_context)`` to both sides before it. ``verify_official`` cross-checks every
+    candidate's official column against the official ``compare_runs`` and raises
+    Problem on any divergence, which is what a wrong pairing would look like. A
+    candidate may be a path or a ``(label, path)`` pair; the label is what the
+    tables call it.
+
+    ``s_context`` is rule 2 of proposed decision 0013 (``'s`` before
+    ``been``/``got``/``gotten`` is ``has``); it is off by default because the
+    numbers this diagnostic published were measured without it.
 
     Every run is scored under ``normalizer``, so a run whose recorded version is
     another one is refused by ``read_run``.
@@ -388,7 +398,7 @@ def rescore(
     candidates = [(label, Path(path)) for label, path in candidates]
     if not candidates:
         raise Problem("no candidate run given")
-    transform = transform_for(rules)
+    transform = transform_for(rules, s_context)
     identity, base_records = read_run(base_path, normalizer)
     result: dict = {
         "base": str(base_path),
@@ -397,6 +407,7 @@ def rescore(
         # every run's recorded one in read_run. Never the runs' claim on their own.
         "normalizer_version": normalizer,
         "rules": rules,
+        "s_context": s_context,
         "draws": draws,
         "seed": seed,
         "panels": {},
@@ -549,6 +560,15 @@ def _points(value: float) -> str:
     return f"{value * 100:+.2f}"
 
 
+def _s_context_note(result: dict) -> str:
+    """How the diagnostic read ``'s``, said only when a contraction rule is on."""
+    if result["rules"] not in ("both", "contractions"):
+        return ""
+    if result["s_context"]:
+        return ", 's read from the next word (rule 2 of proposed decision 0013)"
+    return ", 's always read as is (the published measurement)"
+
+
 def _cell(delta: dict) -> str:
     """One delta in points with its interval, bold when the interval excludes zero."""
     low, high = delta["ci"]
@@ -565,8 +585,9 @@ def render(result: dict) -> str:
         f"- normalizer version used for these numbers: {result['normalizer_version']} "
         "(`audiolab.eval.normalize`), the version every run here records and the one "
         "selected with --normalizer",
-        f"- diagnostic view: official normalizer plus {RULES_LABEL[result['rules']]}; "
-        "the extra rules are applied in this script only, to both sides",
+        f"- diagnostic view: official normalizer plus {RULES_LABEL[result['rules']]}"
+        f"{_s_context_note(result)}; the extra rules are applied in this script only, "
+        "to both sides",
         f"- intervals: official paired bootstrap over groups, {result['draws']} draws, "
         f"seed {result['seed']} (`audiolab.eval.stats`)",
         "- pairing: the ids both runs answered, per panel, the official `compare_runs` "
@@ -612,13 +633,30 @@ def render(result: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def default_candidates(runs_dir: Path) -> list[Path]:
-    """Every finished screen run on the full suite under ``runs_dir``."""
-    paths = [
-        path for path in sorted(runs_dir.glob("screen-*/full")) if (path / IDENTITY_NAME).is_file()
-    ]
+def recorded_panels(path: Path) -> dict:
+    """The panels a run records, without ``read_run``'s version check."""
+    return json.loads((path / IDENTITY_NAME).read_text(encoding="utf-8"))["panels"]
+
+
+def default_candidates(runs_dir: Path, panels: dict | None = None) -> list[Path]:
+    """The finished screen runs scored on the same panels as the base.
+
+    That is the 16 rows of the screening tables. A later run over another panel
+    set (the 17-panel NASA runs) is left out instead of failing the whole
+    diagnostic on the first candidate.
+    """
+    paths = []
+    for path in sorted(runs_dir.glob("screen-*/full")):
+        identity_path = path / IDENTITY_NAME
+        if not identity_path.is_file():
+            continue
+        if panels is not None:
+            recorded = json.loads(identity_path.read_text(encoding="utf-8")).get("panels")
+            if recorded != panels:
+                continue
+        paths.append(path)
     if not paths:
-        raise Problem(f"{runs_dir}: no screen-*/full run found")
+        raise Problem(f"{runs_dir}: no screen-*/full run on the base's panels found")
     return paths
 
 
@@ -649,9 +687,11 @@ def build_parser() -> argparse.ArgumentParser:
             "  uv run python experiments/normalization-review/rescore.py\n"
             "A candidate is a run directory, or LABEL=PATH to name its table row "
             "(as in experiments/source-screening/table.py).\n"
-            "Defaults: base $AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full, "
-            "candidates $AUDIOLAB_RUNS/eval/screen-*/full, panels configs/panels, "
-            "data $AUDIOLAB_DATA. No model, audio or network request is used."
+            "Defaults: base $AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/"
+            "full-9panels-v1, candidates the $AUDIOLAB_RUNS/eval/screen-*/full runs "
+            "scored on that base's nine panels (the 16 rows of the tables), panels "
+            "configs/panels, data $AUDIOLAB_DATA. No model, audio or network request "
+            "is used."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -689,6 +729,13 @@ def build_parser() -> argparse.ArgumentParser:
         "must record (default: 1, the version the diagnostic was measured with)",
     )
     parser.add_argument(
+        "--s-context",
+        action="store_true",
+        help="read 's from the next word (has before been/got/gotten), rule 2 of "
+        "proposed decision 0013; off by default, because the published numbers "
+        "predate it and read 's as is everywhere",
+    )
+    parser.add_argument(
         "--no-verify-official",
         action="store_true",
         help="skip the cross-check of the official column against compare_runs",
@@ -703,8 +750,8 @@ def main(argv: list[str] | None = None) -> int:
         runs_dir = args.runs_dir or (Path(env_runs) / "eval" if env_runs else None)
         if runs_dir is None:
             raise Problem("set AUDIOLAB_RUNS or pass --runs-dir")
-        base = args.base or (runs_dir / "parakeet-tdt-0.6b-v3-nemo" / "full")
-        candidates = args.candidate or default_candidates(runs_dir)
+        base = args.base or (runs_dir / "parakeet-tdt-0.6b-v3-nemo" / "full-9panels-v1")
+        candidates = args.candidate or default_candidates(runs_dir, recorded_panels(base))
         result = rescore(
             base,
             candidates,
@@ -712,6 +759,7 @@ def main(argv: list[str] | None = None) -> int:
             args.data_dir,
             rules=args.rules,
             normalizer=args.normalizer,
+            s_context=args.s_context,
             verify_official=not args.no_verify_official,
         )
     except (OSError, ValueError, KeyError, TypeError) as failure:

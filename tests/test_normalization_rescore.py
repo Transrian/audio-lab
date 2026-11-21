@@ -143,6 +143,17 @@ def test_expansion_table_and_pronoun_s():
         assert rescore_mod.expand_contraction(f"{pronoun}'s") == f"{pronoun} is"
 
 
+def test_rule_2_is_opt_in():
+    """The published numbers read 's as is; the context reading is --s-context."""
+    for follower in ("been", "got", "gotten"):
+        assert rescore_mod.expand_contraction("it's", follower) == "it is"
+        assert rescore_mod.expand_contraction("it's", follower, True) == "it has"
+    assert rescore_mod.apply_contractions("it's been fine") == "it is been fine"
+    assert rescore_mod.apply_contractions("it's been fine", True) == "it has been fine"
+    assert rescore_mod.diagnostic_text("j' ai it's got") == "j'ai it is got"
+    assert rescore_mod.diagnostic_text("j' ai it's got", True) == "j'ai it has got"
+
+
 def test_ambiguous_forms_are_left_alone():
     # 'd is never expanded, possessives never, and the rest of the text stays.
     assert rescore_mod.expand_contraction("he'd") == "he'd"
@@ -224,10 +235,13 @@ def test_diagnostic_text_combines_both_rules():
 
 
 def test_transform_for_selects_the_rules():
-    assert rescore_mod.transform_for("both") is rescore_mod.diagnostic_text
+    assert rescore_mod.transform_for("both")("it's") == "it is"
     assert rescore_mod.transform_for("none")("it's") == "it's"
     assert rescore_mod.transform_for("contractions")("j' ai") == "j' ai"
     assert rescore_mod.transform_for("elision")("it's") == "it's"
+    # The s-context reading reaches the transform only when it is asked for.
+    assert rescore_mod.transform_for("both")("it's been") == "it is been"
+    assert rescore_mod.transform_for("both", True)("it's been") == "it has been"
     with pytest.raises(rescore_mod.Problem):
         rescore_mod.transform_for("nope")
 

@@ -73,12 +73,11 @@ cover the combinations the table does not list, such as `it'll`).
 - `'d` is **never** expanded: `he'd` is had or would, and there is no single
   canonical form.
 - `'s` is expanded only after `it that there here what who he she where how`;
-  possessives (`john's`, `tomorrow's`) are left alone. The reading is chosen by
-  the context, as proposed decision 0013 rule 2 asks: `has` before `been`,
-  `got` or `gotten`, `is` otherwise. The numbers published in screening.md were
-  measured before that rule existed, with the plain `is` reading; the tables on
-  this command's stdout now use the context rule, so re-running it gives the
-  rule 2 reading of the same runs.
+  possessives (`john's`, `tomorrow's`) are left alone. The published numbers read
+  it as `is`, so `it's been` becomes `it is been` and a verbatim `has` still
+  counts as an error; `--s-context` turns on the context reading of proposed
+  decision 0013 rule 2, where it becomes `it has been`. Without the flag the
+  stdout tables are the numbers `docs/stt/screening.md` publishes.
 - Out of scope, left as written: `y'all`, `ain't`, `'cause`, `'em`.
 - The elision rule only removes a space after an apostrophe that is already
   there, and only the apostrophe of an elision: `l'homme` is untouched, a
@@ -104,26 +103,39 @@ set -a; . ./.env; set +a
 uv run python experiments/normalization-review/rescore.py
 ```
 
-Base: `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`; candidates: all
-`$AUDIOLAB_RUNS/eval/screen-*/full`. The **full tables are this command's
+Base: `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full-9panels-v1` — the base
+model's run on the nine panels below, not the later `full` run, which scores 18
+panels and cannot be compared with the screening runs. Candidates: the
+`screen-*/full` runs recorded on those same nine panels, which are the 16 rows of
+the tables (`CANDIDATE_ORDER` in the script): `screen-granary-fr`,
+`screen-voxpopuli-fr`, `screen-mls-fr`,
+`screen-african-accented-fr-uncleaned-2026-11-08`, `screen-librispeech-en`,
+`screen-icsi-en-train`, `screen-notsofar-en-train`, `screen-librispeech-pc-en`,
+`screen-pxcorpus-fr`, `screen-african-accented-fr`, `screen-ami-fr-speakers`,
+`screen-peertube-fr`, `screen-peertube-edu-fr`, `screen-debconf-en`,
+`screen-fosdem-en` and `screen-nasa-en`. A run over another panel set — the
+17-panel `screen-nasa-en-plain` and `screen-nasa-en-qwen` — is left out of the
+default list rather than stopped on. The **full tables are this command's
 stdout**: one table per panel, plus the changed conclusions and, for each of
 them, how the `stats.DRAWS` bootstrap draws sit around zero. Nothing has to be
 copied out of a note to read them.
 
 `--rules elision` / `--rules contractions` give the ablations, `--rules none`
-recomputes the official view as a sanity check, `--normalizer 2` scores the
-official column with the shipped version 2, and `--base` / `--candidate` /
-`--runs-dir` / `--panels-dir` / `--data-dir` override the defaults. A candidate
-may be given as `LABEL=PATH` to name its row, as in
-[experiments/source-screening/table.py](../source-screening/table.py). The unit
-tests for the rules and the pipeline are in `tests/test_normalization_rescore.py`
-(synthetic runs, CPU only).
+recomputes the official view as a sanity check, `--s-context` adds the ``'s``
+context reading of rule 2, `--normalizer 2` scores the official column with the
+shipped version 2, and `--base` / `--candidate` / `--runs-dir` / `--panels-dir` /
+`--data-dir` override the defaults. A candidate may be given as `LABEL=PATH` to
+name its row, as in [experiments/source-screening/table.py](../source-screening/table.py).
+The unit tests for the rules and the pipeline are in
+`tests/test_normalization_rescore.py` (synthetic runs, CPU only).
 
-The script refuses a run whose recorded normalizer version is not the one
-selected (`--normalizer`, default 1), and the report header says which version
-produced the numbers: this diagnostic only means anything for runs scored under
-the rules it applies. `--normalizer 2` re-reads the same runs under the shipped
-version 2 instead.
+The script refuses a run whose `run.json` records a normalizer version other than
+the one selected (`--normalizer`, default 1), and the report header says which
+version produced the numbers: this diagnostic only means anything for runs scored
+under the rules it applies. Since no screening run records 2, `--normalizer 2`
+needs a copy re-scored under version 2 — `audiolab score COPY --normalizer 2`
+writes `summary.json` and `report.md` but not `run.json`, so a run directory has
+to record 2 itself before this script accepts it.
 
 ## Results (the 16 screening runs)
 
