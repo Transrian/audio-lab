@@ -144,6 +144,48 @@ def test_a_run_records_every_item_and_writes_a_summary(workspace):
     assert "What this does not measure" in report
 
 
+def test_a_v1_run_rescores_under_the_version_it_is_asked_for(workspace, tmp_path):
+    """A run written before v2 keeps its version, and re-scoring says what it used.
+
+    The records are the answers; the normalizer version is a rule set applied
+    when they are scored, so the same run directory can be read under either one.
+    """
+    panel = read_panel(workspace["panels_dir"] / f"{PANEL}.txt")
+    run_dir = tmp_path / "v1-run"
+    run_dir.mkdir()
+    (run_dir / IDENTITY_NAME).write_text(
+        json.dumps(
+            {
+                "model": {"name": "fake-model", "model": "served-id", "server_label": ""},
+                "normalizer_version": V1,
+                "suite": "fast",
+                "audiolab_version": "0.0.0",
+                "git_commit": "test",
+                "panels": {PANEL: "hash"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / RECORDS_NAME).write_text(
+        "".join(
+            json.dumps({"id": clip_id, "panel": PANEL, "hypothesis": "it's a test", "error": ""})
+            + "\n"
+            for clip_id in panel.ids
+        ),
+        encoding="utf-8",
+    )
+    summary = score_run(run_dir, workspace["panels_dir"], workspace["data_dir"], draws=50)
+    assert summary["run"]["normalizer_version"] == V1  # the run keeps its version
+    rebuilt = score_run(
+        run_dir,
+        workspace["panels_dir"],
+        workspace["data_dir"],
+        draws=50,
+        normalizer=NORMALIZER_VERSION,
+    )
+    assert rebuilt["run"]["normalizer_version"] == NORMALIZER_VERSION  # the version used
+
+
 def test_a_second_run_resumes_without_asking_again(workspace):
     calls: list = []
     server, url = server_answering(counter=calls)
@@ -190,7 +232,7 @@ def test_what_changes_no_answer_sends_nothing_again(workspace, monkeypatch):
     try:
         run_suite(context(workspace, base_url=url))
         monkeypatch.setattr(runner, "git_commit", lambda: "another-commit")
-        monkeypatch.setattr(runner, "NORMALIZER_VERSION", 99)
+        monkeypatch.setattr(runner, "NORMALIZER_VERSION", 99)  # what eval records
         relabelled = context(workspace, base_url=url)
         relabelled.model = ModelConfig(
             name="renamed-config",

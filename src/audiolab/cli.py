@@ -33,12 +33,13 @@ from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
 from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
-from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.normalize import VERSIONS as NORMALIZER_VERSIONS
+from audiolab.eval.records import IDENTITY_NAME
 from audiolab.eval.report import (
     REPORT_NAME,
     SUMMARY_NAME,
     compare_runs,
+    recorded_normalizer,
     render_comparison,
     score_run,
 )
@@ -213,7 +214,9 @@ def cmd_train(args: argparse.Namespace) -> int:
 def cmd_score(args: argparse.Namespace) -> int:
     """Score a finished run again, from its records; the same records give the same files."""
     run_dir = Path(args.run)
-    summary = score_run(run_dir, args.panels_dir, args.data_dir, normalizer=args.normalizer)
+    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    normalizer = normalizer_from(args, recorded_normalizer(identity))
+    summary = score_run(run_dir, args.panels_dir, args.data_dir, normalizer=normalizer)
     total = sum(panel["items"] for panel in summary["panels"].values())
     print(f"scored {total} items over {len(summary['panels'])} panels")
     print(f"normalizer version used: {summary['run']['normalizer_version']}")
@@ -225,7 +228,7 @@ def cmd_score(args: argparse.Namespace) -> int:
 def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two runs over the ids and panels they share."""
     comparison = compare_runs(
-        args.run_a, args.run_b, args.panels_dir, args.data_dir, normalizer=args.normalizer
+        args.run_a, args.run_b, args.panels_dir, args.data_dir, normalizer=normalizer_from(args)
     )
     print(render_comparison(comparison))
     if args.json:
@@ -382,20 +385,41 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# The values ``--normalizer`` takes, and the flag's spelling: a run scored before
+# version 2 exists is re-scored under version 1 with ``--normalizer 1``.
+NORMALIZER_FLAG = "--normalizer"
+NORMALIZER_FLAGS = {f"{NORMALIZER_FLAG} {version}": version for version in NORMALIZER_VERSIONS}
+
+
+def normalizer_from(args: argparse.Namespace, recorded: int | None = None) -> int | None:
+    """The version a scoring command was asked for, or ``None`` for "whatever the run says".
+
+    ``--normalizer 2`` and ``--normalizer 1`` are read as the version they name;
+    with no flag, a run that records its own version keeps it, which is what makes
+    re-scoring the same run write the same bytes.
+    """
+    if args.normalizer is not None:
+        return args.normalizer
+    return recorded
+
+
+def _add_normalizer_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        f"{NORMALIZER_FLAG}",
+        type=int,
+        choices=NORMALIZER_VERSIONS,
+        default=None,
+        help="normalizer rule set the records are scored with: 2 is contractions and "
+        "elision spacing, 1 is the frozen older rule set. Without this, the version "
+        "the run recorded decides",
+    )
+
+
 def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     """``eval``, ``score`` and ``compare``: one run, its numbers, and two runs side by side."""
     scoring = argparse.ArgumentParser(add_help=False)
     scoring.add_argument(
         "--panels-dir", default=DEFAULT_PANELS_DIR, help="directory holding the frozen panels"
-    )
-    scoring.add_argument(
-        "--normalizer",
-        type=int,
-        choices=NORMALIZER_VERSIONS,
-        default=NORMALIZER_VERSION,
-        help="normalizer rule set the records are scored with: 2 (default) is "
-        "contractions and elision spacing, 1 is the frozen older rule set that "
-        "reproduces a score published before version 2",
     )
     _add_eval_command(commands, scoring)
     _add_score_command(commands, scoring)
@@ -454,11 +478,13 @@ def _add_score_command(
         commands,
         "score",
         "score a finished run again",
-        "Reads the run's records and writes the same files; use it after changing a metric.",
-        "audiolab score $AUDIOLAB_RUNS/eval/example-model/fast",
+        "Reads the run's records and writes the same files; use it after changing a metric, "
+        "or with --normalizer 1 to re-score under the frozen first rule set.",
+        "audiolab score $AUDIOLAB_RUNS/eval/example-model/fast --normalizer 1",
         parents=[scoring],
     )
     score.add_argument("run", help="run directory holding records.jsonl")
+    _add_normalizer_argument(score)
     score.set_defaults(func=cmd_score)
 
 
@@ -470,13 +496,15 @@ def _add_compare_command(
         commands,
         "compare",
         "compare two runs on the panels they share",
-        "Pairs the ids both runs answered and reports the ones left out.",
-        "audiolab compare RUN_A RUN_B --json",
+        "Pairs the ids both runs answered and reports the ones left out; the header says "
+        "which normalizer version scored the numbers.",
+        "audiolab compare RUN_A RUN_B --normalizer 1 --json",
         parents=[scoring],
     )
     compare.add_argument("run_a", help="run directory, the baseline (A)")
     compare.add_argument("run_b", help="run directory, the challenger (B)")
     compare.add_argument("--json", action="store_true", help="also print the comparison as JSON")
+    _add_normalizer_argument(compare)
     compare.set_defaults(func=cmd_compare)
 
 

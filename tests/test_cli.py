@@ -64,6 +64,20 @@ def test_every_command_help_names_the_command_and_shows_an_example(capsys):
         assert "audiolab" in out, argv
 
 
+def test_the_normalizer_flag_is_documented(capsys):
+    """The v1 reproduction is a documented command, not a hidden one."""
+    for argv in (["score", "--help"], ["compare", "--help"]):
+        with pytest.raises(SystemExit):
+            cli.main(argv)
+        out = capsys.readouterr().out
+        assert "--normalizer" in out, argv
+        assert "{1,2}" in out, argv
+    # `eval` scores a new run with the current version; only re-scoring picks one.
+    with pytest.raises(SystemExit):
+        cli.main(["eval", "--help"])
+    assert "--normalizer" not in capsys.readouterr().out
+
+
 def test_runs_dir_is_only_where_it_is_used(capsys):
     """--runs-dir decides where a run is written, so score and compare must not take it."""
     for argv in (["score", "--help"], ["compare", "--help"]):
@@ -393,17 +407,29 @@ def v1_run(prepared) -> Path:
     return run_dir
 
 
-def score_command(prepared, run_dir: Path, normalizer: int) -> list[str]:
-    return [
+def score_command(prepared, run_dir: Path, normalizer: int | None) -> list[str]:
+    argv = [
         "--data-dir",
         str(prepared["data_dir"]),
         "score",
         str(run_dir),
         "--panels-dir",
         str(prepared["panels_dir"]),
-        "--normalizer",
-        str(normalizer),
     ]
+    return argv if normalizer is None else argv + ["--normalizer", str(normalizer)]
+
+
+def test_score_without_the_flag_keeps_the_runs_version(prepared, capsys):
+    """Re-scoring a finished run writes the same bytes, so a summary stays a function of it."""
+    run_dir = v1_run(prepared)
+    assert cli.main(score_command(prepared, run_dir, None)) == 0
+    summary = run_dir / "summary.json"
+    first = summary.read_bytes()
+    report = (run_dir / "report.md").read_bytes()
+    assert json.loads(first)["run"]["normalizer_version"] == 1
+    assert cli.main(score_command(prepared, run_dir, None)) == 0
+    assert summary.read_bytes() == first
+    assert (run_dir / "report.md").read_bytes() == report
 
 
 def test_score_records_the_version_it_was_run_with(prepared, capsys):

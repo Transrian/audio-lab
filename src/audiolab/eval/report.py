@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 
 from audiolab.eval import metrics, stats
-from audiolab.eval.normalize import NORMALIZER_VERSION
+from audiolab.eval.normalize import NORMALIZER_VERSION, VERSIONS
 from audiolab.eval.records import (
     ENDPOINT_FINGERPRINT_KEY,
     IDENTITY_NAME,
@@ -60,19 +60,23 @@ def score_run(
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
-    normalizer: int = NORMALIZER_VERSION,
+    normalizer: int | None = None,
 ) -> dict:
     """Score a run directory and write ``summary.json`` and ``report.md``; returns the summary.
 
     ``draws`` and ``seed`` are exposed so a test can bound its runtime; the
     defaults are the frozen numbers, which is what a real report uses.
-    ``normalizer`` is the rule set the records are scored with; the summary
-    records that version, not the one the run was made under, so a v1 run
-    re-scored with the v2 rules says 2 and two summaries of one instrument
-    always carry the same number.
+
+    ``normalizer`` is the rule set the records are scored with. With no value,
+    the version the run recorded decides, so scoring the same run twice writes
+    the same bytes; passing one re-scores the run under that rule set, and the
+    summary then records the version that actually scored it rather than the one
+    in ``run.json``.
     """
     run_dir, panels_dir = Path(run_dir), Path(panels_dir)
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
+    if normalizer is None:
+        normalizer = recorded_normalizer(identity)
     records = read_records(run_dir / RECORDS_NAME)
     panels = {
         panel: _panel_items(panel, panels_dir, data_dir, records, normalizer)
@@ -91,12 +95,18 @@ def score_run(
     return summary
 
 
+def recorded_normalizer(identity: dict) -> int:
+    """The rule set a run says scored it, or today's when it says nothing usable."""
+    version = identity.get("normalizer_version", NORMALIZER_VERSION)
+    return version if version in VERSIONS else NORMALIZER_VERSION
+
+
 def _panel_items(
     panel: str,
     panels_dir: Path,
     data_dir: Path | None,
     records: list[dict],
-    normalizer: int = NORMALIZER_VERSION,
+    normalizer: int,
 ) -> list[metrics.Item]:
     return with_records(
         load_panel_items(panel, panels_dir, data_dir), records, normalizer=normalizer
