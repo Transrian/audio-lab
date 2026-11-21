@@ -4,8 +4,9 @@
 - Derived from: D-005, decisions 0002, 0007
 - Decided by: proposed by an agent, 2026-11-10; awaiting owner review
 - Implemented in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
-  default), used by campaign 1 (proposed decision 0017, the campaign-1 test
-  freeze); this decision stays proposed.
+  default), used by campaign 1 ([proposed decision
+  0017](0017-campaign-1-test-freeze.md), the campaign-1 test freeze); this
+  decision stays proposed.
 
 ## Proposal
 
@@ -92,8 +93,9 @@ and elision equivalence becomes the official scoring rule. The owner answered
 same day, leaving it open for the next campaign; the answer is recorded here as
 an answer, not an acceptance — this proposal stays proposed. Its rules are
 implemented as normalizer version 2 of `src/audiolab/eval/normalize.py` and are
-the scoring rule of campaign 1, whose test freeze (proposed decision 0017, the
-campaign-1 freeze) names this commit and treats a pending proposal as validated
+the scoring rule of campaign 1, whose test freeze ([proposed decision
+0017](0017-campaign-1-test-freeze.md), the campaign-1 freeze) names this commit
+and treats a pending proposal as validated
 for testing; version 1 stays reproducible through
 `audiolab score --normalizer 1` and `audiolab compare --normalizer 1`, and every
 v1 result stays as published
