@@ -13,6 +13,7 @@ import pytest  # noqa: E402
 from audiolab.eval.normalize import (  # noqa: E402
     NORMALIZER_VERSION,
     STAND_IN_CHARACTERS,
+    V1,
     VIEWS,
     normalize,
 )
@@ -49,6 +50,58 @@ RULES = {
 }
 
 
+# The version 2 rules, case by case: ``(id, language, reference, version 2
+# output, version 1 output)``. The reference is the text the rule changes and the
+# version 2 output is the equivalent canonical spelling, so the same list pins
+# both halves of proposed decision 0013: what version 2 does, and what the frozen
+# version 1 still does. ``strict`` and ``normalized`` agree on every case, which
+# is why one output column is enough.
+V2_CASES = [
+    ("rule1-pronoun-s", "en", "it's a test", "it is a test", "it's a test"),
+    ("rule1-table-cannot", "en", "can't", "cannot", "can't"),
+    ("rule1-table-will-not", "en", "won't", "will not", "won't"),
+    ("rule1-table-let-us", "en", "let's go", "let us go", "let's go"),
+    ("rule1-suffix-ll", "en", "it'll work", "it will work", "it'll work"),
+    ("rule1-suffix-ve", "en", "you've seen it", "you have seen it", "you've seen it"),
+    ("rule2-s-has-been", "en", "it's been fine", "it has been fine", "it's been fine"),
+    ("rule2-s-has-got", "en", "he's got one", "he has got one", "he's got one"),
+    (
+        "rule2-s-has-gotten",
+        "en",
+        "that's gotten worse",
+        "that has gotten worse",
+        "that's gotten worse",
+    ),
+    ("rule2-s-is-after-pronoun", "en", "that's it", "that is it", "that's it"),
+    ("rule1-possessive-kept", "en", "john's car", "john's car", "john's car"),
+    ("rule1-d-never-expanded", "en", "he'd say", "he'd say", "he'd say"),
+    # The elision letters match whole tokens only, so the plural possessive is
+    # untouched and loses its apostrophe for the ordinary reason the strict view
+    # strips outer punctuation.
+    ("rule3-plural-possessive-kept", "en", "students' books", "students books", "students books"),
+    ("rule3-elision-j", "fr", "j' ai faim", "j'ai faim", "j ai faim"),
+    ("rule3-elision-qu", "fr", "qu' il a dit", "qu'il a dit", "qu il a dit"),
+    ("rule3-elision-jusqu", "fr", "jusqu' ici", "jusqu'ici", "jusqu ici"),
+    ("rule3-elision-l", "fr", "l' homme", "l'homme", "l homme"),
+    ("rule3-closed-elision-kept", "fr", "l'homme", "l'homme", "l'homme"),
+    ("rule3-missing-apostrophe-kept", "fr", "l homme", "l homme", "l homme"),
+    (
+        "rules1-and-3-mixed-language",
+        "fr",
+        "j' ai dit it's d' accord",
+        "j'ai dit it is d'accord",
+        "j ai dit it's d accord",
+    ),
+]
+
+# The typographic apostrophe is mapped to the ASCII one before a rule runs, so
+# the same cases hold with a curly apostrophe. ``(id, language, text, expected)``.
+CURLY_CASES = [
+    ("rule2-s-has-been-curly", "en", "it\u2019s been fine", "it has been fine"),
+    ("rule3-elision-curly", "fr", "d\u2019 accord", "d'accord"),
+]
+
+
 def load_pairs() -> list[dict]:
     """The pairs of the trap set; the header line carries no pair."""
     rows = [json.loads(line) for line in TRAP_SET.read_text(encoding="utf-8").splitlines()]
@@ -76,8 +129,10 @@ def test_trap_set_is_large_and_balanced():
 
 @pytest.mark.parametrize("pair", PAIRS, ids=[pair["id"] for pair in PAIRS])
 def test_trap_set_pair(pair: dict):
-    reference = normalize(pair["ref"], pair["language"], pair["view"])
-    hypothesis = normalize(pair["hyp"], pair["language"], pair["view"])
+    """Every pair under the version it pins; a pair that pins none uses today's."""
+    version = pair.get("version", NORMALIZER_VERSION)
+    reference = normalize(pair["ref"], pair["language"], pair["view"], version)
+    hypothesis = normalize(pair["hyp"], pair["language"], pair["view"], version)
     assert (reference == hypothesis) is pair["expect_equal"], (
         f"{pair['id']}: {pair['ref']!r} -> {reference!r}, {pair['hyp']!r} -> {hypothesis!r}"
     )
@@ -88,8 +143,14 @@ def test_rule_notes_describe_real_pairs():
 
 
 def test_version_is_recorded():
-    assert NORMALIZER_VERSION == 1
+    assert NORMALIZER_VERSION == 2
+    assert V1 == 1
     assert VIEWS == ("normalized", "strict", "formatted")
+
+
+def test_an_unknown_normalizer_version_is_refused():
+    with pytest.raises(ValueError):
+        normalize("bonjour", "fr", "normalized", 3)
 
 
 def test_unknown_view_or_language_is_refused():
@@ -97,6 +158,51 @@ def test_unknown_view_or_language_is_refused():
         normalize("bonjour", "fr", "leetspeak")
     with pytest.raises(ValueError):
         normalize("bonjour", "de")
+
+
+@pytest.mark.parametrize("case", V2_CASES, ids=[case[0] for case in V2_CASES])
+def test_version_2_rules_with_the_frozen_version_1_output(case):
+    """Every rule of proposed decision 0013, in both views it changes.
+
+    The reference and its version 2 output are the two spellings a rule makes
+    equivalent, so they compare equal under version 2 and different under
+    version 1 — otherwise the rule flatters one side instead of both.
+    """
+    _, language, reference, version_2, version_1 = case
+    for view in ("strict", "normalized"):
+        assert normalize(reference, language, view, NORMALIZER_VERSION) == version_2, (
+            reference,
+            view,
+        )
+        assert normalize(reference, language, view, V1) == version_1, (reference, view)
+        assert normalize(reference, language, view, NORMALIZER_VERSION) == normalize(
+            version_2, language, view, NORMALIZER_VERSION
+        ), (reference, version_2, view)
+
+
+@pytest.mark.parametrize("case", V2_CASES, ids=[case[0] for case in V2_CASES])
+def test_neither_version_rewrites_its_own_output(case):
+    """A rule set read twice gives the same words, so a score cannot depend on that."""
+    _, language, _, version_2, version_1 = case
+    for view in ("strict", "normalized"):
+        assert normalize(version_2, language, view, NORMALIZER_VERSION) == version_2
+        assert normalize(version_1, language, view, V1) == version_1
+
+
+@pytest.mark.parametrize("case", CURLY_CASES, ids=[case[0] for case in CURLY_CASES])
+def test_typographic_apostrophes_take_the_same_rules(case):
+    _, language, text, expected = case
+    assert normalize(text, language, "normalized") == expected
+    assert normalize(text, language, "normalized", V1) != expected
+
+
+def test_formatted_is_the_same_in_both_versions():
+    """The formatted view keeps the written text, so no version 2 rule reaches it."""
+    for _, language, *texts in V2_CASES:
+        for text in texts:
+            assert normalize(text, language, "formatted", NORMALIZER_VERSION) == normalize(
+                text, language, "formatted", V1
+            )
 
 
 def test_a_normalized_text_stays_as_it_is():

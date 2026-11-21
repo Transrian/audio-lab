@@ -1,4 +1,4 @@
-"""Text normalization for scoring (three views, one version).
+"""Text normalization for scoring (three views, two versions).
 
 Model output and reference texts never match character for character: one
 writes "20 %", the other "vingt pour cent", one keeps the case, the other does
@@ -16,7 +16,22 @@ Three views (see `docs/stt/evaluation.md` for examples):
   filler-word handling: the headline number.
 
 Changing a rule changes scores, so the version is bumped and recorded in every
-summary (``NORMALIZER_VERSION``).
+summary (``NORMALIZER_VERSION``). Two rule sets exist:
+
+- **version 1** (:data:`V1`) is frozen: every result published before version 2
+  was produced with it, and it stays reproducible through
+  ``audiolab score --normalizer 1`` and ``audiolab compare --normalizer 1``;
+- **version 2** (:data:`NORMALIZER_VERSION`, the default) adds two style rules
+  to ``strict`` and ``normalized``. ``formatted`` is untouched by both rules,
+  because it keeps the written text as it is, punctuation included.
+
+The v2 rules are the ones of
+[proposed decision 0013](../../../docs/decisions/proposed/0013-normalizer-v2-contractions.md),
+rules 1 (a fixed English contraction table), 2 (``'s`` reads ``has`` before
+``been``/``got``/``gotten``) and 3 (a French elision written with a space is
+closed). They apply whatever the clip's language is, because a code-switched
+clip carries English contractions in a French utterance and the other way
+round.
 """
 
 from __future__ import annotations
@@ -24,7 +39,15 @@ from __future__ import annotations
 import re
 import unicodedata
 
-NORMALIZER_VERSION = 1
+NORMALIZER_VERSION = 2
+# The frozen rule set: version 1 is what every score published before version 2
+# was produced with, and `audiolab score --normalizer 1` still gives it.
+V1 = 1
+# The version a view is read with. Only the two rules of version 2 exist, and
+# they touch `strict` and `normalized`; `formatted` shows the written text, so it
+# is version 1 whatever the scoring version is.
+FORMATTED_VERSION = 1
+VERSIONS = (V1, NORMALIZER_VERSION)
 VIEWS = ("normalized", "strict", "formatted")
 
 # Typographic characters that mean the same thing as an ASCII one.
@@ -64,6 +87,66 @@ FILLERS = {
     "fr": frozenset({"euh", "heu", "hum", "hmm", "mm"}),
     "en": frozenset({"uh", "um", "erm", "hmm", "mm"}),
 }
+
+# --- Version 2: English contractions and French elision spacing ---------------
+# Rule 1, the fixed table, written in the canonical expanded form the proposal
+# names. Every entry is one word written with one apostrophe, case-folded like
+# every token here; the plural forms of the verbs the French rule 3 would touch
+# (``l'``, ``qu'``) are separate tables below.
+CONTRACTIONS = {
+    "i'm": "i am",
+    "i've": "i have",
+    "i'll": "i will",
+    "you're": "you are",
+    "you've": "you have",
+    "you'll": "you will",
+    "we're": "we are",
+    "we've": "we have",
+    "we'll": "we will",
+    "they're": "they are",
+    "they've": "they have",
+    "they'll": "they will",
+    "isn't": "is not",
+    "aren't": "are not",
+    "wasn't": "was not",
+    "weren't": "were not",
+    "haven't": "have not",
+    "hasn't": "has not",
+    "hadn't": "had not",
+    "don't": "do not",
+    "doesn't": "does not",
+    "didn't": "did not",
+    "can't": "cannot",
+    "couldn't": "could not",
+    "won't": "will not",
+    "wouldn't": "would not",
+    "shouldn't": "should not",
+    "mustn't": "must not",
+    "let's": "let us",
+}
+# ``'s`` is ambiguous: it is expanded only after one of these words, never for a
+# possessive ("john's", "tomorrow's"). The table above names the ``is`` reading
+# for the words it lists; rule 2 chooses between the two readings.
+S_PRONOUNS = ("it", "that", "there", "here", "what", "who", "he", "she", "where", "how")
+# The participles that make ``'s`` a ``has``: "it's been", "he's got",
+# "that's gotten". Their framework is the proposal's rule 2, and the diagnostic
+# this normalizer replaces got these wrong with the ``is`` reading.
+S_HAS_FOLLOWERS = frozenset({"been", "got", "gotten"})
+# ``'ll`` and ``'ve`` are unambiguous and expand on any stem, which covers the
+# combinations a fixed table cannot list ("it'll", "what'll", "somebody've").
+# ``'d`` is never expanded: "he'd" is had or would, with no canonical form.
+# A contraction is one whole token: "rock'n'roll" and "y'all" match nothing here
+# and stay as they are written.
+_S_PRONOMINAL_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s\Z")
+# Rule 3: the letters that elide before a vowel ("j' ai" is "j'ai"), each as a
+# whole word. The multi-letter forms are the ones that end in ``qu``. The
+# lookbehind keeps "rock 'n' roll" alone: there the letter follows a quotation
+# mark, not a word.
+_ELISION_LETTERS = ("c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu")
+_ELISION_RE = re.compile(
+    rf"(?<![\w'])({'|'.join(_ELISION_LETTERS)})'\s+(?=[a-zà-öø-ÿ])",
+    re.IGNORECASE,
+)
 
 # Only unambiguous strings: "sept" is the number seven as often as it is
 # September, so month names are left alone. Dots are already gone by this point,
@@ -246,14 +329,32 @@ UNIT_WORDS = frozenset(
 SYMBOL_WORDS = frozenset({"&"})
 
 
-def normalize(text: str, language: str, view: str = "normalized") -> str:
-    """Normalize ``text`` for ``language`` in one of the three views."""
+def normalize(
+    text: str, language: str, view: str = "normalized", normalizer: int = NORMALIZER_VERSION
+) -> str:
+    """Normalize ``text`` for ``language`` in one of the three views.
+
+    ``normalizer`` selects the rule set: :data:`NORMALIZER_VERSION` (2) unless a
+    caller asks for the frozen :data:`V1` to reproduce an older score. The v2
+    rules are language-independent on purpose: a code-switched clip carries
+    English contractions in a French utterance, and a model that learned the
+    spaced elision may write one in an English utterance.
+    """
     if view not in VIEWS:
         raise ValueError(f"unknown view {view!r}; known views: {', '.join(VIEWS)}")
+    if normalizer not in VERSIONS:
+        raise ValueError(
+            f"unknown normalizer version {normalizer!r}; known versions: "
+            f"{', '.join(str(version) for version in VERSIONS)}"
+        )
     prepared = _prepare(text)
     if view == "formatted":
         return _punctuation_view(prepared)
+    if normalizer != V1:
+        prepared = _v2_text(prepared)
     tokens = _strict_tokens(prepared, language)
+    if normalizer != V1:
+        tokens = _apply_contractions(tokens)
     if view == "strict":
         return " ".join(tokens)
     return " ".join(_normalized_tokens(tokens, language))
@@ -298,6 +399,49 @@ def _strict_tokens(text: str, language: str) -> list[str]:
         if word and (any(character.isalnum() for character in word) or spelled or symbols):
             tokens.append(word)
     return tokens
+
+
+def _v2_text(text: str) -> str:
+    """Rule 3 on the text: a French elision written with a space is closed.
+
+    It runs before tokenizing, because the space the rule removes is what the
+    tokenizer would otherwise split on. Only the space goes, never the
+    apostrophe: a missing apostrophe (``l homme``) is a different defect.
+    """
+    return _ELISION_RE.sub(lambda match: match.group(1) + "'", text)
+
+
+def _apply_contractions(tokens: list[str]) -> list[str]:
+    """Rules 1 and 2: expand the English contractions of a token list.
+
+    ``'s`` is expanded by its context: ``has`` before ``been``, ``got`` or
+    ``gotten`` ("it's been" is "it has been"), ``is`` after a pronoun otherwise,
+    and never for a possessive ("john's" is untouched). Everything else is left
+    as it was written.
+    """
+    result: list[str] = []
+    for index, token in enumerate(tokens):
+        following = tokens[index + 1] if index + 1 < len(tokens) else ""
+        result += _expand_contraction(token, following).split()
+    return result
+
+
+def _expand_contraction(token: str, following: str = "") -> str:
+    """The canonical expanded form of one token, or the token itself.
+
+    Case is not a question here: :func:`_strict_tokens` case-folds before this
+    runs, which is what the fixed table is written in.
+    """
+    if token in CONTRACTIONS:
+        return CONTRACTIONS[token]
+    match = _S_PRONOMINAL_RE.fullmatch(token)
+    if match:
+        return f"{match.group(1)} {'has' if following in S_HAS_FOLLOWERS else 'is'}"
+    if token.endswith("'ll"):
+        return token[:-3] + " will"
+    if token.endswith("'ve"):
+        return token[:-3] + " have"
+    return token
 
 
 def _split_on_separators(text: str) -> list[str]:

@@ -109,7 +109,7 @@
 {"id": "fr-elision-joined", "language": "fr", "ref": "d'accord", "hyp": "daccord", "view": "normalized", "expect_equal": false}
 {"id": "fr-typographic-apostrophe", "language": "fr", "ref": "l’homme", "hyp": "l'homme", "view": "normalized", "expect_equal": true}
 {"id": "fr-hyphen-words", "language": "fr", "ref": "qu'est-ce que", "hyp": "qu'est ce que", "view": "normalized", "expect_equal": true}
-{"id": "en-contraction", "language": "en", "ref": "don't", "hyp": "do not", "view": "normalized", "expect_equal": false}
+{"id": "en-contraction", "language": "en", "ref": "don't", "hyp": "do not", "view": "normalized", "expect_equal": false, "version": 1}
 {"id": "fr-decimal-words", "language": "fr", "ref": "trois virgule cinq", "hyp": "3,5", "view": "normalized", "expect_equal": true}
 {"id": "fr-decimal-point", "language": "fr", "ref": "3,5", "hyp": "3.5", "view": "normalized", "expect_equal": true}
 {"id": "fr-decimal-zero", "language": "fr", "ref": "0,5", "hyp": "zéro virgule cinq", "view": "normalized", "expect_equal": true}
