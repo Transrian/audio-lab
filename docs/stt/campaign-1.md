@@ -119,8 +119,9 @@ trainer's alone: each row of a mix is drawn with a seed derived from the run's
 seed and the row's name alone ([training.md, "Mixing
 datasets"](training.md#mixing-datasets)), so a new seed redraws every row — the
 replicate differs from `mix-v1` in the seed **and** in the clips drawn. It trains
-about 21 h on one RTX 3090, 3090 A, as soon as `mix-v1` is trained and its T8
-evaluation has run. It is **not a candidate**.
+about 21 h on one RTX 3090, 3090 A, after `T6` (`mix-v1-n40`) has ended — the
+host runs one training process at a time, and two concurrent trainings would
+collide at slot writes. It is **not a candidate**.
 
 **The comparison.**
 
@@ -142,7 +143,8 @@ this rule states whether T6's difference, Δ_T6 = `mix-v1-n40` minus `mix-v1`
 (T6's pre-registered comparison above), is **larger** than that panel's spread.
 "Larger" is read mechanically on the point estimates, in points of the panel's
 metric: on a panel, Δ_T6 is larger than the spread when **|Δ_T6| > |Δ_T11|**
-there.
+there. If `mix-v1-n40` or `mix-v1-s2` has not finished, the report says so and
+states no comparison.
 
 Magnitudes are compared in points, whatever the metric — WER points on a
 speech panel, hallucination-rate points on a `nonspeech*` one (`audiolab compare
