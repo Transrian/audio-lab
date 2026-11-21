@@ -100,6 +100,7 @@ from audiolab.eval.client import (
     concurrency_from_env,
 )
 from audiolab.eval.metrics import counts
+from audiolab.eval.normalize import V1
 
 SEED = 1
 # The PeerTube sources are one corpus listed three times: an evaluation talk
@@ -659,7 +660,7 @@ def offer_talk(
             heard = clip_text(answers, clip, audio, parakeet)
         except TranscriptionError:
             return None
-        return round(counts(label, heard, language, "normalized").wer, 4)
+        return round(counts(label, heard, language, "normalized", V1).wer, 4)
 
     base_wers = map_requests(ask_parakeet, talk.agreed, concurrency)
     raise_if_stopped("labelling stopped")
@@ -694,7 +695,7 @@ def disagreement(whisper_text: str, label: str, language: str) -> float:
     words, so ``2024`` and ``deux mille vingt-quatre`` agree: the test is about
     what was heard, not how it was written.
     """
-    return counts(whisper_text, label, language, "normalized").wer
+    return counts(whisper_text, label, language, "normalized", V1).wer
 
 
 def clips_file(talk: Talk, model: str) -> str:

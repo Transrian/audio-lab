@@ -31,7 +31,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from audiolab.data.talk_clips import MAX_CLIP_SECONDS, Segment
-from audiolab.eval.normalize import normalize
+from audiolab.eval.normalize import V1, normalize
 
 # What a kept clip needs (a choice for the training data, not an owner
 # directive): nine words in ten paired on each side, and never more than two
@@ -97,9 +97,14 @@ def words_of(text: str, language: str) -> list[str]:
 
     Both streams go through this, so a token written the same way on both sides
     gives the same words whatever its neighbours: the normalizer reads
-    ``1999 dollars`` as an amount and ``1999`` alone as a year.
+    ``1999 dollars`` as an amount and ``1999`` alone as a year. The version is
+    the frozen v1: this aligns a transcript with a label to prepare a dataset,
+    and a later scoring rule must not move where the edges of a prepared clip
+    fall.
     """
-    return [word for token in text.split() for word in normalize(token, language).split()]
+    return [
+        word for token in text.split() for word in normalize(token, language, normalizer=V1).split()
+    ]
 
 
 def transcript(lines: list[Line], language: str) -> Transcript:

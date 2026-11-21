@@ -27,7 +27,7 @@ import soundfile
 from audiolab.core.audio import SAMPLE_RATE, Audio, to_int16
 from audiolab.core.progress import say
 from audiolab.data.train import MAX_SECONDS, MIN_SECONDS
-from audiolab.eval.normalize import normalize
+from audiolab.eval.normalize import V1, normalize
 
 # Whisper is sent five minutes at a time: the server takes fifteen-minute
 # requests, and a short chunk is cheaper to retry.
@@ -216,10 +216,17 @@ def _words(text: str) -> list[str]:
 
 
 def doubt(segment: Segment, language: str) -> str:
-    """Why a segment cannot be part of a clip, or an empty string."""
+    """Why a segment cannot be part of a clip, or an empty string.
+
+    The normalizer version is pinned to the frozen v1 here: this decides whether
+    a clip is prepared at all, so it belongs to the dataset and not to the
+    scoring rules. Version 2 only makes two spellings equal, which can turn a
+    segment holding a spaced elision alone into an empty one; that must not
+    change a prepared dataset.
+    """
     if segment.end_s <= segment.start_s:
         return "without duration"
-    if not normalize(segment.text, language):
+    if not normalize(segment.text, language, normalizer=V1):
         return "without words"
     return ""
 

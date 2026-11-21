@@ -73,6 +73,7 @@ from audiolab.data.talks import (
 from audiolab.data.train import Take, evaluation_groups
 from audiolab.eval.client import TranscriptionError
 from audiolab.eval.metrics import counts
+from audiolab.eval.normalize import V1
 
 NAME = "peertube-edu-captions-fr"
 LANGUAGE = "fr"
@@ -487,7 +488,7 @@ def fetch_peertube_edu_captions_fr(
                 if text is None:
                     tally["clips Whisper failed on"] += 1
                     continue
-                wer = round(counts(segment.text, text, LANGUAGE, "normalized").wer, 4)
+                wer = round(counts(segment.text, text, LANGUAGE, "normalized", V1).wer, 4)
                 wers.append((f"{talk.id}-{round(segment.start_s * 100):07d}", wer))
                 if wer > MAX_CLIP_WER:
                     tally["clips the caption and Whisper do not agree on"] += 1
