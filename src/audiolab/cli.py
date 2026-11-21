@@ -33,6 +33,7 @@ from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
 from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
+from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.normalize import VERSIONS as NORMALIZER_VERSIONS
 from audiolab.eval.records import IDENTITY_NAME
 from audiolab.eval.report import (
@@ -391,16 +392,18 @@ NORMALIZER_FLAG = "--normalizer"
 NORMALIZER_FLAGS = {f"{NORMALIZER_FLAG} {version}": version for version in NORMALIZER_VERSIONS}
 
 
-def normalizer_from(args: argparse.Namespace, recorded: int | None = None) -> int | None:
-    """The version a scoring command was asked for, or ``None`` for "whatever the run says".
+def normalizer_from(args: argparse.Namespace, recorded: int | None = None) -> int:
+    """The version a scoring command was asked for.
 
-    ``--normalizer 2`` and ``--normalizer 1`` are read as the version they name;
-    with no flag, a run that records its own version keeps it, which is what makes
-    re-scoring the same run write the same bytes.
+    ``--normalizer 2`` and ``--normalizer 1`` are read as the version they name.
+    With no flag, ``score`` passes what the run recorded, so re-scoring it writes
+    the same bytes, and a command with nothing to read (``compare``) gets the
+    current version; the function never returns ``None``, which would replace a
+    default with a missing value.
     """
     if args.normalizer is not None:
         return args.normalizer
-    return recorded
+    return recorded if recorded is not None else NORMALIZER_VERSION
 
 
 def _add_normalizer_argument(parser: argparse.ArgumentParser) -> None:

@@ -448,6 +448,26 @@ def test_score_records_the_version_it_was_run_with(prepared, capsys):
     assert summary["run"]["normalizer_version"] == 1
 
 
+def test_compare_defaults_to_the_current_version(prepared, capsys):
+    """A comparison says the version it used; with no flag that is the current one."""
+    run_dir = v1_run(prepared)
+    assert (
+        cli.main(
+            [
+                "--data-dir",
+                str(prepared["data_dir"]),
+                "compare",
+                str(run_dir),
+                str(run_dir),
+                "--panels-dir",
+                str(prepared["panels_dir"]),
+            ]
+        )
+        == 0
+    )
+    assert "normalizer version used for these numbers: 2" in capsys.readouterr().out.lower()
+
+
 def test_compare_prints_the_version_it_used(prepared, capsys):
     run_dir = v1_run(prepared)
     for version in (1, 2):
