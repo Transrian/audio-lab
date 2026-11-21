@@ -3,10 +3,12 @@
 - Scope: stt
 - Derived from: D-005, D-009, [decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)
 - Decided by: proposed by an agent, 2026-11-21; the campaign runs under it as a working assumption
-- Frozen at `9843311`, the `origin/main` commit of 2026-11-21;
-  `configs/suites/` and `configs/panels/` are unchanged since `ce46aba`, the
-  commit the campaign's base runs were started from (`git diff ce46aba 9843311
-  -- configs/suites configs/panels` is empty)
+- Frozen at `9843311`, the `origin/main` commit of 2026-11-21.
+  `configs/suites/` and `configs/panels/` are unchanged since `ce46aba`
+  (`git diff ce46aba 9843311 -- configs/suites configs/panels` is empty):
+  `ce46aba` is the commit the `full` base run was started from — its `run.json`
+  records `1dfae24`, the HEAD at the job's end — while the `fast` base run ran
+  at `9843311` (its `run.json` records that commit and normalizer 2)
 
 ## Decision
 
@@ -78,10 +80,11 @@ and an existing panel never changes.
 
 Both suites are scored for every campaign run. The `full` panels decide the
 numbers the campaign acts on (§ 4); the `fast` panels are the cheap view taken
-at the same time and reported alongside, because their 100 clips per panel give
-paired intervals too wide to separate the differences this selection is about
-(`configs/suites/full.yaml` calls itself the place where a small difference
-becomes visible).
+at the same time and reported alongside, because their panels hold 100 clips
+each (60 for `nonspeech`, 30 for `nonspeech-music`) against the `full` panels'
+114 to 600, which widens the paired intervals exactly where the ranking has to
+separate two close candidates (`configs/suites/full.yaml` calls itself the place
+where a small difference becomes visible).
 
 The base model's two runs of 2026-11-21 (§ 2) scored exactly these
 files: their `run.json` panel hashes equal the hashes above, panel for panel,
@@ -97,11 +100,13 @@ Every campaign number is scored under:
 
 1. **Normalizer version 2**, the contractions, context-`'s` and elision-spacing
    rules of [proposed decision 0013](0013-normalizer-v2-contractions.md),
-   implemented in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
-   default) and unchanged at `9843311`. That commit is the one
-   [0013](0013-normalizer-v2-contractions.md) refers to. Version 1 stays
-   reproducible (`audiolab score --normalizer 1`, `audiolab compare
-   --normalizer 1`) and no published v1 number is rewritten.
+   introduced in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
+   default) — the commit [0013](0013-normalizer-v2-contractions.md) refers to —
+   and frozen as the code at `9843311`, which adds `e4330c0` (the elision rule
+   now closes before any letter, not only `a`–`z`) and the `--normalizer {1,2}`
+   flag of `bd8f809` and `2312e8f`. Version 1 stays reproducible (`audiolab
+   score --normalizer 1`, `audiolab compare --normalizer 1`) and no published v1
+   number is rewritten.
 2. **WER**, the corpus word error rate of `src/audiolab/eval/metrics.py`, in the
    `normalized` view the comparison reports (`wer_normalized` in its JSON,
    [`docs/stt/evaluation.md` § 6](../../stt/evaluation.md#6-what-each-number-means)).
@@ -173,11 +178,11 @@ panel holds the 21 talks the v1 one seals outside the two split classes, plus 3
 talks new in v2 (24 talks, 934 clips), because v2 keeps the source's talks
 sealed by construction ([the v2 card](../../stt/datasets.md#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded));
 measured on 2026-11-21, 831 of the v1 panel's 840 clips outside the split
-classes have an audio `sha256` that is also in the v2 sealed panel (the decoded
-preparation re-cut its clips, so the boundaries differ, the talks do not). The
-sealed set is therefore read panel by panel, like every other score here: no
-number is pooled across panels, and the two captions panels — which would count
-those 21 talks twice — are never added together.
+classes have an audio `sha256` that is also in the v2 sealed panel, the
+difference being 9 clips of one talk (`f620b4c3…`: 40 clips in each panel, 31 of
+them the same audio), which the decoded preparation cut differently. No sealed
+number is pooled or averaged across panels, and the two captions panels — which
+would count those 21 talks twice — are never added together.
 
 No agent scores the sealed set: no campaign run passes `--sealed`. Once the
 campaign has named one candidate, the owner scores the sealed set **once**: one
@@ -195,15 +200,21 @@ to this campaign (the seed replicate `mix-v1-s2` is not a candidate).
 
 **Eligibility.** A candidate is eligible when all three hold:
 
-1. it reached its configured `updates` with no unresolved anomaly — no crash
-   left unrecovered, no NaN loss, no GPU or systemd-oomd OOM, no stall, and no
-   refused resume;
-2. no panel of `full.yaml` shows a **separable loss** against the base: for a
-   speech panel, the candidate − base delta's paired interval lies wholly above
-   zero **and** its point estimate is above +0.5 WER points; for `nonspeech`
-   and `nonspeech-music`, the hallucination-rate delta's paired interval lies
-   wholly above zero **and** its point estimate is above 0.71 points, the
-   run-to-run spread measured between two runs of the same recipe
+1. it finished mechanically: `train.json` exists, its `updates` equals the
+   `updates` of the config the run was started from, and every `loss` in
+   `train-log.jsonl` is finite. A run that went through the deterministic resume
+   path is not disqualified — the same batches are replayed, so a resumed finish
+   counts as a finish;
+2. no panel of `full.yaml` shows a **separable loss** against the base. The
+   numbers are the `difference` and `ci` of `audiolab compare --json`, which are
+   fractions, not percentages: for a speech panel the paired interval of the
+   candidate − base delta lies wholly above zero **and** `difference` is above
+   `0.005` (0.5 WER points); for `nonspeech` and `nonspeech-music` the
+   hallucination-rate delta's interval lies wholly above zero **and**
+   `difference` is strictly above the run-to-run spread the screening measured —
+   that spread is 2 clips of `nonspeech-full`'s 280 clips, `0.00714` in `--json`
+   fractions, so 2 of 280 does **not** count and 3 of 280 (`0.0107`) does, while
+   one clip of `nonspeech-music-full`'s 114 (`0.0088`) counts
    ([screening.md](../../stt/screening.md#noise-augmentation));
 3. its unweighted mean normalized WER over the seven primary panels is below
    the base's.
@@ -212,11 +223,11 @@ to this campaign (the seed replicate `mix-v1-s2` is not a candidate).
 [D-009](../../owner/directives.md): French first, code-switched dictation):
 `servicenow-codeswitched-en-fr-full`, `servicenow-codeswitched-en-fr-ca-full`,
 `cs-fleurs-fr-en-full`, `fleurs-fr-full`, `mls-fr-full`,
-`peertube-edu-captions-fr-v2-full`, `african-accented-fr-test-full`. **Secondary
-panels:** the two nonspeech panels, `nonspeech-full` and
-`nonspeech-music-full`. English and accented English are not primary, because
-D-009 makes French the priority and keeps English where it is simple; they are
-covered by the eligibility guard, which reads every panel of `full.yaml`.
+`peertube-edu-captions-fr-v2-full`, `african-accented-fr-test-full`. English and
+accented English are not primary, because D-009 makes French the priority and
+keeps English where it is simple; they are covered by the eligibility guard,
+which reads every panel of `full.yaml` — the two nonspeech panels,
+`nonspeech-full` and `nonspeech-music-full`, included.
 
 **Comparison.** Each candidate is compared with the base by `audiolab compare
 --normalizer 2 BASE CANDIDATE` under the rules of § 2, `--json` for the
@@ -229,26 +240,26 @@ unweighted mean normalized WER over the seven primary panels is the campaign's
 candidate. The paired interval of every primary panel is reported with the
 choice; where no primary panel separates a candidate from the base, the lowest
 mean is still taken, and the decision record says in words that the difference
-is within the paired intervals rather than separable. A candidate that improves
-the primary mean but regresses on either secondary panel by more than that
-panel's paired interval must have the regression explained in the decision
-record before it can be chosen.
+is within the paired intervals rather than separable. A separable nonspeech
+regression whose `difference` stays under the guard's threshold is reported with
+the choice and changes nothing.
 
-**Ties and no eligible candidate.** If the two candidates are compared
-directly (`audiolab compare mix-v1 mix-v1-n40`) and no primary panel separates
-them, they are tied and the simpler recipe, `mix-v1`, is the campaign's
-candidate; the record says the two are not separable. If no candidate is
-eligible, the campaign names none — that is a result, recorded as such — and
-the thresholds are never relaxed once the numbers exist. The number of
-candidates compared is reported with the result.
+**Ties and no eligible candidate.** If both candidates are eligible, the
+campaign compares them directly (`audiolab compare --normalizer 2 mix-v1
+mix-v1-n40`); if no primary panel separates them, they are tied and the simpler
+recipe, `mix-v1`, is the campaign's candidate, the record saying the two are not
+separable. If no candidate is eligible, the campaign names none — that is a
+result, recorded as such — and the thresholds are never relaxed once the numbers
+exist. The number of candidates compared is reported with the result.
 
 The candidate is chosen before the sealed set is opened
 ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
 the sealed set confirms the choice, it never makes it.
 
 **Applied once.** The rule is applied once, at the end of the campaign's first
-selection round, when both candidates have been scored on the frozen suites.
-Changing it after any candidate number exists requires the owner.
+selection round, when both candidates have been scored on the frozen suites or
+when one of them is recorded as not finished. Changing it after any candidate
+number exists requires the owner.
 
 ### 5. What this decision does not decide
 
@@ -272,10 +283,10 @@ panels are what the campaign may look at while it works.
 ## Alternatives considered
 
 - **Letting the `fast` suite decide the selection.** It is cheaper and was
-  designed for iteration, but its panels hold 100 clips each (30 for
-  `nonspeech-music`) — an order of magnitude below the `full` panels the
-  comparison is about — so its paired intervals are widest exactly where the
-  ranking has to separate two close candidates. The `fast` numbers are reported
+  designed for iteration, but its panels hold 100 clips each (60 for
+  `nonspeech`, 30 for `nonspeech-music`) against 114 to 600 on the `full`
+  panels, so its paired intervals are widest exactly where the ranking has to
+  separate two close candidates. The `fast` numbers are reported
   with every choice; they do not decide it.
 - **Using the sealed set to break a tie between two close candidates.** This
   was proposed and is not taken: decision 0002 fixes the candidate before the
@@ -313,6 +324,8 @@ panels are what the campaign may look at while it works.
   `peertube-edu-captions-fr-full.txt` (2 and 1 of them also in `fast`), the
   straddle O-12 records.
 - **The captions sealed panels are not talk-disjoint.** 21 of the v1 panel's
-  23 talks are also in the v2 sealed panel, and 831 of the 840 v1 clips outside
-  the split classes match a v2 sealed clip by audio `sha256`; the v2 panel adds
-  3 talks new in the decoded set. Hence § 3's panel-by-panel reading.
+  23 talks are also in the v2 sealed panel; 831 of the 840 v1 clips outside the
+  split classes match a v2 sealed clip by audio `sha256`, the 9 that do not are
+  all in one talk (`f620b4c3…`, 40 clips in each panel, 31 of them the same
+  audio), and the v2 panel adds 3 talks new in the decoded set. Hence § 3's
+  panel-by-panel reading.
