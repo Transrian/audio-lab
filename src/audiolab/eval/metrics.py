@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from audiolab.eval.normalize import normalize
+from audiolab.eval.normalize import NORMALIZER_VERSION, normalize
 
 # A reference of this many words or more can be judged truncated.
 TRUNCATION_MIN_WORDS = 5
@@ -49,6 +49,9 @@ class Item:
     text_has_casing_punct: bool = False
     attempts: int = 1  # requests sent for this item, retries included
     language_sent: bool = True  # False when the server refused the language field
+    # Which normalizer rule set scores this item. It travels with the item, so a
+    # re-score with an older version cannot silently pick up a newer rule set.
+    normalizer: int = NORMALIZER_VERSION
 
     @property
     def failed(self) -> bool:
@@ -84,9 +87,9 @@ class Counts:
         return self.errors / self.reference_words if self.reference_words else float(self.errors)
 
 
-def tokens(text: str, language: str, view: str) -> list[str]:
-    """The tokens a text contributes to one view."""
-    return normalize(text, language_for(language), view).split()
+def tokens(text: str, language: str, view: str, normalizer: int = NORMALIZER_VERSION) -> list[str]:
+    """The tokens a text contributes to one view, under one rule set."""
+    return normalize(text, language_for(language), view, normalizer).split()
 
 
 def view_for(language: str) -> str:
@@ -105,9 +108,23 @@ def language_for(language: str) -> str:
     return language if language in ("fr", "en") else "en"
 
 
-def counts(reference: str, hypothesis: str, language: str, view: str) -> Counts:
-    """S/D/I/C between two texts in one view."""
-    return edit_counts(tokens(reference, language, view), tokens(hypothesis, language, view))
+def counts(
+    reference: str,
+    hypothesis: str,
+    language: str,
+    view: str,
+    normalizer: int = NORMALIZER_VERSION,
+) -> Counts:
+    """S/D/I/C between two texts in one view, under one normalizer version.
+
+    The version defaults to the current one; a caller reproducing an older score
+    passes the version that score was produced with
+    (:data:`audiolab.eval.normalize.V1`).
+    """
+    return edit_counts(
+        tokens(reference, language, view, normalizer),
+        tokens(hypothesis, language, view, normalizer),
+    )
 
 
 def edit_counts(reference: list[str], hypothesis: list[str]) -> Counts:
@@ -161,7 +178,7 @@ class UtteranceScore:
 
     def words(self, text: str) -> list[str]:
         """Tokenize the reference or the hypothesis for their language."""
-        return tokens(text, self.item.language, view_for(self.item.language))
+        return tokens(text, self.item.language, view_for(self.item.language), self.item.normalizer)
 
     @property
     def hypothesis_words(self) -> list[str]:
@@ -231,7 +248,10 @@ def _counts_for(item: Item) -> dict[str, Counts]:
     views = ["normalized", "strict"] if item.language in ("fr", "en") else ["normalized"]
     if item.text_has_casing_punct:
         views.append("formatted")
-    return {view: counts(item.reference, item.hypothesis, item.language, view) for view in views}
+    return {
+        view: counts(item.reference, item.hypothesis, item.language, view, item.normalizer)
+        for view in views
+    }
 
 
 def speech_summary(items: list[Item]) -> dict:

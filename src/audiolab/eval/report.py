@@ -13,6 +13,7 @@ import math
 from pathlib import Path
 
 from audiolab.eval import metrics, stats
+from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.records import (
     ENDPOINT_FINGERPRINT_KEY,
     IDENTITY_NAME,
@@ -59,20 +60,26 @@ def score_run(
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
+    normalizer: int = NORMALIZER_VERSION,
 ) -> dict:
     """Score a run directory and write ``summary.json`` and ``report.md``; returns the summary.
 
     ``draws`` and ``seed`` are exposed so a test can bound its runtime; the
     defaults are the frozen numbers, which is what a real report uses.
+    ``normalizer`` is the rule set the records are scored with; the summary
+    records that version, not the one the run was made under, so a v1 run
+    re-scored with the v2 rules says 2 and two summaries of one instrument
+    always carry the same number.
     """
     run_dir, panels_dir = Path(run_dir), Path(panels_dir)
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
     records = read_records(run_dir / RECORDS_NAME)
     panels = {
-        panel: _panel_items(panel, panels_dir, data_dir, records) for panel in identity["panels"]
+        panel: _panel_items(panel, panels_dir, data_dir, records, normalizer)
+        for panel in identity["panels"]
     }
     summary = {
-        "run": _run_identity(identity, records),
+        "run": _run_identity(identity, records, normalizer),
         "panels": {
             panel: panel_summary(panel, items, draws=draws, seed=seed)
             for panel, items in sorted(panels.items())
@@ -85,22 +92,31 @@ def score_run(
 
 
 def _panel_items(
-    panel: str, panels_dir: Path, data_dir: Path | None, records: list[dict]
+    panel: str,
+    panels_dir: Path,
+    data_dir: Path | None,
+    records: list[dict],
+    normalizer: int = NORMALIZER_VERSION,
 ) -> list[metrics.Item]:
-    return with_records(load_panel_items(panel, panels_dir, data_dir), records)
+    return with_records(
+        load_panel_items(panel, panels_dir, data_dir), records, normalizer=normalizer
+    )
 
 
-def _run_identity(identity: dict, records: list[dict]) -> dict:
+def _run_identity(identity: dict, records: list[dict], normalizer: int) -> dict:
     """The run's identity plus what the records themselves say.
 
     An endpoint fingerprint is left out if an older ``run.json`` still has one:
-    a summary is meant to be shared.
+    a summary is meant to be shared. ``normalizer_version`` is the version that
+    actually scored the records, so re-scoring a run under another rule set
+    records the one used rather than the one the run was written with.
     """
     latest = latest_records(records)
     timestamps = [record["timestamp"] for record in records if record.get("timestamp")]
     summarised = {key: value for key, value in identity.items() if key != ENDPOINT_FINGERPRINT_KEY}
     return {
         **summarised,
+        "normalizer_version": normalizer,
         "records": len(records),
         "items": len(latest),
         "failed_requests": sum(1 for record in latest.values() if record.get("error")),
@@ -159,8 +175,15 @@ def compare_runs(
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
+    normalizer: int = NORMALIZER_VERSION,
 ) -> dict:
-    """Paired comparison of two runs over the ids they have in common."""
+    """Paired comparison of two runs over the ids they have in common.
+
+    ``normalizer`` is the rule set both runs are re-scored with. The comparison
+    carries it under ``normalizer_version``, and
+    :func:`render_comparison` prints it, so a header always names the version its
+    numbers came from rather than the one a run was written with.
+    """
     run_a, run_b, panels_dir = Path(run_a), Path(run_b), Path(panels_dir)
     identity_a = json.loads((run_a / IDENTITY_NAME).read_text(encoding="utf-8"))
     identity_b = json.loads((run_b / IDENTITY_NAME).read_text(encoding="utf-8"))
@@ -171,10 +194,15 @@ def compare_runs(
     name_a = identity_a["model"]["name"]
     name_b = identity_b["model"]["name"]
     records_a, records_b = read_records(run_a / RECORDS_NAME), read_records(run_b / RECORDS_NAME)
-    comparison = {"a": name_a, "b": name_b, "panels": {}}
+    comparison = {
+        "a": name_a,
+        "b": name_b,
+        "normalizer_version": normalizer,
+        "panels": {},
+    }
     for panel in sorted(identity_a["panels"]):
         items_a, items_b, excluded = _paired_items(
-            panel, panels_dir, data_dir, records_a, records_b
+            panel, panels_dir, data_dir, records_a, records_b, normalizer
         )
         if not items_a:
             raise ValueError(
@@ -194,6 +222,7 @@ def _paired_items(
     data_dir: Path | None,
     records_a: list[dict],
     records_b: list[dict],
+    normalizer: int = NORMALIZER_VERSION,
 ) -> tuple[list[metrics.Item], list[metrics.Item], dict]:
     """The items to compare and the ids left out of it, per run.
 
@@ -218,8 +247,8 @@ def _paired_items(
         every.update(ids)
     excluded["ids"] = sorted(every)
     return (
-        with_records(items, records_a),
-        with_records(items, records_b),
+        with_records(items, records_a, normalizer=normalizer),
+        with_records(items, records_b, normalizer=normalizer),
         excluded,
     )
 
@@ -280,6 +309,9 @@ def render_comparison(comparison: dict) -> str:
         "",
         "Paired over the ids both runs answered. A difference is called a difference only",
         "when the 95 % interval of B - A stays away from zero.",
+        "",
+        f"Normalizer version used for these numbers: {comparison['normalizer_version']}"
+        " (`audiolab.eval.normalize`), not the one either run was written with.",
         "",
         "| panel | metric | A | B | B - A | 95 % CI | verdict |",
         "| --- | --- | --- | --- | --- | --- | --- |",

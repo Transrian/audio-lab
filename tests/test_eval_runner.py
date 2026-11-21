@@ -27,6 +27,7 @@ from audiolab.eval.client import (  # noqa: E402
     TranscriptionClient,
     server_root,  # noqa: E402
 )
+from audiolab.eval.normalize import NORMALIZER_VERSION, V1  # noqa: E402
 from audiolab.eval.records import (  # noqa: E402
     IDENTITY_NAME,
     RECORDS_NAME,
@@ -132,7 +133,7 @@ def test_a_run_records_every_item_and_writes_a_summary(workspace):
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
     assert url not in json.dumps(identity)  # a run record never names the endpoint
     assert identity["model"]["server_label"] == ""
-    assert identity["normalizer_version"] == 1
+    assert identity["normalizer_version"] == NORMALIZER_VERSION
     summary = json.loads((run_dir / SUMMARY_NAME).read_text(encoding="utf-8"))
     assert summary["panels"][PANEL]["wer"]["normalized"]["value"] == 0.0
     assert summary["run"]["records"] == panel_size(workspace)

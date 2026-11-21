@@ -12,12 +12,14 @@ import json
 import os
 import subprocess
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 from audiolab.core.paths import data_dir
 from audiolab.data.panels import PANEL_NAMES, read_panel
 from audiolab.data.store import manifest_path, read_manifest
 from audiolab.eval.metrics import Item
+from audiolab.eval.normalize import NORMALIZER_VERSION
 
 RECORDS_NAME = "records.jsonl"
 IDENTITY_NAME = "run.json"
@@ -157,14 +159,20 @@ def latest_records(records: list[dict]) -> dict[str, dict]:
     return latest
 
 
-def with_records(items: list[Item], records: list[dict]) -> list[Item]:
-    """Put the recorded results back onto the items, in panel order."""
+def with_records(
+    items: list[Item], records: list[dict], *, normalizer: int = NORMALIZER_VERSION
+) -> list[Item]:
+    """Put the recorded results back onto the items, in panel order.
+
+    ``normalizer`` is the rule set the items are to be scored with; it travels on
+    every item, so what a report says it used is what the scoring used.
+    """
     by_id = latest_records(records)
     merged = []
     for item in items:
         record = by_id.get(item.id)
         if record is None:
-            merged.append(item)
+            merged.append(replace(item, normalizer=normalizer))
             continue
         merged.append(
             Item(
@@ -183,6 +191,7 @@ def with_records(items: list[Item], records: list[dict]) -> list[Item]:
                 duration_s=item.duration_s,
                 cold=bool(record.get("cold", False)),
                 text_has_casing_punct=item.text_has_casing_punct,
+                normalizer=normalizer,
             )
         )
     return merged
