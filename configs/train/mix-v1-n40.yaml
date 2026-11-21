@@ -1,0 +1,113 @@
+# Mix v1 + MUSAN noise — the recipe-scale test of decision 0004's noise clause.
+#
+# configs/train/mix-v1.yaml plus noise mixed into 40 % of the clips at a random
+# signal-to-noise ratio of 0-20 dB, with the noise fields of the screening arm
+# configs/train/noise-peertube-fr-n40.yaml. It is the test proposed decision
+# 0015 leaves for later: option 1 drops decision 0004's noise clause from the
+# baseline recipe and leaves the robustness question to "a later, targeted
+# test", and option 2 names "a test at the recipe's scale". This is that test:
+# mix-v1's mix, its about 30 000 updates and its rates, with the noise clause
+# added back.
+#
+# Its verdict is about proposed decision 0015 only — whether the noise adds
+# value at the recipe's scale, under the rule committed before the run started
+# in docs/stt/campaign-1.md, "T6 — noise at the recipe's scale". Which
+# candidate the campaign names is proposed decision 0017 § 4 alone, applied to
+# the candidate set it fixes there; this run is one of those candidates.
+#
+# The mix is proposed decision 0016, option 1 (as mix-v1.yaml records) and the
+# campaign scores under normalizer v2 (proposed decisions 0013 and 0017). Every
+# one of them is treated as validated for testing; none is accepted, and no
+# part of any decision is moved.
+#
+# A run is launched from an untracked copy under plans/campaign-1/configs/
+# that differs from this file only in its `gpu:` line: which card answers is a
+# machine fact, and machine facts never go into a committed file. `gpu` is part
+# of the resume check, so a started run must finish on the card it started on.
+#
+# The rows are proposed decision 0016's mix, in its order: the tech talks are a
+# filtered union of the two other PeerTube listings, so they come before the
+# two listing rows, and `exclusive: true` makes a row's pool drop what the whole
+# datasets of the earlier rows already hold — the peertube-fr and peertube-edu
+# rows therefore do not retrain the tech talks (docs/stt/training.md,
+# "Mixing datasets"). Each row draws its share with a seed derived from the
+# run's seed and its name, and the run is checked by the leakage guard before
+# its model is loaded (docs/stt/training.md, "The leakage guard").
+#
+# The recipe: decision 0004's about 30 000 updates and constant rates, at the
+# screening configs' 16 clips per update, weight decay, 20 s window and seed —
+# about 480 000 presentations, each of the 151 882 clips seen about 3 times.
+
+base_model: nvidia/parakeet-tdt-0.6b-v3
+base_model_env: AUDIOLAB_PARAKEET_NEMO
+
+# The mix's rows and shares (of the 151 882 clips): the French rows hold 70 % of
+# the clips and the English rows 30 % — proposed decision 0016's reading of
+# D-009's "French is the priority, English is kept".
+datasets:
+  # 25 % — the anchor: it harmed nothing in the screening. The whole set.
+  - name: granary-fr-train-40k
+    clips: 37971
+  # 15 % — the target use: technical French. First talk row: the two listing
+  #  rows below subtract its talks.
+  - name: peertube-tech-fr-train-40k
+    clips: 22783
+  # 10 % — French talks; loses the tech talks to the row above.
+  - name: peertube-fr-train-40k
+    clips: 15188
+  # 10 % — French variety; loses the tech talks to the row above.
+  - name: peertube-edu-fr-train-40k
+    clips: 15188
+  # 5 % — human labels; costs accented English, kept small (decision 0014
+  #  dropped its shared plenary sessions from the preparation).
+  - name: voxpopuli-fr-train-40k
+    clips: 7594
+  # 5 % — accents (the 12 000-clip set; the source runs out below the cap).
+  - name: african-accented-fr-train
+    clips: 7594
+  # 10 % — harmless English, gains on code-switching.
+  - name: librispeech-pc-en-train-40k
+    clips: 15188
+  # 7½ % — technical English.
+  - name: debconf-en-train-30k
+    clips: 11391
+  # 7½ % — technical English.
+  - name: fosdem-en-train-30k
+    clips: 11391
+  # 5 % — human-labelled technical English.
+  - name: nasa-en-train-30k
+    clips: 7594
+
+exclusive: true
+
+updates: 30000
+# 16 clips per update, one at a time: 1 × 16 is what fits the 24 GB cards this
+# run targets (2 × 8 peaks at 22.4 GiB on a 32 GB card and does not fit in
+# 24 GB) — the micro-batch of configs/train/noise-peertube-fr-control-1x16.yaml.
+batch_size: 1
+grad_accumulation: 16
+
+# Decision 0004's rates: constant, no scheduler.
+lr_encoder: 5.0e-6
+lr_heads: 1.5e-5
+weight_decay: 1.0e-3
+
+schedule: constant
+precision: bf16-mixed
+grad_clip: 1.0
+max_clip_seconds: 20.0
+workers: 4
+gpu: "0"
+
+seed: 20261107
+resume_every: 500
+log_every: 50
+
+# The clause under test — decision 0004's noise, the same fields as the screen
+# noise-peertube-fr-n40: musan-noise, its train half only (the eval half is
+# what the noisy panels of the suite score against), on 40 % of the clips at
+# 0-20 dB.
+noise_prob: 0.4
+noise_bank: musan-noise
+noise_min_snr_db: 0.0
+noise_max_snr_db: 20.0

@@ -10,8 +10,8 @@
 #
 # If the owner keeps decision 0004's noise clause, the literal 0004 recipe is
 # this mix plus noise on about 40 % of the clips — the recipe-scale test
-# proposed decision 0015, option 2 leaves for later (backlog N-01), planned as
-# configs/train/mix-v1-n40.yaml and not committed yet.
+# proposed decision 0015, option 2 leaves for later (backlog N-01), committed
+# as configs/train/mix-v1-n40.yaml.
 #
 # A run is launched from an untracked copy under plans/campaign-1/configs/
 # that differs from this file only in its `gpu:` line: which card answers is a
