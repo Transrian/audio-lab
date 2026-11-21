@@ -108,6 +108,57 @@ campaign's candidate — proposed decision 0017 § 4 does that, and `mix-v1-n40`
 one of the two candidates it fixes — and its result never changes a threshold of
 that rule.
 
+### T11 — seed replicate of mix v1 (`mix-v1-s2`)
+
+Committed 2026-11-21, before the run started and before any `mix-v1-s2` number
+exists. `mix-v1-s2` (`configs/train/mix-v1-s2.yaml`) is
+`configs/train/mix-v1.yaml` with one field changed, `seed: 20261108` against
+`mix-v1`'s `seed: 20261107`; every other field — the mix's rows and their
+shares, the updates, the rates and the batch — is identical. The seed is not the
+trainer's alone: each row of a mix is drawn with a seed derived from the run's
+seed and the row's name alone ([training.md, "Mixing
+datasets"](training.md#mixing-datasets)), so a new seed redraws every row — the
+replicate differs from `mix-v1` in the seed **and** in the clips drawn. It trains
+about 21 h on one RTX 3090, 3090 A, as soon as `mix-v1` is trained and its T8
+evaluation has run. It is **not a candidate**.
+
+**The comparison.**
+
+```bash
+audiolab compare --normalizer 2 --json \
+  "$AUDIOLAB_RUNS/eval/mix-v1/full" "$AUDIOLAB_RUNS/eval/mix-v1-s2/full"
+```
+
+On `full.yaml`, paired, normalizer v2 (proposed decision 0017 § 2): the two
+directories are the `full` directories T8's evaluation writes for the two runs,
+`a` = `mix-v1` and `b` = `mix-v1-s2`. For every panel of the suite, Δ_T11 =
+`mix-v1-s2` minus `mix-v1` is that comparison's `difference`, and together with
+its paired 95 % interval it is **the recipe-scale run-to-run spread** on that
+panel: the seed and the draw are the only things this replicate changes, so what
+falls inside it is what repeating the recipe reproduces.
+
+**What the report says.** Per panel of `full.yaml`, the report written next to
+this rule states whether T6's difference, Δ_T6 = `mix-v1-n40` minus `mix-v1`
+(T6's pre-registered comparison above), is **larger** than that panel's spread.
+"Larger" is read mechanically on the point estimates, in points of the panel's
+metric: on a panel, Δ_T6 is larger than the spread when **|Δ_T6| > |Δ_T11|**
+there.
+
+Magnitudes are compared in points, whatever the metric — WER points on a
+speech panel, hallucination-rate points on a `nonspeech*` one (`audiolab compare
+--json` gives fractions: ×100) — as the T6 rule above compares its own
+differences. This is a **reporting** statement only: it does not change T6's
+pre-registered verdict, which stands as written, and it relaxes no threshold of
+proposed decision 0017 § 4; it informs the owner's later reading. Panels are
+reported one by one, and no panel's numbers are pooled or averaged with another's.
+
+**What the rule does not do.** `mix-v1-s2` is not a candidate: [proposed
+decision 0017 § 4](../decisions/proposed/0017-campaign-1-test-freeze.md) fixes the
+candidate set at `mix-v1` and `mix-v1-n40`, each candidate its run's final
+`model.nemo`, and records that the seed replicate is not added to it. This run
+enters no candidate comparison, makes no candidate eligible or ineligible, and
+never replaces the campaign's candidate.
+
 ## References
 
 Every campaign number is read against these runs. Three of the four columns are
