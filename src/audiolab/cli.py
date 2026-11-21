@@ -33,6 +33,8 @@ from audiolab.data.talk_sources import SOURCES, list_talks, prepare_talk_audio
 from audiolab.data.talks import HOURS_PER_CAP, http_client
 from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
+from audiolab.eval.normalize import NORMALIZER_VERSION
+from audiolab.eval.normalize import VERSIONS as NORMALIZER_VERSIONS
 from audiolab.eval.report import (
     REPORT_NAME,
     SUMMARY_NAME,
@@ -211,9 +213,10 @@ def cmd_train(args: argparse.Namespace) -> int:
 def cmd_score(args: argparse.Namespace) -> int:
     """Score a finished run again, from its records; the same records give the same files."""
     run_dir = Path(args.run)
-    summary = score_run(run_dir, args.panels_dir, args.data_dir)
+    summary = score_run(run_dir, args.panels_dir, args.data_dir, normalizer=args.normalizer)
     total = sum(panel["items"] for panel in summary["panels"].values())
     print(f"scored {total} items over {len(summary['panels'])} panels")
+    print(f"normalizer version used: {summary['run']['normalizer_version']}")
     print(f"summary: {run_dir / SUMMARY_NAME}")
     print(f"report: {run_dir / REPORT_NAME}")
     return 0
@@ -221,7 +224,9 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two runs over the ids and panels they share."""
-    comparison = compare_runs(args.run_a, args.run_b, args.panels_dir, args.data_dir)
+    comparison = compare_runs(
+        args.run_a, args.run_b, args.panels_dir, args.data_dir, normalizer=args.normalizer
+    )
     print(render_comparison(comparison))
     if args.json:
         print(json.dumps(comparison, indent=2, sort_keys=True))
@@ -382,6 +387,15 @@ def _add_eval_commands(commands: argparse._SubParsersAction) -> None:
     scoring = argparse.ArgumentParser(add_help=False)
     scoring.add_argument(
         "--panels-dir", default=DEFAULT_PANELS_DIR, help="directory holding the frozen panels"
+    )
+    scoring.add_argument(
+        "--normalizer",
+        type=int,
+        choices=NORMALIZER_VERSIONS,
+        default=NORMALIZER_VERSION,
+        help="normalizer rule set the records are scored with: 2 (default) is "
+        "contractions and elision spacing, 1 is the frozen older rule set that "
+        "reproduces a score published before version 2",
     )
     _add_eval_command(commands, scoring)
     _add_score_command(commands, scoring)

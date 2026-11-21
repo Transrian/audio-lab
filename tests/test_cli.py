@@ -18,6 +18,7 @@ from audiolab.core.gpu import parse_nvidia_smi  # noqa: E402
 from audiolab.data.panels import build_panels, read_panel  # noqa: E402
 from audiolab.data.store import MANIFEST_NAME, read_manifest, write_manifest  # noqa: E402
 from audiolab.eval.client import NotAnswering  # noqa: E402
+from audiolab.eval.records import panel_hashes  # noqa: E402
 
 PANEL = "fake-fr-fast"
 
@@ -357,3 +358,95 @@ def test_data_panels_check_hashes_the_audio_of_the_panel(prepared, capsys):
     )
     assert code == 1
     assert "does not match its sha256" in capsys.readouterr().err
+
+
+def v1_run(prepared) -> Path:
+    """A finished run scored with normalizer v1, as one published before v2 is."""
+    panel = read_panel(prepared["panels_dir"] / f"{PANEL}.txt")
+    run_dir = prepared["runs_dir"] / "eval" / "fake-model" / "fast"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "model": {"name": "fake-model", "model": "served-id", "server_label": ""},
+                "normalizer_version": 1,
+                "suite": "fast",
+                "audiolab_version": "0.0.0",
+                "git_commit": "test",
+                "panels": panel_hashes([PANEL], prepared["panels_dir"]),
+            }
+        ),
+        encoding="utf-8",
+    )
+    records = [
+        {
+            "id": clip_id,
+            "panel": PANEL,
+            "hypothesis": "it is a test",
+            "error": "",
+        }
+        for clip_id in panel.ids
+    ]
+    (run_dir / "records.jsonl").write_text(
+        "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+    )
+    return run_dir
+
+
+def score_command(prepared, run_dir: Path, normalizer: int) -> list[str]:
+    return [
+        "--data-dir",
+        str(prepared["data_dir"]),
+        "score",
+        str(run_dir),
+        "--panels-dir",
+        str(prepared["panels_dir"]),
+        "--normalizer",
+        str(normalizer),
+    ]
+
+
+def test_score_records_the_version_it_was_run_with(prepared, capsys):
+    """A v1 run re-scored with --normalizer 2 says 2, not the version in run.json."""
+    run_dir = v1_run(prepared)
+    assert cli.main(score_command(prepared, run_dir, 2)) == 0
+    out = capsys.readouterr().out
+    assert "normalizer version used: 2" in out
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["run"]["normalizer_version"] == 2
+    assert "normalizer version 2" in (run_dir / "report.md").read_text(encoding="utf-8")
+
+    # v1 stays reproducible: the same records under the older rule set say 1.
+    assert cli.main(score_command(prepared, run_dir, 1)) == 0
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["run"]["normalizer_version"] == 1
+
+
+def test_compare_prints_the_version_it_used(prepared, capsys):
+    run_dir = v1_run(prepared)
+    for version in (1, 2):
+        assert (
+            cli.main(
+                [
+                    "--data-dir",
+                    str(prepared["data_dir"]),
+                    "compare",
+                    str(run_dir),
+                    str(run_dir),
+                    "--panels-dir",
+                    str(prepared["panels_dir"]),
+                    "--normalizer",
+                    str(version),
+                ]
+            )
+            == 0
+        )
+        assert f"Normalizer version used for these numbers: {version}" in capsys.readouterr().out
+
+
+def test_an_unknown_normalizer_version_is_refused(prepared, capsys):
+    run_dir = v1_run(prepared)
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(score_command(prepared, run_dir, 3))
+    assert exit_info.value.code == 2
+    assert "normalizer" in capsys.readouterr().err
