@@ -17,11 +17,12 @@
 #
 # The mix is proposed decision 0016, option 1 (as mix-v1.yaml records) and the
 # campaign scores under normalizer v2 (proposed decisions 0013 and 0017). Every
-# one of them is treated as validated for testing; none is accepted, and no
-# part of any decision is moved.
+# one of them is treated as validated for testing on the owner's instruction of
+# 2026-11-21 for campaign 1 (docs/stt/campaign-1.md records the ruling); none
+# is accepted, and no part of any decision is moved.
 #
-# A run is launched from an untracked copy under plans/campaign-1/configs/
-# that differs from this file only in its `gpu:` line: which card answers is a
+# A run is launched from an untracked local copy that differs from this file
+# only in its `gpu:` line: which card answers is a
 # machine fact, and machine facts never go into a committed file. `gpu` is part
 # of the resume check, so a started run must finish on the card it started on.
 #

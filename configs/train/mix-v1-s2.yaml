@@ -2,19 +2,21 @@
 # proposed decision 0016, option 1 (the mix as measured, its label-quality
 # question O-11 answered "accept") and proposed decision 0015, option 1 (the
 # baseline recipe drops decision 0004's noise clause). Both are treated as
-# validated for testing here; neither is accepted, and no part of either
-# decision is moved. Under those two assumptions this is the decision-0004
+# validated for testing on the owner's instruction of 2026-11-21 for campaign
+# 1 (docs/stt/campaign-1.md records the ruling); neither is accepted, and no
+# part of either decision is moved. Under those two assumptions this is the decision-0004
 # baseline: that decision's base model, constant rates and about 30 000
 # updates. The table this file implements, measured read-only over the
 # prepared data with the same code a run uses, is in proposed decision 0016.
 #
 # If the owner keeps decision 0004's noise clause, the literal 0004 recipe is
-# this mix plus noise on about 40 % of the clips — the recipe-scale test
-# proposed decision 0015, option 2 leaves for later (backlog N-01), committed
-# as configs/train/mix-v1-n40.yaml.
+# this mix plus noise on about 40 % of the clips — the recipe-scale test that
+# proposed decision 0015, option 2 (test a different noise before deciding),
+# names, tracked under the open question of backlog O-09, committed as
+# configs/train/mix-v1-n40.yaml.
 #
-# A run is launched from an untracked copy under plans/campaign-1/configs/
-# that differs from this file only in its `gpu:` line: which card answers is a
+# A run is launched from an untracked local copy that differs from this file
+# only in its `gpu:` line: which card answers is a
 # machine fact, and machine facts never go into a committed file. `gpu` is part
 # of the resume check, so a started run must finish on the card it started on.
 #
