@@ -472,10 +472,16 @@ def rescore(
 
 
 def _split_candidate(entry: str | Path | tuple[str, str | Path]) -> tuple[str | None, str | Path]:
-    """A candidate as ``(label, path)``; a bare path carries no label."""
+    """A candidate as ``(label, path)``; a bare path carries no label.
+
+    ``--candidate PATH`` arrives from ``parse_candidate`` as ``(None, path)``, so
+    an empty label has to stay empty: ``str(None)`` is the four letters of the
+    word "None", which would become the table row's name.
+    """
     if isinstance(entry, tuple):
         label, path = entry
-        return (str(label).strip() or None, path)
+        text = "" if label is None else str(label).strip()
+        return (text or None, path)
     return (None, entry)
 
 

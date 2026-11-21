@@ -458,8 +458,15 @@ def test_a_candidate_label_replaces_the_guessed_name(runs):
     )
     assert "My source" in result["panels"][EN]["candidates"]
     assert "My source" in rescore_mod.render(result)
+    # A candidate with no label keeps the run's own name, not the string "None".
+    assert "contractions" in result["panels"][EN]["candidates"]
+    assert "None" not in result["panels"][EN]["candidates"]
     assert rescore_mod.parse_candidate("My source=/tmp/run") == ("My source", Path("/tmp/run"))
     assert rescore_mod.parse_candidate("/tmp/run") == (None, Path("/tmp/run"))
+    assert rescore_mod._split_candidate(rescore_mod.parse_candidate("/tmp/run")) == (
+        None,
+        Path("/tmp/run"),
+    )
 
 
 def test_the_report_says_which_version_scored_it(runs):
