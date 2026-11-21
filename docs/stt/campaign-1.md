@@ -25,9 +25,9 @@ plan under `plans/campaign-1/`, which is local and not committed.
 
 The candidate set is fixed by [proposed decision
 0017](../decisions/proposed/0017-campaign-1-test-freeze.md) § 4: `mix-v1` and its
-noise arm `mix-v1-n40`. No candidate is added later, and the seed replicate of
-T11 is not a candidate. A row is filled in when its run has been trained and
-scored (`full` decides, `fast` is reported alongside, per 0017 § 4).
+noise arm `mix-v1-n40`. No candidate is added later, and the seed replicate
+`mix-v1-s2` is not a candidate. A row is filled in when its run has been trained
+and scored (`full` decides, `fast` is reported alongside, per 0017 § 4).
 
 | candidate | config | training | `full` scored | `fast` scored | status |
 | --- | --- | --- | --- | --- | --- |
@@ -56,33 +56,37 @@ recipe's scale, on mix v1's data.
 
 **The comparison.** `audiolab compare --normalizer 2 BASE mix-v1-n40` and
 `audiolab compare --normalizer 2 mix-v1 mix-v1-n40`, `--json` for the per-panel
-numbers, on `full.yaml`. `mix-v1` minus the base says where the arm sits; the
-noise's effect is the direct one, `mix-v1` versus `mix-v1-n40`. A panel's
-difference is *separable* when its paired 95 % interval stays away from zero.
+numbers, on `full.yaml`, where BASE is the base run of proposed decision 0017
+§ 4, `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`. `mix-v1-n40` minus the
+base says where the arm sits; the noise's effect is the direct one, `mix-v1`
+versus `mix-v1-n40`. A panel's difference is *separable* when its paired 95 %
+interval stays away from zero.
 
 **The rule.** The noise **adds value** only if both hold:
 
 1. **A qualifying noisy gain.** At least one `noisy-*-full` panel improves
    separably by more than that panel's screening run-to-run spread — its
    `mix-v1-n40` minus `mix-v1` interval lies wholly below zero **and** its point
-   estimate is larger, in magnitude, than the spread in the table below. This
-   largest qualifying improvement is *the best qualifying noisy gain*.
+   estimate is larger, in magnitude, than the spread in the table below. The
+   largest such qualifying improvement, in magnitude, is *the best qualifying
+   noisy gain*.
 2. **No larger non-noisy loss.** No non-noisy panel of `full.yaml` — the 15
    others, the two `nonspeech*` hallucination rates included — shows a separable
    loss: a `mix-v1-n40` minus `mix-v1` interval wholly above zero whose point
-   estimate is larger than the best qualifying noisy gain of 1.
+   estimate is larger than the best qualifying noisy gain of clause 1.
 
 Magnitudes are compared in points, whatever the metric — WER points on a speech
-panel, hallucination-rate points on a `nonspeech*` one — as the screening's own
-rule compares its `B − A` differences ([screening.md, "Matched control: the
-rule, before the numbers"](screening.md#matched-control-the-rule-before-the-numbers)).
+panel, hallucination-rate points on a `nonspeech*` one (`audiolab compare --json`
+gives fractions: ×100) — as the screening's own rule compares its `B − A`
+differences ([screening.md, "Matched control: the rule, before the
+numbers"](screening.md#matched-control-the-rule-before-the-numbers)).
 
-Otherwise the result is **"not shown at recipe scale"**, and proposed decision
-0015 option 1 — the baseline keeps no noise — is what the campaign's baseline
-already does.
+Otherwise the result is **"not shown at recipe scale"**; that result does not
+decide 0015 by itself (the owner does).
 
-**The screening run-to-run spread on a panel** is the magnitude of the
-matched-control − original-control difference that panel records in
+**The screening run-to-run spread on a panel** is the bound farthest from zero
+of the 95 % interval of the matched-control − original-control difference that
+panel records in
 [screening.md, "Noise augmentation"](screening.md#noise-augmentation) (its
 run-to-run table), read as the section itself reads it: the observed `n40` gain
 on `noisy-fleurs-en` is "within the run-to-run interval on that panel (up to
@@ -164,11 +168,17 @@ separate run.
   and, under v2, from its `captions-v2-2026-11-15-v2` copy. The base's 18-panel
   run scores that panel itself.
 
-The two served models' v1 numbers are the reference runs of [datasets.md,
-"Reference runs of the new panels"](datasets.md#reference-runs-of-the-new-panels-2026-11-13);
-this page holds their v2 reading and does not repeat the v1 tables. The base's
-v1 numbers are the phase 1 base column reproduced in the
-[screening](screening.md#results).
+The base v2 column is the base that proposed decision 0017 § 4 compares against:
+`audiolab compare --normalizer 2` on the base's `full` run reproduces it panel
+for panel. Its unweighted mean over 0017's seven primary panels is 11.03 %.
+
+The two served models' v1 numbers for the new panels are the reference runs of
+[datasets.md, "Reference runs of the new
+panels"](datasets.md#reference-runs-of-the-new-panels-2026-11-13); this page
+holds their v2 reading and does not repeat the v1 tables. The base's v1 numbers
+are the phase 1 base column reproduced in the
+[screening](screening.md#results), for the nine panels that column carries. Every
+v1 number of every reference is in the cited directory's `summary.json`.
 
 **How a v2 column is made.** `audiolab score` rewrites a run directory in place,
 so each v2 column comes from a `cp -a` copy of the cited directory, re-scored
@@ -179,11 +189,13 @@ cp -a "$AUDIOLAB_RUNS/eval/<run>" "$AUDIOLAB_RUNS/eval/<run>-v2"
 audiolab score --normalizer 2 "$AUDIOLAB_RUNS/eval/<run>-v2"
 ```
 
-`score` re-scores the stored records and sends no request; the copy's
-`summary.json` records the version it actually used (2), and the cited original
-directory stays byte-identical. `audiolab eval` is never used for this: it would
-send the clips to a server again and rewrite the directory whose numbers are
-cited. This is the recommended practice of [evaluation.md
+`score` re-scores the stored records with the normalizer frozen at `9843311`
+(proposed decision 0017 § 2) and sends no request; the copy's `summary.json`
+records the version it actually used (2), and the cited original directory stays
+byte-identical. `score` rewrites `summary.json` and `report.md` only; the copy's
+`run.json` still records the eval's version (1). `audiolab eval` is never used
+for this: it would send the clips to a server again and rewrite the directory
+whose numbers are cited. This is the recommended practice of [evaluation.md
 § 5](evaluation.md#5-text-normalization-three-views-two-versions), applied to
 every reference above.
 
