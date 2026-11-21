@@ -76,7 +76,9 @@ every metric and what they do not cover;
 [datasets](docs/stt/datasets.md) has one card per dataset, with its license, and
 [sources](docs/stt/sources.md) registers every data source considered, with its
 status; the [per-source screening](docs/stt/screening.md) fine-tunes on each
-training source alone and reports what it changes.
+training source alone and reports what it changes; [campaign
+1](docs/stt/campaign-1.md) records the first candidate-training campaign, its
+reference runs and its pre-registered experiment rules.
 
 ## Research and exploratory experiments
 

@@ -18,7 +18,9 @@ Phase 3 is *in progress*, not done: `audiolab train` fine-tunes a checkpoint,
 keeps one resume slot so a stopped run goes on, and writes a checkpoint a run can
 be scored from ([fine-tuning](stt/training.md)), but the baseline of decision
 0004 has not been trained yet. [Campaign 1](stt/campaign-1.md) trains it under
-the frozen test sets of proposed decision 0017 and selects the first candidate.
+the frozen test sets of [proposed decision
+0017](decisions/proposed/0017-campaign-1-test-freeze.md) and selects the first
+candidate, or records that none is eligible (0017 § 4).
 
 Phase 4 has started with a [per-source screening](stt/screening.md): one short
 fine-tune per training source, the same clips and updates for each, every
