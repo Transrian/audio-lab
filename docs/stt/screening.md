@@ -856,7 +856,10 @@ candidate's gain on the same panel is only −0.15 [−0.43, 0.11], not
 separable; and it is smaller than the separable clean loss of the candidate
 that made it (0.75) — it is not a consistent gain from the noise. What a different noise, a
 different SNR range, or a test at the recipe's scale would show is left to
-[proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
+[proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md);
+the recipe-scale test of this same clause is [campaign 1, "T6 — noise at the
+recipe's scale"](campaign-1.md#t6--noise-at-the-recipes-scale-mix-v1-n40),
+under a rule committed before its run.
 
 ### Against the original control (not matched)
 

@@ -89,6 +89,8 @@ a recommendation: the measurement a dose is judged against is in
 [screening.md, "Noise augmentation"](screening.md#noise-augmentation), and the
 open question of what the baseline recipe keeps is
 [proposed decision 0015](../decisions/proposed/0015-noise-augmentation-in-the-baseline-recipe.md).
+[Campaign 1](campaign-1.md) runs the noise clause at the recipe's scale
+(`configs/train/mix-v1-n40.yaml`) under a rule committed before that run.
 
 `base_model`, `updates`, `batch_size`, `lr_encoder` and `lr_heads` are required
 in every config, and a config must name its data as either `dataset` + `clips`

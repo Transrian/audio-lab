@@ -146,7 +146,8 @@ Reading of the new panels:
 
 The runs are reference numbers of the current suite, not a screening: they say
 where each model stands on each new panel before campaign 1's fine-tunes are
-trained.
+trained. Under normalizer v2 the same runs are two columns of
+[campaign 1's reference table](campaign-1.md#references).
 
 ### Reference runs of the v2 captions panels (2026-11-17)
 

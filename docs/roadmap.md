@@ -17,7 +17,8 @@ are linked from the [research index](research/README.md).
 Phase 3 is *in progress*, not done: `audiolab train` fine-tunes a checkpoint,
 keeps one resume slot so a stopped run goes on, and writes a checkpoint a run can
 be scored from ([fine-tuning](stt/training.md)), but the baseline of decision
-0004 has not been trained yet.
+0004 has not been trained yet. [Campaign 1](stt/campaign-1.md) trains it under
+the frozen test sets of proposed decision 0017 and selects the first candidate.
 
 Phase 4 has started with a [per-source screening](stt/screening.md): one short
 fine-tune per training source, the same clips and updates for each, every
