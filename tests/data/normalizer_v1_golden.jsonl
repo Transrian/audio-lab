@@ -1,0 +1,928 @@
+{"note": "version 1 normalizer output, generated from the implementation of commit ce46aba; tests/test_eval_normalize.py replays this file to keep version 1 frozen", "shape": "one line per text and view: {language, view, text, output}"}
+{"language": "fr", "output": "zéro", "text": "zéro", "view": "normalized"}
+{"language": "fr", "output": "zéro", "text": "0", "view": "normalized"}
+{"language": "fr", "output": "un", "text": "un", "view": "normalized"}
+{"language": "fr", "output": "un", "text": "1", "view": "normalized"}
+{"language": "fr", "output": "deux", "text": "deux", "view": "normalized"}
+{"language": "fr", "output": "deux", "text": "2", "view": "normalized"}
+{"language": "fr", "output": "trois", "text": "trois", "view": "normalized"}
+{"language": "fr", "output": "trois", "text": "3", "view": "normalized"}
+{"language": "fr", "output": "quatre", "text": "quatre", "view": "normalized"}
+{"language": "fr", "output": "quatre", "text": "4", "view": "normalized"}
+{"language": "fr", "output": "cinq", "text": "cinq", "view": "normalized"}
+{"language": "fr", "output": "cinq", "text": "5", "view": "normalized"}
+{"language": "fr", "output": "six", "text": "six", "view": "normalized"}
+{"language": "fr", "output": "six", "text": "6", "view": "normalized"}
+{"language": "fr", "output": "sept", "text": "sept", "view": "normalized"}
+{"language": "fr", "output": "sept", "text": "7", "view": "normalized"}
+{"language": "fr", "output": "huit", "text": "huit", "view": "normalized"}
+{"language": "fr", "output": "huit", "text": "8", "view": "normalized"}
+{"language": "fr", "output": "neuf", "text": "neuf", "view": "normalized"}
+{"language": "fr", "output": "neuf", "text": "9", "view": "normalized"}
+{"language": "fr", "output": "dix", "text": "dix", "view": "normalized"}
+{"language": "fr", "output": "dix", "text": "10", "view": "normalized"}
+{"language": "fr", "output": "onze", "text": "onze", "view": "normalized"}
+{"language": "fr", "output": "onze", "text": "11", "view": "normalized"}
+{"language": "fr", "output": "douze", "text": "douze", "view": "normalized"}
+{"language": "fr", "output": "douze", "text": "12", "view": "normalized"}
+{"language": "fr", "output": "treize", "text": "treize", "view": "normalized"}
+{"language": "fr", "output": "treize", "text": "13", "view": "normalized"}
+{"language": "fr", "output": "quatorze", "text": "quatorze", "view": "normalized"}
+{"language": "fr", "output": "quatorze", "text": "14", "view": "normalized"}
+{"language": "fr", "output": "quinze", "text": "quinze", "view": "normalized"}
+{"language": "fr", "output": "quinze", "text": "15", "view": "normalized"}
+{"language": "fr", "output": "seize", "text": "seize", "view": "normalized"}
+{"language": "fr", "output": "seize", "text": "16", "view": "normalized"}
+{"language": "fr", "output": "dix sept", "text": "dix-sept", "view": "normalized"}
+{"language": "fr", "output": "dix sept", "text": "17", "view": "normalized"}
+{"language": "fr", "output": "dix huit", "text": "dix-huit", "view": "normalized"}
+{"language": "fr", "output": "dix huit", "text": "18", "view": "normalized"}
+{"language": "fr", "output": "dix neuf", "text": "dix-neuf", "view": "normalized"}
+{"language": "fr", "output": "dix neuf", "text": "19", "view": "normalized"}
+{"language": "fr", "output": "vingt", "text": "vingt", "view": "normalized"}
+{"language": "fr", "output": "vingt", "text": "20", "view": "normalized"}
+{"language": "fr", "output": "vingt et un", "text": "vingt et un", "view": "normalized"}
+{"language": "fr", "output": "vingt et un", "text": "21", "view": "normalized"}
+{"language": "fr", "output": "trente", "text": "trente", "view": "normalized"}
+{"language": "fr", "output": "trente", "text": "30", "view": "normalized"}
+{"language": "fr", "output": "trente et un", "text": "trente et un", "view": "normalized"}
+{"language": "fr", "output": "trente et un", "text": "31", "view": "normalized"}
+{"language": "fr", "output": "quarante", "text": "quarante", "view": "normalized"}
+{"language": "fr", "output": "quarante", "text": "40", "view": "normalized"}
+{"language": "fr", "output": "cinquante", "text": "cinquante", "view": "normalized"}
+{"language": "fr", "output": "cinquante", "text": "50", "view": "normalized"}
+{"language": "fr", "output": "soixante", "text": "soixante", "view": "normalized"}
+{"language": "fr", "output": "soixante", "text": "60", "view": "normalized"}
+{"language": "fr", "output": "soixante et un", "text": "soixante et un", "view": "normalized"}
+{"language": "fr", "output": "soixante et un", "text": "61", "view": "normalized"}
+{"language": "fr", "output": "soixante dix", "text": "soixante-dix", "view": "normalized"}
+{"language": "fr", "output": "soixante dix", "text": "70", "view": "normalized"}
+{"language": "fr", "output": "soixante et onze", "text": "soixante et onze", "view": "normalized"}
+{"language": "fr", "output": "soixante et onze", "text": "71", "view": "normalized"}
+{"language": "fr", "output": "soixante douze", "text": "soixante-douze", "view": "normalized"}
+{"language": "fr", "output": "soixante douze", "text": "72", "view": "normalized"}
+{"language": "fr", "output": "quatre vingts", "text": "quatre-vingts", "view": "normalized"}
+{"language": "fr", "output": "quatre vingts", "text": "80", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt un", "text": "quatre-vingt-un", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt un", "text": "81", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix", "text": "quatre-vingt-dix", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix", "text": "90", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt onze", "text": "quatre-vingt-onze", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt onze", "text": "91", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix neuf", "text": "quatre-vingt-dix-neuf", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix neuf", "text": "99", "view": "normalized"}
+{"language": "fr", "output": "cent", "text": "cent", "view": "normalized"}
+{"language": "fr", "output": "cent", "text": "100", "view": "normalized"}
+{"language": "fr", "output": "cent un", "text": "cent un", "view": "normalized"}
+{"language": "fr", "output": "cent un", "text": "101", "view": "normalized"}
+{"language": "fr", "output": "deux cents", "text": "deux cents", "view": "normalized"}
+{"language": "fr", "output": "deux cents", "text": "200", "view": "normalized"}
+{"language": "fr", "output": "deux cent un", "text": "deux cent un", "view": "normalized"}
+{"language": "fr", "output": "deux cent un", "text": "201", "view": "normalized"}
+{"language": "fr", "output": "mille", "text": "mille", "view": "normalized"}
+{"language": "fr", "output": "mille", "text": "1000", "view": "normalized"}
+{"language": "fr", "output": "mille un", "text": "mille un", "view": "normalized"}
+{"language": "fr", "output": "mille un", "text": "1001", "view": "normalized"}
+{"language": "fr", "output": "deux mille", "text": "deux mille", "view": "normalized"}
+{"language": "fr", "output": "deux mille", "text": "2000", "view": "normalized"}
+{"language": "fr", "output": "mille deux cent trente quatre", "text": "mille deux cent trente-quatre", "view": "normalized"}
+{"language": "fr", "output": "mille deux cent trente quatre", "text": "1234", "view": "normalized"}
+{"language": "fr", "output": "un million", "text": "un million", "view": "normalized"}
+{"language": "fr", "output": "un million", "text": "1000000", "view": "normalized"}
+{"language": "fr", "output": "vingt deux", "text": "vingt-deux", "view": "normalized"}
+{"language": "fr", "output": "vingt deux", "text": "22", "view": "normalized"}
+{"language": "fr", "output": "trente trois", "text": "trente-trois", "view": "normalized"}
+{"language": "fr", "output": "trente trois", "text": "33", "view": "normalized"}
+{"language": "fr", "output": "quarante cinq", "text": "quarante-cinq", "view": "normalized"}
+{"language": "fr", "output": "quarante cinq", "text": "45", "view": "normalized"}
+{"language": "fr", "output": "cinquante six", "text": "cinquante-six", "view": "normalized"}
+{"language": "fr", "output": "cinquante six", "text": "56", "view": "normalized"}
+{"language": "fr", "output": "soixante sept", "text": "soixante-sept", "view": "normalized"}
+{"language": "fr", "output": "soixante sept", "text": "67", "view": "normalized"}
+{"language": "fr", "output": "soixante dix huit", "text": "soixante-dix-huit", "view": "normalized"}
+{"language": "fr", "output": "soixante dix huit", "text": "78", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt neuf", "text": "quatre-vingt-neuf", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt neuf", "text": "89", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt quinze", "text": "quatre-vingt-quinze", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt quinze", "text": "95", "view": "normalized"}
+{"language": "fr", "output": "trois cent soixante cinq", "text": "trois cent soixante-cinq", "view": "normalized"}
+{"language": "fr", "output": "trois cent soixante cinq", "text": "365", "view": "normalized"}
+{"language": "fr", "output": "mille neuf cent quatre vingt dix neuf", "text": "mille neuf cent quatre-vingt-dix-neuf", "view": "normalized"}
+{"language": "fr", "output": "mille neuf cent quatre vingt dix neuf", "text": "1999", "view": "normalized"}
+{"language": "en", "output": "zero", "text": "zero", "view": "normalized"}
+{"language": "en", "output": "zero", "text": "0", "view": "normalized"}
+{"language": "en", "output": "one", "text": "one", "view": "normalized"}
+{"language": "en", "output": "one", "text": "1", "view": "normalized"}
+{"language": "en", "output": "two", "text": "two", "view": "normalized"}
+{"language": "en", "output": "two", "text": "2", "view": "normalized"}
+{"language": "en", "output": "three", "text": "three", "view": "normalized"}
+{"language": "en", "output": "three", "text": "3", "view": "normalized"}
+{"language": "en", "output": "four", "text": "four", "view": "normalized"}
+{"language": "en", "output": "four", "text": "4", "view": "normalized"}
+{"language": "en", "output": "five", "text": "five", "view": "normalized"}
+{"language": "en", "output": "five", "text": "5", "view": "normalized"}
+{"language": "en", "output": "six", "text": "six", "view": "normalized"}
+{"language": "en", "output": "six", "text": "6", "view": "normalized"}
+{"language": "en", "output": "seven", "text": "seven", "view": "normalized"}
+{"language": "en", "output": "seven", "text": "7", "view": "normalized"}
+{"language": "en", "output": "eight", "text": "eight", "view": "normalized"}
+{"language": "en", "output": "eight", "text": "8", "view": "normalized"}
+{"language": "en", "output": "nine", "text": "nine", "view": "normalized"}
+{"language": "en", "output": "nine", "text": "9", "view": "normalized"}
+{"language": "en", "output": "ten", "text": "ten", "view": "normalized"}
+{"language": "en", "output": "ten", "text": "10", "view": "normalized"}
+{"language": "en", "output": "eleven", "text": "eleven", "view": "normalized"}
+{"language": "en", "output": "eleven", "text": "11", "view": "normalized"}
+{"language": "en", "output": "twelve", "text": "twelve", "view": "normalized"}
+{"language": "en", "output": "twelve", "text": "12", "view": "normalized"}
+{"language": "en", "output": "thirteen", "text": "thirteen", "view": "normalized"}
+{"language": "en", "output": "thirteen", "text": "13", "view": "normalized"}
+{"language": "en", "output": "fourteen", "text": "fourteen", "view": "normalized"}
+{"language": "en", "output": "fourteen", "text": "14", "view": "normalized"}
+{"language": "en", "output": "fifteen", "text": "fifteen", "view": "normalized"}
+{"language": "en", "output": "fifteen", "text": "15", "view": "normalized"}
+{"language": "en", "output": "sixteen", "text": "sixteen", "view": "normalized"}
+{"language": "en", "output": "sixteen", "text": "16", "view": "normalized"}
+{"language": "en", "output": "seventeen", "text": "seventeen", "view": "normalized"}
+{"language": "en", "output": "seventeen", "text": "17", "view": "normalized"}
+{"language": "en", "output": "eighteen", "text": "eighteen", "view": "normalized"}
+{"language": "en", "output": "eighteen", "text": "18", "view": "normalized"}
+{"language": "en", "output": "nineteen", "text": "nineteen", "view": "normalized"}
+{"language": "en", "output": "nineteen", "text": "19", "view": "normalized"}
+{"language": "en", "output": "twenty", "text": "twenty", "view": "normalized"}
+{"language": "en", "output": "twenty", "text": "20", "view": "normalized"}
+{"language": "en", "output": "twenty one", "text": "twenty one", "view": "normalized"}
+{"language": "en", "output": "twenty one", "text": "21", "view": "normalized"}
+{"language": "en", "output": "thirty", "text": "thirty", "view": "normalized"}
+{"language": "en", "output": "thirty", "text": "30", "view": "normalized"}
+{"language": "en", "output": "forty", "text": "forty", "view": "normalized"}
+{"language": "en", "output": "forty", "text": "40", "view": "normalized"}
+{"language": "en", "output": "fifty", "text": "fifty", "view": "normalized"}
+{"language": "en", "output": "fifty", "text": "50", "view": "normalized"}
+{"language": "en", "output": "sixty", "text": "sixty", "view": "normalized"}
+{"language": "en", "output": "sixty", "text": "60", "view": "normalized"}
+{"language": "en", "output": "seventy", "text": "seventy", "view": "normalized"}
+{"language": "en", "output": "seventy", "text": "70", "view": "normalized"}
+{"language": "en", "output": "eighty", "text": "eighty", "view": "normalized"}
+{"language": "en", "output": "eighty", "text": "80", "view": "normalized"}
+{"language": "en", "output": "ninety", "text": "ninety", "view": "normalized"}
+{"language": "en", "output": "ninety", "text": "90", "view": "normalized"}
+{"language": "en", "output": "one hundred", "text": "one hundred", "view": "normalized"}
+{"language": "en", "output": "one hundred", "text": "100", "view": "normalized"}
+{"language": "en", "output": "one hundred one", "text": "one hundred and one", "view": "normalized"}
+{"language": "en", "output": "one hundred one", "text": "101", "view": "normalized"}
+{"language": "en", "output": "one thousand", "text": "one thousand", "view": "normalized"}
+{"language": "en", "output": "one thousand", "text": "1000", "view": "normalized"}
+{"language": "en", "output": "two thousand", "text": "two thousand", "view": "normalized"}
+{"language": "en", "output": "two thousand", "text": "2000", "view": "normalized"}
+{"language": "en", "output": "twelve thirty four", "text": "1234", "view": "normalized"}
+{"language": "en", "output": "twelve thirty four", "text": "twelve thirty-four", "view": "normalized"}
+{"language": "en", "output": "one million", "text": "one million", "view": "normalized"}
+{"language": "en", "output": "one million", "text": "1000000", "view": "normalized"}
+{"language": "en", "output": "twenty two", "text": "twenty two", "view": "normalized"}
+{"language": "en", "output": "twenty two", "text": "22", "view": "normalized"}
+{"language": "en", "output": "thirty three", "text": "thirty three", "view": "normalized"}
+{"language": "en", "output": "thirty three", "text": "33", "view": "normalized"}
+{"language": "en", "output": "forty five", "text": "forty five", "view": "normalized"}
+{"language": "en", "output": "forty five", "text": "45", "view": "normalized"}
+{"language": "en", "output": "fifty six", "text": "fifty six", "view": "normalized"}
+{"language": "en", "output": "fifty six", "text": "56", "view": "normalized"}
+{"language": "en", "output": "sixty seven", "text": "sixty seven", "view": "normalized"}
+{"language": "en", "output": "sixty seven", "text": "67", "view": "normalized"}
+{"language": "en", "output": "seventy eight", "text": "seventy eight", "view": "normalized"}
+{"language": "en", "output": "seventy eight", "text": "78", "view": "normalized"}
+{"language": "en", "output": "eighty nine", "text": "eighty nine", "view": "normalized"}
+{"language": "en", "output": "eighty nine", "text": "89", "view": "normalized"}
+{"language": "en", "output": "ninety five", "text": "ninety five", "view": "normalized"}
+{"language": "en", "output": "ninety five", "text": "95", "view": "normalized"}
+{"language": "en", "output": "three hundred sixty five", "text": "three hundred and sixty five", "view": "normalized"}
+{"language": "en", "output": "three hundred sixty five", "text": "365", "view": "normalized"}
+{"language": "en", "output": "nineteen ninety nine", "text": "1999", "view": "normalized"}
+{"language": "en", "output": "nineteen ninety nine", "text": "nineteen ninety-nine", "view": "normalized"}
+{"language": "fr", "output": "bonjour le monde", "text": "Bonjour, le monde !", "view": "normalized"}
+{"language": "fr", "output": "bonjour le monde", "text": "bonjour le monde", "view": "normalized"}
+{"language": "fr", "output": "bonjour", "text": "« Bonjour »", "view": "normalized"}
+{"language": "fr", "output": "bonjour", "text": "bonjour", "view": "normalized"}
+{"language": "fr", "output": "élève", "text": "Élève", "view": "normalized"}
+{"language": "fr", "output": "eleve", "text": "eleve", "view": "normalized"}
+{"language": "fr", "output": "élève", "text": "élève", "view": "normalized"}
+{"language": "en", "output": "hello world", "text": "Hello, world!", "view": "normalized"}
+{"language": "en", "output": "hello world", "text": "hello world", "view": "normalized"}
+{"language": "en", "output": "café", "text": "café", "view": "normalized"}
+{"language": "en", "output": "cafe", "text": "cafe", "view": "normalized"}
+{"language": "fr", "output": "l'homme", "text": "l'homme", "view": "normalized"}
+{"language": "fr", "output": "l homme", "text": "l homme", "view": "normalized"}
+{"language": "fr", "output": "d'accord", "text": "d'accord", "view": "normalized"}
+{"language": "fr", "output": "daccord", "text": "daccord", "view": "normalized"}
+{"language": "fr", "output": "l'homme", "text": "l’homme", "view": "normalized"}
+{"language": "fr", "output": "qu'est ce que", "text": "qu'est-ce que", "view": "normalized"}
+{"language": "fr", "output": "qu'est ce que", "text": "qu'est ce que", "view": "normalized"}
+{"language": "en", "output": "don't", "text": "don't", "view": "normalized"}
+{"language": "en", "output": "do not", "text": "do not", "view": "normalized"}
+{"language": "fr", "output": "trois virgule cinq", "text": "trois virgule cinq", "view": "normalized"}
+{"language": "fr", "output": "trois virgule cinq", "text": "3,5", "view": "normalized"}
+{"language": "fr", "output": "trois virgule cinq", "text": "3.5", "view": "normalized"}
+{"language": "fr", "output": "zéro virgule cinq", "text": "0,5", "view": "normalized"}
+{"language": "fr", "output": "zéro virgule cinq", "text": "zéro virgule cinq", "view": "normalized"}
+{"language": "fr", "output": "trois virgule six", "text": "trois virgule six", "view": "normalized"}
+{"language": "en", "output": "three point five", "text": "three point five", "view": "normalized"}
+{"language": "en", "output": "three point five", "text": "3.5", "view": "normalized"}
+{"language": "en", "output": "zero point five", "text": "0.5", "view": "normalized"}
+{"language": "en", "output": "zero point five", "text": "zero point five", "view": "normalized"}
+{"language": "en", "output": "one point five", "text": "1,5", "view": "normalized"}
+{"language": "en", "output": "one point five", "text": "one point five", "view": "normalized"}
+{"language": "fr", "output": "vingt pour cent", "text": "vingt pour cent", "view": "normalized"}
+{"language": "fr", "output": "vingt pour cent", "text": "20 %", "view": "normalized"}
+{"language": "fr", "output": "vingt pour cent", "text": "20%", "view": "normalized"}
+{"language": "en", "output": "twenty percent", "text": "twenty percent", "view": "normalized"}
+{"language": "en", "output": "twenty percent", "text": "20%", "view": "normalized"}
+{"language": "fr", "output": "deux virgule cinq kilogrammes", "text": "deux virgule cinq kilogrammes", "view": "normalized"}
+{"language": "fr", "output": "deux virgule cinq kilogrammes", "text": "2,5 kg", "view": "normalized"}
+{"language": "fr", "output": "cinq kilomètres", "text": "cinq kilomètres", "view": "normalized"}
+{"language": "fr", "output": "cinq kilomètres", "text": "5 km", "view": "normalized"}
+{"language": "en", "output": "five kilometers", "text": "five kilometers", "view": "normalized"}
+{"language": "en", "output": "five kilometers", "text": "5 km", "view": "normalized"}
+{"language": "fr", "output": "vingt degrés", "text": "vingt degrés", "view": "normalized"}
+{"language": "fr", "output": "vingt degrés", "text": "20 °C", "view": "normalized"}
+{"language": "fr", "output": "douze euros cinquante", "text": "douze euros cinquante", "view": "normalized"}
+{"language": "fr", "output": "douze euros cinquante", "text": "12,50 €", "view": "normalized"}
+{"language": "en", "output": "three dollars fifty", "text": "three dollars fifty", "view": "normalized"}
+{"language": "en", "output": "three dollars fifty", "text": "$3.50", "view": "normalized"}
+{"language": "fr", "output": "plus trois virgule cinq pour cent", "text": "plus trois virgule cinq pour cent", "view": "normalized"}
+{"language": "fr", "output": "plus trois virgule cinq pour cent", "text": "+3,5 %", "view": "normalized"}
+{"language": "fr", "output": "moins deux", "text": "moins deux", "view": "normalized"}
+{"language": "fr", "output": "moins deux", "text": "-2", "view": "normalized"}
+{"language": "fr", "output": "moins trois virgule cinq", "text": "moins trois virgule cinq", "view": "normalized"}
+{"language": "fr", "output": "moins trois virgule cinq", "text": "-3,5", "view": "normalized"}
+{"language": "en", "output": "minus two", "text": "minus two", "view": "normalized"}
+{"language": "en", "output": "minus two", "text": "-2", "view": "normalized"}
+{"language": "fr", "output": "le premier mai", "text": "le premier mai", "view": "normalized"}
+{"language": "fr", "output": "le premier mai", "text": "le 1er mai", "view": "normalized"}
+{"language": "fr", "output": "deuxième", "text": "deuxième", "view": "normalized"}
+{"language": "fr", "output": "deuxième", "text": "2e", "view": "normalized"}
+{"language": "fr", "output": "vingt et unième", "text": "vingt et unième", "view": "normalized"}
+{"language": "fr", "output": "vingt et unième", "text": "21e", "view": "normalized"}
+{"language": "en", "output": "first", "text": "first", "view": "normalized"}
+{"language": "en", "output": "first", "text": "1st", "view": "normalized"}
+{"language": "en", "output": "second", "text": "second", "view": "normalized"}
+{"language": "en", "output": "second", "text": "2nd", "view": "normalized"}
+{"language": "en", "output": "third", "text": "third", "view": "normalized"}
+{"language": "en", "output": "third", "text": "3rd", "view": "normalized"}
+{"language": "en", "output": "fifth", "text": "fifth", "view": "normalized"}
+{"language": "en", "output": "fifth", "text": "5th", "view": "normalized"}
+{"language": "en", "output": "twelfth", "text": "twelfth", "view": "normalized"}
+{"language": "en", "output": "twelfth", "text": "12th", "view": "normalized"}
+{"language": "en", "output": "twentieth", "text": "twentieth", "view": "normalized"}
+{"language": "en", "output": "twentieth", "text": "20th", "view": "normalized"}
+{"language": "en", "output": "twenty first", "text": "twenty first", "view": "normalized"}
+{"language": "en", "output": "twenty first", "text": "21st", "view": "normalized"}
+{"language": "en", "output": "one hundredth", "text": "one hundredth", "view": "normalized"}
+{"language": "en", "output": "one hundredth", "text": "100th", "view": "normalized"}
+{"language": "en", "output": "the twenty first century", "text": "the twenty first century", "view": "normalized"}
+{"language": "en", "output": "the twenty first century", "text": "the 21st century", "view": "normalized"}
+{"language": "fr", "output": "quatorze heures trente", "text": "quatorze heures trente", "view": "normalized"}
+{"language": "fr", "output": "quatorze heures trente", "text": "14h30", "view": "normalized"}
+{"language": "fr", "output": "quatorze heures trente", "text": "14:30", "view": "normalized"}
+{"language": "fr", "output": "quatorze heures", "text": "quatorze heures", "view": "normalized"}
+{"language": "fr", "output": "quatorze heures", "text": "14 h", "view": "normalized"}
+{"language": "en", "output": "three thirty", "text": "three thirty", "view": "normalized"}
+{"language": "en", "output": "three thirty", "text": "3:30", "view": "normalized"}
+{"language": "en", "output": "three o'clock", "text": "three o'clock", "view": "normalized"}
+{"language": "en", "output": "three o'clock", "text": "3:00", "view": "normalized"}
+{"language": "fr", "output": "monsieur dupont", "text": "monsieur Dupont", "view": "normalized"}
+{"language": "fr", "output": "m dupont", "text": "M. Dupont", "view": "normalized"}
+{"language": "fr", "output": "docteur martin", "text": "docteur Martin", "view": "normalized"}
+{"language": "fr", "output": "docteur martin", "text": "Dr Martin", "view": "normalized"}
+{"language": "fr", "output": "et", "text": "et", "view": "normalized"}
+{"language": "fr", "output": "et", "text": "&", "view": "normalized"}
+{"language": "en", "output": "mister smith", "text": "mister Smith", "view": "normalized"}
+{"language": "en", "output": "mister smith", "text": "Mr. Smith", "view": "normalized"}
+{"language": "en", "output": "doctor smith", "text": "doctor Smith", "view": "normalized"}
+{"language": "en", "output": "doctor smith", "text": "Dr Smith", "view": "normalized"}
+{"language": "en", "output": "and", "text": "and", "view": "normalized"}
+{"language": "en", "output": "and", "text": "&", "view": "normalized"}
+{"language": "fr", "output": "le chat", "text": "le chat", "view": "normalized"}
+{"language": "fr", "output": "le chat", "text": "euh le chat", "view": "normalized"}
+{"language": "fr", "output": "le chat", "text": "heu euh le chat", "view": "normalized"}
+{"language": "en", "output": "hello", "text": "hello", "view": "normalized"}
+{"language": "en", "output": "hello", "text": "uh hello", "view": "normalized"}
+{"language": "en", "output": "hello", "text": "um hello", "view": "normalized"}
+{"language": "fr", "output": "", "text": "", "view": "normalized"}
+{"language": "fr", "output": "", "text": "euh", "view": "normalized"}
+{"language": "en", "output": "", "text": "", "view": "normalized"}
+{"language": "en", "output": "", "text": "uh", "view": "normalized"}
+{"language": "en", "output": "color", "text": "colour", "view": "normalized"}
+{"language": "en", "output": "color", "text": "color", "view": "normalized"}
+{"language": "en", "output": "center", "text": "centre", "view": "normalized"}
+{"language": "en", "output": "center", "text": "center", "view": "normalized"}
+{"language": "en", "output": "organize", "text": "organise", "view": "normalized"}
+{"language": "en", "output": "organize", "text": "organize", "view": "normalized"}
+{"language": "en", "output": "traveling", "text": "travelling", "view": "normalized"}
+{"language": "en", "output": "traveling", "text": "traveling", "view": "normalized"}
+{"language": "en", "output": "gray", "text": "grey", "view": "normalized"}
+{"language": "en", "output": "gray", "text": "gray", "view": "normalized"}
+{"language": "en", "output": "program", "text": "programme", "view": "normalized"}
+{"language": "en", "output": "program", "text": "program", "view": "normalized"}
+{"language": "en", "output": "realized", "text": "realised", "view": "normalized"}
+{"language": "en", "output": "realized", "text": "realized", "view": "normalized"}
+{"language": "fr", "output": "bonjour le monde", "text": "bonjour   le monde", "view": "normalized"}
+{"language": "fr", "output": "bonjour le monde", "text": "bonjour le monde", "view": "normalized"}
+{"language": "fr", "output": "café", "text": "café", "view": "normalized"}
+{"language": "fr", "output": "café", "text": "café", "view": "normalized"}
+{"language": "en", "output": "hello world", "text": "Hello—world", "view": "normalized"}
+{"language": "fr", "output": "dix quinze", "text": "10-15", "view": "normalized"}
+{"language": "fr", "output": "dix quinze", "text": "dix quinze", "view": "normalized"}
+{"language": "fr", "output": "sont", "text": "sont", "view": "normalized"}
+{"language": "fr", "output": "son", "text": "son", "view": "normalized"}
+{"language": "fr", "output": "ça", "text": "ça", "view": "normalized"}
+{"language": "fr", "output": "sa", "text": "sa", "view": "normalized"}
+{"language": "en", "output": "their", "text": "their", "view": "normalized"}
+{"language": "en", "output": "there", "text": "there", "view": "normalized"}
+{"language": "en", "output": "to", "text": "to", "view": "normalized"}
+{"language": "fr", "output": "vingt cinq", "text": "vingt-cinq", "view": "normalized"}
+{"language": "fr", "output": "deux mille vingt et un", "text": "2021", "view": "normalized"}
+{"language": "fr", "output": "deux mille vingt", "text": "2020", "view": "normalized"}
+{"language": "en", "output": "twenty twenty one", "text": "2021", "view": "normalized"}
+{"language": "en", "output": "twenty twenty", "text": "2020", "view": "normalized"}
+{"language": "fr", "output": "cents", "text": "cents", "view": "normalized"}
+{"language": "fr", "output": "le chat noir", "text": "le chat noir", "view": "normalized"}
+{"language": "en", "output": "the black cat", "text": "the black cat", "view": "normalized"}
+{"language": "en", "output": "the cat", "text": "the cat", "view": "normalized"}
+{"language": "fr", "output": "il a trois ans", "text": "il a trois ans", "view": "normalized"}
+{"language": "fr", "output": "il a trois ans", "text": "Il a 3 ans.", "view": "normalized"}
+{"language": "fr", "output": "la ville compte douze mille habitants", "text": "la ville compte douze mille habitants", "view": "normalized"}
+{"language": "fr", "output": "la ville compte douze mille habitants", "text": "la ville compte 12 000 habitants", "view": "normalized"}
+{"language": "en", "output": "the cat has four legs", "text": "the cat has four legs", "view": "normalized"}
+{"language": "en", "output": "the cat has four legs", "text": "The cat has 4 legs!", "view": "normalized"}
+{"language": "en", "output": "sales grew by twenty five percent", "text": "sales grew by twenty five percent", "view": "normalized"}
+{"language": "en", "output": "sales grew by twenty five percent", "text": "sales grew by 25 %", "view": "normalized"}
+{"language": "fr", "output": "le train part à quatorze heures trente", "text": "le train part à quatorze heures trente", "view": "normalized"}
+{"language": "fr", "output": "le train part à quatorze heures trente", "text": "le train part à 14h30", "view": "normalized"}
+{"language": "fr", "output": "ça coûte douze euros cinquante", "text": "ça coûte douze euros cinquante", "view": "normalized"}
+{"language": "fr", "output": "ça coûte douze euros cinquante", "text": "ça coûte 12,50 €", "view": "normalized"}
+{"language": "en", "output": "the second of may", "text": "the second of May", "view": "normalized"}
+{"language": "en", "output": "the second of may", "text": "the 2nd of May", "view": "normalized"}
+{"language": "fr", "output": "le chat dort", "text": "le chat dort", "view": "normalized"}
+{"language": "fr", "output": "le chien dort", "text": "le chien dort", "view": "normalized"}
+{"language": "fr", "output": "vingt pourcent", "text": "vingt pourcent", "view": "normalized"}
+{"language": "en", "output": "twentypercent", "text": "twentypercent", "view": "normalized"}
+{"language": "fr", "output": "trente cinq", "text": "35", "view": "normalized"}
+{"language": "fr", "output": "deux mille vingt et un est une année", "text": "2021 est une année", "view": "normalized"}
+{"language": "fr", "output": "une année deux mille vingt et un est", "text": "une année 2021 est", "view": "normalized"}
+{"language": "fr", "output": "il fait beau", "text": "il fait beau", "view": "normalized"}
+{"language": "fr", "output": "il fait très beau", "text": "il fait très beau", "view": "normalized"}
+{"language": "fr", "output": "week end", "text": "week-end", "view": "normalized"}
+{"language": "fr", "output": "week end", "text": "week end", "view": "normalized"}
+{"language": "en", "output": "the cat's bowl", "text": "the cat's bowl", "view": "normalized"}
+{"language": "fr", "output": "lchat", "text": "lchat", "view": "normalized"}
+{"language": "fr", "output": "chat", "text": "chat.", "view": "strict"}
+{"language": "fr", "output": "chat", "text": "chat", "view": "strict"}
+{"language": "fr", "output": "bonjour", "text": "Bonjour !", "view": "strict"}
+{"language": "fr", "output": "bonjour", "text": "bonjour", "view": "strict"}
+{"language": "fr", "output": "3.5", "text": "3,5", "view": "strict"}
+{"language": "fr", "output": "3.5", "text": "3.5", "view": "strict"}
+{"language": "en", "output": "2000", "text": "2,000", "view": "strict"}
+{"language": "en", "output": "2000", "text": "2000", "view": "strict"}
+{"language": "fr", "output": "1234", "text": "1.234", "view": "strict"}
+{"language": "fr", "output": "1234", "text": "1234", "view": "strict"}
+{"language": "fr", "output": "chat", "text": "Chat", "view": "strict"}
+{"language": "fr", "output": "vingt-deux", "text": "vingt-deux", "view": "strict"}
+{"language": "fr", "output": "vingt deux", "text": "vingt deux", "view": "strict"}
+{"language": "en", "output": "hello world", "text": "hello,world", "view": "strict"}
+{"language": "en", "output": "hello world", "text": "hello world", "view": "strict"}
+{"language": "fr", "output": "chats", "text": "chats", "view": "strict"}
+{"language": "fr", "output": "l'homme", "text": "l'homme", "view": "strict"}
+{"language": "fr", "output": "l homme", "text": "l homme", "view": "strict"}
+{"language": "fr", "output": "café", "text": "café", "view": "strict"}
+{"language": "fr", "output": "cafe", "text": "cafe", "view": "strict"}
+{"language": "fr", "output": "20 %", "text": "20 %", "view": "strict"}
+{"language": "fr", "output": "20%", "text": "20%", "view": "strict"}
+{"language": "fr", "output": "22", "text": "22", "view": "strict"}
+{"language": "fr", "output": "Bonjour , monde .", "text": "Bonjour, monde.", "view": "formatted"}
+{"language": "fr", "output": "Bonjour monde", "text": "Bonjour monde", "view": "formatted"}
+{"language": "fr", "output": "Bonjour , monde .", "text": "Bonjour , monde .", "view": "formatted"}
+{"language": "fr", "output": "Bonjour", "text": "Bonjour", "view": "formatted"}
+{"language": "fr", "output": "bonjour", "text": "bonjour", "view": "formatted"}
+{"language": "fr", "output": "3 , 5", "text": "3,5", "view": "formatted"}
+{"language": "fr", "output": "3 . 5", "text": "3.5", "view": "formatted"}
+{"language": "en", "output": "Is it ?", "text": "Is it?", "view": "formatted"}
+{"language": "en", "output": "Is it", "text": "Is it", "view": "formatted"}
+{"language": "fr", "output": "un virgule cinq", "text": "un virgule cinq", "view": "normalized"}
+{"language": "fr", "output": "un virgule cinq", "text": "1.5", "view": "normalized"}
+{"language": "fr", "output": "bonjour dit il", "text": "\"Bonjour\" (dit-il)", "view": "normalized"}
+{"language": "fr", "output": "bonjour dit il", "text": "bonjour dit il", "view": "normalized"}
+{"language": "fr", "output": "bonjour dit-il", "text": "\"Bonjour\" (dit-il)", "view": "strict"}
+{"language": "fr", "output": "bonjour dit-il", "text": "bonjour dit-il", "view": "strict"}
+{"language": "fr", "output": "le mot sic est là", "text": "le mot [sic] est là", "view": "normalized"}
+{"language": "fr", "output": "le mot sic est là", "text": "le mot sic est là", "view": "normalized"}
+{"language": "fr", "output": "un deux", "text": "un / deux", "view": "normalized"}
+{"language": "fr", "output": "un deux", "text": "un deux", "view": "normalized"}
+{"language": "fr", "output": "vingt et un personnes", "text": "(21) personnes", "view": "normalized"}
+{"language": "fr", "output": "vingt et un personnes", "text": "vingt et un personnes", "view": "normalized"}
+{"language": "en", "output": "file name", "text": "file_name", "view": "strict"}
+{"language": "en", "output": "file name", "text": "file name", "view": "strict"}
+{"language": "fr", "output": "il part vraiment", "text": "il part… vraiment", "view": "normalized"}
+{"language": "fr", "output": "il part vraiment", "text": "il part vraiment", "view": "normalized"}
+{"language": "fr", "output": "un deux", "text": "un; deux", "view": "normalized"}
+{"language": "fr", "output": "vingt", "text": "\"20\"", "view": "normalized"}
+{"language": "fr", "output": "vingt", "text": "« 20 »", "view": "normalized"}
+{"language": "en", "output": "unclear the cat", "text": "[unclear] the cat", "view": "normalized"}
+{"language": "en", "output": "unclear the cat", "text": "unclear the cat", "view": "normalized"}
+{"language": "fr", "output": "trois virgule zéro cinq", "text": "3,05", "view": "normalized"}
+{"language": "fr", "output": "trois virgule zéro cinq", "text": "trois virgule zéro cinq", "view": "normalized"}
+{"language": "fr", "output": "zéro virgule un deux cinq", "text": "0,125", "view": "normalized"}
+{"language": "fr", "output": "cent vingt cinq", "text": "cent vingt-cinq", "view": "normalized"}
+{"language": "fr", "output": "zéro virgule un deux cinq", "text": "zéro virgule un deux cinq", "view": "normalized"}
+{"language": "fr", "output": "trois virgule cinq zéro zéro", "text": "3,500", "view": "normalized"}
+{"language": "fr", "output": "trois mille cinq cents", "text": "3500", "view": "normalized"}
+{"language": "fr", "output": "trois virgule cinq zéro zéro", "text": "trois virgule cinq zéro zéro", "view": "normalized"}
+{"language": "fr", "output": "vingt et un pour cent", "text": "21 %", "view": "normalized"}
+{"language": "fr", "output": "vingt et un pour cent", "text": "vingt et un pour cent", "view": "normalized"}
+{"language": "fr", "output": "vingt et un pour cent", "text": "21%", "view": "normalized"}
+{"language": "fr", "output": "un million", "text": "1 000 000", "view": "normalized"}
+{"language": "fr", "output": "mille", "text": "1 000", "view": "normalized"}
+{"language": "fr", "output": "douze mille", "text": "12 000", "view": "normalized"}
+{"language": "fr", "output": "douze mille", "text": "douze mille", "view": "normalized"}
+{"language": "fr", "output": "deux mille", "text": "2.000", "view": "normalized"}
+{"language": "en", "output": "nineteen oh five", "text": "1905", "view": "normalized"}
+{"language": "en", "output": "nineteen oh five", "text": "nineteen oh five", "view": "normalized"}
+{"language": "en", "output": "twenty ten", "text": "2010", "view": "normalized"}
+{"language": "en", "output": "twenty ten", "text": "twenty ten", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred ninety nine", "text": "one thousand nine hundred and ninety nine", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred", "text": "1900", "view": "normalized"}
+{"language": "en", "output": "nineteen hundred", "text": "nineteen hundred", "view": "normalized"}
+{"language": "en", "output": "one hundred one", "text": "one hundred one", "view": "normalized"}
+{"language": "en", "output": "one and two", "text": "one and two", "view": "normalized"}
+{"language": "en", "output": "one two", "text": "one two", "view": "normalized"}
+{"language": "fr", "output": "ben le chat", "text": "heu ben le chat", "view": "normalized"}
+{"language": "fr", "output": "le chat", "text": "heu euh hmm le chat", "view": "normalized"}
+{"language": "en", "output": "er the cat", "text": "er the cat", "view": "normalized"}
+{"language": "fr", "output": "madame dupont", "text": "Mme Dupont", "view": "normalized"}
+{"language": "fr", "output": "madame dupont", "text": "madame Dupont", "view": "normalized"}
+{"language": "fr", "output": "cinq m", "text": "5 m", "view": "normalized"}
+{"language": "fr", "output": "cinq mètres", "text": "cinq mètres", "view": "normalized"}
+{"language": "en", "output": "the color is nice", "text": "the colour is nice", "view": "normalized"}
+{"language": "en", "output": "the color is nice", "text": "the color is nice", "view": "normalized"}
+{"language": "fr", "output": "trois dollars cinquante", "text": "$3.50", "view": "normalized"}
+{"language": "fr", "output": "trois dollars cinquante", "text": "trois dollars cinquante", "view": "normalized"}
+{"language": "en", "output": "one thousand five hundred", "text": "1,500", "view": "normalized"}
+{"language": "en", "output": "one thousand five hundred", "text": "1500", "view": "normalized"}
+{"language": "en", "output": "one thousand five hundred", "text": "one thousand five hundred", "view": "normalized"}
+{"language": "en", "output": "one point five zero zero", "text": "1.500", "view": "normalized"}
+{"language": "en", "output": "one point five zero zero", "text": "one point five zero zero", "view": "normalized"}
+{"language": "en", "output": "one million", "text": "1,000,000", "view": "normalized"}
+{"language": "en", "output": "one point five", "text": "1.5", "view": "normalized"}
+{"language": "en", "output": "two thousand", "text": "2,000", "view": "normalized"}
+{"language": "en", "output": "two point zero zero zero", "text": "two point zero zero zero", "view": "normalized"}
+{"language": "en", "output": "1500", "text": "1,500", "view": "strict"}
+{"language": "en", "output": "1500", "text": "1500", "view": "strict"}
+{"language": "en", "output": "1.500", "text": "1.500", "view": "strict"}
+{"language": "fr", "output": "un virgule cinq", "text": "1,5", "view": "normalized"}
+{"language": "fr", "output": "mille cinq cents", "text": "1.500", "view": "normalized"}
+{"language": "fr", "output": "mille cinq cents", "text": "1500", "view": "normalized"}
+{"language": "fr", "output": "mille cinq cents", "text": "1 500", "view": "normalized"}
+{"language": "fr", "output": "cinq cent mille", "text": "500 000", "view": "normalized"}
+{"language": "fr", "output": "cinq cent mille", "text": "cinq cent mille", "view": "normalized"}
+{"language": "fr", "output": "cinq cents mille", "text": "cinq cents mille", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt mille", "text": "80 000", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt mille", "text": "quatre-vingt mille", "view": "normalized"}
+{"language": "fr", "output": "deux cent mille", "text": "200 000", "view": "normalized"}
+{"language": "fr", "output": "deux cent mille", "text": "deux cent mille", "view": "normalized"}
+{"language": "fr", "output": "deux cents millions", "text": "200 000 000", "view": "normalized"}
+{"language": "fr", "output": "deux cents millions", "text": "deux cents millions", "view": "normalized"}
+{"language": "en", "output": "two thousand five", "text": "2005", "view": "normalized"}
+{"language": "en", "output": "two thousand five", "text": "two thousand five", "view": "normalized"}
+{"language": "en", "output": "twenty oh five", "text": "twenty oh five", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred ninety nine dollars", "text": "1999 dollars", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred ninety nine dollars", "text": "one thousand nine hundred ninety nine dollars", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred ninety nine percent", "text": "1999 %", "view": "normalized"}
+{"language": "en", "output": "one thousand nine hundred ninety nine percent", "text": "one thousand nine hundred ninety nine percent", "view": "normalized"}
+{"language": "en", "output": "twenty twenty one", "text": "twenty twenty one", "view": "normalized"}
+{"language": "en", "output": "fifteen hundred", "text": "fifteen hundred", "view": "normalized"}
+{"language": "en", "output": "one million five hundred thousand dollars", "text": "$1,500,000", "view": "normalized"}
+{"language": "en", "output": "one million five hundred thousand dollars", "text": "1,500,000 dollars", "view": "normalized"}
+{"language": "en", "output": "ten thousand dollars", "text": "$10,000", "view": "normalized"}
+{"language": "en", "output": "ten thousand dollars", "text": "10,000 dollars", "view": "normalized"}
+{"language": "en", "output": "two thousand euros", "text": "€2,000", "view": "normalized"}
+{"language": "en", "output": "two thousand euros", "text": "2000 euros", "view": "normalized"}
+{"language": "en", "output": "two thousand pounds", "text": "£2,000", "view": "normalized"}
+{"language": "en", "output": "two thousand pounds", "text": "two thousand pounds", "view": "normalized"}
+{"language": "en", "output": "two thousand percent", "text": "2,000%", "view": "normalized"}
+{"language": "en", "output": "two thousand percent", "text": "two thousand percent", "view": "normalized"}
+{"language": "en", "output": "one million five hundred thousand percent", "text": "1,500,000%", "view": "normalized"}
+{"language": "en", "output": "one million five hundred thousand percent", "text": "one million five hundred thousand percent", "view": "normalized"}
+{"language": "en", "output": "ninety degrees", "text": "90°", "view": "normalized"}
+{"language": "en", "output": "ninety degrees", "text": "ninety degrees", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix degrés", "text": "90°", "view": "normalized"}
+{"language": "fr", "output": "quatre vingt dix degrés", "text": "quatre-vingt-dix degrés", "view": "normalized"}
+{"language": "en", "output": "minus five degrees", "text": "-5°", "view": "normalized"}
+{"language": "en", "output": "minus five degrees", "text": "minus five degrees", "view": "normalized"}
+{"language": "en", "output": "a ninety degrees angle", "text": "a 90° angle", "view": "normalized"}
+{"language": "en", "output": "a ninety degrees angle", "text": "a ninety degrees angle", "view": "normalized"}
+{"language": "en", "output": "twenty degrees", "text": "20°", "view": "normalized"}
+{"language": "en", "output": "vingt degrés", "text": "vingt degrés", "view": "normalized"}
+{"language": "en", "output": "zero point one two five", "text": "0.125", "view": "normalized"}
+{"language": "en", "output": "zero point one two five", "text": "zero point one two five", "view": "normalized"}
+{"language": "fr", "output": "zéro virgule un deux cinq", "text": "0.125", "view": "normalized"}
+{"language": "en", "output": "three point one four one", "text": "3.141", "view": "normalized"}
+{"language": "en", "output": "three point one four one", "text": "three point one four one", "view": "normalized"}
+{"language": "en", "output": "one thousand five hundred dollars fifty", "text": "$1,500.50", "view": "normalized"}
+{"language": "en", "output": "one thousand five hundred dollars fifty", "text": "one thousand five hundred dollars fifty", "view": "normalized"}
+{"language": "en", "output": "$10000", "text": "$10,000", "view": "strict"}
+{"language": "en", "output": "$10000", "text": "$10000", "view": "strict"}
+{"language": "en", "output": "$1500000", "text": "$1,500,000", "view": "strict"}
+{"language": "en", "output": "$1500000", "text": "$1500000", "view": "strict"}
+{"language": "en", "output": "$1500.50", "text": "$1,500.50", "view": "strict"}
+{"language": "en", "output": "$1500.50", "text": "$1500.50", "view": "strict"}
+{"language": "en", "output": "one thousand five hundred point five zero dollars", "text": "1500.50 dollars", "view": "normalized"}
+{"language": "fr", "output": "rule3 elision j", "text": "rule3-elision-j", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-j", "text": "rule3-elision-j", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-j", "text": "rule3-elision-j", "view": "formatted"}
+{"language": "fr", "output": "j ai faim", "text": "j' ai faim", "view": "normalized"}
+{"language": "fr", "output": "j ai faim", "text": "j' ai faim", "view": "strict"}
+{"language": "fr", "output": "j' ai faim", "text": "j' ai faim", "view": "formatted"}
+{"language": "fr", "output": "j'ai faim", "text": "j'ai faim", "view": "normalized"}
+{"language": "fr", "output": "j'ai faim", "text": "j'ai faim", "view": "strict"}
+{"language": "fr", "output": "j'ai faim", "text": "j'ai faim", "view": "formatted"}
+{"language": "fr", "output": "j ai faim", "text": "j ai faim", "view": "normalized"}
+{"language": "fr", "output": "j ai faim", "text": "j ai faim", "view": "strict"}
+{"language": "fr", "output": "j ai faim", "text": "j ai faim", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision qu", "text": "rule3-elision-qu", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-qu", "text": "rule3-elision-qu", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-qu", "text": "rule3-elision-qu", "view": "formatted"}
+{"language": "fr", "output": "qu il a dit", "text": "qu' il a dit", "view": "normalized"}
+{"language": "fr", "output": "qu il a dit", "text": "qu' il a dit", "view": "strict"}
+{"language": "fr", "output": "qu' il a dit", "text": "qu' il a dit", "view": "formatted"}
+{"language": "fr", "output": "qu'il a dit", "text": "qu'il a dit", "view": "normalized"}
+{"language": "fr", "output": "qu'il a dit", "text": "qu'il a dit", "view": "strict"}
+{"language": "fr", "output": "qu'il a dit", "text": "qu'il a dit", "view": "formatted"}
+{"language": "fr", "output": "qu il a dit", "text": "qu il a dit", "view": "normalized"}
+{"language": "fr", "output": "qu il a dit", "text": "qu il a dit", "view": "strict"}
+{"language": "fr", "output": "qu il a dit", "text": "qu il a dit", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision jusqu", "text": "rule3-elision-jusqu", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-jusqu", "text": "rule3-elision-jusqu", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-jusqu", "text": "rule3-elision-jusqu", "view": "formatted"}
+{"language": "fr", "output": "jusqu ici", "text": "jusqu' ici", "view": "normalized"}
+{"language": "fr", "output": "jusqu ici", "text": "jusqu' ici", "view": "strict"}
+{"language": "fr", "output": "jusqu' ici", "text": "jusqu' ici", "view": "formatted"}
+{"language": "fr", "output": "jusqu'ici", "text": "jusqu'ici", "view": "normalized"}
+{"language": "fr", "output": "jusqu'ici", "text": "jusqu'ici", "view": "strict"}
+{"language": "fr", "output": "jusqu'ici", "text": "jusqu'ici", "view": "formatted"}
+{"language": "fr", "output": "jusqu ici", "text": "jusqu ici", "view": "normalized"}
+{"language": "fr", "output": "jusqu ici", "text": "jusqu ici", "view": "strict"}
+{"language": "fr", "output": "jusqu ici", "text": "jusqu ici", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision l", "text": "rule3-elision-l", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-l", "text": "rule3-elision-l", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-l", "text": "rule3-elision-l", "view": "formatted"}
+{"language": "fr", "output": "l homme", "text": "l' homme", "view": "normalized"}
+{"language": "fr", "output": "l homme", "text": "l' homme", "view": "strict"}
+{"language": "fr", "output": "l' homme", "text": "l' homme", "view": "formatted"}
+{"language": "fr", "output": "l'homme", "text": "l'homme", "view": "formatted"}
+{"language": "fr", "output": "l homme", "text": "l homme", "view": "formatted"}
+{"language": "fr", "output": "rule3 closed elision kept", "text": "rule3-closed-elision-kept", "view": "normalized"}
+{"language": "fr", "output": "rule3-closed-elision-kept", "text": "rule3-closed-elision-kept", "view": "strict"}
+{"language": "fr", "output": "rule3-closed-elision-kept", "text": "rule3-closed-elision-kept", "view": "formatted"}
+{"language": "fr", "output": "rule3 missing apostrophe kept", "text": "rule3-missing-apostrophe-kept", "view": "normalized"}
+{"language": "fr", "output": "rule3-missing-apostrophe-kept", "text": "rule3-missing-apostrophe-kept", "view": "strict"}
+{"language": "fr", "output": "rule3-missing-apostrophe-kept", "text": "rule3-missing-apostrophe-kept", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision curly", "text": "rule3-elision-curly", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-curly", "text": "rule3-elision-curly", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-curly", "text": "rule3-elision-curly", "view": "formatted"}
+{"language": "fr", "output": "d accord", "text": "d’ accord", "view": "normalized"}
+{"language": "fr", "output": "d accord", "text": "d’ accord", "view": "strict"}
+{"language": "fr", "output": "d' accord", "text": "d’ accord", "view": "formatted"}
+{"language": "fr", "output": "d'accord", "text": "d'accord", "view": "strict"}
+{"language": "fr", "output": "d'accord", "text": "d'accord", "view": "formatted"}
+{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "normalized"}
+{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "strict"}
+{"language": "fr", "output": "l' œuvre", "text": "l' œuvre", "view": "formatted"}
+{"language": "fr", "output": "d œil", "text": "d' œil", "view": "normalized"}
+{"language": "fr", "output": "d œil", "text": "d' œil", "view": "strict"}
+{"language": "fr", "output": "d' œil", "text": "d' œil", "view": "formatted"}
+{"language": "fr", "output": "jusqu à demain", "text": "jusqu' à demain", "view": "normalized"}
+{"language": "fr", "output": "jusqu à demain", "text": "jusqu' à demain", "view": "strict"}
+{"language": "fr", "output": "jusqu' à demain", "text": "jusqu' à demain", "view": "formatted"}
+{"language": "fr", "output": "lorsqu il part", "text": "lorsqu' il part", "view": "normalized"}
+{"language": "fr", "output": "lorsqu il part", "text": "lorsqu' il part", "view": "strict"}
+{"language": "fr", "output": "lorsqu' il part", "text": "lorsqu' il part", "view": "formatted"}
+{"language": "fr", "output": "puisqu elle vient", "text": "puisqu' elle vient", "view": "normalized"}
+{"language": "fr", "output": "puisqu elle vient", "text": "puisqu' elle vient", "view": "strict"}
+{"language": "fr", "output": "puisqu' elle vient", "text": "puisqu' elle vient", "view": "formatted"}
+{"language": "fr", "output": "j ai", "text": "j' ai", "view": "normalized"}
+{"language": "fr", "output": "j ai", "text": "j' ai", "view": "strict"}
+{"language": "fr", "output": "j' ai", "text": "j' ai", "view": "formatted"}
+{"language": "fr", "output": "qu'il", "text": "qu’il", "view": "normalized"}
+{"language": "fr", "output": "qu'il", "text": "qu’il", "view": "strict"}
+{"language": "fr", "output": "qu'il", "text": "qu’il", "view": "formatted"}
+{"language": "fr", "output": "trois mille euros", "text": "3 000 €", "view": "normalized"}
+{"language": "fr", "output": "3 000 €", "text": "3 000 €", "view": "strict"}
+{"language": "fr", "output": "3 000 €", "text": "3 000 €", "view": "formatted"}
+{"language": "fr", "output": "vingt pour cent", "text": "vingt pour cent", "view": "strict"}
+{"language": "fr", "output": "vingt pour cent", "text": "vingt pour cent", "view": "formatted"}
+{"language": "fr", "output": "bonjour monde", "text": "« Bonjour, monde. »", "view": "normalized"}
+{"language": "fr", "output": "bonjour monde", "text": "« Bonjour, monde. »", "view": "strict"}
+{"language": "fr", "output": "Bonjour , monde .", "text": "« Bonjour, monde. »", "view": "formatted"}
+{"language": "fr", "output": "é eaîù ùù un ê deux", "text": "!é,eaîù?!ùù?1!!ê 2", "view": "normalized"}
+{"language": "fr", "output": "é eaîù ùù 1 ê 2", "text": "!é,eaîù?!ùù?1!!ê 2", "view": "strict"}
+{"language": "fr", "output": "! é , eaîù ? ! ùù ? 1 ! ! ê 2", "text": "!é,eaîù?!ùù?1!!ê 2", "view": "formatted"}
+{"language": "fr", "output": "é çéæœ a 93bœôîà trois cent cinquante trois 9bæ cinq cent quatre vingt seize", "text": "é.çéÆœ?a!93bœôîà ??0353 9bÆ 596", "view": "normalized"}
+{"language": "fr", "output": "é çéæœ a 93bœôîà 0353 9bæ 596", "text": "é.çéÆœ?a!93bœôîà ??0353 9bÆ 596", "view": "strict"}
+{"language": "fr", "output": "é . çéÆœ ? a ! 93bœôîà ? ? 0353 9bÆ 596", "text": "é.çéÆœ?a!93bœôîà ??0353 9bÆ 596", "view": "formatted"}
+{"language": "fr", "output": "3èæaî æ œ0", "text": " 3èÆaî ’Æ.'œ0", "view": "normalized"}
+{"language": "fr", "output": "3èæaî æ œ0", "text": " 3èÆaî ’Æ.'œ0", "view": "strict"}
+{"language": "fr", "output": "3èÆaî 'Æ . 'œ0", "text": " 3èÆaî ’Æ.'œ0", "view": "formatted"}
+{"language": "fr", "output": "è ê1'd $a sept %6ô 1'76 4îæ", "text": "’è.ê1’d!$a ’7 %6ô!1’76!4îÆ,-", "view": "normalized"}
+{"language": "fr", "output": "è ê1'd $a 7 %6ô 1'76 4îæ", "text": "’è.ê1’d!$a ’7 %6ô!1’76!4îÆ,-", "view": "strict"}
+{"language": "fr", "output": "'è . ê1'd ! $a '7 %6ô ! 1'76 ! 4îÆ , -", "text": "’è.ê1’d!$a ’7 %6ô!1’76!4îÆ,-", "view": "formatted"}
+{"language": "fr", "output": "$'0e4œça5çè1d î6$", "text": "$’0e4œça5çè1d.î6$", "view": "normalized"}
+{"language": "fr", "output": "$'0e4œça5çè1d î6$", "text": "$’0e4œça5çè1d.î6$", "view": "strict"}
+{"language": "fr", "output": "$'0e4œça5çè1d . î6$", "text": "$’0e4œça5çè1d.î6$", "view": "formatted"}
+{"language": "fr", "output": "cinquante deux 8îàa%d 6œ4 ç24aaîc", "text": "52-8îàa%d.-6œ4.ç24aaîc", "view": "normalized"}
+{"language": "fr", "output": "52-8îàa%d -6œ4 ç24aaîc", "text": "52-8îàa%d.-6œ4.ç24aaîc", "view": "strict"}
+{"language": "fr", "output": "52-8îàa%d . -6œ4 . ç24aaîc", "text": "52-8îàa%d.-6œ4.ç24aaîc", "view": "formatted"}
+{"language": "fr", "output": "e7ç4eêù'787 æç5'3''4%b5 é sept 9779dœ b", "text": "e7ç4eêù’787?Æç5'3''4%b5-é 7 9779dœ-b", "view": "normalized"}
+{"language": "fr", "output": "e7ç4eêù'787 æç5'3''4%b5-é 7 9779dœ-b", "text": "e7ç4eêù’787?Æç5'3''4%b5-é 7 9779dœ-b", "view": "strict"}
+{"language": "fr", "output": "e7ç4eêù'787 ? Æç5'3''4%b5-é 7 9779dœ-b", "text": "e7ç4eêù’787?Æç5'3''4%b5-é 7 9779dœ-b", "view": "formatted"}
+{"language": "fr", "output": "æ2îœ9c7 d1'èb5 neuf", "text": "Æ2îœ9c7!d1’èb5?-.9 -", "view": "normalized"}
+{"language": "fr", "output": "æ2îœ9c7 d1'èb5 9", "text": "Æ2îœ9c7!d1’èb5?-.9 -", "view": "strict"}
+{"language": "fr", "output": "Æ2îœ9c7 ! d1'èb5 ? - . 9 -", "text": "Æ2îœ9c7!d1’èb5?-.9 -", "view": "formatted"}
+{"language": "fr", "output": "un un $a0ê ê0à 6îàêç'd9 56'ê 7'éé5œ", "text": "1 1!$a0ê,ê0à 6îàêç'd9’?,'!56'ê-7’éé5œ", "view": "normalized"}
+{"language": "fr", "output": "1 1 $a0ê ê0à 6îàêç'd9 56'ê-7'éé5œ", "text": "1 1!$a0ê,ê0à 6îàêç'd9’?,'!56'ê-7’éé5œ", "view": "strict"}
+{"language": "fr", "output": "1 1 ! $a0ê , ê0à 6îàêç'd9' ? , ' ! 56'ê-7'éé5œ", "text": "1 1!$a0ê,ê0à 6îàêç'd9’?,'!56'ê-7’éé5œ", "view": "formatted"}
+{"language": "fr", "output": "çœ", "text": "çœ", "view": "normalized"}
+{"language": "fr", "output": "çœ", "text": "çœ", "view": "strict"}
+{"language": "fr", "output": "çœ", "text": "çœ", "view": "formatted"}
+{"language": "fr", "output": "è09d'0 1ê % un", "text": "è09d'0?-1ê %!!1", "view": "normalized"}
+{"language": "fr", "output": "è09d'0 -1ê % 1", "text": "è09d'0?-1ê %!!1", "view": "strict"}
+{"language": "fr", "output": "è09d'0 ? -1ê % ! ! 1", "text": "è09d'0?-1ê %!!1", "view": "formatted"}
+{"language": "fr", "output": "un œî'œeêdœ%îæà25 sept d9'a 6à0î8à7 soixante dix sept æbb", "text": ",1!œî'œeêdœ%îÆà25!7'!d9’a.6à0î8à7 77 Æbb", "view": "normalized"}
+{"language": "fr", "output": "1 œî'œeêdœ%îæà25 7 d9'a 6à0î8à7 77 æbb", "text": ",1!œî'œeêdœ%îÆà25!7'!d9’a.6à0î8à7 77 Æbb", "view": "strict"}
+{"language": "fr", "output": ", 1 ! œî'œeêdœ%îÆà25 ! 7' ! d9'a . 6à0î8à7 77 Æbb", "text": ",1!œî'œeêdœ%îÆà25!7'!d9’a.6à0î8à7 77 Æbb", "view": "formatted"}
+{"language": "fr", "output": "0ù", "text": "0ù-!", "view": "normalized"}
+{"language": "fr", "output": "0ù", "text": "0ù-!", "view": "strict"}
+{"language": "fr", "output": "0ù- !", "text": "0ù-!", "view": "formatted"}
+{"language": "fr", "output": "1e39ê90 $e 9déæî î8ùb", "text": "1e39ê90-$e?9déÆî , î8ùb ", "view": "normalized"}
+{"language": "fr", "output": "1e39ê90-$e 9déæî î8ùb", "text": "1e39ê90-$e?9déÆî , î8ùb ", "view": "strict"}
+{"language": "fr", "output": "1e39ê90-$e ? 9déÆî , î8ùb", "text": "1e39ê90-$e?9déÆî , î8ùb ", "view": "formatted"}
+{"language": "fr", "output": "$ $ un c3cê0à0.223,2é2'dçæ huit", "text": "-$!$,'1 c3cê0à0.223,2é2’dçÆ-8'", "view": "normalized"}
+{"language": "fr", "output": "$ $ 1 c3cê0à0.223,2é2'dçæ-8", "text": "-$!$,'1 c3cê0à0.223,2é2’dçÆ-8'", "view": "strict"}
+{"language": "fr", "output": "-$ ! $ , '1 c3cê0à0 . 223 , 2é2'dçÆ-8'", "text": "-$!$,'1 c3cê0à0.223,2é2’dçÆ-8'", "view": "formatted"}
+{"language": "fr", "output": "3", "text": "3", "view": "strict"}
+{"language": "fr", "output": "3", "text": "3", "view": "formatted"}
+{"language": "fr", "output": "six pour cent sept", "text": "6%.!7", "view": "normalized"}
+{"language": "fr", "output": "6% 7", "text": "6%.!7", "view": "strict"}
+{"language": "fr", "output": "6% . ! 7", "text": "6%.!7", "view": "formatted"}
+{"language": "fr", "output": "d", "text": "d", "view": "normalized"}
+{"language": "fr", "output": "d", "text": "d", "view": "strict"}
+{"language": "fr", "output": "d", "text": "d", "view": "formatted"}
+{"language": "fr", "output": "neuf 72ôœ àè%46d 65è59479$é 28$8ààe3 ô", "text": "9 72ôœ,àè%46d 65è59479$é ,28$8ààe3?'ô", "view": "normalized"}
+{"language": "fr", "output": "9 72ôœ àè%46d 65è59479$é 28$8ààe3 ô", "text": "9 72ôœ,àè%46d 65è59479$é ,28$8ààe3?'ô", "view": "strict"}
+{"language": "fr", "output": "9 72ôœ , àè%46d 65è59479$é , 28$8ààe3 ? 'ô", "text": "9 72ôœ,àè%46d 65è59479$é ,28$8ààe3?'ô", "view": "formatted"}
+{"language": "fr", "output": "œèçdædd5781 éa7œ", "text": "œèçdÆdd5781?éa7œ", "view": "normalized"}
+{"language": "fr", "output": "œèçdædd5781 éa7œ", "text": "œèçdÆdd5781?éa7œ", "view": "strict"}
+{"language": "fr", "output": "œèçdÆdd5781 ? éa7œ", "text": "œèçdÆdd5781?éa7œ", "view": "formatted"}
+{"language": "fr", "output": "ôé7'œç8dùùê çè", "text": "’ôé7’œç8dùùê.çè", "view": "normalized"}
+{"language": "fr", "output": "ôé7'œç8dùùê çè", "text": "’ôé7’œç8dùùê.çè", "view": "strict"}
+{"language": "fr", "output": "'ôé7'œç8dùùê . çè", "text": "’ôé7’œç8dùùê.çè", "view": "formatted"}
+{"language": "fr", "output": "4ù soixante quatorze", "text": "4ù-74", "view": "normalized"}
+{"language": "fr", "output": "4ù-74", "text": "4ù-74", "view": "strict"}
+{"language": "fr", "output": "4ù-74", "text": "4ù-74", "view": "formatted"}
+{"language": "fr", "output": "6à'70", "text": "6à’70", "view": "normalized"}
+{"language": "fr", "output": "6à'70", "text": "6à’70", "view": "strict"}
+{"language": "fr", "output": "6à'70", "text": "6à’70", "view": "formatted"}
+{"language": "fr", "output": "çcç$ æ2$'cbî01%3", "text": "çcç$ Æ2$’cbî01%3", "view": "normalized"}
+{"language": "fr", "output": "çcç$ æ2$'cbî01%3", "text": "çcç$ Æ2$’cbî01%3", "view": "strict"}
+{"language": "fr", "output": "çcç$ Æ2$'cbî01%3", "text": "çcç$ Æ2$’cbî01%3", "view": "formatted"}
+{"language": "fr", "output": "0çœ éç 48$a%2æecçê49éù 41c 7ùîæ6b02éà ê", "text": "0çœ éç-48$a%2Æecçê49éù!41c.7ùîÆ6b02éà ê", "view": "normalized"}
+{"language": "fr", "output": "0çœ éç-48$a%2æecçê49éù 41c 7ùîæ6b02éà ê", "text": "0çœ éç-48$a%2Æecçê49éù!41c.7ùîÆ6b02éà ê", "view": "strict"}
+{"language": "fr", "output": "0çœ éç-48$a%2Æecçê49éù ! 41c . 7ùîÆ6b02éà ê", "text": "0çœ éç-48$a%2Æecçê49éù!41c.7ùîÆ6b02éà ê", "view": "formatted"}
+{"language": "fr", "output": "4bà sept %2dà3'ù85î'ççèe1 2''î2 dç %è", "text": "4bà 7 %2dà3'ù85î'ççèe1-2'’î2 dç-%è", "view": "normalized"}
+{"language": "fr", "output": "4bà 7 %2dà3'ù85î'ççèe1-2''î2 dç-%è", "text": "4bà 7 %2dà3'ù85î'ççèe1-2'’î2 dç-%è", "view": "strict"}
+{"language": "fr", "output": "4bà 7 %2dà3'ù85î'ççèe1-2''î2 dç-%è", "text": "4bà 7 %2dà3'ù85î'ççèe1-2'’î2 dç-%è", "view": "formatted"}
+{"language": "fr", "output": "sept 4%09ô5'1 ç3îùè% 3è$ a ô dæç ae2", "text": "7 4%09ô5’1!ç3îùè%!3è$’?', .a?ô!dÆç?ae2", "view": "normalized"}
+{"language": "fr", "output": "7 4%09ô5'1 ç3îùè% 3è$ a ô dæç ae2", "text": "7 4%09ô5’1!ç3îùè%!3è$’?', .a?ô!dÆç?ae2", "view": "strict"}
+{"language": "fr", "output": "7 4%09ô5'1 ! ç3îùè% ! 3è$' ? ' , . a ? ô ! dÆç ? ae2", "text": "7 4%09ô5’1!ç3îùè%!3è$’?', .a?ô!dÆç?ae2", "view": "formatted"}
+{"language": "fr", "output": "4", "text": "4", "view": "strict"}
+{"language": "fr", "output": "4", "text": "4", "view": "formatted"}
+{"language": "fr", "output": "ô4îà ée", "text": "-ô4îà,ée", "view": "normalized"}
+{"language": "fr", "output": "ô4îà ée", "text": "-ô4îà,ée", "view": "strict"}
+{"language": "fr", "output": "-ô4îà , ée", "text": "-ô4îà,ée", "view": "formatted"}
+{"language": "fr", "output": "4202çç huit d îc18 $œ", "text": "4202çç-8 d!'îc18?$œ", "view": "normalized"}
+{"language": "fr", "output": "4202çç-8 d îc18 $œ", "text": "4202çç-8 d!'îc18?$œ", "view": "strict"}
+{"language": "fr", "output": "4202çç-8 d ! 'îc18 ? $œ", "text": "4202çç-8 d!'îc18?$œ", "view": "formatted"}
+{"language": "fr", "output": "71à2êd 364é9 à'6e5î zéro dollars", "text": "71à2êd-364é9 à'6e5î $0'", "view": "normalized"}
+{"language": "fr", "output": "71à2êd-364é9 à'6e5î $0", "text": "71à2êd-364é9 à'6e5î $0'", "view": "strict"}
+{"language": "fr", "output": "71à2êd-364é9 à'6e5î $0'", "text": "71à2êd-364é9 à'6e5î $0'", "view": "formatted"}
+{"language": "fr", "output": "e 9cb sept àîeè", "text": "e 9cb-7 àîeè'.", "view": "normalized"}
+{"language": "fr", "output": "e 9cb-7 àîeè", "text": "e 9cb-7 àîeè'.", "view": "strict"}
+{"language": "fr", "output": "e 9cb-7 àîeè' .", "text": "e 9cb-7 àîeè'.", "view": "formatted"}
+{"language": "en", "output": "rule1 pronoun s", "text": "rule1-pronoun-s", "view": "normalized"}
+{"language": "en", "output": "rule1-pronoun-s", "text": "rule1-pronoun-s", "view": "strict"}
+{"language": "en", "output": "rule1-pronoun-s", "text": "rule1-pronoun-s", "view": "formatted"}
+{"language": "en", "output": "it's a test", "text": "it's a test", "view": "normalized"}
+{"language": "en", "output": "it's a test", "text": "it's a test", "view": "strict"}
+{"language": "en", "output": "it's a test", "text": "it's a test", "view": "formatted"}
+{"language": "en", "output": "it is a test", "text": "it is a test", "view": "normalized"}
+{"language": "en", "output": "it is a test", "text": "it is a test", "view": "strict"}
+{"language": "en", "output": "it is a test", "text": "it is a test", "view": "formatted"}
+{"language": "en", "output": "rule1 table cannot", "text": "rule1-table-cannot", "view": "normalized"}
+{"language": "en", "output": "rule1-table-cannot", "text": "rule1-table-cannot", "view": "strict"}
+{"language": "en", "output": "rule1-table-cannot", "text": "rule1-table-cannot", "view": "formatted"}
+{"language": "en", "output": "can't", "text": "can't", "view": "normalized"}
+{"language": "en", "output": "can't", "text": "can't", "view": "strict"}
+{"language": "en", "output": "can't", "text": "can't", "view": "formatted"}
+{"language": "en", "output": "cannot", "text": "cannot", "view": "normalized"}
+{"language": "en", "output": "cannot", "text": "cannot", "view": "strict"}
+{"language": "en", "output": "cannot", "text": "cannot", "view": "formatted"}
+{"language": "en", "output": "rule1 table will not", "text": "rule1-table-will-not", "view": "normalized"}
+{"language": "en", "output": "rule1-table-will-not", "text": "rule1-table-will-not", "view": "strict"}
+{"language": "en", "output": "rule1-table-will-not", "text": "rule1-table-will-not", "view": "formatted"}
+{"language": "en", "output": "won't", "text": "won't", "view": "normalized"}
+{"language": "en", "output": "won't", "text": "won't", "view": "strict"}
+{"language": "en", "output": "won't", "text": "won't", "view": "formatted"}
+{"language": "en", "output": "will not", "text": "will not", "view": "normalized"}
+{"language": "en", "output": "will not", "text": "will not", "view": "strict"}
+{"language": "en", "output": "will not", "text": "will not", "view": "formatted"}
+{"language": "en", "output": "rule1 table let us", "text": "rule1-table-let-us", "view": "normalized"}
+{"language": "en", "output": "rule1-table-let-us", "text": "rule1-table-let-us", "view": "strict"}
+{"language": "en", "output": "rule1-table-let-us", "text": "rule1-table-let-us", "view": "formatted"}
+{"language": "en", "output": "let's go", "text": "let's go", "view": "normalized"}
+{"language": "en", "output": "let's go", "text": "let's go", "view": "strict"}
+{"language": "en", "output": "let's go", "text": "let's go", "view": "formatted"}
+{"language": "en", "output": "let us go", "text": "let us go", "view": "normalized"}
+{"language": "en", "output": "let us go", "text": "let us go", "view": "strict"}
+{"language": "en", "output": "let us go", "text": "let us go", "view": "formatted"}
+{"language": "en", "output": "rule1 suffix ll", "text": "rule1-suffix-ll", "view": "normalized"}
+{"language": "en", "output": "rule1-suffix-ll", "text": "rule1-suffix-ll", "view": "strict"}
+{"language": "en", "output": "rule1-suffix-ll", "text": "rule1-suffix-ll", "view": "formatted"}
+{"language": "en", "output": "it'll work", "text": "it'll work", "view": "normalized"}
+{"language": "en", "output": "it'll work", "text": "it'll work", "view": "strict"}
+{"language": "en", "output": "it'll work", "text": "it'll work", "view": "formatted"}
+{"language": "en", "output": "it will work", "text": "it will work", "view": "normalized"}
+{"language": "en", "output": "it will work", "text": "it will work", "view": "strict"}
+{"language": "en", "output": "it will work", "text": "it will work", "view": "formatted"}
+{"language": "en", "output": "rule1 suffix ve", "text": "rule1-suffix-ve", "view": "normalized"}
+{"language": "en", "output": "rule1-suffix-ve", "text": "rule1-suffix-ve", "view": "strict"}
+{"language": "en", "output": "rule1-suffix-ve", "text": "rule1-suffix-ve", "view": "formatted"}
+{"language": "en", "output": "you've seen it", "text": "you've seen it", "view": "normalized"}
+{"language": "en", "output": "you've seen it", "text": "you've seen it", "view": "strict"}
+{"language": "en", "output": "you've seen it", "text": "you've seen it", "view": "formatted"}
+{"language": "en", "output": "you have seen it", "text": "you have seen it", "view": "normalized"}
+{"language": "en", "output": "you have seen it", "text": "you have seen it", "view": "strict"}
+{"language": "en", "output": "you have seen it", "text": "you have seen it", "view": "formatted"}
+{"language": "en", "output": "rule2 s has been", "text": "rule2-s-has-been", "view": "normalized"}
+{"language": "en", "output": "rule2-s-has-been", "text": "rule2-s-has-been", "view": "strict"}
+{"language": "en", "output": "rule2-s-has-been", "text": "rule2-s-has-been", "view": "formatted"}
+{"language": "en", "output": "it's been fine", "text": "it's been fine", "view": "normalized"}
+{"language": "en", "output": "it's been fine", "text": "it's been fine", "view": "strict"}
+{"language": "en", "output": "it's been fine", "text": "it's been fine", "view": "formatted"}
+{"language": "en", "output": "it has been fine", "text": "it has been fine", "view": "normalized"}
+{"language": "en", "output": "it has been fine", "text": "it has been fine", "view": "strict"}
+{"language": "en", "output": "it has been fine", "text": "it has been fine", "view": "formatted"}
+{"language": "en", "output": "rule2 s has got", "text": "rule2-s-has-got", "view": "normalized"}
+{"language": "en", "output": "rule2-s-has-got", "text": "rule2-s-has-got", "view": "strict"}
+{"language": "en", "output": "rule2-s-has-got", "text": "rule2-s-has-got", "view": "formatted"}
+{"language": "en", "output": "he's got one", "text": "he's got one", "view": "normalized"}
+{"language": "en", "output": "he's got one", "text": "he's got one", "view": "strict"}
+{"language": "en", "output": "he's got one", "text": "he's got one", "view": "formatted"}
+{"language": "en", "output": "he has got one", "text": "he has got one", "view": "normalized"}
+{"language": "en", "output": "he has got one", "text": "he has got one", "view": "strict"}
+{"language": "en", "output": "he has got one", "text": "he has got one", "view": "formatted"}
+{"language": "en", "output": "rule2 s is after pronoun", "text": "rule2-s-is-after-pronoun", "view": "normalized"}
+{"language": "en", "output": "rule2-s-is-after-pronoun", "text": "rule2-s-is-after-pronoun", "view": "strict"}
+{"language": "en", "output": "rule2-s-is-after-pronoun", "text": "rule2-s-is-after-pronoun", "view": "formatted"}
+{"language": "en", "output": "that's it", "text": "that's it", "view": "normalized"}
+{"language": "en", "output": "that's it", "text": "that's it", "view": "strict"}
+{"language": "en", "output": "that's it", "text": "that's it", "view": "formatted"}
+{"language": "en", "output": "that is it", "text": "that is it", "view": "normalized"}
+{"language": "en", "output": "that is it", "text": "that is it", "view": "strict"}
+{"language": "en", "output": "that is it", "text": "that is it", "view": "formatted"}
+{"language": "en", "output": "rule1 possessive kept", "text": "rule1-possessive-kept", "view": "normalized"}
+{"language": "en", "output": "rule1-possessive-kept", "text": "rule1-possessive-kept", "view": "strict"}
+{"language": "en", "output": "rule1-possessive-kept", "text": "rule1-possessive-kept", "view": "formatted"}
+{"language": "en", "output": "john's car", "text": "john's car", "view": "normalized"}
+{"language": "en", "output": "john's car", "text": "john's car", "view": "strict"}
+{"language": "en", "output": "john's car", "text": "john's car", "view": "formatted"}
+{"language": "en", "output": "rule1 d never expanded", "text": "rule1-d-never-expanded", "view": "normalized"}
+{"language": "en", "output": "rule1-d-never-expanded", "text": "rule1-d-never-expanded", "view": "strict"}
+{"language": "en", "output": "rule1-d-never-expanded", "text": "rule1-d-never-expanded", "view": "formatted"}
+{"language": "en", "output": "he'd say", "text": "he'd say", "view": "normalized"}
+{"language": "en", "output": "he'd say", "text": "he'd say", "view": "strict"}
+{"language": "en", "output": "he'd say", "text": "he'd say", "view": "formatted"}
+{"language": "en", "output": "rule3 plural possessive kept", "text": "rule3-plural-possessive-kept", "view": "normalized"}
+{"language": "en", "output": "rule3-plural-possessive-kept", "text": "rule3-plural-possessive-kept", "view": "strict"}
+{"language": "en", "output": "rule3-plural-possessive-kept", "text": "rule3-plural-possessive-kept", "view": "formatted"}
+{"language": "en", "output": "students books", "text": "students' books", "view": "normalized"}
+{"language": "en", "output": "students books", "text": "students' books", "view": "strict"}
+{"language": "en", "output": "students' books", "text": "students' books", "view": "formatted"}
+{"language": "en", "output": "students books", "text": "students books", "view": "normalized"}
+{"language": "en", "output": "students books", "text": "students books", "view": "strict"}
+{"language": "en", "output": "students books", "text": "students books", "view": "formatted"}
+{"language": "en", "output": "rule2 s has been curly", "text": "rule2-s-has-been-curly", "view": "normalized"}
+{"language": "en", "output": "rule2-s-has-been-curly", "text": "rule2-s-has-been-curly", "view": "strict"}
+{"language": "en", "output": "rule2-s-has-been-curly", "text": "rule2-s-has-been-curly", "view": "formatted"}
+{"language": "en", "output": "it's been fine", "text": "it’s been fine", "view": "normalized"}
+{"language": "en", "output": "it's been fine", "text": "it’s been fine", "view": "strict"}
+{"language": "en", "output": "it's been fine", "text": "it’s been fine", "view": "formatted"}
+{"language": "en", "output": "it's been", "text": "it's uh been", "view": "normalized"}
+{"language": "en", "output": "it's uh been", "text": "it's uh been", "view": "strict"}
+{"language": "en", "output": "it's uh been", "text": "it's uh been", "view": "formatted"}
+{"language": "en", "output": "it's been", "text": "it's-been", "view": "normalized"}
+{"language": "en", "output": "it's-been", "text": "it's-been", "view": "strict"}
+{"language": "en", "output": "it's-been", "text": "it's-been", "view": "formatted"}
+{"language": "en", "output": "he'd not", "text": "he'd not", "view": "normalized"}
+{"language": "en", "output": "he'd not", "text": "he'd not", "view": "strict"}
+{"language": "en", "output": "he'd not", "text": "he'd not", "view": "formatted"}
+{"language": "en", "output": "rock n roll", "text": "rock 'n' roll", "view": "normalized"}
+{"language": "en", "output": "rock n roll", "text": "rock 'n' roll", "view": "strict"}
+{"language": "en", "output": "rock 'n' roll", "text": "rock 'n' roll", "view": "formatted"}
+{"language": "en", "output": "two thousand point five", "text": "2,000.5", "view": "normalized"}
+{"language": "en", "output": "2000.5", "text": "2,000.5", "view": "strict"}
+{"language": "en", "output": "2 , 000 . 5", "text": "2,000.5", "view": "formatted"}
+{"language": "en", "output": "it's been", "text": "it’s been", "view": "normalized"}
+{"language": "en", "output": "it's been", "text": "it’s been", "view": "strict"}
+{"language": "en", "output": "it's been", "text": "it’s been", "view": "formatted"}
+{"language": "en", "output": "5ê7 e1ê5 èî ô a1 six b6$à2%à9$8", "text": "5ê7?e1ê5,-èî-ô a1?6-.b6$à2%à9$8", "view": "normalized"}
+{"language": "en", "output": "5ê7 e1ê5 èî-ô a1 6 b6$à2%à9$8", "text": "5ê7?e1ê5,-èî-ô a1?6-.b6$à2%à9$8", "view": "strict"}
+{"language": "en", "output": "5ê7 ? e1ê5 , -èî-ô a1 ? 6- . b6$à2%à9$8", "text": "5ê7?e1ê5,-èî-ô a1?6-.b6$à2%à9$8", "view": "formatted"}
+{"language": "en", "output": "7è e0 bc ù5ê6", "text": "7è!e0-  bc ù5ê6", "view": "normalized"}
+{"language": "en", "output": "7è e0 bc ù5ê6", "text": "7è!e0-  bc ù5ê6", "view": "strict"}
+{"language": "en", "output": "7è ! e0- bc ù5ê6", "text": "7è!e0-  bc ù5ê6", "view": "formatted"}
+{"language": "en", "output": "d 7ec $dôd9œccô0æœù8$ù î9é8ê%6 œ$4", "text": "--d 7ec-$dôd9œccô0Æœù8$ù-’'î9é8ê%6'.œ$4", "view": "normalized"}
+{"language": "en", "output": "d 7ec-$dôd9œccô0æœù8$ù-''î9é8ê%6 œ$4", "text": "--d 7ec-$dôd9œccô0Æœù8$ù-’'î9é8ê%6'.œ$4", "view": "strict"}
+{"language": "en", "output": "--d 7ec-$dôd9œccô0Æœù8$ù-''î9é8ê%6' . œ$4", "text": "--d 7ec-$dôd9œccô0Æœù8$ù-’'î9é8ê%6'.œ$4", "view": "formatted"}
+{"language": "en", "output": "bà8", "text": "bà8 ", "view": "normalized"}
+{"language": "en", "output": "bà8", "text": "bà8 ", "view": "strict"}
+{"language": "en", "output": "bà8", "text": "bà8 ", "view": "formatted"}
+{"language": "en", "output": "0e% æ% dé$35c'5.3êe îê95çb7", "text": "?'0e%!Æ%. ’dé$35c'5.3êe?îê95çb7? ", "view": "normalized"}
+{"language": "en", "output": "0e% æ% dé$35c'5.3êe îê95çb7", "text": "?'0e%!Æ%. ’dé$35c'5.3êe?îê95çb7? ", "view": "strict"}
+{"language": "en", "output": "? '0e% ! Æ% . 'dé$35c'5 . 3êe ? îê95çb7 ?", "text": "?'0e%!Æ%. ’dé$35c'5.3êe?îê95çb7? ", "view": "formatted"}
+{"language": "en", "output": "œ'4$ aæçêb$5,8", "text": "œ’4$,aÆçêb$5,8", "view": "normalized"}
+{"language": "en", "output": "œ'4$ aæçêb$5,8", "text": "œ’4$,aÆçêb$5,8", "view": "strict"}
+{"language": "en", "output": "œ'4$ , aÆçêb$5 , 8", "text": "œ’4$,aÆçêb$5,8", "view": "formatted"}
+{"language": "en", "output": "ôe2 0a2ç 428î6cdb%1", "text": " ôe2' ’ 0a2ç.428î6cdb%1", "view": "normalized"}
+{"language": "en", "output": "ôe2 0a2ç 428î6cdb%1", "text": " ôe2' ’ 0a2ç.428î6cdb%1", "view": "strict"}
+{"language": "en", "output": "ôe2' ' 0a2ç . 428î6cdb%1", "text": " ôe2' ’ 0a2ç.428î6cdb%1", "view": "formatted"}
+{"language": "en", "output": "c1$è d4î$ê", "text": ",c1$è d4î$ê", "view": "normalized"}
+{"language": "en", "output": "c1$è d4î$ê", "text": ",c1$è d4î$ê", "view": "strict"}
+{"language": "en", "output": ", c1$è d4î$ê", "text": ",c1$è d4î$ê", "view": "formatted"}
+{"language": "en", "output": "03æ aù 81b c6æ%aéé five", "text": "03Æ aù?81b c6Æ%aéé 5-", "view": "normalized"}
+{"language": "en", "output": "03æ aù 81b c6æ%aéé 5", "text": "03Æ aù?81b c6Æ%aéé 5-", "view": "strict"}
+{"language": "en", "output": "03Æ aù ? 81b c6Æ%aéé 5-", "text": "03Æ aù?81b c6Æ%aéé 5-", "view": "formatted"}
+{"language": "en", "output": "twenty five æa àçéèd'œc0àbô2 113ùb êcô%6 êçbê", "text": "25, Æa,àçéèd’œc0àbô2- 113ùb-êcô%6,êçbê", "view": "normalized"}
+{"language": "en", "output": "25 æa àçéèd'œc0àbô2 113ùb-êcô%6 êçbê", "text": "25, Æa,àçéèd’œc0àbô2- 113ùb-êcô%6,êçbê", "view": "strict"}
+{"language": "en", "output": "25 , Æa , àçéèd'œc0àbô2- 113ùb-êcô%6 , êçbê", "text": "25, Æa,àçéèd’œc0àbô2- 113ùb-êcô%6,êçbê", "view": "formatted"}
+{"language": "en", "output": "twenty six minus twenty two dœcîcê$4 î2 fifty nine", "text": ".26,-22,dœcîcê$4.î2  ?59", "view": "normalized"}
+{"language": "en", "output": "26 -22 dœcîcê$4 î2 59", "text": ".26,-22,dœcîcê$4.î2  ?59", "view": "strict"}
+{"language": "en", "output": ". 26 , -22 , dœcîcê$4 . î2 ? 59", "text": ".26,-22,dœcîcê$4.î2  ?59", "view": "formatted"}
+{"language": "en", "output": "679,1aé2ù 9%8$", "text": ".!,’679,1aé2ù .9%8$", "view": "normalized"}
+{"language": "en", "output": "679,1aé2ù 9%8$", "text": ".!,’679,1aé2ù .9%8$", "view": "strict"}
+{"language": "en", "output": ". ! , '679 , 1aé2ù . 9%8$", "text": ".!,’679,1aé2ù .9%8$", "view": "formatted"}
+{"language": "en", "output": "èà7a2", "text": "'.èà7a2", "view": "normalized"}
+{"language": "en", "output": "èà7a2", "text": "'.èà7a2", "view": "strict"}
+{"language": "en", "output": "' . èà7a2", "text": "'.èà7a2", "view": "formatted"}
+{"language": "en", "output": "ùàe14àb7êôeêd6 1ê two hundred fifty seven àa1éà ê%$4694œbé", "text": "ùàe14àb7êôeêd6 1ê?257?àa1éà’.ê%$4694œbé", "view": "normalized"}
+{"language": "en", "output": "ùàe14àb7êôeêd6 1ê 257 àa1éà ê%$4694œbé", "text": "ùàe14àb7êôeêd6 1ê?257?àa1éà’.ê%$4694œbé", "view": "strict"}
+{"language": "en", "output": "ùàe14àb7êôeêd6 1ê ? 257 ? àa1éà' . ê%$4694œbé", "text": "ùàe14àb7êôeêd6 1ê?257?àa1éà’.ê%$4694œbé", "view": "formatted"}
+{"language": "en", "output": "ç7êe 4cèù'îéê %î2 $'7é é4ç à9 three 4é1è", "text": "ç7êe-4cèù’îéê?%î2,$'7é é4ç.à9, 3 4é1è", "view": "normalized"}
+{"language": "en", "output": "ç7êe-4cèù'îéê %î2 $'7é é4ç à9 3 4é1è", "text": "ç7êe-4cèù’îéê?%î2,$'7é é4ç.à9, 3 4é1è", "view": "strict"}
+{"language": "en", "output": "ç7êe-4cèù'îéê ? %î2 , $'7é é4ç . à9 , 3 4é1è", "text": "ç7êe-4cèù’îéê?%î2,$'7é é4ç.à9, 3 4é1è", "view": "formatted"}
+{"language": "en", "output": "eight ninety four dollars èùà$$æ 15îd 3'1%ùabé$ eeè69", "text": "8-$94 -èùà$$Æ 15îd-?3'1%ùabé$?eeè69", "view": "normalized"}
+{"language": "en", "output": "8-$94 èùà$$æ 15îd 3'1%ùabé$ eeè69", "text": "8-$94 -èùà$$Æ 15îd-?3'1%ùabé$?eeè69", "view": "strict"}
+{"language": "en", "output": "8-$94 -èùà$$Æ 15îd- ? 3'1%ùabé$ ? eeè69", "text": "8-$94 -èùà$$Æ 15îd-?3'1%ùabé$?eeè69", "view": "formatted"}
+{"language": "en", "output": "ùé two bè9 aê5dùààœêàæç0 three î", "text": "ùé-2 -bè9- aê5dùààœêàÆç0 .3!-î ", "view": "normalized"}
+{"language": "en", "output": "ùé-2 bè9 aê5dùààœêàæç0 3 î", "text": "ùé-2 -bè9- aê5dùààœêàÆç0 .3!-î ", "view": "strict"}
+{"language": "en", "output": "ùé-2 -bè9- aê5dùààœêàÆç0 . 3 ! -î", "text": "ùé-2 -bè9- aê5dùààœêàÆç0 .3!-î ", "view": "formatted"}
+{"language": "en", "output": "œ9b9 94æ8æù$'ù3 æa9 seven thousand three hundred forty five dollars %æ'œ6b", "text": "œ9b9 94Æ8Æù$'ù3?Æa9?$7345.%Æ’œ6b", "view": "normalized"}
+{"language": "en", "output": "œ9b9 94æ8æù$'ù3 æa9 $7345 %æ'œ6b", "text": "œ9b9 94Æ8Æù$'ù3?Æa9?$7345.%Æ’œ6b", "view": "strict"}
+{"language": "en", "output": "œ9b9 94Æ8Æù$'ù3 ? Æa9 ? $7345 . %Æ'œ6b", "text": "œ9b9 94Æ8Æù$'ù3?Æa9?$7345.%Æ’œ6b", "view": "formatted"}
+{"language": "en", "output": "éè2ô%è%àc", "text": "éè2ô%è%àc", "view": "normalized"}
+{"language": "en", "output": "éè2ô%è%àc", "text": "éè2ô%è%àc", "view": "strict"}
+{"language": "en", "output": "éè2ô%è%àc", "text": "éè2ô%è%àc", "view": "formatted"}
+{"language": "en", "output": "nine b édaœ'baæ88", "text": "9 b édaœ'baÆ88", "view": "normalized"}
+{"language": "en", "output": "9 b édaœ'baæ88", "text": "9 b édaœ'baÆ88", "view": "strict"}
+{"language": "en", "output": "9 b édaœ'baÆ88", "text": "9 b édaœ'baÆ88", "view": "formatted"}
+{"language": "en", "output": "çêaç5à7aàd c thirty seven be4 9bà3a'4àæ2b", "text": "çêaç5à7aàd!c 37,be4?9bà3a’4àÆ2b", "view": "normalized"}
+{"language": "en", "output": "çêaç5à7aàd c 37 be4 9bà3a'4àæ2b", "text": "çêaç5à7aàd!c 37,be4?9bà3a’4àÆ2b", "view": "strict"}
+{"language": "en", "output": "çêaç5à7aàd ! c 37 , be4 ? 9bà3a'4àÆ2b", "text": "çêaç5à7aàd!c 37,be4?9bà3a’4àÆ2b", "view": "formatted"}
+{"language": "en", "output": "d ô'%$03cbô43è 0î", "text": "d  ?ô'%$03cbô43è'?0î", "view": "normalized"}
+{"language": "en", "output": "d ô'%$03cbô43è 0î", "text": "d  ?ô'%$03cbô43è'?0î", "view": "strict"}
+{"language": "en", "output": "d ? ô'%$03cbô43è' ? 0î", "text": "d  ?ô'%$03cbô43è'?0î", "view": "formatted"}
+{"language": "en", "output": "a90", "text": "a90", "view": "normalized"}
+{"language": "en", "output": "a90", "text": "a90", "view": "strict"}
+{"language": "en", "output": "a90", "text": "a90", "view": "formatted"}
+{"language": "en", "output": "2'a'é$$0 1'4 é'8œçèæ59çèè $æ", "text": "2'a'é$$0’ 1'4 é'8œçèÆ59çèè.$Æ", "view": "normalized"}
+{"language": "en", "output": "2'a'é$$0 1'4 é'8œçèæ59çèè $æ", "text": "2'a'é$$0’ 1'4 é'8œçèÆ59çèè.$Æ", "view": "strict"}
+{"language": "en", "output": "2'a'é$$0' 1'4 é'8œçèÆ59çèè . $Æ", "text": "2'a'é$$0’ 1'4 é'8œçèÆ59çèè.$Æ", "view": "formatted"}
+{"language": "en", "output": "d 33ôé2è é ù àœô04e5àç", "text": "d ’33ôé2è é ù.’àœô04e5àç", "view": "normalized"}
+{"language": "en", "output": "d 33ôé2è é ù àœô04e5àç", "text": "d ’33ôé2è é ù.’àœô04e5àç", "view": "strict"}
+{"language": "en", "output": "d '33ôé2è é ù . 'àœô04e5àç", "text": "d ’33ôé2è é ù.’àœô04e5àç", "view": "formatted"}
+{"language": "en", "output": "7è àcœ2dà54ù1 d", "text": "7è-àcœ2dà54ù1!d", "view": "normalized"}
+{"language": "en", "output": "7è-àcœ2dà54ù1 d", "text": "7è-àcœ2dà54ù1!d", "view": "strict"}
+{"language": "en", "output": "7è-àcœ2dà54ù1 ! d", "text": "7è-àcœ2dà54ù1!d", "view": "formatted"}
+{"language": "en", "output": "œê b%ô83'cé7 $aî cdé7", "text": "œê-b%ô83'cé7 $aî,cdé7", "view": "normalized"}
+{"language": "en", "output": "œê-b%ô83'cé7 $aî cdé7", "text": "œê-b%ô83'cé7 $aî,cdé7", "view": "strict"}
+{"language": "en", "output": "œê-b%ô83'cé7 $aî , cdé7", "text": "œê-b%ô83'cé7 $aî,cdé7", "view": "formatted"}
+{"language": "en", "output": "65æ20ô èîîœ 7eç5œù æ$5eè4ô", "text": "'65Æ20ô.!èîîœ . !7eç5œù,Æ$5eè4ô'", "view": "normalized"}
+{"language": "en", "output": "65æ20ô èîîœ 7eç5œù æ$5eè4ô", "text": "'65Æ20ô.!èîîœ . !7eç5œù,Æ$5eè4ô'", "view": "strict"}
+{"language": "en", "output": "'65Æ20ô . ! èîîœ . ! 7eç5œù , Æ$5eè4ô'", "text": "'65Æ20ô.!èîîœ . !7eç5œù,Æ$5eè4ô'", "view": "formatted"}

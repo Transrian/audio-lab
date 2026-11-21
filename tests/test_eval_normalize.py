@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import pytest  # noqa: E402
 
+from audiolab.eval.metrics import counts  # noqa: E402
 from audiolab.eval.normalize import (  # noqa: E402
     NORMALIZER_VERSION,
     STAND_IN_CHARACTERS,
@@ -20,11 +21,15 @@ from audiolab.eval.normalize import (  # noqa: E402
 
 TRAP_SET = Path(__file__).parent / "data" / "normalizer_traps.jsonl"
 
+# Version 1 output, replayed text by text: the trap set says which pairs compare
+# equal, this file says what the frozen rule set writes for each text.
+V1_GOLDEN = Path(__file__).parent / "data" / "normalizer_v1_golden.jsonl"
+
 # What each equal pair is meant to prove. Only the pairs whose intent is not
 # obvious from the text are listed; the file itself stays free of explanations.
 RULES = {
     "fr-elision-one-token": "an elision is one token, so dropping the apostrophe splits the word",
-    "en-contraction": "contractions are not expanded",
+    "en-contraction": "version 1 leaves a contraction alone; version 2 expands it",
     "strict-percent-spacing": "the strict view does not verbalize units",
     "strict-hyphen": "the strict view keeps a hyphen inside a word",
     "fr-only-filler": "a filler word alone normalizes to nothing",
@@ -138,6 +143,43 @@ def test_trap_set_pair(pair: dict):
     )
 
 
+@pytest.mark.parametrize("pair", PAIRS, ids=[pair["id"] for pair in PAIRS])
+def test_trap_set_pair_under_version_1(pair: dict):
+    """The frozen rule set still answers every pair the way the trap set says.
+
+    Two of them are spelled out again by a version 2 rule (the contraction pair
+    and the elision spacing), which is why ``version`` in the file can pin a
+    pair; under version 1 nothing has moved, so the file's own answer holds for
+    every pair.
+    """
+    reference = normalize(pair["ref"], pair["language"], pair["view"], V1)
+    hypothesis = normalize(pair["hyp"], pair["language"], pair["view"], V1)
+    assert (reference == hypothesis) is pair["expect_equal"], (
+        f"{pair['id']}: {pair['ref']!r} -> {reference!r}, {pair['hyp']!r} -> {hypothesis!r}"
+    )
+
+
+def load_golden() -> list[dict]:
+    """The frozen version 1 outputs; the header line carries none."""
+    rows = [json.loads(line) for line in V1_GOLDEN.read_text(encoding="utf-8").splitlines()]
+    return [row for row in rows if "text" in row]
+
+
+GOLDEN = load_golden()
+
+
+@pytest.mark.parametrize("row", GOLDEN, ids=[f"{number:04d}" for number in range(len(GOLDEN))])
+def test_version_1_output_is_frozen(row: dict):
+    """Every text of the golden fixture still normalizes to the recorded output."""
+    assert normalize(row["text"], row["language"], row["view"], V1) == row["output"], row
+
+
+def test_the_golden_fixture_covers_all_three_views_and_both_languages():
+    assert {row["view"] for row in GOLDEN} == set(VIEWS)
+    assert {row["language"] for row in GOLDEN} == {"fr", "en"}
+    assert len(GOLDEN) >= 900
+
+
 def test_rule_notes_describe_real_pairs():
     assert set(RULES) <= {pair["id"] for pair in PAIRS}
 
@@ -187,6 +229,36 @@ def test_neither_version_rewrites_its_own_output(case):
     for view in ("strict", "normalized"):
         assert normalize(version_2, language, view, NORMALIZER_VERSION) == version_2
         assert normalize(version_1, language, view, V1) == version_1
+
+
+def flipping_cases() -> list:
+    """The version 2 cases whose two spellings version 1 keeps apart."""
+    selected = []
+    for case in V2_CASES:
+        _, language, _, version_2, version_1 = case
+        for view in ("strict", "normalized"):
+            if normalize(version_2, language, view, V1) != version_1:
+                selected.append(pytest.param(case, view, id=f"{case[0]}-{view}"))
+    return selected
+
+
+@pytest.mark.parametrize("case, view", flipping_cases())
+def test_a_rule_joins_the_two_spellings_in_both_directions(case, view):
+    """A rule that fires on one side only would flatter the side it rewrites.
+
+    The reference and its version 2 output are scored against each other with
+    the same function that scores a run, in both directions: under version 2
+    they are the same words, under version 1 they are not, whichever side is
+    the reference.
+    """
+    _, language, reference, version_2, _ = case
+    for first, second in ((reference, version_2), (version_2, reference)):
+        assert counts(first, second, language, view, NORMALIZER_VERSION).errors == 0, (
+            first,
+            second,
+            view,
+        )
+        assert counts(first, second, language, view, V1).errors > 0, (first, second, view)
 
 
 @pytest.mark.parametrize("case", CURLY_CASES, ids=[case[0] for case in CURLY_CASES])
