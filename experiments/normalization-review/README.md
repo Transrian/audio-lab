@@ -106,7 +106,9 @@ uv run python experiments/normalization-review/rescore.py
 
 Base: `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full-9panels-v1` — the base
 model's run on the nine panels below, not the later `full` run, which scores 18
-panels and cannot be compared with the screening runs. Candidates: the
+panels and cannot be compared with the screening runs. `full-9panels-v1` is a
+`cp -a` copy of `parakeet-tdt-0.6b-v3-nemo/full` taken before that run was
+re-run on the 18-panel suite. Candidates: the
 `screen-*/full` runs recorded on those same nine panels, which are the 16 rows of
 the tables (`CANDIDATE_ORDER` in the script): `screen-granary-fr`,
 `screen-voxpopuli-fr`, `screen-mls-fr`,
