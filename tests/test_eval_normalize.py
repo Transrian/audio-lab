@@ -244,6 +244,33 @@ def flipping_cases() -> list:
     return selected
 
 
+def stable_cases() -> list:
+    """The version 2 cases whose text no rule of the batch rewrites."""
+    return [
+        pytest.param(case, view, id=f"{case[0]}-{view}")
+        for case in V2_CASES
+        for view in ("strict", "normalized")
+        if normalize(case[3], case[1], view, V1) == case[4]
+    ]
+
+
+@pytest.mark.parametrize("case, view", stable_cases())
+def test_a_case_no_rule_rewrites_scores_the_same_in_both_versions(case, view):
+    """A rule that fires where it should not would show up here.
+
+    Possessives, ``'d``, an elision already closed and a missing apostrophe all
+    come out of both rule sets the same way, in both directions.
+    """
+    _, language, reference, version_2, _ = case
+    for first, second in ((reference, version_2), (version_2, reference)):
+        assert counts(first, second, language, view, NORMALIZER_VERSION).errors == 0, (
+            first,
+            second,
+            view,
+        )
+        assert counts(first, second, language, view, V1).errors == 0, (first, second, view)
+
+
 @pytest.mark.parametrize("case, view", flipping_cases())
 def test_a_rule_joins_the_two_spellings_in_both_directions(case, view):
     """A rule that fires on one side only would flatter the side it rewrites.
