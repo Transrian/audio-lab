@@ -306,8 +306,8 @@ version 1 and re-scored with no flag reports 2 in `summary.json` and `report.md`
 and one re-scored with `--normalizer 1` reports 1. Scoring rewrites the run
 directory in place, so re-scoring a run whose numbers are published is best done
 on a copy (`cp -a RUN RUN-<date>`), leaving the published directory as it was
-cited. That copy is an agent's recommendation, not a project rule: no decision
-states it. The comparison says the version in its header, because two runs of
+cited. That copy is an agent's recommendation, not a project rule: no accepted
+decision states it. The comparison says the version in its header, because two runs of
 different vintages say different things in their own files.
 
 | view | rule | example: reference vs hypothesis | equal? |
