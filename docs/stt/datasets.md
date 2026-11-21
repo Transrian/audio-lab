@@ -921,14 +921,16 @@ Three kinds of clip that must stay silent, 300 in total:
   manifest, just not scored.
 - **The third split class reaches this set's sealed panel**: `67e80486…`
   ("RPI_Vallee_de_la_Deme_2025") is sealed here, and `cd06bad8…` ("…_2026"),
-  the same 3 068 s recording under a title the year apart, is scored in this
+  the same 3 068 s recording under a title a year apart, is scored in this
   set's full (6 clips) and fast (1) panels — the duplicate finder joins equal
   titles with durations within 2 s, and these two titles differ by the year,
   so this class is not one of the four unpanelled talks and the build could
   not refuse it. The decoded sealed panel is therefore **not**
-  pristine: 7 items of this set's frozen panels are audio-identical to sealed
-  clips, and its number outside every split class is 894 clips of 23 talks
-  against the 934 figure reported alongside (found 2026-11-21,
+  pristine: 6 clips of this set's full panel (1 of them also in fast) are
+  audio-identical to sealed clips, and the first set's full panel scores 7 more
+  copies (7 distinct sealed clips in all). Its number outside every split
+  class is 894 clips of 23 talks against the 934 figure reported alongside
+  (found 2026-11-21,
   [proposed decision 0017](../decisions/proposed/0017-campaign-1-test-freeze.md) § 3).
   The decoded set's sealed panel stays as built: the panels are frozen and
   the scores stand.

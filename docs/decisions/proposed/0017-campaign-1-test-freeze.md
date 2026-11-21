@@ -172,7 +172,8 @@ clip a model is scored on may not be trained on, so future sealed scoring uses
 classes whose twins are scored in the full panel (40 clips each, 80 in total);
 its primary number is pre-registered on the clips outside those two classes —
 **840 clips / 21 talks** by the O-12 (a) reading — the 920 figure reported
-alongside. § 3's third class moves the same reading to 800 clips / 20 talks.
+alongside. The third split class below gives 800 clips / 20 talks under the same
+reasoning; which of the two is primary is the owner's to confirm.
 
 A third split class was found at this freeze:
 `67e80486-d615-4f22-afb8-1e0cfaeb5931` ("RPI_Vallee_de_la_Deme_2025", 40 clips
@@ -196,7 +197,7 @@ The first and the decoded captions sets seal **the same talks**: the v2 sealed
 panel holds the 21 talks the v1 one seals outside the two split classes, plus 3
 talks new in v2 (24 talks, 934 clips), because v2 keeps the source's talks
 sealed by construction ([the v2 card](../../stt/datasets.md#peertube-edu-captions-fr-v2--the-same-talks-with-the-caption-text-decoded));
-measured on 2026-11-21, 831 of the v1 panel's 840 clips outside the split
+measured on 2026-11-21, 831 of the v1 panel's 840 clips outside the two O-12
 classes have an audio `sha256` that is also in the v2 sealed panel, the
 difference being 9 clips of one talk (`f620b4c3…`: 40 clips in each panel, 31 of
 them the same audio), which the decoded preparation cut differently. No sealed
@@ -287,10 +288,10 @@ The candidate is chosen before the sealed set is opened
 ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
 the sealed set confirms the choice, it never makes it.
 
-**Applied once.** The rule is applied once, at the end of the campaign's first
-selection round: when both candidates' runs have finished, or when one of them
-is recorded as not finished (such a run is not eligible under condition 1).
-Changing it after any candidate number exists requires the owner.
+**Applied once.** The rule is applied once, when each candidate's run has either
+finished or been recorded as not finished (a run recorded as not finished is not
+eligible under condition 1); while a run is still training or resuming, the rule
+waits. Changing it after any candidate number exists requires the owner.
 
 ### 5. What this decision does not decide
 
@@ -352,19 +353,21 @@ panels are what the campaign may look at while it works.
   with no repeated id (0 absent, 0 repeated).
 - **O-12 (a).** The two split-class talks hold 40 clips each in
   `peertube-edu-captions-fr-sealed.txt` (80 of its 920), which leaves 840 clips
-  in 21 talks; the same two talks hold 7 and 6 clips in
+  in 21 talks; their twins hold 7 and 6 clips in
   `peertube-edu-captions-fr-full.txt` (2 and 1 of them also in `fast`), the
   straddle O-12 records. Counting § 3's third class as well, the `full` panel
   holds 20 clips of sealed content and the `fast` panel 4.
 - **No other sealed file's audio is scored.** The audio `sha256` of every clip
   of all 18 sealed files, cross-checked against all 36 `full` and `fast` panels:
-  only the captions sets share any — `peertube-edu-captions-fr-sealed` 20 clips
-  in its `full` panel and 4 in `fast`, `peertube-edu-captions-fr-v2-sealed` 6
-  and 1 — and every other sealed file shares none. This cross-check is how
-  § 3's third class was found.
+  only the captions sets share any: `peertube-edu-captions-fr-sealed` 20 clips
+  in its own `full` panel (4 of them also in `fast`),
+  `peertube-edu-captions-fr-v2-sealed` 6 in its own `full` panel (1 also in
+  `fast`) and 7 in the first set's `full` panel (the `cd06bad8` clips; 1 also in
+  `fast`), so 20 and 7 distinct sealed clips — and every other sealed file
+  shares none. This cross-check is how § 3's third class was found.
 - **The captions sealed panels are not talk-disjoint.** 21 of the v1 panel's
   23 talks are also in the v2 sealed panel; 831 of the 840 v1 clips outside the
-  split classes match a v2 sealed clip by audio `sha256`, the 9 that do not are
-  all in one talk (`f620b4c3…`, 40 clips in each panel, 31 of them the same
+  two O-12 classes match a v2 sealed clip by audio `sha256`, the 9 that do not
+  are all in one talk (`f620b4c3…`, 40 clips in each panel, 31 of them the same
   audio), and the v2 panel adds 3 talks new in the decoded set. Hence § 3's
   panel-by-panel reading.
