@@ -253,8 +253,9 @@ directory first.
   name of the cache file the answers came from. The config's optional
   `server_label` says in words which server answered.
 - `summary.json`: every number at full precision. `audiolab score <run dir>`
-  writes it again from the records alone, byte for byte, under the version the
-  run recorded.
+  writes it again from the records alone, byte for byte, under the current
+  normalizer version, unless `--normalizer` names another one; the version it
+  used is the one the rewritten files report.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
 A record never holds the API key: an endpoint that echoes the request headers in
@@ -296,17 +297,17 @@ becomes a new experiment rather than a diff.
 `NORMALIZER_VERSION` is **2**. Version 1 stays reproducible and is not rewritten:
 `audiolab score RUN --normalizer 1` writes the summary version 1 produces, and
 `audiolab compare A B --normalizer 1` prints a header saying it used 1. Both
-commands take `--normalizer {1,2}`. `audiolab eval` scores a new run with
-`NORMALIZER_VERSION` unless the flag says otherwise, and records what it used;
-`audiolab score` and `audiolab compare` default to the version they find: for
-`score`, the one the run recorded, so scoring a finished run again writes the
-same bytes; for `compare`, the current one. Passing
-`--normalizer` re-scores the stored records under that rule set, and each command
-then writes the version it actually used — a run directory written under version
-1 and re-scored with `--normalizer 2` reports 2 in `summary.json`, `report.md` and
-the comparison header, not the version in its `run.json`. The comparison always
-says the version in its header, because two runs of different vintages say
-different things in their own files.
+commands take `--normalizer {1,2}` and both default to the current version;
+`audiolab eval` scores a new run with it and has no flag of its own, so every
+fresh run records 2. `audiolab score` re-scores the stored records under the rule
+set it was asked for and writes the version it actually used, which is not the
+version in `run.json` of a run written earlier: a run directory written under
+version 1 and re-scored with no flag reports 2 in `summary.json` and `report.md`,
+and one re-scored with `--normalizer 1` reports 1. Because that rewrites the run
+directory in place, scoring a run whose numbers are published is done on a copy
+(`cp -a RUN RUN-<date>`), never on the published directory. The comparison says
+the version in its header, because two runs of different vintages say different
+things in their own files.
 
 | view | rule | example: reference vs hypothesis | equal? |
 | --- | --- | --- | --- |

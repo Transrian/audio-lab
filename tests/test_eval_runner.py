@@ -145,10 +145,12 @@ def test_a_run_records_every_item_and_writes_a_summary(workspace):
 
 
 def test_a_v1_run_rescores_under_the_version_it_is_asked_for(workspace, tmp_path):
-    """A run written before v2 keeps its version, and re-scoring says what it used.
+    """A run written before v2 is re-scored under the current rules, or the one asked for.
 
     The records are the answers; the normalizer version is a rule set applied
-    when they are scored, so the same run directory can be read under either one.
+    when they are scored, so the same run directory can be read under either one,
+    and it is the rule set that scored it, not the one in ``run.json``, that the
+    summary reports.
     """
     panel = read_panel(workspace["panels_dir"] / f"{PANEL}.txt")
     run_dir = tmp_path / "v1-run"
@@ -175,15 +177,15 @@ def test_a_v1_run_rescores_under_the_version_it_is_asked_for(workspace, tmp_path
         encoding="utf-8",
     )
     summary = score_run(run_dir, workspace["panels_dir"], workspace["data_dir"], draws=50)
-    assert summary["run"]["normalizer_version"] == V1  # the run keeps its version
+    assert summary["run"]["normalizer_version"] == NORMALIZER_VERSION  # the current rules
     rebuilt = score_run(
         run_dir,
         workspace["panels_dir"],
         workspace["data_dir"],
         draws=50,
-        normalizer=NORMALIZER_VERSION,
+        normalizer=V1,
     )
-    assert rebuilt["run"]["normalizer_version"] == NORMALIZER_VERSION  # the version used
+    assert rebuilt["run"]["normalizer_version"] == V1  # the version asked for
 
 
 def test_a_second_run_resumes_without_asking_again(workspace):

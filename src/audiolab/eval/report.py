@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 
 from audiolab.eval import metrics, stats
-from audiolab.eval.normalize import NORMALIZER_VERSION, VERSIONS
+from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.records import (
     ENDPOINT_FINGERPRINT_KEY,
     IDENTITY_NAME,
@@ -60,23 +60,21 @@ def score_run(
     *,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
-    normalizer: int | None = None,
+    normalizer: int = NORMALIZER_VERSION,
 ) -> dict:
     """Score a run directory and write ``summary.json`` and ``report.md``; returns the summary.
 
     ``draws`` and ``seed`` are exposed so a test can bound its runtime; the
     defaults are the frozen numbers, which is what a real report uses.
 
-    ``normalizer`` is the rule set the records are scored with. With no value,
-    the version the run recorded decides, so scoring the same run twice writes
-    the same bytes; passing one re-scores the run under that rule set, and the
-    summary then records the version that actually scored it rather than the one
-    in ``run.json``.
+    ``normalizer`` is the rule set the records are scored with; the default is
+    the current one. The summary records the version that actually scored the
+    numbers, which is not necessarily the one ``run.json`` was written with:
+    re-scoring an older run rewrites its ``summary.json`` and ``report.md``
+    under the current rules unless ``normalizer`` names another version.
     """
     run_dir, panels_dir = Path(run_dir), Path(panels_dir)
     identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
-    if normalizer is None:
-        normalizer = recorded_normalizer(identity)
     records = read_records(run_dir / RECORDS_NAME)
     panels = {
         panel: _panel_items(panel, panels_dir, data_dir, records, normalizer)
@@ -93,12 +91,6 @@ def score_run(
     (run_dir / SUMMARY_NAME).write_text(_clean_json(summary), encoding="utf-8")
     (run_dir / REPORT_NAME).write_text(render_markdown(summary), encoding="utf-8")
     return summary
-
-
-def recorded_normalizer(identity: dict) -> int:
-    """The rule set a run says scored it, or today's when it says nothing usable."""
-    version = identity.get("normalizer_version", NORMALIZER_VERSION)
-    return version if version in VERSIONS else NORMALIZER_VERSION
 
 
 def _panel_items(
@@ -321,7 +313,7 @@ def render_comparison(comparison: dict) -> str:
         "when the 95 % interval of B - A stays away from zero.",
         "",
         f"Normalizer version used for these numbers: {comparison['normalizer_version']}"
-        " (`audiolab.eval.normalize`), not the one either run was written with.",
+        " (`audiolab.eval.normalize`), whatever version the runs recorded.",
         "",
         "| panel | metric | A | B | B - A | 95 % CI | verdict |",
         "| --- | --- | --- | --- | --- | --- | --- |",

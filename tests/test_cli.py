@@ -419,14 +419,17 @@ def score_command(prepared, run_dir: Path, normalizer: int | None) -> list[str]:
     return argv if normalizer is None else argv + ["--normalizer", str(normalizer)]
 
 
-def test_score_without_the_flag_keeps_the_runs_version(prepared, capsys):
-    """Re-scoring a finished run writes the same bytes, so a summary stays a function of it."""
+def test_score_without_the_flag_uses_the_current_version(prepared, capsys):
+    """A finished v1 run re-scored with no flag is scored again under the current rules."""
     run_dir = v1_run(prepared)
     assert cli.main(score_command(prepared, run_dir, None)) == 0
+    assert "normalizer version used: 2" in capsys.readouterr().out
     summary = run_dir / "summary.json"
     first = summary.read_bytes()
     report = (run_dir / "report.md").read_bytes()
-    assert json.loads(first)["run"]["normalizer_version"] == 1
+    assert json.loads(first)["run"]["normalizer_version"] == 2
+    assert "normalizer version 2" in report.decode()
+    # The numbers still come from the records alone: scoring twice writes the same bytes.
     assert cli.main(score_command(prepared, run_dir, None)) == 0
     assert summary.read_bytes() == first
     assert (run_dir / "report.md").read_bytes() == report

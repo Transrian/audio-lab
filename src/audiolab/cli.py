@@ -35,12 +35,10 @@ from audiolab.data.train import TRAIN_CLIP_CAP
 from audiolab.eval.client import ConfigError, ModelConfig, NotAnswering, concurrency_from_env
 from audiolab.eval.normalize import NORMALIZER_VERSION
 from audiolab.eval.normalize import VERSIONS as NORMALIZER_VERSIONS
-from audiolab.eval.records import IDENTITY_NAME
 from audiolab.eval.report import (
     REPORT_NAME,
     SUMMARY_NAME,
     compare_runs,
-    recorded_normalizer,
     render_comparison,
     score_run,
 )
@@ -215,9 +213,7 @@ def cmd_train(args: argparse.Namespace) -> int:
 def cmd_score(args: argparse.Namespace) -> int:
     """Score a finished run again, from its records; the same records give the same files."""
     run_dir = Path(args.run)
-    identity = json.loads((run_dir / IDENTITY_NAME).read_text(encoding="utf-8"))
-    normalizer = normalizer_from(args, recorded_normalizer(identity))
-    summary = score_run(run_dir, args.panels_dir, args.data_dir, normalizer=normalizer)
+    summary = score_run(run_dir, args.panels_dir, args.data_dir, normalizer=normalizer_from(args))
     total = sum(panel["items"] for panel in summary["panels"].values())
     print(f"scored {total} items over {len(summary['panels'])} panels")
     print(f"normalizer version used: {summary['run']['normalizer_version']}")
@@ -386,24 +382,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# The values ``--normalizer`` takes, and the flag's spelling: a run scored before
-# version 2 exists is re-scored under version 1 with ``--normalizer 1``.
+# The flag's spelling: a run scored under an older rule set is re-scored with
+# ``--normalizer 1``.
 NORMALIZER_FLAG = "--normalizer"
-NORMALIZER_FLAGS = {f"{NORMALIZER_FLAG} {version}": version for version in NORMALIZER_VERSIONS}
 
 
-def normalizer_from(args: argparse.Namespace, recorded: int | None = None) -> int:
-    """The version a scoring command was asked for.
+def normalizer_from(args: argparse.Namespace) -> int:
+    """The version a scoring command was asked for, the current one without the flag.
 
     ``--normalizer 2`` and ``--normalizer 1`` are read as the version they name.
-    With no flag, ``score`` passes what the run recorded, so re-scoring it writes
-    the same bytes, and a command with nothing to read (``compare``) gets the
-    current version; the function never returns ``None``, which would replace a
-    default with a missing value.
+    The flag is optional but the value never is: what scores the records and what
+    the output records have to be the same version.
     """
-    if args.normalizer is not None:
-        return args.normalizer
-    return recorded if recorded is not None else NORMALIZER_VERSION
+    return args.normalizer if args.normalizer is not None else NORMALIZER_VERSION
 
 
 def _add_normalizer_argument(parser: argparse.ArgumentParser, without_flag: str) -> None:
@@ -487,7 +478,7 @@ def _add_score_command(
         parents=[scoring],
     )
     score.add_argument("run", help="run directory holding records.jsonl")
-    _add_normalizer_argument(score, "the version the run recorded decides")
+    _add_normalizer_argument(score, "the current version decides")
     score.set_defaults(func=cmd_score)
 
 
