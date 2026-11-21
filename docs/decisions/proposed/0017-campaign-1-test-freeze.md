@@ -157,7 +157,7 @@ commit.
 | `servicenow-codeswitched-en-fr-sealed.txt` | `servicenow-codeswitched-en-fr` | 60 |
 | `servicenow-codeswitched-en-fr-ca-sealed.txt` | `servicenow-codeswitched-en-fr-ca` | 38 |
 | `voxpopuli-en-nonnative-sealed.txt` | `voxpopuli-en-nonnative` | 50 |
-| **total** | | **8 582** |
+| **total — file rows, not distinct clips** | | **8 582** |
 
 `nasa-en-test-sealed.txt` is **not** in the set. Its panel scores 26 clips of
 the episode NASA re-released under another slug, and the re-release sat in
@@ -170,8 +170,27 @@ clip a model is scored on may not be trained on, so future sealed scoring uses
 [O-12](../../backlog.md#owner-review-needed) (a) of 2026-11-16: the panel holds
 920 clips in 23 talks, two of which are the sealed halves of the two re-upload
 classes whose twins are scored in the full panel (40 clips each, 80 in total);
-its primary number is pre-registered on the other **840 clips / 21 talks**, the
-920 figure reported alongside.
+its primary number is pre-registered on the clips outside those two classes —
+**840 clips / 21 talks** by the O-12 (a) reading — the 920 figure reported
+alongside. § 3's third class moves the same reading to 800 clips / 20 talks.
+
+A third split class was found at this freeze:
+`67e80486-d615-4f22-afb8-1e0cfaeb5931` ("RPI_Vallee_de_la_Deme_2025", 40 clips
+in each captions sealed panel) and `cd06bad8-f489-4b94-ac06-fb6509ea58ff`
+("RPI_Vallee_de_la_Deme_2026") are one 3 068 s recording uploaded under titles
+that differ by the year, so the title-and-length rule of
+`src/audiolab/data/duplicates.py` does not join them. 28 of the 40 clips of each
+have the same audio `sha256`, and every clip of `cd06bad8` that a panel scores —
+7 in `peertube-edu-captions-fr-full` (1 in fast), 6 in
+`peertube-edu-captions-fr-v2-full` (1 in fast) — is audio-identical to a sealed
+clip of `67e80486`. No other sealed file shares an audio `sha256` with a `full`
+or `fast` panel, and neither talk is in a training preparation. The panels are
+frozen, so this is recorded, not repaired. Following the reasoning of O-12 (a),
+each captions sealed panel also reports its number outside every split class —
+800 clips / 20 talks for the first set, 894 clips / 23 talks for the decoded
+set — with the 840 (O-12 (a)), 920 and 934 figures alongside; whether 840 or 800
+is the first set's primary number is the owner's to confirm before he scores the
+sealed set.
 
 The first and the decoded captions sets seal **the same talks**: the v2 sealed
 panel holds the 21 talks the v1 one seals outside the two split classes, plus 3
@@ -196,26 +215,25 @@ Written before any candidate number exists.
 **Candidate set, fixed now:** `mix-v1` (`configs/train/mix-v1.yaml`) and its
 noise arm `mix-v1-n40` — the same recipe with MUSAN noise on about 40 % of the
 clips, whose config is committed before that run starts. No candidate is added
-to this campaign (the seed replicate `mix-v1-s2` is not a candidate).
+to this campaign (the seed replicate `mix-v1-s2` is not a candidate). Each
+candidate is its run's final `model.nemo`, the checkpoint
+[`docs/stt/training.md` § 4](../../stt/training.md#4-what-a-finished-run-leaves-behind)
+says a finished run leaves: no intermediate checkpoint is scored and no
+checkpoint is selectable.
 
 **Eligibility.** A candidate is eligible when all three hold:
 
-1. it finished mechanically: `train.json` exists, its `updates` equals the
-   `updates` of the config the run was started from, and every `loss` in
-   `train-log.jsonl` is finite. A run that went through the deterministic resume
-   path is not disqualified — the same batches are replayed, so a resumed finish
-   counts as a finish;
-2. no panel of `full.yaml` shows a **separable loss** against the base. The
-   numbers are the `difference` and `ci` of `audiolab compare --json`, which are
-   fractions, not percentages: for a speech panel the paired interval of the
-   candidate − base delta lies wholly above zero **and** `difference` is above
-   `0.005` (0.5 WER points); for `nonspeech` and `nonspeech-music` the
-   hallucination-rate delta's interval lies wholly above zero **and**
-   `difference` is strictly above the run-to-run spread the screening measured —
-   that spread is 2 clips of `nonspeech-full`'s 280 clips, `0.00714` in `--json`
-   fractions, so 2 of 280 does **not** count and 3 of 280 (`0.0107`) does, while
-   one clip of `nonspeech-music-full`'s 114 (`0.0088`) counts
-   ([screening.md](../../stt/screening.md#noise-augmentation));
+1. its run finished: `train.json` exists with `updates` equal to the configured
+   `updates` and a finite `final_loss`, and no `loss` in its `train-log.jsonl`
+   is NaN or infinite. A stop, crash or oomd kill the run resumed from (the
+   resume check of `audiolab train` accepting it, on the run's own card) is
+   reported in the record and does not by itself make the candidate ineligible.
+2. no panel of `full.yaml` shows a **separable loss** against the base. A panel
+   is a separable loss when the interval of the candidate − base `difference`
+   has `ci.low > 0` and the `difference` is above the panel's threshold —
+   `0.005` (0.5 WER points) on a speech panel, `0.00714` (the measured two clips
+   of `nonspeech-full`'s 280) on `nonspeech` and `nonspeech-music`; the
+   paragraph below gives the units and the reading;
 3. its unweighted mean normalized WER over the seven primary panels is below
    the base's.
 
@@ -235,31 +253,44 @@ per-panel numbers. The eligibility guard reads all 18 `full` panels; the
 ranking reads the seven primary ones. `full` decides; the `fast` comparison is
 reported alongside and changes nothing.
 
+The base run is `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/full`. The
+per-panel numbers, the separable-loss test and both primary means (base and
+candidate) are read from each comparison's JSON — `a` = base, `b` = candidate,
+`difference` = `b − a`, `ci` — never from a run's `summary.json` (the base's
+holds version-1 numbers). The values are fractions: +0.5 WER points is 0.005;
+0.71 points is the measured two clips of 280, 2/280 = 0.00714, and 'above'
+means more than that. 'Wholly above zero' is `ci.low > 0`. An interval the
+comparison marks 'few groups' (today mls-fr-full, african-accented-fr-test-full,
+notsofar-en-eval-full) is applied as computed.
+
 **Selection.** Among the eligible candidates, the one with the lowest
 unweighted mean normalized WER over the seven primary panels is the campaign's
 candidate. The paired interval of every primary panel is reported with the
 choice; where no primary panel separates a candidate from the base, the lowest
 mean is still taken, and the decision record says in words that the difference
-is within the paired intervals rather than separable. A separable nonspeech
-regression whose `difference` stays under the guard's threshold is reported with
-the choice and changes nothing.
+is within the paired intervals rather than separable. A difference on a
+secondary panel that is not a separable loss under eligibility 2 is reported
+with the choice and does not change it.
 
-**Ties and no eligible candidate.** If both candidates are eligible, the
-campaign compares them directly (`audiolab compare --normalizer 2 mix-v1
-mix-v1-n40`); if no primary panel separates them, they are tied and the simpler
-recipe, `mix-v1`, is the campaign's candidate, the record saying the two are not
-separable. If no candidate is eligible, the campaign names none — that is a
-result, recorded as such — and the thresholds are never relaxed once the numbers
-exist. The number of candidates compared is reported with the result.
+**Ties and no eligible candidate.** When both candidates are eligible, they are
+also compared directly, `audiolab compare --normalizer 2 <mix-v1 full run
+directory> <mix-v1-n40 full run directory>`; if none of the seven primary panels
+has an interval that excludes zero (verdict `not separable` on all seven), they
+are tied and the simpler recipe, `mix-v1`, is the campaign's candidate, the
+record saying the two are not separable; otherwise the lower primary mean
+decides. With one eligible candidate, it is the campaign's candidate. If no
+candidate is eligible, the campaign names none — that is a result, recorded as
+such — and the thresholds are never relaxed once the numbers exist. The number
+of candidates compared is reported with the result.
 
 The candidate is chosen before the sealed set is opened
 ([decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)):
 the sealed set confirms the choice, it never makes it.
 
 **Applied once.** The rule is applied once, at the end of the campaign's first
-selection round, when both candidates have been scored on the frozen suites or
-when one of them is recorded as not finished. Changing it after any candidate
-number exists requires the owner.
+selection round: when both candidates' runs have finished, or when one of them
+is recorded as not finished (such a run is not eligible under condition 1).
+Changing it after any candidate number exists requires the owner.
 
 ### 5. What this decision does not decide
 
@@ -273,11 +304,12 @@ runs treat as validated for testing (as `configs/train/mix-v1.yaml` records).
 
 [Decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)
 exists because a test set reused to compare many checkpoints ends up selecting
-the winner for that test set. Campaign 1 trains candidates of about 30 000
-updates each — tens of hours of one GPU — and scores them repeatedly while they
-run, so its panels, its scoring rules and its candidate rule are fixed here,
-before the first candidate exists, and its sealed set stays unopened until one
-candidate is named. The sealed set is the honest final number; the frozen
+the winner for that test set. Campaign 1 trains two candidates of about 30 000
+updates each — tens of hours of one GPU each — and scores each of them once, on
+the frozen suites, after its run has finished: nothing is scored while a run is
+in training. Its panels, its scoring rules and its candidate rule are fixed
+here, before the first candidate exists, and its sealed set stays unopened until
+one candidate is named. The sealed set is the honest final number; the frozen
 panels are what the campaign may look at while it works.
 
 ## Alternatives considered
@@ -322,7 +354,14 @@ panels are what the campaign may look at while it works.
   `peertube-edu-captions-fr-sealed.txt` (80 of its 920), which leaves 840 clips
   in 21 talks; the same two talks hold 7 and 6 clips in
   `peertube-edu-captions-fr-full.txt` (2 and 1 of them also in `fast`), the
-  straddle O-12 records.
+  straddle O-12 records. Counting § 3's third class as well, the `full` panel
+  holds 20 clips of sealed content and the `fast` panel 4.
+- **No other sealed file's audio is scored.** The audio `sha256` of every clip
+  of all 18 sealed files, cross-checked against all 36 `full` and `fast` panels:
+  only the captions sets share any — `peertube-edu-captions-fr-sealed` 20 clips
+  in its `full` panel and 4 in `fast`, `peertube-edu-captions-fr-v2-sealed` 6
+  and 1 — and every other sealed file shares none. This cross-check is how
+  § 3's third class was found.
 - **The captions sealed panels are not talk-disjoint.** 21 of the v1 panel's
   23 talks are also in the v2 sealed panel; 831 of the 840 v1 clips outside the
   split classes match a v2 sealed clip by audio `sha256`, the 9 that do not are
