@@ -943,3 +943,15 @@ not fire.
   from the domain match, not only from the data quality; no speaker is shared.
 - **One run per source.** No seed variance is measured; small differences are
   not a ranking.
+
+## Re-screen on the rebuilt sets
+
+The five O-13 re-screens (`screen-voxpopuli-fr-rebuilt`,
+`screen-african-accented-fr-rebuilt`, `screen-librispeech-pc-en-rebuilt`,
+`screen-nasa-en-plain-rebuilt` and `screen-nasa-en-qwen-rebuilt`, configs in
+`configs/train/`, runs pending in campaign 1's T10) retrain the original
+recipes on the rebuilt sets — the only thing that changes is the set each
+draws from. Each will be compared against the 18-panel base under normalizers
+v1 and v2 and reported here when it finishes. The published numbers of the
+original runs stand as written; whether these replace them is the owner's
+call (O-13).
