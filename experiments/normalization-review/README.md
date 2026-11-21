@@ -1,9 +1,15 @@
 # Normalization review: contractions and apostrophe spacing (P-04)
 
-Diagnostic only: the official score is not changed. `src/audiolab/eval/` and
-`NORMALIZER_VERSION` stay as they are ([decision 0002](../../docs/decisions/accepted/0002-frozen-evaluation-and-sealed-test-set.md)
-freezes a campaign's scoring rules), and the extra rules live only in
-`rescore.py`.
+This is the diagnostic that motivated
+[proposed decision 0013](../../docs/decisions/proposed/0013-normalizer-v2-contractions.md);
+the rules it measured are now normalizer **version 2** of
+`src/audiolab/eval/normalize.py`, which is what `audiolab eval` scores with and
+what campaign 1 uses (see [evaluation.md § 5](../../docs/stt/evaluation.md#5-text-normalization-three-views-two-versions)).
+The diagnostic itself is unchanged: it re-reads runs that were scored under the
+frozen version 1 and adds the rules on top of them, which is why `rescore.py`
+defaults to `--normalizer 1`. Scoring a run with version 2 is now a plain
+`audiolab score RUN --normalizer 2`, and the numbers of this diagnostic stay the
+ones published in [screening.md](../../docs/stt/screening.md).
 
 ## Question
 
@@ -27,10 +33,12 @@ base model served the same way (`parakeet-tdt-0.6b-v3-nemo/full`):
   records; the script cross-checks every candidate's official column against
   the official `audiolab.eval.report.compare_runs` and stops if the two
   diverge;
-- the **diagnostic** delta — the same pipeline with two extra rules applied
+- the **diagnostic** delta — the same pipeline with the extra rules applied
   in the script, to both sides (reference and hypothesis), before the
   normalizer:
-  - English contractions mapped to a canonical expanded form (table below);
+  - English contractions mapped to a canonical expanded form (table below),
+    with the `'s` reading chosen by its context (`has` before
+    `been`/`got`/`gotten`, `is` after a pronoun);
   - the French elision spacing: `x' y` → `x'y` for `x` in `c d j l m n s t`,
     `qu`, `jusqu`, `lorsqu`, `puisqu`.
 
@@ -64,14 +72,13 @@ cover the combinations the table does not list, such as `it'll`).
 
 - `'d` is **never** expanded: `he'd` is had or would, and there is no single
   canonical form.
-- `'s` is expanded only after `it that there here what who he she where how`,
-  always to `is`. Possessives (`john's`, `tomorrow's`) are left alone. The
-  `has` reading before a participle is not handled either: `it's been`, `he's
-  got` and `that's gotten` become `it is been`, `he is got`, `that is gotten`,
-  so a correct `has` reading against a verbatim `'s` is still counted as an
-  error. That pattern is common in meeting speech (ICSI, NOTSOFAR), so the
-  proposed decision recommends a context rule instead: `'s` before
-  `been|got|gotten` expands to `has`, otherwise to `is`.
+- `'s` is expanded only after `it that there here what who he she where how`;
+  possessives (`john's`, `tomorrow's`) are left alone. The reading is chosen by
+  the context, as proposed decision 0013 rule 2 asks: `has` before `been`,
+  `got` or `gotten`, `is` otherwise. The numbers published in screening.md were
+  measured before that rule existed, with the plain `is` reading; the tables on
+  this command's stdout now use the context rule, so re-running it gives the
+  rule 2 reading of the same runs.
 - Out of scope, left as written: `y'all`, `ain't`, `'cause`, `'em`.
 - The elision rule only removes a space after an apostrophe that is already
   there, and only the apostrophe of an elision: `l'homme` is untouched, a
@@ -104,17 +111,19 @@ them, how the `stats.DRAWS` bootstrap draws sit around zero. Nothing has to be
 copied out of a note to read them.
 
 `--rules elision` / `--rules contractions` give the ablations, `--rules none`
-recomputes the official view as a sanity check, and `--base` / `--candidate` /
+recomputes the official view as a sanity check, `--normalizer 2` scores the
+official column with the shipped version 2, and `--base` / `--candidate` /
 `--runs-dir` / `--panels-dir` / `--data-dir` override the defaults. A candidate
 may be given as `LABEL=PATH` to name its row, as in
 [experiments/source-screening/table.py](../source-screening/table.py). The unit
 tests for the rules and the pipeline are in `tests/test_normalization_rescore.py`
 (synthetic runs, CPU only).
 
-The script refuses a run whose recorded normalizer version is not the version of
-the scoring code (`audiolab.eval.normalize.NORMALIZER_VERSION`), and the report
-header says which version produced the numbers: this diagnostic only means
-anything for runs scored under the rules it applies.
+The script refuses a run whose recorded normalizer version is not the one
+selected (`--normalizer`, default 1), and the report header says which version
+produced the numbers: this diagnostic only means anything for runs scored under
+the rules it applies. `--normalizer 2` re-reads the same runs under the shipped
+version 2 instead.
 
 ## Results (the 16 screening runs)
 

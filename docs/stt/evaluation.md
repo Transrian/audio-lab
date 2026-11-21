@@ -253,7 +253,8 @@ directory first.
   name of the cache file the answers came from. The config's optional
   `server_label` says in words which server answered.
 - `summary.json`: every number at full precision. `audiolab score <run dir>`
-  writes it again from the records alone, byte for byte.
+  writes it again from the records alone, byte for byte, under the version the
+  run recorded.
 - `report.md`: the same numbers rounded, plus what the run does not measure.
 
 A record never holds the API key: an endpoint that echoes the request headers in
@@ -278,7 +279,7 @@ B); the report shows the reasons and up to twenty ids, and `--json` holds every
 id. A run whose panel holds nothing but failures cannot be compared at all, and
 says so.
 
-## 5. Text normalization (three views)
+## 5. Text normalization (three views, two versions)
 
 Model output and reference text never match character for character. Both sides
 go through the same function, so a difference in a score always comes from the
@@ -291,6 +292,21 @@ normalization rule bumps it, however small**, so two summaries that carry
 different versions were not produced by the same measuring instrument and do not
 compare. Bumping the version is the point at which a comparison across versions
 becomes a new experiment rather than a diff.
+
+`NORMALIZER_VERSION` is **2**. Version 1 stays reproducible and is not rewritten:
+`audiolab score RUN --normalizer 1` writes the summary version 1 produces, and
+`audiolab compare A B --normalizer 1` prints a header saying it used 1. Both
+commands take `--normalizer {1,2}`. `audiolab eval` scores a new run with
+`NORMALIZER_VERSION` unless the flag says otherwise, and records what it used;
+`audiolab score` and `audiolab compare` default to the version they find: for
+`score`, the one the run recorded, so scoring a finished run again writes the
+same bytes; for `compare`, the current one. Passing
+`--normalizer` re-scores the stored records under that rule set, and each command
+then writes the version it actually used — a run directory written under version
+1 and re-scored with `--normalizer 2` reports 2 in `summary.json`, `report.md` and
+the comparison header, not the version in its `run.json`. The comparison always
+says the version in its header, because two runs of different vintages say
+different things in their own files.
 
 | view | rule | example: reference vs hypothesis | equal? |
 | --- | --- | --- | --- |
@@ -305,6 +321,39 @@ becomes a new experiment rather than a diff.
 
 `formatted` is only computed when the reference has casing and punctuation
 (`text_has_casing_punct` in the manifest); elsewhere the report shows `n/a`.
+
+Version 2 adds two rules to `strict` and `normalized`, from
+[proposed decision 0013](../decisions/proposed/0013-normalizer-v2-contractions.md).
+`formatted` keeps the written text, punctuation included, so it is the same in
+both versions. The rules apply whatever the clip's language is, because a
+code-switched clip carries an English contraction inside a French utterance and
+the reverse:
+
+| rule | effect | example |
+| --- | --- | --- |
+| 1. English contractions | mapped to a fixed canonical expanded form | `can't` → `cannot`, `i'm` → `i am`, `it'll` → `it will` |
+| 1. `'s` after a pronoun | expanded to `is` after `it that there here what who he she where how` | `it's a test` → `it is a test` |
+| 2. `'s` by its context | `has` before `been`, `got` or `gotten`, `is` otherwise | `it's been` → `it has been`, `that's gotten` → `that has gotten` |
+| 3. French elision spacing | the space after the elision's apostrophe is closed | `j' ai` → `j'ai`, `qu' il` → `qu'il` |
+| — | never expanded | `he'd` (had or would), a possessive `john's`, `students' books` |
+
+Rule 2 exists because `'s` is `has` before a participle: expanding it to `is`
+everywhere would score a verbatim `it's been` as `it is been`, counting a
+correct `it has been` as an error. A rule applies to both sides of a score, so
+`it's` against `it is` scores clean — the intended trade-off is that a model
+which rewrites the user's words into another style is no longer counted against.
+`'ll` and `'ve` expand on any stem (`it'll`, `who've`), because they have one
+reading; `'d` has two and is left as written. In rule 3 the elision letters match
+whole tokens only, so `students' books` keeps its meaning, and a missing
+apostrophe (`l homme`) is a different defect and is not fixed.
+
+The typographic apostrophe is mapped to the ASCII one before either rule runs, so
+`it’s been` expands the same way, and the mapping is part of version 1 too: the
+version 1 output of `it’s been` is `it's been`.
+
+The rules are pinned by `tests/test_eval_normalize.py`, which states for each
+case the version 2 output and the frozen version 1 output, on the reference and
+on the hypothesis.
 
 The `normalized` view verbalizes cardinals, decimals, ordinals, percentages,
 currencies, clock times and the abbreviations that are unambiguous

@@ -3,6 +3,9 @@
 - Scope: stt
 - Derived from: D-005, decisions 0002, 0007
 - Decided by: proposed by an agent, 2026-11-10; awaiting owner review
+- Implemented in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
+  default), used by campaign 1 ([proposed decision 0017](0017-campaign-1-test-freeze.md));
+  this decision stays proposed.
 
 ## Proposal
 
@@ -87,8 +90,13 @@ counted against. That trade-off is the owner's to take: whether contraction
 and elision equivalence becomes the official scoring rule. The owner answered
 "probably yes" to that question on 2026-11-10 and then deferred the decision the
 same day, leaving it open for the next campaign; the answer is recorded here as
-an answer, not an acceptance — this proposal stays proposed, and nothing under
-`src/audiolab/eval/` implements it.
+an answer, not an acceptance — this proposal stays proposed. Its rules are
+implemented as normalizer version 2 of `src/audiolab/eval/normalize.py` and are
+the scoring rule of campaign 1, which treats proposed decisions as validated for
+testing (`plans/campaign-1/README.md` §2); version 1 stays reproducible through
+`audiolab score --normalizer 1` and `audiolab compare --normalizer 1`, and every
+v1 result stays as published
+([evaluation.md § 5](../../stt/evaluation.md#5-text-normalization-three-views-two-versions)).
 
 ## Alternatives considered
 
