@@ -1,0 +1,34 @@
+# The sealed set of proposed decision 0017 § 3: the sealed counterpart of
+# every dataset of full.yaml, file by file — one panel per dataset, the same
+# cases each panel's sealed file holds. Only the owner scores it, once, with
+# --sealed: one run on the campaign candidate named by the selection rule
+# (0017 § 4) and one on the base model, for the paired delta; if no candidate
+# is eligible, nothing is scored. No campaign run passes --sealed, and nothing
+# in the repository scores this suite.
+name: sealed
+panels:
+  # read speech in the two languages of phase 1
+  - fleurs-fr-sealed
+  - mls-fr-sealed
+  - fleurs-en-sealed
+  - librispeech-en-sealed
+  # the target use: non-native English, French and English in one sentence
+  - voxpopuli-en-nonnative-sealed
+  - servicenow-codeswitched-en-fr-sealed
+  - servicenow-codeswitched-en-fr-ca-sealed
+  - cs-fleurs-fr-en-sealed
+  # what must stay silent
+  - nonspeech-sealed
+  - nonspeech-music-sealed
+  # accents
+  - african-accented-fr-test-sealed
+  # real meetings
+  - notsofar-en-eval-sealed
+  # noise and reverberation
+  - noisy-fleurs-fr-sealed
+  - noisy-fleurs-en-sealed
+  - noisy-servicenow-codeswitched-en-fr-sealed
+  # technical talks
+  - nasa-en-test-v2-sealed
+  - peertube-edu-captions-fr-sealed
+  - peertube-edu-captions-fr-v2-sealed
