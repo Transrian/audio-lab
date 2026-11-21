@@ -406,15 +406,15 @@ def normalizer_from(args: argparse.Namespace, recorded: int | None = None) -> in
     return recorded if recorded is not None else NORMALIZER_VERSION
 
 
-def _add_normalizer_argument(parser: argparse.ArgumentParser) -> None:
+def _add_normalizer_argument(parser: argparse.ArgumentParser, without_flag: str) -> None:
+    """The flag, plus what its absence does, which differs between the two commands."""
     parser.add_argument(
         f"{NORMALIZER_FLAG}",
         type=int,
         choices=NORMALIZER_VERSIONS,
         default=None,
         help="normalizer rule set the records are scored with: 2 is contractions and "
-        "elision spacing, 1 is the frozen older rule set. Without this, the version "
-        "the run recorded decides",
+        f"elision spacing, 1 is the frozen older rule set. Without this, {without_flag}",
     )
 
 
@@ -487,7 +487,7 @@ def _add_score_command(
         parents=[scoring],
     )
     score.add_argument("run", help="run directory holding records.jsonl")
-    _add_normalizer_argument(score)
+    _add_normalizer_argument(score, "the version the run recorded decides")
     score.set_defaults(func=cmd_score)
 
 
@@ -507,7 +507,7 @@ def _add_compare_command(
     compare.add_argument("run_a", help="run directory, the baseline (A)")
     compare.add_argument("run_b", help="run directory, the challenger (B)")
     compare.add_argument("--json", action="store_true", help="also print the comparison as JSON")
-    _add_normalizer_argument(compare)
+    _add_normalizer_argument(compare, "the current version decides")
     compare.set_defaults(func=cmd_compare)
 
 
