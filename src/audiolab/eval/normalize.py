@@ -43,10 +43,6 @@ NORMALIZER_VERSION = 2
 # The frozen rule set: version 1 is what every score published before version 2
 # was produced with, and `audiolab score --normalizer 1` still gives it.
 V1 = 1
-# The version a view is read with. Only the two rules of version 2 exist, and
-# they touch `strict` and `normalized`; `formatted` shows the written text, so it
-# is version 1 whatever the scoring version is.
-FORMATTED_VERSION = 1
 VERSIONS = (V1, NORMALIZER_VERSION)
 VIEWS = ("normalized", "strict", "formatted")
 
@@ -91,8 +87,8 @@ FILLERS = {
 # --- Version 2: English contractions and French elision spacing ---------------
 # Rule 1, the fixed table, written in the canonical expanded form the proposal
 # names. Every entry is one word written with one apostrophe, case-folded like
-# every token here; the plural forms of the verbs the French rule 3 would touch
-# (``l'``, ``qu'``) are separate tables below.
+# every token here; ``'ll`` and ``'ve`` on stems the table does not list are
+# handled by suffix below.
 CONTRACTIONS = {
     "i'm": "i am",
     "i've": "i have",
@@ -141,10 +137,12 @@ _S_PRONOMINAL_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s\Z")
 # Rule 3: the letters that elide before a vowel ("j' ai" is "j'ai"), each as a
 # whole word. The multi-letter forms are the ones that end in ``qu``. The
 # lookbehind keeps "rock 'n' roll" alone: there the letter follows a quotation
-# mark, not a word.
+# mark, not a word. The lookahead asks for a letter of any script (``\w`` minus
+# digits and the underscore), so "l' œuvre" and "d' œil" close like every other
+# elision; the proposal puts no limit on what follows.
 _ELISION_LETTERS = ("c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu")
 _ELISION_RE = re.compile(
-    rf"(?<![\w'])({'|'.join(_ELISION_LETTERS)})'\s+(?=[a-zà-öø-ÿ])",
+    rf"(?<![\w'])({'|'.join(_ELISION_LETTERS)})'\s+(?=[^\W\d_])",
     re.IGNORECASE,
 )
 

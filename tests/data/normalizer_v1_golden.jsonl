@@ -585,6 +585,30 @@
 {"language": "fr", "output": "rule3 missing apostrophe kept", "text": "rule3-missing-apostrophe-kept", "view": "normalized"}
 {"language": "fr", "output": "rule3-missing-apostrophe-kept", "text": "rule3-missing-apostrophe-kept", "view": "strict"}
 {"language": "fr", "output": "rule3-missing-apostrophe-kept", "text": "rule3-missing-apostrophe-kept", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision oe", "text": "rule3-elision-oe", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-oe", "text": "rule3-elision-oe", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-oe", "text": "rule3-elision-oe", "view": "formatted"}
+{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "normalized"}
+{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "strict"}
+{"language": "fr", "output": "l' œuvre", "text": "l' œuvre", "view": "formatted"}
+{"language": "fr", "output": "l'œuvre", "text": "l'œuvre", "view": "normalized"}
+{"language": "fr", "output": "l'œuvre", "text": "l'œuvre", "view": "strict"}
+{"language": "fr", "output": "l'œuvre", "text": "l'œuvre", "view": "formatted"}
+{"language": "fr", "output": "l œuvre", "text": "l œuvre", "view": "normalized"}
+{"language": "fr", "output": "l œuvre", "text": "l œuvre", "view": "strict"}
+{"language": "fr", "output": "l œuvre", "text": "l œuvre", "view": "formatted"}
+{"language": "fr", "output": "rule3 elision oe diphthong", "text": "rule3-elision-oe-diphthong", "view": "normalized"}
+{"language": "fr", "output": "rule3-elision-oe-diphthong", "text": "rule3-elision-oe-diphthong", "view": "strict"}
+{"language": "fr", "output": "rule3-elision-oe-diphthong", "text": "rule3-elision-oe-diphthong", "view": "formatted"}
+{"language": "fr", "output": "d œil", "text": "d' œil", "view": "normalized"}
+{"language": "fr", "output": "d œil", "text": "d' œil", "view": "strict"}
+{"language": "fr", "output": "d' œil", "text": "d' œil", "view": "formatted"}
+{"language": "fr", "output": "d'œil", "text": "d'œil", "view": "normalized"}
+{"language": "fr", "output": "d'œil", "text": "d'œil", "view": "strict"}
+{"language": "fr", "output": "d'œil", "text": "d'œil", "view": "formatted"}
+{"language": "fr", "output": "d œil", "text": "d œil", "view": "normalized"}
+{"language": "fr", "output": "d œil", "text": "d œil", "view": "strict"}
+{"language": "fr", "output": "d œil", "text": "d œil", "view": "formatted"}
 {"language": "fr", "output": "rule3 elision curly", "text": "rule3-elision-curly", "view": "normalized"}
 {"language": "fr", "output": "rule3-elision-curly", "text": "rule3-elision-curly", "view": "strict"}
 {"language": "fr", "output": "rule3-elision-curly", "text": "rule3-elision-curly", "view": "formatted"}
@@ -593,12 +617,6 @@
 {"language": "fr", "output": "d' accord", "text": "d’ accord", "view": "formatted"}
 {"language": "fr", "output": "d'accord", "text": "d'accord", "view": "strict"}
 {"language": "fr", "output": "d'accord", "text": "d'accord", "view": "formatted"}
-{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "normalized"}
-{"language": "fr", "output": "l œuvre", "text": "l' œuvre", "view": "strict"}
-{"language": "fr", "output": "l' œuvre", "text": "l' œuvre", "view": "formatted"}
-{"language": "fr", "output": "d œil", "text": "d' œil", "view": "normalized"}
-{"language": "fr", "output": "d œil", "text": "d' œil", "view": "strict"}
-{"language": "fr", "output": "d' œil", "text": "d' œil", "view": "formatted"}
 {"language": "fr", "output": "jusqu à demain", "text": "jusqu' à demain", "view": "normalized"}
 {"language": "fr", "output": "jusqu à demain", "text": "jusqu' à demain", "view": "strict"}
 {"language": "fr", "output": "jusqu' à demain", "text": "jusqu' à demain", "view": "formatted"}

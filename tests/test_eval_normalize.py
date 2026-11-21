@@ -90,6 +90,8 @@ V2_CASES = [
     ("rule3-elision-l", "fr", "l' homme", "l'homme", "l homme"),
     ("rule3-closed-elision-kept", "fr", "l'homme", "l'homme", "l'homme"),
     ("rule3-missing-apostrophe-kept", "fr", "l homme", "l homme", "l homme"),
+    ("rule3-elision-oe", "fr", "l' œuvre", "l'œuvre", "l œuvre"),
+    ("rule3-elision-oe-diphthong", "fr", "d' œil", "d'œil", "d œil"),
     (
         "rules1-and-3-mixed-language",
         "fr",
@@ -259,6 +261,25 @@ def test_a_rule_joins_the_two_spellings_in_both_directions(case, view):
             view,
         )
         assert counts(first, second, language, view, V1).errors > 0, (first, second, view)
+
+
+def test_the_documented_limits_of_the_rules():
+    """The two limits docs/stt/evaluation.md § 5 names, so the text stays true."""
+    # A filler between 's and its participle hides the context rule 2 reads.
+    assert normalize("it's uh been", "en", "strict") == "it is uh been"
+    assert normalize("it's uh been", "en", "normalized") == "it is been"
+    # 's inside a hyphenated word is not a token's ending.
+    assert normalize("it's-been", "en", "strict") == "it's-been"
+    assert normalize("it's-been", "en", "normalized") == "it's been"
+
+
+def test_the_next_word_of_an_elision_may_be_any_letter():
+    """The rule asks for a letter, not for a letter of the Latin-1 range."""
+    assert normalize("l' œuvre", "fr", "strict") == "l'œuvre"
+    assert normalize("d' œil", "fr", "strict") == "d'œil"
+    assert normalize("c' est l' œuvre", "fr", "normalized") == "c'est l'œuvre"
+    # A digit is not a word the elision can join to.
+    assert normalize("j' 1", "fr", "strict") == "j 1"
 
 
 @pytest.mark.parametrize("case", CURLY_CASES, ids=[case[0] for case in CURLY_CASES])

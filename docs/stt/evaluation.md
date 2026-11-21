@@ -352,9 +352,23 @@ The typographic apostrophe is mapped to the ASCII one before either rule runs, s
 `it’s been` expands the same way, and the mapping is part of version 1 too: the
 version 1 output of `it’s been` is `it's been`.
 
-The rules are pinned by `tests/test_eval_normalize.py`, which states for each
-case the version 2 output and the frozen version 1 output, on the reference and
-on the hypothesis.
+Two limits come from reading the rules exactly as proposed, on the text as
+written and before the `normalized` view drops fillers or splits a hyphen:
+
+- a filler between `'s` and its participle hides the context rule 2 reads:
+  `it's uh been` becomes `it is been` in the `normalized` view (`it is uh been`
+  in `strict`), not `it has been`, because the word after `'s` is the filler;
+- `'s` inside a hyphenated word is not a token's ending, so `it's-been` keeps
+  `it's` as written; the `normalized` view splits the hyphen and leaves
+  `it's been`, while `strict` leaves the whole word alone.
+
+The rules are pinned by `tests/test_eval_normalize.py`. Every case states the
+version 2 output and the frozen version 1 output, and is then scored with
+`audiolab.eval.metrics.counts` in both directions — the contracted text as the
+reference against the expanded one, and the reverse — so a rule that fired on one
+side only fails the test. `tests/data/normalizer_v1_golden.jsonl` replays the
+whole version 1 output of the trap set, of those cases and of a fixed fuzz
+corpus.
 
 The `normalized` view verbalizes cardinals, decimals, ordinals, percentages,
 currencies, clock times and the abbreviations that are unambiguous
