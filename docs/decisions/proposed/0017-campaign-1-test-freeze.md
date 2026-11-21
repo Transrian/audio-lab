@@ -3,9 +3,10 @@
 - Scope: stt
 - Derived from: D-005, D-009, [decision 0002](../accepted/0002-frozen-evaluation-and-sealed-test-set.md)
 - Decided by: proposed by an agent, 2026-11-21; the campaign runs under it as a working assumption
-- Frozen at `9843311`, the `origin/main` commit of 2026-11-21 (the suites and
-  the panel files have not changed since `ce46aba`, the commit the campaign's
-  base runs started from)
+- Frozen at `9843311`, the `origin/main` commit of 2026-11-21;
+  `configs/suites/` and `configs/panels/` are unchanged since `ce46aba`, the
+  commit the campaign's base runs were started from (`git diff ce46aba 9843311
+  -- configs/suites configs/panels` is empty)
 
 ## Decision
 
@@ -301,8 +302,8 @@ panels are what the campaign may look at while it works.
   that panel in `$AUDIOLAB_RUNS/eval/parakeet-tdt-0.6b-v3-nemo/<suite>/run.json`,
   and the two panel sets are identical; the records hold 8 312 items (0 failed)
   for `full` and 1 690 (0 failed) for `fast`. `git diff ce46aba 9843311 --
-  configs/suites configs/panels` is empty, so the commit the base runs started
-  from and the commit this decision freezes hold the same files.
+  configs/suites configs/panels` is empty, so the suite files did not change
+  between that commit and this freeze.
 - **The sealed list.** For each of the 18 files above, every id below its
   header is present in that dataset's `manifest.jsonl` under `$AUDIOLAB_DATA`,
   with no repeated id (0 absent, 0 repeated).
