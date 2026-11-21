@@ -3,8 +3,9 @@
 - Scope: stt
 - Derived from: D-005, decisions 0002, 0007
 - Decided by: proposed by an agent, 2026-11-10; awaiting owner review
-- Implemented in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
-  default), used by campaign 1 ([proposed decision
+- Introduced in `e2aefe1` (`src/audiolab/eval/normalize.py`, version 2, the
+  default); the frozen rule set is the code at `9843311`, which adds the elision
+  lookahead of `e4330c0`. Used by campaign 1 ([proposed decision
   0017](0017-campaign-1-test-freeze.md), the campaign-1 test freeze); this
   decision stays proposed.
 
