@@ -469,6 +469,26 @@ def test_a_candidate_label_replaces_the_guessed_name(runs):
     )
 
 
+def test_the_s_context_flag_reaches_the_transform(runs, monkeypatch):
+    """The flag has to reach the transform and be said in the report."""
+    seen: list = []
+    real = rescore_mod.transform_for
+
+    def spy(rules, s_context=False):
+        seen.append((rules, s_context))
+        return real(rules, s_context)
+
+    monkeypatch.setattr(rescore_mod, "transform_for", spy)
+    result = rescore_all(runs, "contractions", s_context=True)
+    assert seen == [("both", True)]
+    assert result["s_context"] is True
+    assert "rule 2 of proposed decision 0013" in rescore_mod.render(result)
+    # Without the flag, the diagnostic reads 's as is, as the published numbers did.
+    plain = rescore_all(runs, "contractions")
+    assert plain["s_context"] is False
+    assert "the published measurement" in rescore_mod.render(plain)
+
+
 def test_the_report_says_which_version_scored_it(runs):
     result = rescore_all(runs, "elision")
     assert result["normalizer_version"] == 1
