@@ -285,9 +285,14 @@ def test_nonspeech_is_unchanged_by_the_rules(runs):
 def test_official_column_matches_compare_runs(runs):
     from audiolab.eval.report import compare_runs
 
-    result = rescore_all(runs, "contractions")
+    result = rescore_all(runs, "contractions", normalizer=1)
     comparison = compare_runs(
-        runs["base"], runs["contractions"], runs["panels_dir"], runs["data_dir"], draws=DR
+        runs["base"],
+        runs["contractions"],
+        runs["panels_dir"],
+        runs["data_dir"],
+        draws=DR,
+        normalizer=1,
     )
     for panel in result["panels"]:
         theirs = comparison["panels"][panel]
@@ -306,14 +311,14 @@ def test_mixed_normalizer_versions_are_refused(runs):
         rescore_all(runs, "contractions")
 
 
-def test_the_scoring_code_version_is_what_is_checked(runs):
-    """A run the code no longer scores under is refused, even as the base run."""
+def test_the_selected_version_is_what_is_checked(runs):
+    """A run of another rule set is refused, even as the base run."""
     path = runs["base"] / "run.json"
     identity = json.loads(path.read_text(encoding="utf-8"))
-    identity["normalizer_version"] = 2  # every run agrees, the code does not
+    identity["normalizer_version"] = 2  # every run agrees with the code, not with the flag
     path.write_text(json.dumps(identity), encoding="utf-8")
-    with pytest.raises(rescore_mod.Problem, match="scores with the code's version 1"):
-        rescore_all(runs, "contractions")
+    with pytest.raises(rescore_mod.Problem, match="scores with version 1"):
+        rescore_all(runs, "contractions", normalizer=1)
 
 
 def test_rules_ablation_changes_only_its_own_panel(runs):
@@ -386,10 +391,10 @@ def test_a_hypothesis_that_does_not_score_leaves_the_numbers():
         item("unreadable", "it's a test don't worry unreadable"),
     ]
 
-    def counts(reference, hypothesis, language, view):
+    def counts(reference, hypothesis, language, view, normalizer=1):
         if "unreadable" in hypothesis:
             raise ValueError("synthetic unreadable hypothesis")
-        return original(reference, hypothesis, language, view)
+        return original(reference, hypothesis, language, view, normalizer)
 
     original = rescore_mod.metrics.counts
     rescore_mod.metrics.counts = counts

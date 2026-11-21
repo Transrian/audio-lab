@@ -2,12 +2,20 @@
 """Diagnostic re-scoring of finished screening runs: official normalizer plus two style rules.
 
 This re-scores the per-clip answer files of finished runs (under $AUDIOLAB_RUNS)
-with the frozen normalizer (NORMALIZER_VERSION = 1, decision 0002) and, on top
-of it, two extra rules applied **in this script only**:
+with the frozen normalizer (version 1, decision 0002) and, on top of it, the
+rules that became version 2 of ``audiolab.eval.normalize``:
 
 - English contractions, both sides (reference and hypothesis), mapped to a
-  canonical expanded form from a fixed table;
+  canonical expanded form from a fixed table, with the ``'s`` reading chosen by
+  its context (``has`` before ``been``/``got``/``gotten``, ``is`` after a
+  pronoun);
 - the French elision spacing: ``j' ai`` is scored as ``j'ai``.
+
+The rules are applied here to reproduce the diagnostic that motivated
+[proposed decision 0013] as it was run, against runs scored with version 1.
+Scoring a run with the official version 2 is now possible directly, with
+``audiolab score --normalizer 2``; this script's extra rules then only re-state
+what version 2 already does to the stored texts.
 
 Nothing here is an official score. No file under ``src/audiolab/eval/`` is
 changed, and the numbers go through the official pipeline: tokenization and
@@ -16,9 +24,10 @@ paired difference interval from ``audiolab.eval.stats``. By default, every
 candidate's official column is cross-checked against the official
 ``audiolab.eval.report.compare_runs`` and the run stops if they diverge.
 
-The diagnostic scores the runs with the normalizer this repository holds, so a
-run recorded under another ``NORMALIZER_VERSION`` is refused rather than scored
-under rules it was not produced with; the report says which version was used.
+A run recorded under another normalizer version than the one selected
+(``--normalizer``, default 1, the version the diagnostic was measured with) is
+refused rather than scored under rules it was not produced with; the report says
+which version was used.
 
 See the adjacent README for the question, the reproduction command, the
 ambiguities of the rule tables and the limits.
@@ -37,7 +46,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from audiolab.eval import metrics, stats
-from audiolab.eval.normalize import NORMALIZER_VERSION, TYPOGRAPHIC
+from audiolab.eval.normalize import TYPOGRAPHIC, V1
 from audiolab.eval.records import (
     IDENTITY_NAME,
     RECORDS_NAME,
@@ -101,10 +110,11 @@ CONTRACTIONS: dict[str, str] = {
 }
 
 # ``'s`` is ambiguous (contraction or possessive): it is expanded only after
-# these words, always to ``is``. Possessives such as ``john's`` stay as they
-# are. The ``has`` reading of ``it's``/``there's``/``that's`` before a
-# participle ("it's been") is not handled; both sides carry the same bias.
+# these words, never for a possessive such as ``john's``. Which reading it takes
+# is rule 2 of proposed decision 0013: ``has`` before a participle ("it's been",
+# "he's got", "that's gotten"), ``is`` everywhere else.
 S_PRONOUNS = ("it", "that", "there", "here", "what", "who", "he", "she", "where", "how")
+S_HAS_FOLLOWERS = frozenset({"been", "got", "gotten"})
 _S_PRONOUN_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s")
 
 # ``'ll`` and ``'ve`` are unambiguous and expand on any stem (they cover the
@@ -112,13 +122,17 @@ _S_PRONOUN_RE = re.compile(rf"({'|'.join(S_PRONOUNS)})'s")
 # ``'d`` is never expanded: ``he'd`` is had or would, with no canonical form.
 
 
-def expand_contraction(token: str) -> str:
-    """The canonical expanded form of one case-folded token, or the token itself."""
+def expand_contraction(token: str, following: str = "") -> str:
+    """The canonical expanded form of one case-folded token, or the token itself.
+
+    ``following`` is the next word, which is what tells the two readings of
+    ``'s`` apart.
+    """
     if token in CONTRACTIONS:
         return CONTRACTIONS[token]
     match = _S_PRONOUN_RE.fullmatch(token)
     if match:
-        return f"{match.group(1)} is"
+        return f"{match.group(1)} {'has' if following.casefold() in S_HAS_FOLLOWERS else 'is'}"
     if token.endswith("'ll"):
         return f"{token[:-3]} will"
     if token.endswith("'ve"):
@@ -127,11 +141,21 @@ def expand_contraction(token: str) -> str:
 
 
 _CONTRACTION_TOKEN = re.compile(r"\b[a-z]+(?:'[a-z]+)*\b", re.IGNORECASE)
+# The word after a contraction, for the ``'s`` reading: a letter followed by a
+# word boundary, which is what the rule needs and not a whole tokenizer.
+_FOLLOWING_WORD = re.compile(r"[a-z]+", re.IGNORECASE)
 
 
 def apply_contractions(text: str) -> str:
     """Expand the contractions of ``text``; everything else stays as written."""
-    return _CONTRACTION_TOKEN.sub(lambda m: expand_contraction(m.group(0).casefold()), text)
+
+    def expand(match: re.Match) -> str:
+        following = _FOLLOWING_WORD.search(text, match.end())
+        return expand_contraction(
+            match.group(0).casefold(), following.group(0) if following else ""
+        )
+
+    return _CONTRACTION_TOKEN.sub(expand, text)
 
 
 # The elisions a model may write with a space after the apostrophe:
@@ -196,13 +220,13 @@ def _identity(text: str) -> str:
 # Reading runs and pairing the runs to compare.
 
 
-def read_run(path: Path) -> tuple[dict, list[dict]]:
+def read_run(path: Path, normalizer: int = V1) -> tuple[dict, list[dict]]:
     """The identity and records of one finished run, or a Problem.
 
-    The recorded normalizer version is checked against the version of the
-    scoring code, not only against the other run's: re-scoring a frozen run
-    after a normalizer v2 exists would otherwise apply v2 to it silently, under
-    a report still labelled with the version the run recorded.
+    The recorded normalizer version is checked against the one selected, not
+    only against the other run's: re-scoring a frozen run under another rule set
+    would otherwise happen silently, under a report still labelled with the
+    version the run recorded.
     """
     identity_path, records_path = path / IDENTITY_NAME, path / RECORDS_NAME
     if not identity_path.is_file():
@@ -215,11 +239,11 @@ def read_run(path: Path) -> tuple[dict, list[dict]]:
     except (OSError, ValueError) as failure:
         raise Problem(f"{path}: unreadable ({failure})") from failure
     recorded = identity.get("normalizer_version")
-    if recorded != NORMALIZER_VERSION:
+    if recorded != normalizer:
         raise Problem(
             f"{identity_path}: the run records normalizer version {recorded}, but this "
-            f"script scores with the code's version {NORMALIZER_VERSION}; these runs were "
-            "not scored under the rules this diagnostic applies"
+            f"script scores with version {normalizer}; these runs were not scored under "
+            "the rules this diagnostic applies"
         )
     declared = identity.get("panels")
     if not isinstance(declared, dict) or not declared:
@@ -242,6 +266,7 @@ def paired_items(
     data_dir: Path | None,
     records_base: list[dict],
     records_cand: list[dict],
+    normalizer: int = V1,
 ) -> tuple[list[metrics.Item], list[metrics.Item]]:
     """The clips both runs answered, in panel order.
 
@@ -255,7 +280,10 @@ def paired_items(
     if not shared:
         raise Problem(f"{panel}: the two runs share no answered ids, so nothing can be compared")
     items = [item for item in load_panel_items(panel, panels_dir, data_dir) if item.id in shared]
-    return with_records(items, records_base), with_records(items, records_cand)
+    return (
+        with_records(items, records_base, normalizer=normalizer),
+        with_records(items, records_cand, normalizer=normalizer),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -337,21 +365,23 @@ def rescore(
     data_dir: str | Path | None = None,
     *,
     rules: str = "both",
+    normalizer: int = V1,
     draws: int = stats.DRAWS,
     seed: int = stats.SEED,
     verify_official: bool = True,
 ) -> dict:
     """Re-score every candidate against the base, official and diagnostic.
 
-    The official column is the frozen pipeline applied to the runs' records;
-    the diagnostic column applies ``transform_for(rules)`` to both sides
-    before it. ``verify_official`` cross-checks every candidate's official
-    column against the official ``compare_runs`` and raises Problem on any
-    divergence, which is what a wrong pairing would look like. A candidate may
-    be a path or a ``(label, path)`` pair; the label is what the tables call it.
+    The official column is the pipeline applied to the runs' records under
+    ``normalizer``; the diagnostic column applies ``transform_for(rules)`` to
+    both sides before it. ``verify_official`` cross-checks every candidate's
+    official column against the official ``compare_runs`` and raises Problem on
+    any divergence, which is what a wrong pairing would look like. A candidate
+    may be a path or a ``(label, path)`` pair; the label is what the tables call
+    it.
 
-    Every run is scored by this script's code, so a run whose recorded
-    normalizer version is not the code's is refused by ``read_run``.
+    Every run is scored under ``normalizer``, so a run whose recorded version is
+    another one is refused by ``read_run``.
     """
     base_path, panels_dir = Path(base_path), Path(panels_dir)
     candidates = [_split_candidate(entry) for entry in candidate_paths]
@@ -359,13 +389,13 @@ def rescore(
     if not candidates:
         raise Problem("no candidate run given")
     transform = transform_for(rules)
-    identity, base_records = read_run(base_path)
+    identity, base_records = read_run(base_path, normalizer)
     result: dict = {
         "base": str(base_path),
         "base_name": identity.get("model", {}).get("name", str(base_path)),
-        # What scored these numbers: the code's version, checked against every
-        # run's recorded one in read_run. Never the runs' claim on their own.
-        "normalizer_version": NORMALIZER_VERSION,
+        # What scored these numbers: the version selected here, checked against
+        # every run's recorded one in read_run. Never the runs' claim on their own.
+        "normalizer_version": normalizer,
         "rules": rules,
         "draws": draws,
         "seed": seed,
@@ -373,7 +403,7 @@ def rescore(
         "changes": [],
     }
     for label, candidate_path in candidates:
-        cand_identity, cand_records = read_run(candidate_path)
+        cand_identity, cand_records = read_run(candidate_path, normalizer)
         if cand_identity.get("panels") != identity.get("panels"):
             raise Problem(
                 f"{candidate_path}: scored different panels than {base_path}; "
@@ -382,7 +412,7 @@ def rescore(
         name = label or display_label(candidate_path, cand_identity)
         for panel in sorted(identity["panels"]):
             items_base, items_cand = paired_items(
-                panel, panels_dir, data_dir, base_records, cand_records
+                panel, panels_dir, data_dir, base_records, cand_records, normalizer
             )
             official = paired_delta(items_base, items_cand, _identity, draws=draws, seed=seed)
             diagnostic = paired_delta(items_base, items_cand, transform, draws=draws, seed=seed)
@@ -407,7 +437,13 @@ def rescore(
                     )
         if verify_official:
             comparison = compare_runs(
-                base_path, candidate_path, panels_dir, data_dir, draws=draws, seed=seed
+                base_path,
+                candidate_path,
+                panels_dir,
+                data_dir,
+                draws=draws,
+                seed=seed,
+                normalizer=normalizer,
             )
             for panel, section in sorted(result["panels"].items()):
                 theirs, mine = comparison["panels"][panel], section["candidates"][name]["official"]
@@ -527,7 +563,8 @@ def render(result: dict) -> str:
         "",
         f"- base: `{result['base']}` (decision 0002 frozen)",
         f"- normalizer version used for these numbers: {result['normalizer_version']} "
-        "(`audiolab.eval.normalize`), the version every run here records",
+        "(`audiolab.eval.normalize`), the version every run here records and the one "
+        "selected with --normalizer",
         f"- diagnostic view: official normalizer plus {RULES_LABEL[result['rules']]}; "
         "the extra rules are applied in this script only, to both sides",
         f"- intervals: official paired bootstrap over groups, {result['draws']} draws, "
@@ -602,7 +639,7 @@ def parse_candidate(text: str) -> tuple[str | None, Path]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Re-score finished screening runs with the official normalizer plus the "
+            "Re-score finished screening runs with a normalizer version plus the "
             "contraction and elision rules. Diagnostic only: it changes no official "
             "score and writes nothing to the run directories."
         ),
@@ -644,6 +681,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="which extra rules the diagnostic column uses (default: both)",
     )
     parser.add_argument(
+        "--normalizer",
+        type=int,
+        choices=(V1, 2),
+        default=V1,
+        help="normalizer version the official column uses, and the version every run "
+        "must record (default: 1, the version the diagnostic was measured with)",
+    )
+    parser.add_argument(
         "--no-verify-official",
         action="store_true",
         help="skip the cross-check of the official column against compare_runs",
@@ -666,6 +711,7 @@ def main(argv: list[str] | None = None) -> int:
             args.panels_dir,
             args.data_dir,
             rules=args.rules,
+            normalizer=args.normalizer,
             verify_official=not args.no_verify_official,
         )
     except (OSError, ValueError, KeyError, TypeError) as failure:
